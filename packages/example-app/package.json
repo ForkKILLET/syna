@@ -1,0 +1,29 @@
+{
+  "name": "@syna/example-app",
+  "version": "0.1.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "main": "./dist/index.cjs",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "rslib",
+    "dev": "rslib --watch"
+  },
+  "devDependencies": {
+    "@rslib/core": "^0.20.3",
+    "@types/node": "^24.12.0",
+    "typescript": "^6.0.2"
+  },
+  "dependencies": {
+    "@syna/core": "workspace:*"
+  }
+}
