@@ -1,7 +1,7 @@
 import { ContractId, Contracts } from '@/core/contract'
-import { DependencyMap } from '@/core/dependency'
+import { DependencyMap, TopDependencyMap } from '@/core/dependency'
 import { Context } from '@/core/context'
-import { TypedError } from '@/utils/type'
+import { PartialBy, TypedError } from '@/utils/type'
 
 export type ServiceInstance<
   SId extends ServiceId = ServiceId,
@@ -16,35 +16,42 @@ export type ServiceInstance<
 export interface Service<
   SId extends ServiceId = ServiceId,
   CId extends ContractId | null = ContractId | null,
-  DM extends DependencyMap = any,
+  DM extends DependencyMap = TopDependencyMap,
 > {
-  id: SId,
-  contractId: CId,
-  setup: ServiceSetup<ServiceInstance<SId, CId>, DM>,
+  id: SId
+  impl: CId
+  deps: DM
+  lazy: boolean
+  setup: ServiceSetup<ServiceInstance<SId, CId>, DM>
 }
 
-export interface ServiceSetup<T, DM extends DependencyMap = any> {
+export interface ServiceSetup<
+  T = any,
+  DM extends DependencyMap = TopDependencyMap,
+> {
   (ctx: Context<DM>): T
 }
 
 export const Service = <
   SId extends ServiceId = ServiceId,
   CId extends ContractId | null = ContractId | null,
-  DM extends DependencyMap = any,
->(input: {
-  id: SId,
-  impl: CId,
-  deps: DM,
-  setup: ServiceSetup<ServiceInstance<SId, CId>, DM>,
-}): Service<SId, CId, DM> => {
+  DM extends DependencyMap = TopDependencyMap,
+>({
+  lazy = true,
+  ...input
+}: PartialBy<Service<SId, CId, DM>, 'lazy'>): Service<SId, CId, DM> => {
   return {
-    id: input.id,
-    contractId: input.impl,
-    setup: input.setup,
+    lazy,
+    ...input
   }
 }
 
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+export interface ServiceHandle<
+  T = any,
+> {
+  instance: T
+}
+
 export interface Services {}
 
 export type ServiceId = keyof Services

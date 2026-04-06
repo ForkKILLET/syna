@@ -11,6 +11,7 @@ declare module '@syna/core' {
     [$NoImplService]: NoImplService
     [$SimpleGreetingService]: SimpleGreetingService
     [$MalformedGreetingService]: MalformedGreetingService
+    [$EntrypointService]: EntrypointService
   }
 }
 
@@ -91,11 +92,6 @@ export const SimpleGreetingService = Service({
   }
 })
 
-const app = Runtime()
-
-app.registerContract($IGreeting)
-app.registerContract($IName)
-app.registerService(SimpleGreetingService)
 
 // Service: MalformedGreeting
 
@@ -120,3 +116,32 @@ export const MalformedGreetingService = Service({
     }
   }
 })
+
+// Service: Entrypoint
+
+export const $EntrypointService = Symbol('EntrypointService')
+
+export type EntrypointService = void
+
+export const EntrypointService = Service({
+  id: $EntrypointService,
+  impl: null,
+  deps: {
+    greeting: Dependency.Contract($IGreeting),
+  },
+  setup: ctx => {
+    app.registerContract($IGreeting)
+    app.registerContract($IName)
+    app.registerService(SimpleGreetingService)
+    app.registerService(MockNameService)
+
+    console.log(ctx.greeting.greet())
+  },
+})
+
+// App
+
+const app = Runtime()
+
+app.registerService(EntrypointService)
+app.start(EntrypointService)
