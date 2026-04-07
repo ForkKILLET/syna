@@ -10,7 +10,6 @@ declare module '@syna/core' {
     [$MockNameService]: MockNameService
     [$NoImplService]: NoImplService
     [$SimpleGreetingService]: SimpleGreetingService
-    [$MalformedGreetingService]: MalformedGreetingService
     [$EntrypointService]: EntrypointService
   }
 }
@@ -18,7 +17,7 @@ declare module '@syna/core' {
 // Contract: IGreeting
 
 export interface IGreeting {
-  greet(): string
+  greet(): void
 }
 
 export const $IGreeting = Symbol('IGreeting')
@@ -86,32 +85,7 @@ export const SimpleGreetingService = Service({
   setup: ctx => {
     return {
       greet() {
-        return `Hello, ${ctx.name.getName()}! Hello, ${ctx.mockName.getName()}!`
-      }
-    }
-  }
-})
-
-
-// Service: MalformedGreeting
-
-export const $MalformedGreetingService = Symbol('MalformedGreeting')
-
-export interface MalformedGreetingService /* extends IGreeting */ {
-  greet(): /* string */ number
-}
-
-export const MalformedGreetingService = Service({
-  id: $MalformedGreetingService,
-  impl: $IGreeting,
-  deps: {
-    name: Dependency.Contract($IName),
-  },
-  // @ts-expect-error
-  setup: ctx => {
-    return {
-      greet() {
-        return 42
+        console.log(`Hello, ${ctx.name.getName()}! Hello, ${ctx.mockName.getName()}!`)
       }
     }
   }
@@ -130,12 +104,14 @@ export const EntrypointService = Service({
     greeting: Dependency.Contract($IGreeting),
   },
   setup: ctx => {
-    app.registerContract($IGreeting)
-    app.registerContract($IName)
-    app.registerService(SimpleGreetingService)
-    app.registerService(MockNameService)
+    ctx.$on('runtime/service/start', event => console.log(`Service started: ${String(event.serviceId)} as ${String(event.depName)}`))
+    ctx.$on('runtime/service/reuse', event => console.log(`Service reused: ${String(event.serviceId)} as ${String(event.depName)}`))
+    ctx.$on('runtime/service/derive', event => console.log(`Service derived: ${String(event.serviceId)} as ${String(event.depName)}`))
 
-    console.log(ctx.greeting.greet())
+    ctx.greeting.greet()
+
+    const subCtx = ctx.$derive()
+    subCtx.greeting.greet()
   },
 })
 
@@ -143,5 +119,10 @@ export const EntrypointService = Service({
 
 const app = Runtime()
 
+app.registerContract($IGreeting)
+app.registerContract($IName)
+app.registerService(SimpleGreetingService)
+app.registerService(MockNameService)
 app.registerService(EntrypointService)
+
 app.start(EntrypointService)

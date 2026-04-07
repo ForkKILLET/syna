@@ -1,16 +1,20 @@
 import { ContractId } from '@/core/contract'
 import { ServiceId } from '@/core/service'
 
+export interface DependencyBase {
+  isolated: boolean
+}
+
 export interface ContractDependency<
   CId extends ContractId = ContractId,
-> {
+> extends DependencyBase {
   type: DependencyType.Contract
   contractId: CId
 }
 
 export interface ServiceDependency<
   SId extends ServiceId = ServiceId,
-> {
+> extends DependencyBase {
   type: DependencyType.Service
   serviceId: SId
 }
@@ -24,19 +28,27 @@ export const enum DependencyType {
 
 export const ContractDependency = <
   CId extends ContractId,
->(contractId: CId): ContractDependency<CId> => {
+>(
+  contractId: CId,
+  { isolated = false }: Partial<Omit<ContractDependency, 'contractId'>> = {},
+): ContractDependency<CId> => {
   return {
     type: DependencyType.Contract,
     contractId,
+    isolated,
   }
 }
 
 export const ServiceDependency = <
   SId extends ServiceId,
->(serviceId: SId): ServiceDependency<SId> => {
+>(
+  serviceId: SId,
+  { isolated = false }: Partial<Omit<ServiceDependency, 'serviceId'>> = {},
+): ServiceDependency<SId> => {
   return {
     type: DependencyType.Service,
     serviceId,
+    isolated,
   }
 }
 
