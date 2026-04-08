@@ -1,5 +1,5 @@
 import { ServiceId } from '@/core/service'
-import { Effect } from './type'
+import { Effect } from '@/utils/type'
 
 export interface Events {
   'runtime/service/start': { serviceId: ServiceId, depName: string }

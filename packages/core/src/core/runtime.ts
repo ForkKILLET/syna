@@ -1,6 +1,6 @@
 import { Context, ContextDepName, ContextMeta } from '@/core/context'
 import { ContractId } from '@/core/contract'
-import { Service, ServiceHandle, ServiceId } from '@/core/service'
+import { Service, ServiceHandle, ServiceId, ServiceState } from '@/core/service'
 import { DepMap, DepName, DepType } from '@/core/dependency'
 import { unreachable } from '@/utils/error'
 import { Emitter } from '@/utils/event'
@@ -8,7 +8,7 @@ import { Services } from '@/index'
 import { DefaultMap } from '@/utils/container'
 
 export type DepCache<C extends Context> = {
-  [K in keyof C]?: ServiceHandle<C[K]>
+  [K in keyof C]?: ServiceHandle<ServiceState.Running, C[K]>
 }
 
 export type ServiceCache = Map<ServiceId, ServiceHandle>
@@ -77,11 +77,15 @@ export const Runtime = () => {
         return env.isolatedDepNames.has(depName)
       }
 
-      const getDepHandle = (depName: DepName<DM>, depService: Service, cache: ServiceCache): ServiceHandle => {
+      const getDepHandle = (depName: DepName<DM>, depService: Service, cache: ServiceCache): ServiceHandle<ServiceState.Running> => {
         const handle = cache.get(depService.id)
-        if (handle) {
+        if (handle?.state === ServiceState.Running) {
           ctx.$emit('runtime/service/reuse', { serviceId: depService.id, depName })
           return handle
+        }
+
+        if (handle?.state === ServiceState.Starting) {
+          throw new Error(`Circular dependency detected while starting service ${String(depService.id)}.`)
         }
         
         ctx.$emit('runtime/service/start', { serviceId: depService.id, depName })
@@ -146,6 +150,10 @@ export const Runtime = () => {
         if (cachedHandle) return cachedHandle.instance
 
         const dep = service.deps[depName]
+        if (! dep) {
+          throw new Error(`Dependency ${depName} not declared by service ${String(service.id)}.`)
+        }
+
         if (dep.type === DepType.Service) {
           const service = services.get(dep.serviceId)
           if (! service) {
@@ -186,11 +194,13 @@ export const Runtime = () => {
     >(
       service: Service<SId, CId, DM>,
       env: ContextEnvOverride<Context<DM>> = {},
-    ) => {
+    ): ServiceHandle<ServiceState.Running, Services[SId]> => {
       const ctx = runtime.createContext(service, env)
       const instance = service.setup(ctx)
-      const handle: ServiceHandle<Services[SId]> = { instance }
-      return handle
+      return {
+        state: ServiceState.Running,
+        instance,
+      }
     },
   }
 
