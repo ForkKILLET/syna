@@ -17,7 +17,8 @@
   "scripts": {
     "build": "rslib",
     "dev": "rslib --watch",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "test": "rstest"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
