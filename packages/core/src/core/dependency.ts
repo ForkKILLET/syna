@@ -1,62 +1,64 @@
 import { ContractId } from '@/core/contract'
 import { ServiceId } from '@/core/service'
 
-export interface DependencyBase {
+export interface DepBase {
   isolated: boolean
 }
 
-export interface ContractDependency<
+export interface ContractDep<
   CId extends ContractId = ContractId,
-> extends DependencyBase {
-  type: DependencyType.Contract
+> extends DepBase {
+  type: DepType.Contract
   contractId: CId
 }
 
-export interface ServiceDependency<
+export interface ServiceDep<
   SId extends ServiceId = ServiceId,
-> extends DependencyBase {
-  type: DependencyType.Service
+> extends DepBase {
+  type: DepType.Service
   serviceId: SId
 }
 
-export type Dependency = ContractDependency | ServiceDependency
+export type Dep = ContractDep | ServiceDep
 
-export const enum DependencyType {
+export const enum DepType {
   Contract,
   Service,
 }
 
-export const ContractDependency = <
+export const ContractDep = <
   CId extends ContractId,
 >(
   contractId: CId,
-  { isolated = false }: Partial<Omit<ContractDependency, 'contractId'>> = {},
-): ContractDependency<CId> => {
+  { isolated = false }: Partial<Omit<ContractDep, 'contractId'>> = {},
+): ContractDep<CId> => {
   return {
-    type: DependencyType.Contract,
+    type: DepType.Contract,
     contractId,
     isolated,
   }
 }
 
-export const ServiceDependency = <
+export const ServiceDep = <
   SId extends ServiceId,
 >(
   serviceId: SId,
-  { isolated = false }: Partial<Omit<ServiceDependency, 'serviceId'>> = {},
-): ServiceDependency<SId> => {
+  { isolated = false }: Partial<Omit<ServiceDep, 'serviceId'>> = {},
+): ServiceDep<SId> => {
   return {
-    type: DependencyType.Service,
+    type: DepType.Service,
     serviceId,
     isolated,
   }
 }
 
-export const Dependency = {
-  Contract: ContractDependency,
-  Service: ServiceDependency,
+export const Dep = {
+  Contract: ContractDep,
+  Service: ServiceDep,
 }
 
-export type DependencyMap = Record<string, Dependency>
+export type DepMap = Record<string, Dep>
 
-export type TopDependencyMap = any
+export type DepName<DM extends DepMap = TopDepMap> = keyof DM & string
+
+export type TopDepMap = any

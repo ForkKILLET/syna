@@ -1,5 +1,5 @@
 import { ContractId, Contracts } from '@/core/contract'
-import { DependencyMap, TopDependencyMap } from '@/core/dependency'
+import { DepMap, TopDepMap } from '@/core/dependency'
 import { Context } from '@/core/context'
 import { PartialBy, TypedError } from '@/utils/type'
 
@@ -16,7 +16,7 @@ export type ServiceInstance<
 export interface Service<
   SId extends ServiceId = ServiceId,
   CId extends ContractId | null = ContractId | null,
-  DM extends DependencyMap = TopDependencyMap,
+  DM extends DepMap = TopDepMap,
 > {
   id: SId
   impl: CId
@@ -27,7 +27,7 @@ export interface Service<
 
 export interface ServiceSetup<
   T = any,
-  DM extends DependencyMap = TopDependencyMap,
+  DM extends DepMap = TopDepMap,
 > {
   (ctx: Context<DM>): T
 }
@@ -35,7 +35,7 @@ export interface ServiceSetup<
 export const Service = <
   SId extends ServiceId = ServiceId,
   CId extends ContractId | null = ContractId | null,
-  DM extends DependencyMap = TopDependencyMap,
+  DM extends DepMap = TopDepMap,
 >({
   lazy = true,
   ...input
@@ -52,6 +52,10 @@ export interface ServiceHandle<
   instance: T
 }
 
-export interface Services {}
+declare const $ExampleService: unique symbol
+
+export interface Services {
+  [$ExampleService]: {}
+}
 
 export type ServiceId = keyof Services

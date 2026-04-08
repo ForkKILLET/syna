@@ -1,4 +1,4 @@
-import { Dependency, Service, Runtime } from '@syna/core'
+import { Dep, Service, Runtime, Context } from '@syna/core'
 
 declare module '@syna/core' {
   export interface Contracts {
@@ -11,6 +11,7 @@ declare module '@syna/core' {
     [$NoImplService]: NoImplService
     [$SimpleGreetingService]: SimpleGreetingService
     [$EntrypointService]: EntrypointService
+    [$CounterService]: CounterService
   }
 }
 
@@ -48,6 +49,32 @@ export const MockNameService = Service({
   }
 })
 
+// Service: CounterService
+
+export const $CounterService = Symbol('CounterService')
+
+export interface CounterService {
+  getCount(): number
+  increment(): void
+}
+
+export const CounterService = Service({
+  id: $CounterService,
+  impl: null,
+  deps: {},
+  setup: () => {
+    let count = 0
+    return {
+      getCount() {
+        return count
+      },
+      increment() {
+        count ++
+      }
+    }
+  }
+})
+
 // Service: NoImplService
 
 export const $NoImplService = Symbol('NoImplService')
@@ -79,13 +106,14 @@ export const SimpleGreetingService = Service({
   id: $SimpleGreetingService,
   impl: $IGreeting,
   deps: {
-    name: Dependency.Contract($IName),
-    mockName: Dependency.Service($MockNameService),
+    name: Dep.Contract($IName),
+    counter: Dep.Service($CounterService),
   },
   setup: ctx => {
     return {
       greet() {
-        console.log(`Hello, ${ctx.name.getName()}! Hello, ${ctx.mockName.getName()}!`)
+        ctx.counter.increment()
+        console.log(`Hello, ${ctx.name.getName()}! (greeted ${ctx.counter.getCount()} times)`)
       }
     }
   }
@@ -101,17 +129,18 @@ export const EntrypointService = Service({
   id: $EntrypointService,
   impl: null,
   deps: {
-    greeting: Dependency.Contract($IGreeting),
+    greeting: Dep.Contract($IGreeting),
   },
   setup: ctx => {
     ctx.$on('runtime/service/start', event => console.log(`Service started: ${String(event.serviceId)} as ${String(event.depName)}`))
     ctx.$on('runtime/service/reuse', event => console.log(`Service reused: ${String(event.serviceId)} as ${String(event.depName)}`))
-    ctx.$on('runtime/service/derive', event => console.log(`Service derived: ${String(event.serviceId)} as ${String(event.depName)}`))
 
     ctx.greeting.greet()
+    ctx.greeting.greet()
 
-    const subCtx = ctx.$derive()
-    subCtx.greeting.greet()
+    ctx.$derive({ isolate: ['greeting'] }, ctx => {
+      ctx.greeting.greet()
+    })
   },
 })
 
@@ -123,6 +152,7 @@ app.registerContract($IGreeting)
 app.registerContract($IName)
 app.registerService(SimpleGreetingService)
 app.registerService(MockNameService)
+app.registerService(CounterService)
 app.registerService(EntrypointService)
 
 app.start(EntrypointService)

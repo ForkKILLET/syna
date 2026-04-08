@@ -4,7 +4,6 @@ import { Effect } from './type'
 export interface Events {
   'runtime/service/start': { serviceId: ServiceId, depName: string }
   'runtime/service/reuse': { serviceId: ServiceId, depName: string }
-  'runtime/service/derive': { serviceId: ServiceId, depName: string }
   'runtime/service/stop': { serviceId: ServiceId }
   'runtime/context/create': {}
   'runtime/context/dispose': {}

@@ -1,19 +1,29 @@
-import { Context, ContextMeta } from '@/core/context'
+import { Context, ContextDepName, ContextMeta } from '@/core/context'
 import { ContractId } from '@/core/contract'
 import { Service, ServiceHandle, ServiceId } from '@/core/service'
-import { DependencyMap, DependencyType } from '@/core/dependency'
+import { DepMap, DepName, DepType } from '@/core/dependency'
 import { unreachable } from '@/utils/error'
 import { Emitter } from '@/utils/event'
+import { Services } from '@/index'
+import { DefaultMap } from '@/utils/container'
 
-export type ServiceHandleCache<C extends Context> = {
+export type DepCache<C extends Context> = {
   [K in keyof C]?: ServiceHandle<C[K]>
 }
 
-export interface ContextState<C extends Context = Context> {
-  parent: ContextState | null
-  cache: ServiceHandleCache<C>
-  startedServices: Map<ServiceId, ServiceHandle>
+export type ServiceCache = Map<ServiceId, ServiceHandle>
+
+export interface ContextEnv<C extends Context = Context> {
+  parent: ContextEnv | null
+  isolatedDepNames: Set<ContextDepName<C>>
+  depCache: DepCache<C>
+  serviceCache: ServiceCache
+  isolationRootCaches: DefaultMap<ServiceId, ServiceCache>
 }
+
+export type ContextEnvOverride<C extends Context = Context> = Partial<
+  Pick<ContextEnv<C>, 'parent' | 'isolatedDepNames' | 'serviceCache'>
+>
 
 export const Runtime = () => {
   const contractToImpls = new Map<ContractId, Service[]>()
@@ -50,80 +60,101 @@ export const Runtime = () => {
     createContext: <
       SId extends ServiceId = never,
       CId extends ContractId | null = null,
-      DM extends DependencyMap = any,
-    >(service: Service<SId, CId, DM>, parent: ContextState | null = null) => {
+      DM extends DepMap = any,
+    >(service: Service<SId, CId, DM>, envOverride: ContextEnvOverride) => {
       type ThisContext = Context<DM>
 
-      const state: ContextState = {
+      const parent = envOverride.parent ?? null
+      const env: ContextEnv = {
         parent,
-        cache: {},
-        startedServices: new Map(),
+        isolatedDepNames: envOverride.isolatedDepNames ?? new Set(),
+        depCache: {},
+        serviceCache: envOverride.serviceCache ?? parent?.serviceCache ?? new Map(),
+        isolationRootCaches: new DefaultMap(() => new Map()),
       }
 
-      const lookupSharedService = (serviceId: ServiceId): ServiceHandle | null => {
-        if (! state.parent) return null
-        return state.parent.startedServices.get(serviceId) ?? null
+      const isDepIsolated = (depName: DepName<DM>): boolean => {
+        return env.isolatedDepNames.has(depName)
       }
 
-      const getDepHandle = (depName: keyof DM & string, service: Service): ServiceHandle => {
-        const startedHandle = state.startedServices.get(service.id)
-        if (startedHandle) {
-          ctx.$emit('runtime/service/reuse', { serviceId: service.id, depName })
-          return startedHandle
-        }
-
-        const derivedHandle = lookupSharedService(service.id)
-        if (derivedHandle) {
-          ctx.$emit('runtime/service/derive', { serviceId: service.id, depName })
-          return derivedHandle
+      const getDepHandle = (depName: DepName<DM>, depService: Service, cache: ServiceCache): ServiceHandle => {
+        const handle = cache.get(depService.id)
+        if (handle) {
+          ctx.$emit('runtime/service/reuse', { serviceId: depService.id, depName })
+          return handle
         }
         
-        ctx.$emit('runtime/service/start', { serviceId: service.id, depName })
-        return runtime.start(service)
+        ctx.$emit('runtime/service/start', { serviceId: depService.id, depName })
+        return runtime.start(depService, {
+          parent: env,
+          serviceCache: cache,
+        })
       }
 
-      const startDep = (depName: keyof DM & string, service: Service) => {
-        const handle = getDepHandle(depName, service)
-        state.cache[depName] = handle
-        state.startedServices.set(service.id, handle)
+      const loadDep = (depName: DepName<DM>, depService: Service) => {
+        const isIsolated = isDepIsolated(depName)
+        const cache = isIsolated ? env.isolationRootCaches.get(depService.id) : env.serviceCache
+        const handle = getDepHandle(depName, depService, cache)
+        env.depCache[depName] = handle
+        cache.set(depService.id, handle)
         return handle.instance
       }
 
-      const derive = () => runtime.createContext(service, state)
+      const derive: Context.DeriveMethod<DM> = <T>(...args: Context.DeriveParameters<DM, T>): T => {
+        const [{ isolate }, callback] = args.length === 1
+          ? [{}, args[0]]
+          : args
+
+        const subCtx = runtime.createContext(service, {
+          parent: env,
+          isolatedDepNames: new Set(isolate),
+        })
+        return callback(subCtx)
+      }
+
+      const disposeOne = (depName: DepName<DM>) => {
+        // TODO
+        void depName
+      }
+
+      const dispose: Context.DisposeMethod<DM> = (...depNames) => {
+        depNames.forEach(disposeOne)
+      }
+
+      const meta: ContextMeta<DM> = {
+        $derive: derive,
+        $dispose: dispose,
+        $on: emitter.on,
+        $emit: emitter.emit,
+      }
 
       function contextProxyGetTrap(_: ThisContext, prop: symbol): undefined
       function contextProxyGetTrap<M extends keyof ContextMeta>(_: ThisContext, prop: M): ContextMeta<DM>[M]
-      function contextProxyGetTrap<K extends keyof DM & string>(_: ThisContext, prop: K): ThisContext[K]
-      function contextProxyGetTrap(_: ThisContext, prop: symbol | keyof ContextMeta | keyof DM & string) {
+      function contextProxyGetTrap<K extends DepName<DM>>(_: ThisContext, prop: K): ThisContext[K]
+      function contextProxyGetTrap(_: ThisContext, prop: symbol | keyof ContextMeta | DepName<DM>) {
         if (typeof prop === 'symbol') {
           return undefined
         }
 
-        if (prop === '$derive') {
-          return derive
-        }
-        else if (prop === '$on') {
-          return emitter.on
-        }
-        else if (prop === '$emit') {
-          return emitter.emit
+        if (prop in meta) {
+          return meta[prop as keyof ContextMeta]
         }
 
         const depName = prop 
 
-        const cachedHandle = state.cache[depName]
+        const cachedHandle = env.depCache[depName]
         if (cachedHandle) return cachedHandle.instance
 
         const dep = service.deps[depName]
-        if (dep.type === DependencyType.Service) {
+        if (dep.type === DepType.Service) {
           const service = services.get(dep.serviceId)
           if (! service) {
             throw new Error(`Service ${String(dep.serviceId)} not registered.`)
           }
 
-          return startDep(depName, service)
+          return loadDep(depName, service)
         }
-        else if (dep.type === DependencyType.Contract) {
+        else if (dep.type === DepType.Contract) {
           const impls = contractToImpls.get(dep.contractId)
           if (! impls) {
             throw new Error(`Contract ${String(dep.contractId)} not registered.`)
@@ -132,7 +163,7 @@ export const Runtime = () => {
             throw new Error(`Contract ${String(dep.contractId)} has no implementations.`)
           }
           const impl = runtime.selectImpl(impls)
-          return startDep(depName, impl)
+          return loadDep(depName, impl)
         }
         else {
           unreachable(dep)
@@ -151,11 +182,14 @@ export const Runtime = () => {
     start: <
       SId extends ServiceId = never,
       CId extends ContractId | null = null,
-      DM extends DependencyMap = any,
-    >(service: Service<SId, CId, DM>) => {
-      const ctx = runtime.createContext(service)
+      DM extends DepMap = any,
+    >(
+      service: Service<SId, CId, DM>,
+      env: ContextEnvOverride<Context<DM>> = {},
+    ) => {
+      const ctx = runtime.createContext(service, env)
       const instance = service.setup(ctx)
-      const handle: ServiceHandle = { instance }
+      const handle: ServiceHandle<Services[SId]> = { instance }
       return handle
     },
   }
