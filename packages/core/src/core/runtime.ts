@@ -1,14 +1,14 @@
 import { Context, ContextDepName, ContextMeta } from '@/core/context'
 import { ContractId } from '@/core/contract'
-import { Service, ServiceHandle, ServiceId, ServiceState } from '@/core/service'
+import { Service, ServiceHandle, ServiceHandleRunning, ServiceId, ServiceState } from '@/core/service'
 import { DepMap, DepName, DepType } from '@/core/dependency'
 import { unreachable } from '@/utils/error'
 import { Emitter } from '@/utils/event'
-import { Services } from '@/index'
+import { Effect, Services } from '@/index'
 import { DefaultMap } from '@/utils/container'
 
 export type DepCache<C extends Context> = {
-  [K in keyof C]?: ServiceHandle<ServiceState.Running, C[K]>
+  [K in keyof C]?: ServiceHandleRunning<C[K], C>
 }
 
 export type ServiceCache = Map<ServiceId, ServiceHandle>
@@ -19,6 +19,7 @@ export interface ContextEnv<C extends Context = Context> {
   depCache: DepCache<C>
   serviceCache: ServiceCache
   isolationRootCaches: DefaultMap<ServiceId, ServiceCache>
+  effects: Effect[]
 }
 
 export type ContextEnvOverride<C extends Context = Context> = Partial<
@@ -71,13 +72,14 @@ export const Runtime = () => {
         depCache: {},
         serviceCache: envOverride.serviceCache ?? parent?.serviceCache ?? new Map(),
         isolationRootCaches: new DefaultMap(() => new Map()),
+        effects: [],
       }
 
-      const isDepIsolated = (depName: DepName<DM>): boolean => {
+      const isDepIsolated = (depName: DepName): boolean => {
         return env.isolatedDepNames.has(depName)
       }
 
-      const getDepHandle = (depName: DepName<DM>, depService: Service, cache: ServiceCache): ServiceHandle<ServiceState.Running> => {
+      const getDepHandle = (depName: DepName, depService: Service, cache: ServiceCache): ServiceHandleRunning => {
         const handle = cache.get(depService.id)
         if (handle?.state === ServiceState.Running) {
           ctx.$emit('runtime/service/reuse', { serviceId: depService.id, depName })
@@ -95,39 +97,59 @@ export const Runtime = () => {
         })
       }
 
-      const loadDep = (depName: DepName<DM>, depService: Service) => {
+      const getDepCache = (depName: DepName, depServiceId: ServiceId) => {
         const isIsolated = isDepIsolated(depName)
-        const cache = isIsolated ? env.isolationRootCaches.get(depService.id) : env.serviceCache
+        const cache = isIsolated ? env.isolationRootCaches.get(depServiceId) : env.serviceCache
+        return { isIsolated, cache }
+      }
+
+
+      const loadDep = (depName: DepName, depService: Service) => {
+        const { cache } = getDepCache(depName, depService.id)
         const handle = getDepHandle(depName, depService, cache)
         env.depCache[depName] = handle
         cache.set(depService.id, handle)
         return handle.instance
       }
 
-      const derive: Context.DeriveMethod<DM> = <T>(...args: Context.DeriveParameters<DM, T>): T => {
-        const [{ isolate }, callback] = args.length === 1
-          ? [{}, args[0]]
-          : args
+      const dispose = () => {
+        env.effects.forEach(effect => effect())
+        env.effects = []
 
-        const subCtx = runtime.createContext(service, {
-          parent: env,
-          isolatedDepNames: new Set(isolate),
-        })
-        return callback(subCtx)
+        for (const depName in env.depCache) {
+          ctx.$disposeDep(depName)
+        }
       }
 
-      const disposeOne = (depName: DepName<DM>) => {
-        // TODO
-        void depName
-      }
+      const disposeDep = (depName: DepName<DM>) => {
+        const handle = env.depCache[depName]
+        if (handle?.state !== ServiceState.Running) return
 
-      const dispose: Context.DisposeMethod<DM> = (...depNames) => {
-        depNames.forEach(disposeOne)
+        const { cache } = getDepCache(depName, handle.service.id)
+
+        delete env.depCache[depName]
+        cache.delete(handle.service.id)
+        
+        handle.ctx.$dispose()
       }
 
       const meta: ContextMeta<DM> = {
-        $derive: derive,
+        $derive: <T>(...args: Context.DeriveParameters<DM, T>): T => {
+          const [{ isolate }, callback] = args.length === 1
+            ? [{}, args[0]]
+            : args
+
+          const subCtx = runtime.createContext(service, {
+            parent: env,
+            isolatedDepNames: new Set(isolate),
+          })
+          return callback(subCtx)
+        },
         $dispose: dispose,
+        $disposeDep: disposeDep,
+        $collect: (effect) => {
+          env.effects.push(effect)
+        },
         $on: emitter.on,
         $emit: emitter.emit,
       }
@@ -194,12 +216,14 @@ export const Runtime = () => {
     >(
       service: Service<SId, CId, DM>,
       env: ContextEnvOverride<Context<DM>> = {},
-    ): ServiceHandle<ServiceState.Running, Services[SId]> => {
+    ): ServiceHandleRunning<Services[SId], Context<DM>, SId> => {
       const ctx = runtime.createContext(service, env)
       const instance = service.setup(ctx)
       return {
         state: ServiceState.Running,
         instance,
+        service,
+        ctx,
       }
     },
   }

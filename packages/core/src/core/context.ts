@@ -2,6 +2,7 @@ import { ContractDep, DepMap, DepName, ServiceDep, TopDepMap } from '@/core/depe
 import { ContractId, Contracts } from '@/core/contract'
 import { ServiceId, Services } from '@/core/service'
 import { Emitter } from '@/utils/event'
+import { Effect } from '@/utils/type'
 
 export type ContextBindings<DM extends DepMap> = {
   [K in keyof DM]:
@@ -25,20 +26,20 @@ export namespace Context {
   export interface DeriveOptions<DM extends DepMap> {
     isolate?: DepName<DM>[]
   }
-
-  export interface DisposeMethod<DM extends DepMap> {
-    (...depNames: DepName<DM>[]): void
-  }
-
+  
   export const expose = <C extends Context>(ctx: C): C => ctx
 }
 
 export type ContextMeta<DM extends DepMap = TopDepMap> = {
   $derive: Context.DeriveMethod<DM>
-  $dispose: Context.DisposeMethod<DM>
+
+  $dispose: () => void
+  $disposeDep: (depName: DepName<DM>) => void
   
   $on: Emitter['on']
   $emit: Emitter['emit']
+
+  $collect: (effect: Effect) => void
 }
 
 export type Context<DM extends DepMap = TopDepMap> =
@@ -46,3 +47,4 @@ export type Context<DM extends DepMap = TopDepMap> =
 
 export type ContextDepName<C extends Context> =
   C extends Context<infer DM> ? keyof DM : never
+  

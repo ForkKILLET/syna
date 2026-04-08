@@ -51,21 +51,26 @@ export const enum ServiceState {
   Running,
 }
 
-export interface ServiceHandleRunning<T = any> {
+export interface ServiceHandleRunning<
+  T = any,
+  C extends Context = Context,
+  SId extends ServiceId = ServiceId,
+> {
   state: ServiceState.Running
   instance: T
+  service: Service<SId>
+  ctx: C
 }
 
 export interface ServiceHandleStarting {
   state: ServiceState.Starting
 }
 
-type _ServiceHandle<T = any> = ServiceHandleRunning<T> | ServiceHandleStarting
-
 export type ServiceHandle<
-  S extends ServiceState = ServiceState,
   T = any,
-> = _ServiceHandle<T> & { state: S }
+  C extends Context = Context,
+  SId extends ServiceId = ServiceId,
+> = ServiceHandleRunning<T, C, SId> | ServiceHandleStarting
 
 declare const $ExampleService: unique symbol
 
