@@ -204,6 +204,21 @@ export const Runtime = () => {
         get: contextProxyGetTrap,
       })
 
+      Object.entries(service.deps).forEach(([depName, dep]) => {
+        if (dep.type === DepType.Service) {
+          const svc = services.get(dep.serviceId)!
+          if (! svc.lazy) void loadDep(depName, svc)
+        }
+        else if (dep.type === DepType.Contract) {
+          contractToImpls.get(dep.contractId)!.forEach(svc => {
+            if (! svc.lazy) void loadDep(depName, svc)
+          })
+        }
+        else {
+          unreachable(dep)
+        }
+      })
+
       ctx.$emit('runtime/context/create', {})
 
       return ctx
