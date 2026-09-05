@@ -48,16 +48,19 @@ try {
   check('same-tenant slug race: exactly one winner and one SlugConflictError', winners === 1 && conflicts === 1, race.map(result => result.ok ? `ok ${result.value.id}` : `${result.error.name}: ${result.error.message.slice(0, 90)}`))
   check('exactly one row holds slug "race"', (await alpha.listPosts({ visibility: 'all' })).filter(post => post.slug === 'race').length === 1)
 
-  // 4. cross-tenant id hijack
+  // 4. cross-tenant id. When this probe was written the PostgreSQL store refused a save whose id another tenant
+  // held ("another tenant"); since I-78 (D51) a post id is scoped to its tenant on both backends, so the same id
+  // in two tenants is two posts and neither can reach the other's row.
   const victimBefore = await alpha.getPostById('alpha-p1')
-  const hijack = await settled(beta.savePost({ ...base, id: 'alpha-p1', slug: 'hijacked' }))
+  const sameId = await settled(beta.savePost({ ...base, id: 'alpha-p1', slug: 'hijacked' }))
   const victimAfter = await alpha.getPostById('alpha-p1')
-  check('savePost with an id owned by another tenant is rejected', !hijack.ok && /another tenant/.test(hijack.error.message), hijack.ok ? 'accepted' : hijack.error.message)
-  check('victim row untouched', JSON.stringify(victimAfter) === JSON.stringify(victimBefore))
-  check('beta.getPostById(alpha id) → undefined', (await beta.getPostById('alpha-p1')) === undefined)
-  check('beta.deletePost(alpha id) → false, row remains', (await beta.deletePost('alpha-p1')) === false && (await alpha.getPostById('alpha-p1')) !== undefined)
-  const hijackTx = await settled(store.transaction('beta', repository => repository.savePost({ ...base, id: 'alpha-p2', slug: 'hijacked-tx' })))
-  check('hijack inside a transaction rejected and rolled back', !hijackTx.ok && (await alpha.getPostById('alpha-p2')).slug === 'shared-slug' && (await beta.getPost('hijacked-tx', { visibility: 'all' })) === undefined)
+  check('savePost with an id another tenant also uses creates the caller\'s own post (I-78)', sameId.ok && sameId.value.tenantId === 'beta' && sameId.value.slug === 'hijacked', sameId.ok ? `${sameId.value.tenantId}/${sameId.value.slug}` : sameId.error.message)
+  check('the other tenant\'s row is untouched', JSON.stringify(victimAfter) === JSON.stringify(victimBefore))
+  const betaView = await beta.getPostById('alpha-p1')
+  check('beta.getPostById(shared id) → beta\'s own post, never alpha\'s', betaView?.tenantId === 'beta' && betaView?.slug === 'hijacked', betaView && `${betaView.tenantId}/${betaView.slug}`)
+  check('beta.deletePost(shared id) deletes beta\'s post only; alpha\'s row remains', (await beta.deletePost('alpha-p1')) === true && (await beta.getPostById('alpha-p1')) === undefined && JSON.stringify(await alpha.getPostById('alpha-p1')) === JSON.stringify(victimBefore))
+  const sameIdTx = await settled(store.transaction('beta', repository => repository.savePost({ ...base, id: 'alpha-p2', slug: 'hijacked-tx' })))
+  check('same id inside a transaction: beta\'s own post committed, alpha\'s untouched', sameIdTx.ok && (await alpha.getPostById('alpha-p2')).slug === 'shared-slug' && (await beta.getPost('hijacked-tx', { visibility: 'all' }))?.id === 'alpha-p2', sameIdTx.ok ? 'committed' : sameIdTx.error.message)
   check('beta cannot read alpha private post by slug', (await beta.getPost('members-only', { visibility: 'all' })) === undefined)
 
   // 5. slug collision within a tenant

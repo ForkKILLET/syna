@@ -124,7 +124,7 @@ try {
     ['ALPHA.TEST', 200, 'alpha', 'upper-case host (case-insensitive by RFC)'],
     ['www.alpha.test', 200, 'alpha', 'alias domain'],
     ['[::1]:8080', 404, undefined, 'IPv6 literal'],
-    ['alpha.test.', 404, undefined, 'trailing-dot host'],
+    ['alpha.test.', 200, 'alpha', 'trailing-dot host (normalized to alpha.test since I-71; was 404 when this probe was written)'],
     ['127.0.0.1', 404, undefined, 'bare IP'],
     ['alpha.test%00', 404, undefined, 'percent in host'],
   ]
@@ -215,13 +215,21 @@ try {
   await store.forTenant('alpha').savePost({ ...p2, status: 'published' })
 
   // --- domain table: a tenant claiming another tenant's domain
+  // When this probe was written the save went through and the whole domain table refused to rebuild
+  // (the OBSERVE line that became I-47). Since I-47 the store refuses the save itself, and since I-71
+  // the comparison is on normalized spellings; the table never sees the claim.
   const betaCurrent = await store.forTenant('beta').getSiteConfig()
-  await store.forTenant('beta').saveSiteConfig({ ...betaCurrent, domains: [...betaCurrent.domains, 'alpha.test'] })
+  const isConflict = result => !result.ok && (result.error?.name === 'DomainConflictError' || /already claimed/.test(result.error?.message ?? ''))
+  const claim = await settledP(store.forTenant('beta').saveSiteConfig({ ...betaCurrent, domains: [...betaCurrent.domains, 'alpha.test'] }))
+  check('a tenant claiming another tenant\'s domain is refused by the store (DomainConflictError, I-47)', isConflict(claim), claim.ok ? 'saved' : claim.error.message)
+  const claimDotted = await settledP(store.forTenant('beta').saveSiteConfig({ ...betaCurrent, domains: [...betaCurrent.domains, 'ALPHA.TEST.'] }))
+  check('the refusal compares normalized spellings (ALPHA.TEST. is alpha.test, I-71)', isConflict(claimDotted), claimDotted.ok ? 'saved' : claimDotted.error.message)
   const refreshed = await settledP(domains.refresh())
   const rebuilt = await settledP(harness.app.domains())
-  check('domain table refresh with a conflicting claim rejects explicitly and keeps the old table', !refreshed.ok && domains.resolve('alpha.test') === 'alpha', refreshed.ok ? 'ok' : refreshed.error.message)
-  check('OBSERVE: a tenant configuration claiming another tenant\'s domain makes app.domains() (and thus server start) fail for the whole deployment', true, rebuilt.ok ? 'built' : rebuilt.error.message)
-  await store.forTenant('beta').saveSiteConfig({ ...betaCurrent })
+  check('domain table refresh after the refused claims still resolves alpha.test to alpha', refreshed.ok && domains.resolve('alpha.test') === 'alpha', refreshed.ok ? 'ok' : refreshed.error.message)
+  check('app.domains() still builds (the claim never landed)', rebuilt.ok, rebuilt.ok ? 'built' : rebuilt.error.message)
+  const betaAfter = await store.forTenant('beta').getSiteConfig()
+  check('the claiming tenant\'s configuration is unchanged after the refused saves', JSON.stringify(betaAfter.domains) === JSON.stringify(betaCurrent.domains) && typeof betaAfter.configRevision === 'number' && betaAfter.configRevision === betaCurrent.configRevision, { domains: betaAfter.domains, configRevision: betaAfter.configRevision })
 }
 finally {
   await plain.close()
