@@ -71,6 +71,7 @@ Runtime admission/internal split: {
   overriddenServices: [],
   rootEnvCount: 1,
   liveEnvCount: 2,
+  unsettledAttempts: [],
   planCache: { hits: 2, misses: 7, entries: 7, evictions: 0, maxEntries: 512 },
   definitionWarnings: []
 }

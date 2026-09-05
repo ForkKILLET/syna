@@ -1,0 +1,46 @@
+TAP version 13
+# Subtest: R-2 a site whose creation fails after its Env was entered is closed, not leaked
+ok 1 - R-2 a site whose creation fails after its Env was entered is closed, not leaked
+  ---
+  duration_ms: 38.511167
+  type: 'test'
+  ...
+# Subtest: R-2 a closing Env keeps its unit of capacity until the close settles; the acquirer that started the eviction is served before later arrivals
+ok 2 - R-2 a closing Env keeps its unit of capacity until the close settles; the acquirer that started the eviction is served before later arrivals
+  ---
+  duration_ms: 405.899458
+  type: 'test'
+  ...
+# Subtest: R-2 the page cache reads the content version before the content it renders, so an edit landing in between is never cached under the new version
+ok 3 - R-2 the page cache reads the content version before the content it renders, so an edit landing in between is never cached under the new version
+  ---
+  duration_ms: 64.284791
+  type: 'test'
+  ...
+# Subtest: R-2/R-4 a SiteEnv whose close rejects is reported and counted, never an unhandled rejection; sweep, shutdown and close() keep going
+ok 4 - R-2/R-4 a SiteEnv whose close rejects is reported and counted, never an unhandled rejection; sweep, shutdown and close() keep going
+  ---
+  duration_ms: 23.104458
+  type: 'test'
+  ...
+# Subtest: R-2/R-4 under the default unhandled-rejection policy, background closes that fail do not crash the process
+ok 5 - R-2/R-4 under the default unhandled-rejection policy, background closes that fail do not crash the process
+  ---
+  duration_ms: 283.382625
+  type: 'test'
+  ...
+# Subtest: R-2/R-3 close() returns attempts that never settled and disposal errors instead of rejecting; the Runtime retains only the ledger
+ok 6 - R-2/R-3 close() returns attempts that never settled and disposal errors instead of rejecting; the Runtime retains only the ledger
+  ---
+  duration_ms: 426.252125
+  type: 'test'
+  ...
+1..6
+# tests 6
+# suites 0
+# pass 6
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1415.0405

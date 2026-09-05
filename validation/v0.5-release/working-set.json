@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-05T05:05:33.388Z",
+  "generatedAt": "2026-09-05T13:28:50.232Z",
   "tenants": 120,
   "capacity": 6,
   "maxRecordsPerPhase": {
@@ -15,16 +15,18 @@
     "idle": 0,
     "creating": 0,
     "draining": 0,
+    "disposing": 0,
     "leases": 0,
     "pendingAcquires": 0,
-    "evictions": 502,
-    "creations": 504,
+    "evictions": 490,
+    "creations": 492,
     "creationFailures": 0,
+    "disposalFailures": 0,
     "rejectedForCapacity": 0,
     "closed": false
   },
   "planCache": {
-    "hits": 504,
+    "hits": 492,
     "misses": 5,
     "entries": 5,
     "evictions": 0,
@@ -33,37 +35,37 @@
   "heapSamples": [
     {
       "label": "start",
-      "heapUsed": 18740520,
+      "heapUsed": 17970984,
       "records": 0,
       "liveEnvs": 2
     },
     {
       "label": "after-hot",
-      "heapUsed": 18662632,
+      "heapUsed": 18708424,
       "records": 3,
       "liveEnvs": 5
     },
     {
       "label": "after-rotation",
-      "heapUsed": 19710912,
+      "heapUsed": 19742200,
       "records": 6,
       "liveEnvs": 8
     },
     {
       "label": "after-tail",
-      "heapUsed": 19527344,
+      "heapUsed": 19452880,
       "records": 1,
       "liveEnvs": 3
     },
     {
       "label": "after-mixed",
-      "heapUsed": 20171216,
+      "heapUsed": 20225704,
       "records": 6,
       "liveEnvs": 8
     },
     {
       "label": "after-idle-sweep",
-      "heapUsed": 19491328,
+      "heapUsed": 19555904,
       "records": 0,
       "liveEnvs": 2
     }

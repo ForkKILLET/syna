@@ -3,317 +3,317 @@ TAP version 13
     # Subtest: reports its backend and lists the seeded tenants
     ok 1 - reports its backend and lists the seeded tenants
       ---
-      duration_ms: 0.888042
+      duration_ms: 0.906959
       type: 'test'
       ...
     # Subtest: lists public posts versus all posts
     ok 2 - lists public posts versus all posts
       ---
-      duration_ms: 6.16475
+      duration_ms: 7.679333
       type: 'test'
       ...
     # Subtest: never returns drafts or private posts with public visibility
     ok 3 - never returns drafts or private posts with public visibility
       ---
-      duration_ms: 5.638459
+      duration_ms: 6.07125
       type: 'test'
       ...
     # Subtest: resolves the shared slug to a different post per tenant
     ok 4 - resolves the shared slug to a different post per tenant
       ---
-      duration_ms: 1.474333
+      duration_ms: 1.77875
       type: 'test'
       ...
     # Subtest: isolates tenants: alpha never sees beta rows
     ok 5 - isolates tenants: alpha never sees beta rows
       ---
-      duration_ms: 6.497209
+      duration_ms: 5.809
       type: 'test'
       ...
     # Subtest: applies locale, category and tag filters
     ok 6 - applies locale, category and tag filters
       ---
-      duration_ms: 4.493208
+      duration_ms: 3.850167
       type: 'test'
       ...
     # Subtest: round-trips every stored field of a post
     ok 7 - round-trips every stored field of a post
       ---
-      duration_ms: 1.723833
+      duration_ms: 1.431334
       type: 'test'
       ...
     # Subtest: orders posts deterministically with comparePosts (newest first, then slug)
     ok 8 - orders posts deterministically with comparePosts (newest first, then slug)
       ---
-      duration_ms: 1.617792
+      duration_ms: 1.366125
       type: 'test'
       ...
     # Subtest: increments the revision and keeps the id when the slug changes
     ok 9 - increments the revision and keeps the id when the slug changes
       ---
-      duration_ms: 10.674875
+      duration_ms: 9.701
       type: 'test'
       ...
     # Subtest: rejects a slug already used by a different id in the same tenant
     ok 10 - rejects a slug already used by a different id in the same tenant
       ---
-      duration_ms: 5.208792
+      duration_ms: 5.357792
       type: 'test'
       ...
     # Subtest: rejects unsafe tenant ids, slugs and invalid input
     ok 11 - rejects unsafe tenant ids, slugs and invalid input
       ---
-      duration_ms: 1.64325
+      duration_ms: 1.492458
       type: 'test'
       ...
     # Subtest: round-trips categories and tags and upserts by slug
     ok 12 - round-trips categories and tags and upserts by slug
       ---
-      duration_ms: 2.3375
+      duration_ms: 2.156333
       type: 'test'
       ...
     # Subtest: saves the site config and increments configRevision
     ok 13 - saves the site config and increments configRevision
       ---
-      duration_ms: 2.332166
+      duration_ms: 2.32525
       type: 'test'
       ...
     # Subtest: runs work inside transaction() against the tenant repository
     ok 14 - runs work inside transaction() against the tenant repository
       ---
-      duration_ms: 4.711125
+      duration_ms: 5.116042
       type: 'test'
       ...
     # Subtest: re-seeding is idempotent in content and increments revisions
     ok 15 - re-seeding is idempotent in content and increments revisions
       ---
-      duration_ms: 8.907083
+      duration_ms: 9.006416
       type: 'test'
       ...
     # Subtest: contentVersion changes on every mutation of the tenant and never for another tenant
     ok 16 - contentVersion changes on every mutation of the tenant and never for another tenant
       ---
-      duration_ms: 6.028625
+      duration_ms: 6.141834
       type: 'test'
       ...
     # Subtest: saveSiteConfig refuses a domain another tenant already claims (DomainConflictError), also when spelled differently
     ok 17 - saveSiteConfig refuses a domain another tenant already claims (DomainConflictError), also when spelled differently
       ---
-      duration_ms: 2.326
+      duration_ms: 2.338541
       type: 'test'
       ...
     # Subtest: deleteTenant removes only that tenant
     ok 18 - deleteTenant removes only that tenant
       ---
-      duration_ms: 2.054
+      duration_ms: 2.183834
       type: 'test'
       ...
     1..18
 ok 1 - filesystem/default layout: repository conformance
   ---
-  duration_ms: 103.849125
+  duration_ms: 102.149
   type: 'suite'
   ...
 # Subtest: filesystem/blog layout: repository conformance
     # Subtest: reports its backend and lists the seeded tenants
     ok 1 - reports its backend and lists the seeded tenants
       ---
-      duration_ms: 0.355375
+      duration_ms: 0.380333
       type: 'test'
       ...
     # Subtest: lists public posts versus all posts
     ok 2 - lists public posts versus all posts
       ---
-      duration_ms: 2.533958
+      duration_ms: 2.631791
       type: 'test'
       ...
     # Subtest: never returns drafts or private posts with public visibility
     ok 3 - never returns drafts or private posts with public visibility
       ---
-      duration_ms: 4.807041
+      duration_ms: 4.8545
       type: 'test'
       ...
     # Subtest: resolves the shared slug to a different post per tenant
     ok 4 - resolves the shared slug to a different post per tenant
       ---
-      duration_ms: 1.985958
+      duration_ms: 2.012584
       type: 'test'
       ...
     # Subtest: isolates tenants: alpha never sees beta rows
     ok 5 - isolates tenants: alpha never sees beta rows
       ---
-      duration_ms: 4.485458
+      duration_ms: 4.289166
       type: 'test'
       ...
     # Subtest: applies locale, category and tag filters
     ok 6 - applies locale, category and tag filters
       ---
-      duration_ms: 3.630792
+      duration_ms: 3.685667
       type: 'test'
       ...
     # Subtest: round-trips every stored field of a post
     ok 7 - round-trips every stored field of a post
       ---
-      duration_ms: 1.352583
+      duration_ms: 2.303958
       type: 'test'
       ...
     # Subtest: orders posts deterministically with comparePosts (newest first, then slug)
     ok 8 - orders posts deterministically with comparePosts (newest first, then slug)
       ---
-      duration_ms: 1.687583
+      duration_ms: 2.140875
       type: 'test'
       ...
     # Subtest: increments the revision and keeps the id when the slug changes
     ok 9 - increments the revision and keeps the id when the slug changes
       ---
-      duration_ms: 8.038917
+      duration_ms: 13.358458
       type: 'test'
       ...
     # Subtest: rejects a slug already used by a different id in the same tenant
     ok 10 - rejects a slug already used by a different id in the same tenant
       ---
-      duration_ms: 5.358542
+      duration_ms: 5.437708
       type: 'test'
       ...
     # Subtest: rejects unsafe tenant ids, slugs and invalid input
     ok 11 - rejects unsafe tenant ids, slugs and invalid input
       ---
-      duration_ms: 1.484375
+      duration_ms: 1.601917
       type: 'test'
       ...
     # Subtest: round-trips categories and tags and upserts by slug
     ok 12 - round-trips categories and tags and upserts by slug
       ---
-      duration_ms: 1.889584
+      duration_ms: 2.139666
       type: 'test'
       ...
     # Subtest: saves the site config and increments configRevision
     ok 13 - saves the site config and increments configRevision
       ---
-      duration_ms: 1.7835
+      duration_ms: 1.93525
       type: 'test'
       ...
     # Subtest: runs work inside transaction() against the tenant repository
     ok 14 - runs work inside transaction() against the tenant repository
       ---
-      duration_ms: 3.899833
+      duration_ms: 4.039583
       type: 'test'
       ...
     # Subtest: re-seeding is idempotent in content and increments revisions
     ok 15 - re-seeding is idempotent in content and increments revisions
       ---
-      duration_ms: 10.181833
+      duration_ms: 10.133292
       type: 'test'
       ...
     # Subtest: contentVersion changes on every mutation of the tenant and never for another tenant
     ok 16 - contentVersion changes on every mutation of the tenant and never for another tenant
       ---
-      duration_ms: 5.446209
+      duration_ms: 5.437542
       type: 'test'
       ...
     # Subtest: saveSiteConfig refuses a domain another tenant already claims (DomainConflictError), also when spelled differently
     ok 17 - saveSiteConfig refuses a domain another tenant already claims (DomainConflictError), also when spelled differently
       ---
-      duration_ms: 2.04475
+      duration_ms: 2.086208
       type: 'test'
       ...
     # Subtest: deleteTenant removes only that tenant
     ok 18 - deleteTenant removes only that tenant
       ---
-      duration_ms: 1.972292
+      duration_ms: 1.890375
       type: 'test'
       ...
     1..18
 ok 2 - filesystem/blog layout: repository conformance
   ---
-  duration_ms: 75.546458
+  duration_ms: 82.727458
   type: 'suite'
   ...
 # Subtest: filesystem: layouts and renames
     # Subtest: reports the filesystem backend
     ok 1 - reports the filesystem backend
       ---
-      duration_ms: 0.075083
+      duration_ms: 0.0705
       type: 'test'
       ...
     # Subtest: DefaultLayout stores posts/<slug>.md and BlogLayout posts/<primaryCategory>/<slug>.md
     ok 2 - DefaultLayout stores posts/<slug>.md and BlogLayout posts/<primaryCategory>/<slug>.md
       ---
-      duration_ms: 0.618792
+      duration_ms: 0.651292
       type: 'test'
       ...
     # Subtest: renaming slug and primary category moves the file and keeps the id
     ok 3 - renaming slug and primary category moves the file and keeps the id
       ---
-      duration_ms: 8.575666
+      duration_ms: 6.929625
       type: 'test'
       ...
     # Subtest: identity comes from the front matter, not the file name
     ok 4 - identity comes from the front matter, not the file name
       ---
-      duration_ms: 2.428667
+      duration_ms: 2.443416
       type: 'test'
       ...
     1..4
 ok 3 - filesystem: layouts and renames
   ---
-  duration_ms: 23.984916
+  duration_ms: 22.389958
   type: 'suite'
   ...
 # Subtest: filesystem: path safety
     # Subtest: safeJoin rejects traversal, absolute segments and escapes
     ok 1 - safeJoin rejects traversal, absolute segments and escapes
       ---
-      duration_ms: 0.167416
+      duration_ms: 0.181167
       type: 'test'
       ...
     # Subtest: rejects path traversal in tenant ids and slugs
     ok 2 - rejects path traversal in tenant ids and slugs
       ---
-      duration_ms: 0.39875
+      duration_ms: 0.361625
       type: 'test'
       ...
     # Subtest: refuses symlinked post files and symlinked tenant directories
     ok 3 - refuses symlinked post files and symlinked tenant directories
       ---
-      duration_ms: 10.40925
+      duration_ms: 10.143792
       type: 'test'
       ...
     1..3
 ok 4 - filesystem: path safety
   ---
-  duration_ms: 17.687167
+  duration_ms: 16.816625
   type: 'suite'
   ...
 # Subtest: filesystem: atomic writes and per-tenant serialization
     # Subtest: writeFileAtomic replaces content fully and leaves no temp files
     ok 1 - writeFileAtomic replaces content fully and leaves no temp files
       ---
-      duration_ms: 5.711
+      duration_ms: 6.029792
       type: 'test'
       ...
     # Subtest: KeyedMutex serializes same-key work and lets different keys run concurrently
     ok 2 - KeyedMutex serializes same-key work and lets different keys run concurrently
       ---
-      duration_ms: 22.309833
+      duration_ms: 22.478333
       type: 'test'
       ...
     # Subtest: concurrent savePost calls for one tenant serialize without lost updates
     ok 3 - concurrent savePost calls for one tenant serialize without lost updates
       ---
-      duration_ms: 126.983417
+      duration_ms: 132.131541
       type: 'test'
       ...
     # Subtest: transaction() serializes with other mutations of the same tenant
     ok 4 - transaction() serializes with other mutations of the same tenant
       ---
-      duration_ms: 34.387458
+      duration_ms: 34.484292
       type: 'test'
       ...
     1..4
 ok 5 - filesystem: atomic writes and per-tenant serialization
   ---
-  duration_ms: 189.508542
+  duration_ms: 195.271625
   type: 'suite'
   ...
 1..5
@@ -324,4 +324,4 @@ ok 5 - filesystem: atomic writes and per-tenant serialization
 # cancelled 0
 # skipped 0
 # todo 0
-# duration_ms 654.391291
+# duration_ms 647.567834
