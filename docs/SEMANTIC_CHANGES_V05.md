@@ -68,12 +68,12 @@ exact/range/裸 Contract/auto/all/Binding/refs/fresh/share/check 全部使用同
 ## 7. 权限来源（realm）
 
 - 公开 Entry（`runtime.enter`、`env.enter`、`env.bind`）只能引用 admitted revision。
-- Service-owned Entry 的 roots 以 owner 的私有 realm 解析：admitted ∪ owner 的 exact 传递闭包（含其 Entry 的 exact roots）。range 只能在**已知**的 revision 中选择——一个仅有 `Family.range()` 引用、没有任何 exact 引用的 revision 对 Runtime 不存在。
+- Service-owned Entry 的 roots 以 owner 的私有 realm 解析：admitted ∪ owner 的传递闭包（exact 引用与 range 的 origin revision，含其 Entry 的 roots）。range 由某个 revision 的 `range()` 产生并携带该 **origin**：origin 总是 Runtime 已知的候选（第三轮评审 D35，取代 D16），因此仅以 range 引用、没有任何 exact 引用的私有 Family 也能解析。候选还必须提供 origin 的全部 Contract（否则 `INCOMPATIBLE_IMPLEMENTATION`，可回溯），range 的类型即 origin 的 Contract 视图（D36）；公开 realm 仍只见 admitted。
 - Contract/auto/selector/all 的候选发现始终公开。
 
 ## 8. check() / explain()
 
-只规划，不执行 setup、不发布 Env、不留下 anchor。`explain()` 输出 inherited/new/forked 的 Service 数、Input/synthetic 数、待启动 eager 数、候选选择、每个非继承节点的 cause 与 path；参数缺失时给出 `missingInputs`/`missingBindings`——无论缺失的是 Entry 声明的参数，还是图深处某个 Service 需要而 lineage 未提供的 Input/Binding，也包括 `UNSATISFIABLE_TOPOLOGY` 各候选失败中的缺失。搜索预算耗尽 → `PLANNING_BUDGET_EXCEEDED`（budget error，不是无解证明）。
+只规划，不执行 setup、不发布 Env、不留下 anchor、不消耗 Env 编号。规划并非严格意义上的无副作用：它登记途中遇到的 descriptor，并可能写入 plan cache；两者都以 Runtime 的静态定义集（K01）为界（`inspect().definitions` 给出计数），重复规划不会让 Runtime 越过该集合增长。`explain()` 输出 inherited/new/forked 的 Service 数、Input/synthetic 数、待启动 eager 数、候选选择、每个非继承节点的 cause 与 path；参数缺失时给出 `missingInputs`/`missingBindings`——无论缺失的是 Entry 声明的参数，还是图深处某个 Service 需要而 lineage 未提供的 Input/Binding，也包括 `UNSATISFIABLE_TOPOLOGY` 各候选失败中的缺失。搜索预算耗尽 → `PLANNING_BUDGET_EXCEEDED`（budget error，不是无解证明）。
 
 候选回溯只归因于与选择相关的失败：若某 choice site 的**每个**候选都以完全相同的错误（同 code、同 site、同 details）失败，该失败与选择无关（例如更深处缺失的 Input、别处的 share 违约），按其自身 code 抛出/解释，而不是包装成 `UNSATISFIABLE_TOPOLOGY`；诊断结果因此不依赖 `requires` 键的声明顺序。候选之间失败不同才是 UNSAT，`details.failures` 保留逐候选原因。
 

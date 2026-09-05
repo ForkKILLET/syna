@@ -427,18 +427,23 @@ test('an owner-bound Entry entered during owner activation rejects with OWNER_NO
 })
 
 test('non-semantic metadata drift produces a warning without changing nominal graph identity', async () => {
+  // Only the metadata differs; the setup bodies are textually identical (a
+  // differing body would be a structural conflict since the third review round).
+  let setups = 0
   const canonical = makeDefine('test.metadata-drift', '1.0.0', {
     displayName: 'Canonical name',
-  }).service({ setup: () => ({ id: 1 }) })
+  }).service({ setup: () => ({ id: (setups += 1) }) })
   const copy = makeDefine('test.metadata-drift', '1.0.0', {
     displayName: 'Different display name',
-  }).service({ setup: () => ({ id: 2 }) })
+  }).service({ setup: () => ({ id: (setups += 1) }) })
   const entryDefine = makeDefine('test.metadata-drift-entry')
   const Entry = entryDefine.entry({ requires: { service: copy } })
   const runtime = createRuntime({ services: [canonical, copy] })
   assert.equal(runtime.inspect().definitionWarnings.length, 1)
+  assert.deepEqual(runtime.inspect().admittedServices, [canonical.key])
   const env = await runtime.enter(Entry)
   assert.equal((await env.deps.service.load()).id, 1)
+  assert.equal(setups, 1, 'one canonical revision, set up once')
   await runtime.dispose()
 })
 

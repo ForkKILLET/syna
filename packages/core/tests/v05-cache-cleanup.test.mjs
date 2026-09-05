@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { createRuntime, definePackage, forward } from '../dist/index.js'
+import { PlanTemplateCache } from '../dist/internal/plan-cache.js'
 
 const makeDefine = (id, version = '1.0.0') => definePackage({
   name: `@v05/${id.replaceAll('.', '-')}`,
@@ -216,4 +217,104 @@ test('K09 Ready means every locally owned eager slot is Ready; inherited eager s
   assert.equal(child.state, 'disposed')
   assert.deepEqual(events, ['eager-start', 'aborted', 'eager-dispose'])
   await runtime.dispose()
+})
+
+test('R17 plan templates are keyed by the lineage anchors: equal-shape gap Envs, one anchored and one not, never share a template in either order; a stale hit is re-solved', async () => {
+  // Third review round (C3), the shape of R13 plus a second revision and a range
+  // choice site. Lineage A: the root Binding picks F@1 (lineage-unique) so F is
+  // anchored; lineage B: the root picks G, nothing anchors F. Both then flip the
+  // Binding to G at the gap Site, so the two Sites have identical plans and keys
+  // and differ only in the anchors they inherit. A Request below takes F by range.
+  const build = () => {
+    const define = makeDefine('v05.cache-anchors')
+    const Cap = define.contract()
+    const F1 = makeDefine('v05.cache-anchors.f', '1.0.0').service('f', { uniqueWithin: 'lineage', provides: [Cap], setup: () => ({ version: '1.0.0' }) })
+    const F2 = makeDefine('v05.cache-anchors.f', '2.0.0').service('f', { uniqueWithin: 'lineage', provides: [Cap], setup: () => ({ version: '2.0.0' }) })
+    const G = define.service('g', { provides: [Cap], setup: () => ({ version: 'g' }) })
+    const Choice = define.binding('choice', Cap)
+    const Pool = define.service('pool', { setup: () => ({}) })
+    const Tenant = define.input('tenant')
+    const Leaf = define.service('leaf', { requires: { f: F1.range('*') }, setup: async ({ f }) => ({ f: await f.load() }) })
+    const App = define.entry('app', { requires: { impl: Choice }, parameters: { choice: Choice } })
+    const Site = define.entry('site', { requires: { pool: Pool }, parameters: { tenant: Tenant, choice: Choice } })
+    const Request = define.entry('request', { requires: { leaf: Leaf } })
+    const runtime = createRuntime({ services: [F1, F2, G, Pool, Leaf] })
+    const lineage = async anchored => {
+      const app = await runtime.enter(App, { choice: anchored ? F1 : G })
+      const site = await app.enter(Site, { tenant: anchored ? 'a' : 'b', choice: G })
+      return { app, site, anchorSlot: app.inspect().nodes.find(node => node.kind === 'service' && node.label.includes('/f@'))?.slotId }
+    }
+    const observe = async ({ site, app }) => {
+      const request = await site.enter(Request)
+      const node = request.inspect().nodes.find(node => node.kind === 'service' && node.label.includes('/f@'))
+      const result = { version: (await request.deps.leaf.load()).f.version, owner: node.ownerEnvId === app.id ? 'app' : node.ownerEnvId === request.id ? 'request' : node.ownerEnvId, slot: node.slotId }
+      await request.dispose()
+      return result
+    }
+    return { runtime, lineage, observe }
+  }
+  const expected = (lineage, anchored) => (anchored
+    ? { version: '1.0.0', owner: 'app', slot: lineage.anchorSlot }
+    : { version: '2.0.0', owner: 'request' })
+  const shape = ({ version, owner, slot }, anchored) => (anchored ? { version, owner, slot } : { version, owner })
+
+  for (const anchored of [true, false]) {
+    const world = build()
+    const single = await world.lineage(anchored)
+    assert.deepEqual(shape(await world.observe(single), anchored), expected(single, anchored), 'cold plan')
+    await world.runtime.dispose()
+  }
+  for (const order of [[true, false], [false, true]]) {
+    const world = build()
+    const lineages = new Map()
+    for (const anchored of order) lineages.set(anchored, await world.lineage(anchored))
+    assert.equal(lineages.get(true).site.inspect().nodes.map(node => node.label).join(), lineages.get(false).site.inspect().nodes.map(node => node.label).join(), 'the gap Sites have the same shape')
+    const before = world.runtime.inspect().planCache
+    for (const pass of [1, 2]) {
+      for (const anchored of order) {
+        assert.deepEqual(shape(await world.observe(lineages.get(anchored)), anchored), expected(lineages.get(anchored), anchored), `${order.map(a => (a ? 'anchored' : 'unanchored')).join(' then ')}, pass ${pass}: the ${anchored ? 'anchored' : 'unanchored'} lineage plans as if cold`)
+      }
+    }
+    const after = world.runtime.inspect().planCache
+    assert.equal(after.misses - before.misses, 2, 'one template per anchor set')
+    assert.equal(after.hits - before.hits, 2, 'the second pass hits both')
+    await world.runtime.dispose()
+  }
+
+  // Defence in depth behind the key: a template that reaches slot assignment
+  // under anchors it was not solved for is evicted and solved afresh instead of
+  // surfacing a LINEAGE_UNIQUENESS_CONFLICT a cold plan would not have had.
+  // (The wrong-revision direction is only caught by the key, hence the key.)
+  const world = build()
+  const anchoredLineage = await world.lineage(true)
+  const unanchoredLineage = await world.lineage(false)
+  const originalGet = PlanTemplateCache.prototype.get
+  const originalSet = PlanTemplateCache.prototype.set
+  const requestTemplates = new Map()
+  PlanTemplateCache.prototype.set = function recordingSet(key, value) {
+    if (key.includes('/entry/request/')) requestTemplates.set(key, value)
+    return originalSet.call(this, key, value)
+  }
+  let resolved = 0
+  try {
+    await world.observe(unanchoredLineage)
+    await world.observe(anchoredLineage)
+    const keys = [...requestTemplates.keys()]
+    assert.equal(keys.length, 2)
+    const [unanchoredKey, anchoredKey] = keys
+    PlanTemplateCache.prototype.get = function staleGet(key) {
+      return key === anchoredKey ? requestTemplates.get(unanchoredKey) : originalGet.call(this, key)
+    }
+    PlanTemplateCache.prototype.set = function countingSet(key, value) {
+      if (key === anchoredKey) resolved += 1
+      return originalSet.call(this, key, value)
+    }
+    assert.deepEqual(shape(await world.observe(anchoredLineage), true), expected(anchoredLineage, true), 'a stale template under the anchored lineage is not trusted')
+    assert.equal(resolved, 1, 'the stale hit was evicted and solved afresh')
+  }
+  finally {
+    PlanTemplateCache.prototype.get = originalGet
+    PlanTemplateCache.prototype.set = originalSet
+  }
+  await world.runtime.dispose()
 })

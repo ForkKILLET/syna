@@ -1,6 +1,7 @@
 import type {
   Binding,
   Contract,
+  DefinitionCounts,
   EntryDescriptor,
   Input,
   ServiceFamily,
@@ -24,6 +25,7 @@ export interface DefinitionInspection {
   readonly internalServices: readonly string[]
   readonly overriddenServices: readonly string[]
   readonly warnings: readonly string[]
+  readonly definitions: DefinitionCounts
 }
 
 /**
@@ -85,6 +87,13 @@ export class DefinitionCompiler {
       internalServices: Object.freeze([...this.internalSources.keys()].sort()),
       overriddenServices: Object.freeze([...this.overrideTargets.keys()].sort()),
       warnings: Object.freeze([...this.definitionWarnings].sort()),
+      definitions: Object.freeze({
+        entries: this.entrySignatures.size,
+        inputs: this.inputMetadataSignatures.size,
+        bindings: this.bindingSignatures.size,
+        contracts: this.contractMetadataSignatures.size,
+        families: this.familyStructuralSignatures.size,
+      }),
     })
   }
 
@@ -133,6 +142,7 @@ export class DefinitionCompiler {
       for (const dependencyInput of Object.values(entry.requires)) {
         const dependency = unwrapDependency(dependencyInput)
         if (dependency.kind === 'service-revision') visit(dependency.key)
+        else if (dependency.kind === 'service-range') visit(dependency.origin.key)
         else if (dependency.kind === 'entry') visitEntry(dependency, seenEntries)
       }
     }
@@ -143,7 +153,11 @@ export class DefinitionCompiler {
       result.add(current)
       for (const dependencyInput of Object.values(compiled.requires)) {
         const dependency = unwrapDependency(dependencyInput)
+        // A range's origin is part of the closure like an exact reference: it is
+        // the revision the author held when writing the range, so it (and what it
+        // requires) is always a candidate the private realm may pick.
         if (dependency.kind === 'service-revision') visit(dependency.key)
+        else if (dependency.kind === 'service-range') visit(dependency.origin.key)
         else if (dependency.kind === 'entry') visitEntry(dependency, new Set())
       }
     }
@@ -344,7 +358,10 @@ export class DefinitionCompiler {
       const dependency = unwrapDependency(dependencyInput)
       switch (dependency.kind) {
         case 'service-revision': this.collectInternalRevision(dependency); break
-        case 'service-range': this.registerFamily(dependency.family); break
+        case 'service-range':
+          this.registerFamily(dependency.family)
+          this.collectInternalRevision(dependency.origin)
+          break
         case 'input': this.registerInput(dependency); break
         case 'binding': this.registerBinding(dependency); break
         case 'entry': this.collectEntryDefinitions(dependency); break

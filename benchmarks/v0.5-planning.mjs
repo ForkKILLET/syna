@@ -189,8 +189,10 @@ async function privateRangeAndBoundEntryCase() {
     requires: { helper: Private.range('^1'), handler: world.requestScoped.at(-1) },
     parameters: { request: world.CurrentRequest },
   })
-  // A range selects among revisions the Runtime knows (admitted or in the owner's exact closure).
-  const Owner = define.service('owner', { requires: { entry: PrivateEntry, helper: Private }, setup: ({ entry }) => ({ entry }) })
+  // A range selects among revisions the Runtime knows: admitted, the owner's exact
+  // closure, or (third review round) the range's own origin. The helper is referenced
+  // by range only.
+  const Owner = define.service('owner', { requires: { entry: PrivateEntry }, setup: ({ entry }) => ({ entry }) })
   const OwnerLayer = define.entry('owner-layer', { requires: { owner: Owner } })
   const runtime = createRuntime({ services: [...world.services, Owner], planCache: { maxEntries: 64 }, policy: { orderAutoCandidates: (_c, candidates) => candidates } })
   const app = await runtime.enter(world.App, { choice: Choice(world) })

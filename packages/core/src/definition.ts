@@ -370,7 +370,8 @@ export function definePackage(manifest: PackageManifest): PackageDefinitions {
   >(
     first: string | ServiceDefinition<Requires, Provides, Instance>,
     second?: ServiceDefinition<Requires, Provides, Instance>,
-  ): ServiceRevision<Instance> {
+  ): ServiceRevision<Instance, ProvidedShape<Provides>> {
+    type PublicApi = ProvidedShape<Provides>
     const { name, definition } = definitionArguments(first, second)
     if (typeof definition.setup !== 'function') {
       throw new TypeError(`Service ${serviceId(name)} must define a setup function.`)
@@ -378,35 +379,39 @@ export function definePackage(manifest: PackageManifest): PackageDefinitions {
     if (definition.uniqueWithin !== undefined && definition.uniqueWithin !== 'lineage') {
       throw new TypeError('uniqueWithin must be "lineage" when provided.')
     }
-    const family: ServiceFamily<Instance> = Object.freeze({
+    const family: ServiceFamily<PublicApi> = Object.freeze({
       kind: 'service-family',
       id: serviceId(name),
       uniqueWithin: definition.uniqueWithin ?? 'none',
       metadata: mergeMetadata(packageDescriptor.metadata, definition.metadata),
     })
-    const revision = {
+    const provides = Object.freeze([...(definition.provides ?? [])]) as readonly Contract[]
+    const requiredContractIds = Object.freeze(provides.map(contract => contract.id))
+    const revision: ServiceRevision<Instance, PublicApi> = Object.freeze({
       kind: 'service-revision' as const,
       package: packageDescriptor,
       family,
       version: packageDescriptor.version,
       key: `${family.id}@${packageDescriptor.version}`,
       requires: freezeRecord((definition.requires ?? {}) as Requires),
-      provides: Object.freeze([...(definition.provides ?? [])]) as unknown as Provides,
+      provides,
       eager: definition.eager ?? false,
       failure: normalizeFailure(definition.failure),
       setupDeadlineMs: normalizeDeadline(definition.setupDeadlineMs),
       metadata: freezeMetadata(definition.revisionMetadata),
-      setup: definition.setup,
+      setup: definition.setup as ServiceRevision<Instance, PublicApi>['setup'],
       range(version = '*') {
         assertValidRange(version, `Range for ${family.id}`)
         return Object.freeze({
           kind: 'service-range' as const,
           family,
           range: version,
-        }) as ServiceRange<ServiceFamily<Instance>>
+          origin: revision,
+          requiredContractIds,
+        })
       },
-    }
-    return Object.freeze(revision) as ServiceRevision<Instance>
+    })
+    return revision
   }
 
   function defineEntry<
@@ -449,7 +454,7 @@ export function definePackage(manifest: PackageManifest): PackageDefinitions {
   }) as PackageDefinitions
 }
 
-export function serviceRange<S extends ServiceRevision<any>>(
+export function serviceRange<S extends ServiceRevision<any, any>>(
   service: S,
   range = '*',
 ): ServiceRange<S['family']> {

@@ -87,11 +87,12 @@ Options: `requires`, `provides`, `eager`, `uniqueWithin: 'lineage'`, `failure`, 
 ```ts
 interface DependencyRef<T> {
   load(options?: { signal?: AbortSignal }): Promise<T>
+  /** @deprecated equals `void ref.load().catch(() => undefined)` */
   preload(): void
 }
 ```
 
-`load()` materializes the already-planned slot and returns a **plain Promise**. The Runtime attaches no barrier, no completion tracking and no obligation to the caller: `catch` for degraded mode, `Promise.race` fallbacks and un-awaited background loads behave as JavaScript defines. `signal` ends only this caller's wait (`LOAD_CANCELLED`); the shared attempt continues for other waiters. `preload()` starts the real slot in the background; its failure follows the slot's failure policy and is visible to later `load()` calls. A ref is never thenable: `Promise.resolve(ref)` yields the ref.
+`load()` materializes the already-planned slot and returns a **plain Promise**. The Runtime attaches no barrier, no completion tracking and no obligation to the caller: `catch` for degraded mode, `Promise.race` fallbacks and un-awaited background loads behave as JavaScript defines. `signal` ends only this caller's wait (`LOAD_CANCELLED`); the shared attempt continues for other waiters. `preload()` (**deprecated**) is `void ref.load().catch(() => undefined)`: it starts the real slot in the background, its failure follows the slot's failure policy and is visible to later `load()` calls; it is kept as the structural discriminator that keeps Input refs out of `loadAll()`. A ref is never thenable: `Promise.resolve(ref)` yields the ref.
 
 ```ts
 const { database, logger } = await loadAll({ database, logger })   // Service refs only; a catchable batch
@@ -100,6 +101,8 @@ const { database, logger } = await loadAll({ database, logger })   // Service re
 ### `ServiceRevision`
 
 `family.id` (stable export identity), `version`, `key` (`family@version`), `requires`, `provides`, `eager`, `failure`, `setupDeadlineMs`, `metadata`, `setup`, `range(version = '*')`.
+
+`Revision.range(version)` (or `serviceRange(Revision, version)`) is a compatible-revision reference that carries its **origin**, the revision it was taken from. The Runtime chooses among the revisions of the Family it knows at the site (admitted ones, the consumer's private closure, and the origin itself) that satisfy the range and provide every Contract the origin provides; when compatible revisions exist but none provides them the plan fails with `INCOMPATIBLE_IMPLEMENTATION` (`details.required`, `details.candidates`). Because another revision may be chosen, the ref types as the origin's **Contract view** (`ProvidedShape<Provides>`, `unknown` without `provides`), not as its instance type; an exact reference keeps the full instance type.
 
 ## Entry
 
@@ -169,7 +172,7 @@ An Env is Ready when every eager slot it owns is Ready; inherited eager slots ar
 
 ## BoundEntry
 
-A Service that requires an Entry receives a `BoundEntry` anchored at the **owner Env of the Service slot** (not at any caller). Its roots resolve in the owner's private realm (exact and range alike); Contract discovery stays public. `enter()`/`run()` need a Ready anchor; `check()`/`explain()` are pure and may run while the anchor activates.
+A Service that requires an Entry receives a `BoundEntry` anchored at the **owner Env of the Service slot** (not at any caller). Its roots resolve in the owner's private realm (exact and range alike); Contract discovery stays public. `enter()`/`run()` need a Ready anchor; `check()`/`explain()` only plan (no setup, no Env, no anchor, no Env id consumed; they register the descriptors they meet and may fill the plan cache, both bounded by the static definition set, see `inspect().definitions`) and may run while the anchor activates.
 
 ```ts
 const UnitOfWork = define.service('unit-of-work', {

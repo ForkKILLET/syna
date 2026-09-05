@@ -120,11 +120,21 @@ export interface ServiceFamily<PublicApi = unknown> {
 export type ServiceFamilyApi<F> =
   F extends ServiceFamily<infer Api> ? Api : never
 
-/** Choose an admitted compatible revision of one Service Family. */
+/**
+ * Choose a compatible revision of one Service Family among the revisions the
+ * Runtime knows: the admitted ones, the consumer's private exact closure and
+ * the `origin` the range was taken from. Every candidate must provide the
+ * Contracts of the origin (`requiredContractIds`), which is why a range types
+ * as the origin's Contract view and never as its private instance shape.
+ */
 export interface ServiceRange<F extends ServiceFamily<any> = ServiceFamily<any>> {
   readonly kind: 'service-range'
   readonly family: F
   readonly range: string
+  /** The revision `range()` was called on; always a candidate the Runtime knows. */
+  readonly origin: ServiceRevision<any, any>
+  /** Contract ids a chosen revision must provide: the origin's `provides`. */
+  readonly requiredContractIds: readonly string[]
 }
 
 /** Defers descriptor lookup so JavaScript modules can declare structural cycles. */
@@ -141,7 +151,7 @@ export interface Binding<C extends Contract<any> = Contract<any>> {
   readonly contract: C
   readonly metadata: Readonly<DescriptorMetadata>
 
-  to<S extends ServiceRevision<any>>(
+  to<S extends ServiceRevision<any, any>>(
     service: ServiceInstance<S> extends ContractApi<C> ? S : never,
     version?: string,
   ): PersistentImplementationRef<C>
@@ -186,7 +196,7 @@ export interface BoundEntry<E extends EntryDescriptor<any, any>> {
 
 /** Every descriptor accepted in a Service or Entry `requires` map. */
 export type Dependency =
-  | ServiceRevision<any>
+  | ServiceRevision<any, any>
   | ServiceRange<any>
   | Contract<any>
   | Input<any>
@@ -203,7 +213,7 @@ export type UnwrapForward<D> =
   D extends ForwardDependency<infer Inner> ? UnwrapForward<Inner> : D
 
 export type DependencyOutput<D> =
-  UnwrapForward<D> extends ServiceRevision<infer Instance>
+  UnwrapForward<D> extends ServiceRevision<infer Instance, any>
     ? Instance
     : UnwrapForward<D> extends ServiceRange<infer Family>
       ? ServiceFamilyApi<Family>
@@ -238,6 +248,11 @@ export interface DependencyRef<T> {
   /**
    * Start materialization of the real slot without waiting. Failures follow
    * the slot's normal failure policy and are visible to later `load()` calls.
+   *
+   * @deprecated Since v0.5 an un-awaited `load()` is already a background
+   * operation; `preload()` is `void ref.load().catch(() => undefined)` and is
+   * kept only as the structural discriminator that keeps Input refs out of
+   * `loadAll()`.
    */
   preload(): void
 }
@@ -293,11 +308,17 @@ export interface ServiceDefinition<
   ) => SetupResult<Instance>
 }
 
-/** Exact Service revision exported by one installed package instance. */
-export interface ServiceRevision<Instance = unknown> {
+/**
+ * Exact Service revision exported by one installed package instance. `Instance`
+ * is what an exact reference loads; `PublicApi` (the intersection of the
+ * provided Contract APIs, `unknown` without `provides`) is what a range taken
+ * from this revision loads, because the Runtime may satisfy the range with
+ * another revision of the Family.
+ */
+export interface ServiceRevision<Instance = unknown, PublicApi = unknown> {
   readonly kind: 'service-revision'
   readonly package: PackageDescriptor
-  readonly family: ServiceFamily<Instance>
+  readonly family: ServiceFamily<PublicApi>
   readonly version: string
   readonly key: string
   readonly requires: DependencyMap
@@ -310,11 +331,12 @@ export interface ServiceRevision<Instance = unknown> {
     dependencies: DependencyRefs<DependencyMap>,
     lifecycle: ServiceLifecycle,
   ): SetupResult<Instance>
-  range(version?: string): ServiceRange<ServiceFamily<Instance>>
+  /** A compatible-revision reference; it loads the Contract view of this revision, see `ServiceRange`. */
+  range(version?: string): ServiceRange<ServiceFamily<PublicApi>>
 }
 
 export type ServiceInstance<S> =
-  S extends ServiceRevision<infer Instance> ? Instance : never
+  S extends ServiceRevision<infer Instance, any> ? Instance : never
 
 /** Exact collection-local candidate identity. It is intentionally not durable. */
 export interface CandidateRef<C extends Contract<any> = Contract<any>> {
@@ -589,10 +611,25 @@ export interface UnsettledAttemptInspection {
   readonly runningForMs: number
 }
 
+/**
+ * Distinct descriptors the Runtime has registered so far. Planning
+ * (`check`/`explain` included) registers every descriptor it meets, so these
+ * counts can grow after construction, but only up to the static definition
+ * set reachable from the admitted Services and the Entries ever planned (K01).
+ */
+export interface DefinitionCounts {
+  readonly entries: number
+  readonly inputs: number
+  readonly bindings: number
+  readonly contracts: number
+  readonly families: number
+}
+
 export interface RuntimeInspection {
   readonly admittedServices: readonly string[]
   readonly internalServices: readonly string[]
   readonly overriddenServices: readonly string[]
+  readonly definitions: DefinitionCounts
   /** Root Envs that have not completed their bounded close. */
   readonly rootEnvCount: number
   /** Envs (any depth) that have not completed their bounded close. */
@@ -827,7 +864,7 @@ export interface PackageDefinitions {
     Instance extends ProvidedShape<Provides> = ProvidedShape<Provides>,
   >(
     definition: ServiceDefinition<Requires, Provides, Instance>,
-  ): ServiceRevision<Instance>
+  ): ServiceRevision<Instance, ProvidedShape<Provides>>
 
   service<
     const Requires extends DependencyMap = {},
@@ -836,7 +873,7 @@ export interface PackageDefinitions {
   >(
     name: string,
     definition: ServiceDefinition<Requires, Provides, Instance>,
-  ): ServiceRevision<Instance>
+  ): ServiceRevision<Instance, ProvidedShape<Provides>>
 
   entry<
     const Requires extends DependencyMap = {},

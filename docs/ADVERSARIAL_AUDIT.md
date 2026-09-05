@@ -14,6 +14,8 @@ This document records the attacks that changed the v0.4 implementation. It is no
 
 **Correction:** intent is explicit. `load()` is always strong during setup and joins a completion barrier; `preload()` is explicitly non-blocking. The wait graph now models declared operational semantics instead of guessing source-level `await`.
 
+*Superseded in v0.5:* there is no completion barrier any more. `load()` returns a plain Promise, an un-awaited `load()` is a background operation and `preload()` is deprecated (`docs/SEMANTIC_CHANGES_V05.md` §6, K07 in `packages/core/tests/v05-promises.test.mjs`).
+
 ## Retry during disposal
 
 **Attack:** retry continued through an aborted signal and made Env disposal wait for the entire retry schedule.

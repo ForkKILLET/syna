@@ -450,3 +450,69 @@ test('R-4 the dependencies of an abandoned attempt are closed in the normal orde
   assert.equal(runtime.inspect().unsettledAttempts.length, 0)
   await runtime.dispose()
 })
+
+test('R-5 a setup deadline that fires inside the disposal grace does not hide the attempt: the close reports it, the Env stays disposing until it settles', async () => {
+  // Third review round (C4): dispose() issued before the deadline. The setup
+  // sequence settles inside the grace (by timing out), but the raw setup is still
+  // running; it must get the rest of the grace and then be reported like any
+  // other abandoned attempt.
+  const define = makeDefine('v05.review.deadline-in-grace')
+  const gate = deferred()
+  const started = deferred()
+  const events = []
+  const Slow = define.service('slow', {
+    setupDeadlineMs: 10,
+    async setup(_deps, { onDispose }) {
+      onDispose(() => events.push('cleanup'))
+      started.resolve()
+      await gate.promise
+      return {}
+    },
+  })
+  const Entry = define.entry({ requires: { slow: Slow } })
+  const runtime = createRuntime({ services: [Slow], disposal: { graceMs: 400 }, diagnostics: { onEvent: event => events.push(event.type) } })
+  const env = await runtime.enter(Entry)
+  const load = env.deps.slow.load()
+  void load.catch(() => undefined)
+  await started.promise
+  const closedAt = Date.now()
+  const error = await env.dispose().catch(error => error)
+  await assert.rejects(load, error => error.code === 'INITIALIZATION_TIMEOUT')
+  assert.ok(Date.now() - closedAt >= 300, 'the attempt got the remainder of the grace after its deadline')
+  assert.ok(error instanceof AggregateError && error.errors.some(item => item.code === 'UNSETTLED_ATTEMPT'), `the close reports the attempt that outlived it: ${String(error)}`)
+  assert.equal(env.state, 'disposing')
+  assert.equal(env.inspect().nodes[0].state, 'abandoned')
+  assert.ok(events.includes('attempt-abandoned'))
+  assert.deepEqual([runtime.inspect().liveEnvCount, runtime.inspect().unsettledAttempts.length], [0, 1])
+  assert.equal(runtime.inspect().unsettledAttempts[0].state, 'abandoned')
+
+  gate.resolve()
+  await waitFor(() => env.state === 'disposed')
+  assert.ok(events.includes('cleanup'))
+  assert.equal(env.inspect().nodes[0].state, 'disposed')
+  assert.equal(runtime.inspect().unsettledAttempts.length, 0)
+  await runtime.dispose()
+
+  // Control: a deadline longer than the grace takes the running-attempt path and
+  // yields the same report shape.
+  const control = makeDefine('v05.review.deadline-after-grace')
+  const controlGate = deferred()
+  const controlEvents = []
+  const SlowControl = control.service('slow', {
+    setupDeadlineMs: 10_000,
+    async setup(_deps, { onDispose }) { onDispose(() => controlEvents.push('cleanup')); await controlGate.promise; return {} },
+  })
+  const ControlEntry = control.entry({ requires: { slow: SlowControl } })
+  const controlRuntime = createRuntime({ services: [SlowControl], disposal: { graceMs: 20 }, diagnostics: { onEvent: event => controlEvents.push(event.type) } })
+  const controlEnv = await controlRuntime.enter(ControlEntry)
+  void controlEnv.deps.slow.load().catch(() => undefined)
+  await sleep(2)
+  const controlError = await controlEnv.dispose().catch(error => error)
+  assert.ok(controlError.errors.some(item => item.code === 'UNSETTLED_ATTEMPT'))
+  assert.equal(controlEnv.state, 'disposing')
+  assert.ok(controlEvents.includes('attempt-abandoned'))
+  controlGate.resolve()
+  await waitFor(() => controlEnv.state === 'disposed')
+  assert.ok(controlEvents.includes('cleanup'))
+  await controlRuntime.dispose()
+})

@@ -115,14 +115,33 @@ export class GraphBuilder {
 
       case 'service-range': {
         this.host.registerFamily(dependency.family)
-        const candidates = this.host.familyRevisions(dependency.family.id)
+        const visible = this.host.familyRevisions(dependency.family.id)
           .filter(revision => realmAllows(realm, revision.key, revision.admitted))
           .filter(revision => satisfiesVersion(revision.version, dependency.range))
-        if (candidates.length === 0) {
+        if (visible.length === 0) {
           throw new SynaError(
             'MISSING_SERVICE',
             `No revision of ${dependency.family.id} visible at ${site} satisfies ${dependency.range}.`,
             { family: dependency.family.id, range: dependency.range, site, realm: realm.id },
+          )
+        }
+        // A range loads the Contract view of its origin, so only revisions that
+        // provide every Contract of the origin can stand in for it.
+        const required = dependency.requiredContractIds ?? []
+        const candidates = visible.filter(revision => required.every(id => providesContract(revision, { id })))
+        if (candidates.length === 0) {
+          throw new SynaError(
+            'INCOMPATIBLE_IMPLEMENTATION',
+            `No revision of ${dependency.family.id} visible at ${site} satisfies ${dependency.range} and provides the Contracts of ${dependency.origin.key} (${required.join(', ')}).`,
+            {
+              family: dependency.family.id,
+              range: dependency.range,
+              site,
+              realm: realm.id,
+              origin: dependency.origin.key,
+              required,
+              candidates: visible.map(revision => ({ revision: revision.key, provides: revision.provides.map(contract => contract.id) })),
+            },
           )
         }
         const ordered = this.host.orderCandidates(

@@ -48,8 +48,22 @@ test('R06 override: Real needs config, Fake does not; Fake adds its own private 
   assert.deepEqual(runtime.inspect().overriddenServices, [Real.key])
   assert.ok(runtime.inspect().internalServices.includes(Helper.key))
   assert.deepEqual(runtime.catalog.implementations(Db).map(item => item.familyId), [Real.family.id])
+  // `fresh: [Real]` forks the compiled override (the Fake under Real's identity) and
+  // its reverse closure into the derived Env; the Fake's private helper has no
+  // dependency on Real and stays shared with the parent.
   const fresh = await env.derive({ fresh: [Real] })
-  assert.notStrictEqual(await (await fresh.deps.consumer?.load?.() ?? { exact: consumer.exact }).exact.load(), undefined)
+  const ownersOf = (handle, needle) => [...new Set(handle.inspect().nodes.filter(node => node.label.includes(needle)).map(node => node.ownerEnvId))]
+  assert.deepEqual(ownersOf(fresh, '/postgres@'), [fresh.id])
+  assert.deepEqual(ownersOf(fresh, '/consumer@'), [fresh.id])
+  assert.deepEqual(ownersOf(fresh, '/fake-helper@'), [env.id])
+  const freshEntry = await fresh.enter(Entry)
+  const freshConsumer = await freshEntry.deps.consumer.load()
+  const freshValues = await Promise.all([
+    freshConsumer.exact.load(), freshConsumer.strict.load(), freshConsumer.automatic.load(), freshConsumer.range.load(),
+  ])
+  assert.ok(freshValues.every(value => value === freshValues[0]), 'every resolution path agrees inside the fork too')
+  assert.notStrictEqual(freshValues[0], values[0], 'the fork owns a new instance')
+  assert.deepEqual(freshValues[0], { source: 'fake', helper: true }, 'and it is still the Fake')
   await runtime.dispose()
 
   // Explicitly admitting the Fake as well makes it a second, independent candidate.
@@ -65,14 +79,19 @@ test('R07 a Service-owned Entry resolves exact and range private roots identical
   const define = makeDefine('v05.private-realm')
   const Capability = define.contract()
   const Transaction = define.service('transaction', { provides: [Capability], setup: () => ({ id: 'tx' }) })
+  // Third review round (C1): a Family the owner references only by range, never exactly.
+  // The range carries its origin revision, so the origin is a candidate of the private realm.
+  const Ledger = makeDefine('v05.private-realm.ledger').service('ledger', { setup: () => ({ version: '1.0.0' }) })
   const ExactEntry = define.entry('tx-exact', { requires: { tx: Transaction } })
   const RangeEntry = define.entry('tx-range', { requires: { tx: Transaction.range('^1.0.0') } })
+  const LedgerEntry = define.entry('ledger', { requires: { ledger: Ledger.range('^1') } })
   const ContractEntry = define.entry('tx-contract', { requires: { tx: Capability } })
   const UnitOfWork = define.service('uow', {
-    requires: { exact: ExactEntry, range: RangeEntry, contract: ContractEntry },
-    setup: ({ exact, range, contract }) => ({
+    requires: { exact: ExactEntry, range: RangeEntry, ledger: LedgerEntry, contract: ContractEntry },
+    setup: ({ exact, range, ledger, contract }) => ({
       exact: async () => (await exact.load()).run(async ({ tx }) => (await tx.load()).id),
       range: async () => (await range.load()).run(async ({ tx }) => (await tx.load()).id),
+      ledger: async () => (await ledger.load()).run(async ({ ledger }) => (await ledger.load()).version),
       contractCheck: async () => (await contract.load()).check(),
     }),
   })
@@ -82,13 +101,48 @@ test('R07 a Service-owned Entry resolves exact and range private roots identical
   const uow = await app.deps.uow.load()
   assert.equal(await uow.exact(), 'tx')
   assert.equal(await uow.range(), 'tx')
+  assert.equal(await uow.ledger(), '1.0.0', 'a range-only private Family resolves to the range origin')
+  assert.ok(runtime.inspect().internalServices.includes(Ledger.key))
+  assert.ok(!runtime.inspect().admittedServices.includes(Ledger.key))
   const contractCheck = await uow.contractCheck()
   assert.equal(contractCheck.ok, false)
   assert.equal(contractCheck.error.code, 'MISSING_IMPLEMENTATION', 'Contract discovery stays public')
   await assert.rejects(app.enter(ExactEntry), error => error.code === 'MISSING_SERVICE')
   await assert.rejects(app.enter(RangeEntry), error => error.code === 'MISSING_SERVICE')
+  await assert.rejects(app.enter(LedgerEntry), error => error.code === 'MISSING_SERVICE', 'the range origin is private to its owner')
   await assert.rejects(app.bind(ExactEntry).enter(), error => error.code === 'MISSING_SERVICE')
+  await assert.rejects(app.bind(LedgerEntry).enter(), error => error.code === 'MISSING_SERVICE')
   assert.deepEqual(runtime.catalog.implementations(Capability), [])
+  await runtime.dispose()
+})
+
+test('R07 a range prefers an admitted newer revision over its private origin, and only revisions providing the origin\'s Contracts are candidates', async () => {
+  // Third review round (C1/C2): candidates = {origin} ∪ owner closure ∪ admitted,
+  // filtered by the origin's Contracts (a range loads the Contract view).
+  const define = makeDefine('v05.private-realm.versions')
+  const Cap = define.contract('cap')
+  const Ledger10 = makeDefine('v05.ledger', '1.0.0').service('ledger', { provides: [Cap], setup: () => ({ version: '1.0.0', check: () => 'ok' }) })
+  const Ledger11 = makeDefine('v05.ledger', '1.1.0').service('ledger', { provides: [Cap], setup: () => ({ version: '1.1.0', check: () => 'ok' }) })
+  const Ledger12 = makeDefine('v05.ledger', '1.2.0').service('ledger', { setup: () => ({ version: '1.2.0' }) })
+  const PrivateEntry = define.entry('private', { requires: { ledger: Ledger10.range('^1') } })
+  const Owner = define.service('owner', {
+    requires: { entry: PrivateEntry },
+    setup: ({ entry }) => ({ version: async () => (await entry.load()).run(async ({ ledger }) => (await ledger.load()).version) }),
+  })
+  const Public = define.entry('public', { requires: { ledger: Ledger10.range('^1') } })
+  const App = define.entry('app', { requires: { owner: Owner } })
+  const runtime = createRuntime({ services: [Owner, Ledger11, Ledger12] })
+  const app = await runtime.enter(App)
+  assert.equal(await (await app.deps.owner.load()).version(), '1.1.0', 'private consumer: the admitted 1.1.0 beats the private origin 1.0.0; 1.2.0 dropped the Contract')
+  const pub = await app.enter(Public)
+  assert.equal((await pub.deps.ledger.load()).version, '1.1.0', 'the public consumer agrees')
+  const incompatible = await app.check(define.entry('only-incompatible', { requires: { ledger: Ledger10.range('^1.2') } }))
+  assert.equal(incompatible.ok, false)
+  assert.equal(incompatible.error.code, 'INCOMPATIBLE_IMPLEMENTATION')
+  assert.deepEqual(incompatible.error.details.required, [Cap.id])
+  assert.deepEqual(incompatible.error.details.candidates, [{ revision: Ledger12.key, provides: [] }])
+  const bare = await app.check(define.entry('bare', { requires: { ledger: Ledger12.range('^1') } }))
+  assert.equal(bare.ok, true, 'a range from a revision without provides accepts any compatible revision')
   await runtime.dispose()
 })
 

@@ -2,11 +2,14 @@ import {
   createRuntime,
   definePackage,
   loadAll,
+  serviceRange,
   type DependencyRef,
   type EntryExplanation,
   type EntryParameters,
   type InputRef,
+  type ServiceFamily,
   type ServiceInstance,
+  type ServiceRange,
 } from '../src/index.js'
 
 const define = definePackage({
@@ -151,3 +154,26 @@ const InputConsumer = define.service('input-consumer', {
   },
 })
 void InputConsumer
+
+// A range loads the Contract view of its origin revision (third review round, C2):
+// the Runtime may satisfy it with another revision of the Family, so revision-private
+// members are not visible through it, and a revision without `provides` yields `unknown`.
+const ViaRange = define.service('via-range', {
+  requires: { impl: Implementation.range('^2'), bare: Minimal.range() },
+  async setup({ impl, bare }) {
+    const api: Capability = await impl.load()
+    const rangeRef: DependencyRef<Capability> = impl
+    void rangeRef
+    // @ts-expect-error `privateMethod` belongs to the revision, not to the Contract view a range loads.
+    void (await impl.load()).privateMethod()
+    const bareValue: unknown = await bare.load()
+    // @ts-expect-error Without `provides` the range yields `unknown`.
+    void (await bare.load()).ping()
+    return { api, bareValue }
+  },
+})
+void ViaRange
+const viaHelper: ServiceRange<ServiceFamily<Capability>> = serviceRange(Implementation, '^2')
+void viaHelper
+const exactStillFull: DependencyRef<Implementation> = null as unknown as DependencyRef<ServiceInstance<typeof Implementation>>
+void exactStillFull

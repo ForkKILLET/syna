@@ -203,23 +203,29 @@ export class Materializer {
 
   private async settleSlot(slot: ServiceSlot): Promise<AbandonedAttempt | undefined> {
     const graceMs = this.options.disposalGraceMs
+    const startedAt = Date.now()
     if (slot.state === 'starting' && slot.sequence) {
-      if (await settlesWithin(slot.sequence, graceMs)) return undefined
-      const running = slot.attempt
-      slot.state = 'abandoned'
-      if (running && running.state === 'running') {
-        running.state = 'abandoned'
-        slot.unsettledAttempt = running
-        running.abandon()
+      if (!(await settlesWithin(slot.sequence, graceMs))) {
+        const running = slot.attempt
+        slot.state = 'abandoned'
+        if (running && running.state === 'running') {
+          running.state = 'abandoned'
+          slot.unsettledAttempt = running
+          running.abandon()
+        }
+        const attempt = slot.unsettledAttempt ?? running
+        if (!attempt) return undefined
+        this.reportAbandoned(slot, attempt)
+        return { slot, attempt }
       }
-      const attempt = slot.unsettledAttempt ?? running
-      if (!attempt) return undefined
-      this.reportAbandoned(slot, attempt)
-      return { slot, attempt }
+      // The sequence settled inside the grace, possibly by its own deadline: the
+      // raw setup is then still running as `unsettledAttempt` and gets the rest
+      // of the same grace below instead of vanishing from the close report.
     }
     const attempt = slot.unsettledAttempt
     if (!attempt) return undefined
-    if (await settlesWithin(attempt.settled, graceMs)) return undefined
+    const remainingMs = Number.isFinite(graceMs) ? Math.max(0, graceMs - (Date.now() - startedAt)) : graceMs
+    if (await settlesWithin(attempt.settled, remainingMs)) return undefined
     slot.state = 'abandoned'
     this.reportAbandoned(slot, attempt)
     return { slot, attempt }

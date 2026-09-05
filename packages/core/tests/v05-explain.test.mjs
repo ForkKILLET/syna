@@ -97,3 +97,34 @@ test('K12 check/explain never execute setup and report unsatisfiable constraints
   assert.ok(Object.values(solved.choices).every(key => key === Pick2.key || key === Fixed2.key))
   await runtime.dispose()
 })
+
+test('K12 planning consumes no Env id and grows the registries only by the distinct descriptors it meets', async () => {
+  // Third review round (C5): check()/explain() register descriptors and may fill
+  // the plan cache, but publish nothing and never advance the Env numbering.
+  const define = makeDefine('v05.explain-bounded')
+  const Tenant = define.input('tenant')
+  const Capability = define.contract()
+  const Choice = define.binding('choice', Capability)
+  const Impl = define.service('impl', { provides: [Capability], setup: () => ({}) })
+  const Cache = define.service('cache', { requires: { tenant: Tenant, impl: Choice }, setup: () => ({}) })
+  const App = define.entry('app', { requires: {} })
+  const Site = define.entry('site', { requires: { cache: Cache }, parameters: { tenant: Tenant, choice: Choice } })
+  const runtime = createRuntime({ services: [Cache, Impl] })
+  const app = await runtime.enter(App)
+  const before = runtime.inspect()
+  assert.deepEqual(before.definitions, { entries: 1, inputs: 1, bindings: 1, contracts: 1, families: 2 })
+  for (let index = 0; index < 50; index += 1) {
+    const check = await app.check(Site, { tenant: `t${index}`, choice: Impl })
+    assert.equal(check.ok, true)
+    const explanation = await app.explain(Site, { tenant: `t${index}`, choice: Impl })
+    assert.equal(explanation.ok, true)
+  }
+  const after = runtime.inspect()
+  assert.deepEqual([after.liveEnvCount, after.rootEnvCount], [before.liveEnvCount, before.rootEnvCount])
+  assert.deepEqual(after.definitions, { ...before.definitions, entries: 2 }, 'only the Entry planned for the first time was new')
+  assert.equal(after.planCache.entries - before.planCache.entries, 1, 'one template for 100 plans of the same shape')
+  const site = await app.enter(Site, { tenant: 'real', choice: Impl })
+  assert.equal(site.id, `env-${Number(app.id.slice('env-'.length)) + 1}`, 'planning consumed no Env id')
+  assert.deepEqual(runtime.inspect().definitions, after.definitions)
+  await runtime.dispose()
+})

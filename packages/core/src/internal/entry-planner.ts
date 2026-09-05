@@ -41,6 +41,7 @@ import type {
 } from './runtime-model.js'
 import { NeedChoice } from './runtime-model.js'
 import {
+  compactDigest,
   dependencyIdentity,
   isServiceRevision,
   providesContract,
@@ -121,24 +122,6 @@ interface CachedGraphTemplate {
   readonly parentSignature: string | undefined
 }
 
-/**
- * Compact, deterministic digest used only to keep plan-template keys small: the
- * parent's full graph signature is verified on a hit, so a digest collision can
- * cost a cache miss but never a wrong template.
- */
-function compactDigest(text: string): string {
-  let h1 = 0xdeadbeef
-  let h2 = 0x41c6ce57
-  for (let index = 0; index < text.length; index += 1) {
-    const code = text.charCodeAt(index)
-    h1 = Math.imul(h1 ^ code, 2654435761)
-    h2 = Math.imul(h2 ^ code, 1597334677)
-  }
-  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909)
-  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909)
-  return `${(h2 >>> 0).toString(16).padStart(8, '0')}${(h1 >>> 0).toString(16).padStart(8, '0')}:${text.length}`
-}
-
 export interface PlanningParent extends EnvPlanView {
   readonly id: string
 }
@@ -169,6 +152,8 @@ export class EntryPlanner implements GraphBuilderHost {
 
   private readonly planTemplates: PlanTemplateCache<CachedGraphTemplate>
   private nextEnvNumber = 1
+  /** check()/explain() number their plans separately: planning consumes no Env id. */
+  private nextCheckNumber = 1
   private nextSlotNumber = 1
 
   constructor(
@@ -205,7 +190,7 @@ export class EntryPlanner implements GraphBuilderHost {
       throw new SynaError('INVALID_DESCRIPTOR', `Entry ${descriptor.id} parameters must be an object.`)
     }
 
-    const envId = `${checking ? 'check' : 'env'}-${this.nextEnvNumber++}`
+    const envId = checking ? `check-${this.nextCheckNumber++}` : `env-${this.nextEnvNumber++}`
     const normalizedInput = (input ?? {}) as EntryParameters<E>
     const inputs = this.prepareInputs(envId, parent, descriptor, normalizedInput)
     const bindings = this.prepareBindings(envId, parent, descriptor, normalizedInput)
@@ -263,10 +248,19 @@ export class EntryPlanner implements GraphBuilderHost {
     const templateKey = this.planTemplateKey(parent, descriptor, inputs.slots, bindings.choices, fresh, share, realm)
     const cached = this.planTemplates.get(templateKey)
     if (cached && cached.parentSignature === parent?.plan.signature) {
-      return {
-        envId,
-        plan: this.assignSlots(planInput, cached.graph, cached.choices, cached.signature),
-        rootSiteByEntryKey,
+      try {
+        return {
+          envId,
+          plan: this.assignSlots(planInput, cached.graph, cached.choices, cached.signature),
+          rootSiteByEntryKey,
+        }
+      }
+      catch (error) {
+        // Defence in depth behind the key: a template whose choices no longer fit
+        // this parent's lineage is evicted and the plan is solved afresh instead of
+        // reporting a conflict a cold plan would not have had.
+        if (!isBacktrackableTopologyError(error)) throw error
+        this.planTemplates.delete(templateKey)
       }
     }
 
@@ -456,9 +450,17 @@ export class EntryPlanner implements GraphBuilderHost {
       ...[...targets.revisionKeys].map(key => `revision:${key}`),
       ...[...targets.familyIds].map(id => `family:${id}`),
     ].sort().join(',')
+    // Lineage anchors reach a child through gap Envs whose own graph (and thus
+    // signature) never mentions them, yet they decide which revision a
+    // lineage-unique family may take below. They are part of the plan shape.
+    const anchorShape = [...(parent?.plan.anchors ?? new Map<string, ServiceSlot>()).entries()]
+      .map(([familyId, slot]) => `${familyId}=${slot.service.key}`)
+      .sort()
+      .join(',')
     return [
       parent ? compactDigest(parent.plan.signature) : 'root',
       `lineage=${parent?.plan.lineageKey ?? 'root'}`,
+      `anchors=${anchorShape ? compactDigest(anchorShape) : 'none'}`,
       `realm=${realm.id}`,
       entryDefinitionSignature(descriptor),
       `parameters=${inputShape}`,

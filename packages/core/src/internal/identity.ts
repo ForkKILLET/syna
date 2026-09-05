@@ -56,7 +56,7 @@ export function dependencyIdentity(input: Dependency): string {
   const dependency = unwrapDependency(input)
   switch (dependency.kind) {
     case 'service-revision': return `service:${dependency.key}`
-    case 'service-range': return `range:${dependency.family.id}@${dependency.range}`
+    case 'service-range': return `range:${dependency.family.id}@${dependency.range}#${dependency.origin.key}`
     case 'contract': return `strict-contract:${dependency.id}`
     case 'input': return `input:${dependency.id}`
     case 'binding': return `binding:${dependency.id}:${dependency.contract.id}`
@@ -85,7 +85,32 @@ export function stableJson(value: unknown): string {
   return JSON.stringify(value) ?? 'undefined'
 }
 
-/** Structural identity only. Human-facing metadata is intentionally excluded. */
+/**
+ * Compact, deterministic digest (two mixed 32-bit hashes plus the length). It
+ * keeps signatures and plan-template keys small; wherever a collision could
+ * matter the full text is verified separately, so a collision costs a cache
+ * miss or an unreported drift, never a wrong plan.
+ */
+export function compactDigest(text: string): string {
+  let h1 = 0xdeadbeef
+  let h2 = 0x41c6ce57
+  for (let index = 0; index < text.length; index += 1) {
+    const code = text.charCodeAt(index)
+    h1 = Math.imul(h1 ^ code, 2654435761)
+    h2 = Math.imul(h2 ^ code, 1597334677)
+  }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909)
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909)
+  return `${(h2 >>> 0).toString(16).padStart(8, '0')}${(h1 >>> 0).toString(16).padStart(8, '0')}:${text.length}`
+}
+
+/**
+ * Structural identity only. Human-facing metadata is intentionally excluded.
+ * The setup function takes part through the digest of its source text: two
+ * physical copies of one revision whose setup bodies differ are two
+ * definitions, not one that silently wins. Captured state and native functions
+ * are invisible to this comparison (documented limit).
+ */
 export function revisionStructuralSignature(revision: ServiceRevision): string {
   const dependencies = Object.entries(revision.requires)
     .sort(([left], [right]) => left.localeCompare(right))
@@ -100,6 +125,7 @@ export function revisionStructuralSignature(revision: ServiceRevision): string {
     `deadline=${String(revision.setupDeadlineMs)}`,
     `provides=${contracts}`,
     `deps=${dependencies}`,
+    `setup=${compactDigest(String(revision.setup))}`,
   ].join('|')
 }
 

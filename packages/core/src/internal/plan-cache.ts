@@ -56,6 +56,11 @@ export class PlanTemplateCache<Value> {
     })
   }
 
+  /** Evict one template, e.g. when it no longer fits the parent it was verified against. */
+  delete(key: string): void {
+    this.values.delete(key)
+  }
+
   clear(): void {
     this.values.clear()
   }

@@ -298,6 +298,7 @@ class RuntimeImpl implements SynaRuntime, ImplementationViewHost {
       admittedServices: definitions.admittedServices,
       internalServices: definitions.internalServices,
       overriddenServices: definitions.overriddenServices,
+      definitions: definitions.definitions,
       rootEnvCount: [...this.roots].filter(root => root.state !== 'disposed').length,
       liveEnvCount: this.envById.size,
       unsettledAttempts: this.materializer.unsettledAttempts(),
@@ -403,8 +404,11 @@ class RuntimeImpl implements SynaRuntime, ImplementationViewHost {
   /**
    * A BoundEntry is anchored at one Env id. Entering requires that Env to be
    * Ready: an owner that is still activating yields OWNER_NOT_READY, a plain
-   * rejected Promise the caller may catch. Planning (`check`/`explain`) is pure
-   * and is allowed while the anchor activates.
+   * rejected Promise the caller may catch. Planning (`check`/`explain`) only
+   * plans: it runs no setup, publishes no Env, leaves no anchor and consumes no
+   * Env id; it registers the descriptors it meets and may fill the plan cache,
+   * both bounded by the static definition set. It is allowed while the anchor
+   * activates.
    */
   createBoundEntry<E extends EntryDescriptor<any, any>>(
     descriptor: E,

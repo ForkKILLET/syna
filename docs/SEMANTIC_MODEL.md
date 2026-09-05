@@ -17,6 +17,8 @@ Every Env is created by exactly one Entry invocation. A parentless invocation cr
 
 Entry planning is atomic. Failure before commit creates no Env. A committed Env has immutable topology.
 
+`check()` and `explain()` plan without committing: no setup runs, no Env or anchor is published, no Env id is consumed. Planning is not side-effect free in the strict sense: it registers every descriptor it meets and may fill the plan cache. Both are bounded by the static definition set of §1 (`inspect().definitions` exposes the counts), so repeated planning cannot grow the Runtime beyond that set.
+
 ## 3. Nodes and slots
 
 The resolved graph contains:
@@ -42,7 +44,7 @@ Node correspondence in the current model is nominal-ID-preserving. General bisim
 
 ## 5. Inputs
 
-An Input is a typed external contextual fact with no Syna-owned lifecycle. Explicit local provision creates a new Input slot even when its payload is reference-equal to an ancestor payload. Omission inherits the nearest ancestor slot.
+An Input is a typed external contextual fact with no Syna-owned lifecycle. Explicit local provision creates a new Input slot even when its payload is reference-equal to an ancestor payload. Inheritance is decided by the Entry's declaration, not by the call: an Entry that does not declare an Input among its `parameters` resolves it to the nearest ancestor slot (`MISSING_INPUT` when no ancestor provides it); an Entry that declares it must be given it on every enter, and omitting the key is `MISSING_INPUT`, never inheritance.
 
 Changing an Input slot forks exactly the reverse dependency closure that observes it.
 
@@ -51,6 +53,8 @@ Changing an Input slot forks exactly the reverse dependency closure that observe
 Service Family and exact Service Revision are distinct identities. Multiple revisions of one Family may coexist. The same revision may own different slots in different Env worlds.
 
 A normal static dependency choice site has one deterministic result in a lineage. A new Entry root site may select another compatible revision without rewriting an existing Service dependency edge.
+
+A range reference is taken from one revision, its origin. It resolves among the revisions of that Family the Runtime knows at the site (the admitted ones, the consumer's private closure, and the origin itself) that satisfy the range and provide every Contract the origin provides. A range therefore loads the origin's Contract view, never a revision-private shape.
 
 ## 7. Lineage uniqueness
 
@@ -77,7 +81,7 @@ Selection identity and Service instance identity remain distinct: descendants ca
 
 ## 10. Owner-bound Entries
 
-An Entry may be a Service dependency. The injected Bound Entry is anchored at the unique owner Env of the consuming Service slot, not at an ambient caller Env. This permits a Service to construct typed child worlds without making “current Env” dynamic or ambiguous.
+An Entry may be a Service dependency. The injected Bound Entry is anchored at the unique owner Env of the consuming Service slot, not at an ambient caller Env. This permits a Service to construct typed child worlds without making “current Env” dynamic or ambiguous. Its roots resolve in the owner's private realm: the admitted revisions plus the owner's transitive closure over exact references and range origins; Contract discovery stays public.
 
 A Service-owned Bound Entry can only be entered from a Ready owner. Invoking it while the owner is still activating rejects with `OWNER_NOT_READY` (an ordinary rejected Promise); invoking it after the owner begins disposal rejects with `INVALID_ENV_STATE`. There is no activation transaction and no provisional Ready.
 

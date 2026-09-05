@@ -264,20 +264,27 @@ test('slot topology is invariant under different materialization orders', async 
   await root.dispose()
 })
 
-test('nominally identical physical package copies canonicalize; conflicting manifests fail', async () => {
+test('nominally identical physical package copies canonicalize; a differing setup body or manifest fails', async () => {
   const RevisionA = makeDefine('test.duplicate', '1.0.0').service({
-    setup: () => ({ copy: 'a' }),
+    setup: () => ({ copy: 'same' }),
   })
   const RevisionB = makeDefine('test.duplicate', '1.0.0').service({
-    setup: () => ({ copy: 'b' }),
+    setup: () => ({ copy: 'same' }),
   })
   const entryDefine = makeDefine('test.duplicate-entry')
   const Root = entryDefine.entry({ requires: { service: RevisionB } })
   const runtime = createRuntime({ services: [RevisionA, RevisionB] })
   const env = await runtime.enter(Root)
-  assert.equal((await env.deps.service.load()).copy, 'a')
+  assert.equal((await env.deps.service.load()).copy, 'same')
   await env.dispose()
 
+  const DifferentSetup = makeDefine('test.duplicate', '1.0.0').service({
+    setup: () => ({ copy: 'different' }),
+  })
+  assert.throws(
+    () => createRuntime({ services: [RevisionA, DifferentSetup] }),
+    error => error.code === 'DUPLICATE_DEFINITION',
+  )
   const Conflicting = makeDefine('test.duplicate', '1.0.0').service({
     eager: true,
     setup: () => ({ copy: 'conflicting' }),

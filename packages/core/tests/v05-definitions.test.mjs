@@ -78,16 +78,24 @@ test('R20 exported names stay stable, package version is injected, descriptor ap
   assert.throws(() => definePackage({ name: '@vendor/bad', version: '4' }), /Invalid semantic version/)
   assert.throws(() => definePackage({ name: '', version: '1.0.0' }), /must not be empty/)
 
-  // Two physical copies of the same revision canonicalize when structurally equal; conflicting manifests are refused.
-  const copyA = definePackage(manifest).service('storage', { setup: () => ({ copy: 'a' }) })
-  const copyB = definePackage(manifest).service('storage', { setup: () => ({ copy: 'b' }) })
+  // Two physical copies of the same revision canonicalize when structurally equal,
+  // the setup source text included; a copy whose setup body differs is a conflicting
+  // definition (third review round, C6), like any other manifest drift.
+  const copyA = definePackage(manifest).service('storage', { setup: () => ({ copy: 'same' }) })
+  const copyB = definePackage(manifest).service('storage', { setup: () => ({ copy: 'same' }) })
   const Entry = define.entry({ requires: { storage: copyB } })
   const runtime = createRuntime({ services: [copyA, copyB] })
   assert.deepEqual(runtime.inspect().admittedServices, [copyA.key])
   const env = await runtime.enter(Entry)
-  assert.equal((await env.deps.storage.load()).copy, 'a')
+  assert.equal((await env.deps.storage.load()).copy, 'same')
   await runtime.dispose()
-  const conflicting = definePackage(manifest).service('storage', { eager: true, setup: () => ({}) })
+  const drifted = definePackage(manifest).service('storage', { setup: () => ({ copy: 'drifted' }) })
+  assert.throws(() => createRuntime({ services: [copyA, drifted] }), error => error.code === 'DUPLICATE_DEFINITION'
+    && /\|setup=/.test(error.details.expected) && error.details.expected !== error.details.actual)
+  const referencing = createRuntime({ services: [copyA] })
+  await assert.rejects(referencing.enter(define.entry('drifted-entry', { requires: { storage: drifted } })), error => error.code === 'DUPLICATE_DEFINITION')
+  await referencing.dispose()
+  const conflicting = definePackage(manifest).service('storage', { eager: true, setup: () => ({ copy: 'same' }) })
   assert.throws(() => createRuntime({ services: [copyA, conflicting] }), error => error.code === 'DUPLICATE_DEFINITION')
 })
 
