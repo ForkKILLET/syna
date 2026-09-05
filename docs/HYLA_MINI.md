@@ -41,14 +41,18 @@ Post：stable `id`、`tenantId`、`slug`、`locale`（`zh-CN`/`en`，普通数�
 
 - key = `runtimeId|tenantId|configRevision|g<generation>`；按需创建；同 key 并发首次获取 single-flight。`invalidate(tenantId)` 递增 generation：即使 `configRevision` 未变，下一次 acquire 也得到全新 Env，旧 Env 在最后一个 lease 释放时立即关闭。
 - 创建期间被轮换（配置保存或 invalidate）的 Env 一旦无人持有就关闭，不会以 draining 状态滞留占用容量；等它的 acquirer 重新读取配置加入当前世界，重试以 `acquireTimeoutMs` 为界而不是固定次数。
+- 轮换单调：acquire 读到的配置若比该租户某个仍接受 lease 的记录**更旧**（更小的 `configRevision`，或已被 `invalidate()` 推进的 generation），它加入较新的记录，而不是把较新的记录置 draining；只有比读到的配置更旧的记录才轮换。等待容量期间发生了 `invalidate()`、或更新的世界已被别人创建时，等到的名额放回队列并重新读取配置（仍以 `acquireTimeoutMs` 为界）。滞后的副本读或与保存竞争的缓存读因此不会毁掉当前世界，也不会造出一出生就过期的世界。
+- 名额交接：等待者被唤醒时名额（reservation）已属于它；一个名额若发现同 key 的记录已由别人创建、或管理器已关闭，立即交给下一位等待者，不会有第三个 acquirer 守着空闲名额等到超时。
+- lease 用途：`acquire(tenantId, purpose)` 的 `purpose`（`request` / `build` / `background`）是容量策略。`reservedForRequests` 个名额（默认 `capacity ≥ 2 ? 1 : 0`，取值 `[0, capacity)`，启动时校验）只有请求可以用来**新建** SiteEnv；构建/后台任务随时可以加入已存在的 SiteEnv，但只在空闲名额多于该值时新建，排队时请求先于更早到达的构建/后台等待者。`stats()` 报告 `reservedForRequests` 与 `waitingByPurpose`。
 - 请求/构建/后台使用者持 lease；`release()` 幂等，不负计数。
 - 容量与空闲 TTL 可配置；只驱逐无活跃 lease 的 Env；不关闭共享 pool。
-- 关闭中的 Env（记录状态 `disposing`）在它的 `dispose()` 结算前继续占用一个容量名额：驱逐不会提前腾出名额，等待者在关闭结算后按到达顺序获得容量，所以容量上限是真实的 Env 数量上限。Env 关闭失败（`dispose()` 拒绝）通过 `onDisposalError(error, { key, tenantId, configRevision })` 报告（默认 `console.error`）并计入 `stats().disposalFailures`，绝不成为 unhandled rejection；记录照样移除。
+- 关闭中的 Env（记录状态 `disposing`）在它的 `dispose()` 结算前继续占用一个容量名额：驱逐不会提前腾出名额，等待者在关闭结算后按到达顺序获得容量，所以容量上限是真实的 Env 数量上限。H11 测试在每次 lease 时采样 `runtime.inspect().liveEnvCount`：任何时刻存活的 SiteEnv（含关闭中的）不超过 capacity（`working-set.json` 的 `maxSiteEnvsAlive`）。Env 关闭失败（`dispose()` 拒绝）通过 `onDisposalError(error, { key, tenantId, configRevision })` 报告（默认 `console.error`）并计入 `stats().disposalFailures`，绝不成为 unhandled rejection；记录照样移除。
 - 创建在 Env 进入之后失败（Authenticator 形状校验、管理器已关闭等）时，那个 Env 立即关闭而不是泄漏。
 - 配置更新：新 acquire 读到新 `configRevision` → 旧 revision 置 draining，不再接受新 lease，在途请求完成后释放并关闭；旧配置不会无限积累。驱逐不是版本失效。
 - 全部在用时：有界等待队列（`maxPendingAcquires`、`acquireTimeoutMs`），超出即明确拒绝 `SITE_CAPACITY`，不强关活跃租户。
 - 冷创建失败不留 poison promise，按租户有界指数退避；读完配置后再次检查退避，所以同一突发中的其余 acquirer 得到 `SITE_CREATION_BACKOFF`（含 `cause`）而不是各自再试一次。创建时校验 Authenticator 实例形状（`scheme` + `authenticate()`），接口不兼容的 override 在站点创建时失败，而不是在租户的第一个请求。
-- 关闭：拒绝新 acquire，等待 lease 到 `shutdownTimeoutMs`，报告未释放 lease，然后并发关闭 Env。`HylaApp.close()` 先执行这一关闭，再释放 Runtime，返回 `{ unreleasedLeases, unsettledAttempts, errors }`：Runtime 释放的失败（例如某个 setup 无视 stop signal 超过 `disposal.graceMs` 时的 `UNSETTLED_ATTEMPT`）进入 `errors` 而不是抛出，仍在运行的 attempt 列在 `unsettledAttempts`（来自 `runtime.inspect()`）；Runtime 不再保留这些 Env，它们只由各自的 setup Promise 维持。
+- 维护 worker（`MaintenanceWorker`）：宿主在 root Ready 后 `start({ intervalMs, domains })`；每个 tick 执行 `sweep()`，给定 `domains` 时还重载域名表（重载失败计入 `refreshFailures`，循环继续）。tick 抛错则循环结束、worker 世界释放、状态为 `failed`、`lastError` 保存原因；随后的 `stop()`（包括 Runtime 释放时的清理）重新抛出该错误，进入 `HylaApp.close()` 的 `errors`；`start()` 可以从 `failed` 重新开始。循环从不产生 unhandled rejection，也不会停在 `running`。
+- 关闭：拒绝新 acquire，等待 lease 到 `shutdownTimeoutMs`，报告未释放 lease，然后并发关闭 Env。`HylaApp.close()` 先执行这一关闭，再释放 Runtime，返回 `{ unreleasedLeases, unsettledAttempts, errors }`（管理器关闭本身失败也进入 `errors`；Runtime 嵌套的释放报告被展平成叶子错误；`close()` 幂等，重复调用返回同一份报告）：Runtime 释放的失败（例如某个 setup 无视 stop signal 超过 `disposal.graceMs` 时的 `UNSETTLED_ATTEMPT`）进入 `errors` 而不是抛出，仍在运行的 attempt 列在 `unsettledAttempts`（来自 `runtime.inspect()`）；Runtime 不再保留这些 Env，它们只由各自的 setup Promise 维持。
 - Env 被驱逐不丢业务事实：数据、配方、配置版本都在后端。
 
 ## 权限边界
@@ -57,9 +61,9 @@ Post：stable `id`、`tenantId`、`slug`、`locale`（`zh-CN`/`en`，普通数�
 - 授权：应用函数 `canViewPost(principal, tenantId, post)`；身份属于某租户，跨租户身份视为匿名。
 - 缓存：页面缓存键含 tenant、configRevision、**content version**、locale、visibility class、path。content version 由后端在每次变更（post/category/tag/配置）时推进（PostgreSQL `content_versions` 表在同一事务内递增；文件系统每租户 `content.version` 文件），每次查缓存都读取一次，而且**先读版本、再读内容**：在两次读取之间落地的编辑不会被缓存到新版本之下（它会被记在旧版本下并在下一次查询时被丢弃）；版本变化即丢弃该站点整个页面缓存，所以编辑与可见性变化不需要保存配置就生效，被撤回内容的摘要不会留在匿名索引页。Syna plan cache 不缓存页面或授权结果。
 - HTTP 错误：客户端只看到状态码与短短语（503 `Service unavailable (<code>)`、500 `Internal error`、400 `Bad request`），内部错误信息进入 `startHttpServer({ onError })`（默认 `console.error`）；请求目标无法解析（绝对形式的坏 authority、错误百分号编码）→ 400，处理函数的任何异常都被兜底，不会挂起连接或以 unhandled rejection 终止进程。
-- 域名：受控域名表 host → tenantId；未知 host 直接 404，不访问任何租户数据；只有 `trustProxy` 时才信任 `X-Forwarded-Host`。`saveSiteConfig` 拒绝声明其他租户已拥有的域名（`DomainConflictError`，大小写/端口归一后比较）；带外编辑造成的冲突 host 不分配给任何租户（`DomainTable.conflicts` 列出），其余租户不受影响，`serve` 启动时告警。
+- 域名：受控域名表 host → tenantId；未知 host 先触发一次域名表重载（single-flight，每 `domainRefreshMinIntervalMs`（默认 1000 ms）至多一次，并发的未知 host 共用一次；重载失败沿用旧表并报告给 `onError`），再次解析仍未知才 404，不访问任何租户数据，所以启动后保存的租户无需重启即可访问，而未知 host 的洪流每个间隔只花一次扫描；`serve` 的 worker 每个 tick 也重载域名表。只有 `trustProxy` 时才信任 `X-Forwarded-Host`。归一化：trim、小写、去掉一个端口和一个结尾的点、IDNA（`url.domainToASCII`），所以 `BÜCHER.example.` 与 `xn--bcher-kva.example` 是同一声明。`saveSiteConfig` 拒绝声明其他租户已拥有的域名（`DomainConflictError`，归一后比较）；带外编辑造成的冲突 host 不分配给任何租户（`DomainTable.conflicts` 列出），其余租户不受影响，`serve` 启动时告警。
 - 静态输出：只写匿名可见内容与公开元数据，不含凭据/内部引用（矩阵测试逐文件扫描）。输出目录必须为空或是上一次构建：构建器只删除上次清单（`.hyla-build.json`）中列出的文件及由此变空的目录，从不触碰其他文件；有陌生内容且无清单的目录被拒绝。静态服务器不发布点文件。
-- 启动：`createHylaApp()` 在预检后实际加载内容后端（打开 PostgreSQL 连接池并探测 `search_path`），数据库不可达或 schema 非法在启动时失败并释放 Runtime，而不是在第一个请求。
+- 启动：`createHylaApp()` 预检三个形状：渲染基础设施、站点、以及一次请求（在管理器之外进入一个合成的 `preflight` 站点世界，按 `REQUEST_BUDGET` 解释一次请求后释放；`preflight` 数组的第三项），任何一个越界都拒绝部署（`PreflightError`）；`preflightRequests()` 再按每个已配置租户各自的配方与认证器重复请求检查。预检后实际加载内容后端（打开 PostgreSQL 连接池并探测 `search_path`）并创建站点管理器，数据库不可达、schema 非法或 `siteManager` 设置非法在启动时失败并释放 Runtime，而不是在第一个请求。
 
 ## 运行
 

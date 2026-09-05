@@ -8,6 +8,9 @@ import { MarkdownStageFactoryContract, createFactory } from '../render/stages.js
 import { CurrentRequest, SiteSnapshot } from '../site/inputs.js'
 import { PipelineBuilder } from '../render/pipeline.js'
 import { Renderer, type Renderer as RendererApi } from '../render/renderer.js'
+import { SiteContext } from '../site/context.js'
+import { RequestHandler, type RequestHandler as RequestHandlerApi } from '../site/request.js'
+import type { ServiceRevision } from '@syna/core'
 
 /** A shared factory that reads the current request: refused by the render-infrastructure preflight. */
 export const RequestAwareStageFactory = define.service('request-aware-stage-factory', {
@@ -46,3 +49,31 @@ export const PollutingStageFactory = define.service('polluting-stage-factory', {
     )
   },
 })
+
+/**
+ * A request handler replacement that drags a chain of ten request-scoped
+ * helpers into every request: the infrastructure and site worlds plan and stay
+ * inside their budgets, the request world breaks `REQUEST_BUDGET.maxLocalServices`.
+ * Refused by the request preflight that `createHylaApp()` runs at startup.
+ */
+export const HeavyRequestHandler = define.service('heavy-request-handler', {
+  requires: { request: CurrentRequest, context: SiteContext, helpers: requestHelperChain(10) },
+  async setup({ request, context }, host): Promise<RequestHandlerApi> {
+    return RequestHandler.setup({ request, context } as never, host)
+  },
+})
+
+function requestHelperChain(depth: number): ServiceRevision<{ readonly depth: number }, unknown> {
+  let chain: ServiceRevision<{ readonly depth: number }, unknown> = define.service('request-helper-1', {
+    requires: { request: CurrentRequest },
+    setup: () => ({ depth: 1 }),
+  })
+  for (let level = 2; level <= depth; level += 1) {
+    const next = chain
+    chain = define.service(`request-helper-${level}`, {
+      requires: { request: CurrentRequest, next },
+      setup: () => ({ depth: level }),
+    })
+  }
+  return chain
+}

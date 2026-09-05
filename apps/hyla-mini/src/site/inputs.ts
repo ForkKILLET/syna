@@ -37,6 +37,14 @@ export interface SiteManagerSettings {
   /** Bounded queue for acquirers waiting for capacity; beyond it, acquire() rejects. */
   readonly maxPendingAcquires: number
   readonly acquireTimeoutMs: number
+  /**
+   * Units of capacity only request leases may take as *new* SiteEnvs. Builds
+   * and background work join an existing SiteEnv at any time but create a new
+   * one only while more than this many units are free, and waiting requests
+   * are served before waiting builds. Defaults to 1 when the capacity is at
+   * least 2, else 0; must be an integer in [0, capacity).
+   */
+  readonly reservedForRequests: number
   /** Cold-creation failure backoff (bounded exponential). */
   readonly creationBackoffMs: number
   readonly creationBackoffMaxMs: number
@@ -59,7 +67,11 @@ export interface SiteRecordSummary {
 
 export const SiteManagerOptions = define.input<Partial<SiteManagerSettings>>('site-manager-options')
 
-export const DEFAULT_SITE_MANAGER_SETTINGS: SiteManagerSettings = Object.freeze({
+export function defaultReservedForRequests(capacity: number): number {
+  return capacity >= 2 ? 1 : 0
+}
+
+export const DEFAULT_SITE_MANAGER_SETTINGS: Omit<SiteManagerSettings, 'reservedForRequests'> = Object.freeze({
   capacity: 8,
   idleTtlMs: 30_000,
   sweepIntervalMs: 1_000,

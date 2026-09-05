@@ -181,6 +181,30 @@ export async function createHylaApp(options: HylaAppOptions): Promise<HylaApp> {
   reports.push(evaluateBudget(siteExplanation, SITE_BUDGET))
   if (!reports.at(-1)!.ok) return refuse()
 
+  // 3. The request shape is budget-checked from a real site world: a synthetic
+  //    tenant entered once here, outside the manager, touching no content. An
+  //    embedder that never runs preflightRequests() still gets the request check;
+  //    preflightRequests() repeats it per configured tenant (their own recipes
+  //    and authenticators). The manager itself comes up now, so invalid site
+  //    manager settings fail startup rather than the first request.
+  try {
+    await app.deps.sites.load()
+    const probeEnv = await app.enter(SiteEntry, {
+      tenant: 'preflight',
+      snapshot: probeSite,
+      auth: SiteAuth.to(SessionAuth),
+      authOptions: {},
+    })
+    try { reports.push(await explainRequest(probeEnv)) }
+    finally { await probeEnv.dispose() }
+  }
+  catch (error) {
+    await runtime.dispose().catch(() => undefined)
+    throw error
+  }
+  if (!reports.at(-1)!.ok) return refuse()
+
+  let closing: Promise<HylaShutdownReport> | undefined
   return {
     runtime,
     infrastructure,
@@ -189,22 +213,28 @@ export async function createHylaApp(options: HylaAppOptions): Promise<HylaApp> {
     domains: async () => loadDomainTable(await app.deps.store.load()),
     /**
      * Never rejects for conditions it can report: unreleased leases, attempts
-     * that never settled and cleanup failures are returned, so the host decides
-     * what to log and what to escalate.
+     * that never settled and cleanup failures (the site manager's shutdown
+     * included) are returned, so the host decides what to log and what to
+     * escalate. Idempotent: every caller gets the same report.
      */
-    async close() {
-      let unreleasedLeases: readonly string[] = []
-      try {
-        const manager = await app.deps.sites.load()
-        unreleasedLeases = (await manager.shutdown()).unreleasedLeases
-      }
-      catch {
-        // The manager never came up (or the app is already closing): nothing to report.
-      }
-      const errors: unknown[] = []
-      try { await runtime.dispose() }
-      catch (error) { errors.push(...(error instanceof AggregateError ? error.errors : [error])) }
-      return { unreleasedLeases, unsettledAttempts: runtime.inspect().unsettledAttempts, errors }
+    close() {
+      closing ??= (async () => {
+        let unreleasedLeases: readonly string[] = []
+        const errors: unknown[] = []
+        try {
+          const manager = await app.deps.sites.load()
+          unreleasedLeases = (await manager.shutdown()).unreleasedLeases
+        }
+        catch (error) {
+          errors.push(error)
+        }
+        // The Runtime nests its report (Runtime → Env → Service); the host gets the leaves.
+        const leaves = (error: unknown): unknown[] => error instanceof AggregateError ? error.errors.flatMap(leaves) : [error]
+        try { await runtime.dispose() }
+        catch (error) { errors.push(...leaves(error)) }
+        return { unreleasedLeases, unsettledAttempts: runtime.inspect().unsettledAttempts, errors }
+      })()
+      return closing
     },
   }
 }

@@ -17,6 +17,13 @@ export interface HttpServerOptions {
   /** Honour X-Forwarded-Host. Only enable behind a proxy you control. */
   readonly trustProxy?: boolean
   /**
+   * An unknown host reloads the domain table before it is refused, so a tenant
+   * saved after startup is served without a restart. Reloads are at most one
+   * per this many milliseconds (default 1000): a flood of unknown hosts costs
+   * one store scan per interval, not one per request.
+   */
+  readonly domainRefreshMinIntervalMs?: number
+  /**
    * Receives every error the server turned into a 5xx. Clients only ever see a
    * status and a short generic phrase (plus an error code); details stay here.
    * Defaults to `console.error`.
@@ -101,12 +108,23 @@ async function listen(server: Server, port: number): Promise<RunningServer> {
 export async function startHttpServer(options: HttpServerOptions, port = 0): Promise<RunningServer> {
   const manager: SiteEnvironmentManager = await options.app.deps.sites.load()
   const trustProxy = options.trustProxy ?? false
+  const domainRefreshMinIntervalMs = options.domainRefreshMinIntervalMs ?? 1_000
   const report = options.onError ?? ((error, context) => { console.error(`[hyla-mini http] ${context.status} ${context.tenantId ?? '-'} ${context.path ?? '-'}:`, error) })
 
   const handle = async (request: IncomingMessage, response: ServerResponse): Promise<void> => {
     const headers = lowerHeaders(request)
     const host = requestHost(headers, trustProxy)
-    const tenantId = host ? options.domains.resolve(host) : undefined
+    let tenantId = host ? options.domains.resolve(host) : undefined
+    if (host && tenantId === undefined) {
+      // Possibly a tenant saved after the table was loaded: reload (rate-limited)
+      // and look again. A failed reload keeps the previous table and answers 404.
+      try {
+        if (await options.domains.refreshIfStale(domainRefreshMinIntervalMs)) tenantId = options.domains.resolve(host)
+      }
+      catch (error) {
+        report(error, { status: 404, host })
+      }
+    }
     if (!host || !tenantId) {
       response.writeHead(404, TEXT)
       response.end(`Unknown host ${host ?? '(missing)'}`)

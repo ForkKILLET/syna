@@ -85,7 +85,7 @@ async function main() {
       for (const conflict of domains.conflicts) console.warn(`domain ${conflict.host} is claimed by ${conflict.tenants.join(' and ')}; it is served to nobody until the configurations are fixed`)
       const server = await startHttpServer({ app: app.app, domains, trustProxy: options['trust-proxy'] === 'true' }, Number(options.port ?? 0))
       const worker = await app.app.deps.worker.load()
-      await worker.start({ intervalMs: 5_000 })
+      await worker.start({ intervalMs: 5_000, domains }) // sweeps idle site worlds and reloads the domain table
       console.log(`listening on ${server.url} for hosts: ${[...Object.keys(loadContentFixture().tenants)].join(', ')}`)
       await new Promise(() => undefined)
       return

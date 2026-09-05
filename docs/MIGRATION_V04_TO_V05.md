@@ -31,6 +31,8 @@
 | M-23 | `Revision.range()` / `serviceRange()` 的类型 | origin 的完整实例类型 | origin 的 Contract 视图（`ProvidedShape<Provides>`；无 `provides` 时为 `unknown`）；候选必须提供 origin 的全部 Contract，否则 `INCOMPATIBLE_IMPLEMENTATION` | 通过 range 使用 revision 私有成员的代码改用 exact 引用，或把该成员提升为 Contract（第三轮 I-59） |
 | M-24 | 同 key、不同 `setup` 文本的物理副本 | 先注册者胜出（静默） | `DUPLICATE_DEFINITION`（`details.expected/actual` 含 `setup=` 摘要）；文本相同仍归一 | 保证副本来自同一构建；闭包捕获的状态与原生函数不参与比较（第三轮 I-63） |
 | M-25 | `RuntimeInspection` / `check()` | — | 新增 `definitions`（entries/inputs/bindings/contracts/families 计数）；`check()`/`explain()` 不再消耗 Env 编号（Env id 连续） | 可选；不要依赖 check 会推进 Env 编号（第三轮 I-62） |
+| M-26 | Hyla-mini `SiteManagerSettings.reservedForRequests` / `acquire(tenantId, purpose)` | `purpose` 被忽略 | 请求以外的用途只在空闲名额多于 `reservedForRequests`（默认 capacity ≥ 2 时为 1，取值 `[0, capacity)`）时新建 SiteEnv，加入已有 SiteEnv 不受限；排队时请求优先；`stats()` 新增 `reservedForRequests`、`waitingByPurpose` | 容量为 2 的部署里构建/后台任务不再占用最后一个名额；需要旧行为时设 `reservedForRequests: 0`（第三轮 I-68） |
+| M-27 | Hyla-mini 宿主：`createHylaApp()` 预检、`HylaApp.close()`、`WorkerControl`、`DomainTable`、`startHttpServer` | 预检两个形状；`close()` 吞掉管理器关闭错误；worker 循环失败后状态停在 `running`；域名表只在启动时加载 | 预检三个形状（`preflight[2]` 为请求）；`close()` 幂等并报告管理器错误；worker 新增状态 `failed`、`lastError`、`refreshFailures`、`start({ domains })`；`DomainTable.refreshIfStale()`、`refreshes`、`refreshedAt`；`startHttpServer({ domainRefreshMinIntervalMs })`（默认 1000 ms） | 依赖 `preflight.length === 2` 的代码改为按 `entry` 查找；宿主的 `serve` 把域名表传给 worker（第三轮 I-69/I-70/I-71） |
 
 ## 改写的旧测试（逐项）
 

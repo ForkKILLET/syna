@@ -223,6 +223,23 @@ test('R-2/R-4 under the default unhandled-rejection policy, background closes th
   assert.ok(outcome.disposalFailures >= 2, JSON.stringify(outcome))
 })
 
+test('S7 close() reports a failing site-manager shutdown instead of swallowing it, and is idempotent', async () => {
+  const harness = await createFilesystemApp()
+  const manager = await harness.app.app.deps.sites.load()
+  const lease = await manager.acquire('alpha', 'request')
+  lease.release()
+  const realShutdown = manager.shutdown
+  manager.shutdown = async () => { throw new Error('shutdown exploded') }
+  const first = harness.app.close()
+  const second = harness.app.close()
+  assert.equal(await second, await first, 'a second close() returns the same report, it does not close twice')
+  const report = await first
+  assert.ok(report.errors.some(error => /shutdown exploded/.test(String(error.message ?? error))), `the manager error is in the report: ${JSON.stringify(report.errors.map(String))}`)
+  assert.equal(harness.app.runtime.inspect().liveEnvCount, 0, 'the Runtime was disposed anyway (the manager\'s own cleanup closed the site env)')
+  manager.shutdown = realShutdown
+  await harness.close() // the harness closes the app again: same report, then removes the directory
+})
+
 test('R-2/R-3 close() returns attempts that never settled and disposal errors instead of rejecting; the Runtime retains only the ledger', async () => {
   const reported = []
   const harness = await createFilesystemApp({ app: {

@@ -12,6 +12,7 @@ import {
   RequestHandler,
   Renderer,
   SiteContext,
+  SiteEntry,
   WorkerEntry,
   comparePosts,
   createHylaApp,
@@ -19,6 +20,7 @@ import {
   evaluateBudget,
   explainRequest,
   matchesFilter,
+  normalizeDomain,
   normalizePostInput,
   preflightRequests,
   violations,
@@ -42,9 +44,12 @@ test('H06 the render infrastructure preflight refuses a factory that depends on 
         return true
       },
     )
-    // The same deployment without the offending factory starts.
+    // The same deployment without the offending factory starts. Three shapes are
+    // checked before anything listens: infrastructure, site, and one request.
     const app = await createHylaApp({ backend: { kind: 'filesystem', rootDir } })
     assert.equal(app.preflight.every(report => report.ok), true)
+    assert.deepEqual(app.preflight.map(report => report.entry), [RenderInfrastructureEntry.id, SiteEntry.id, RequestEntry.id])
+    assert.equal(app.runtime.inspect().liveEnvCount, 2, 'the synthetic preflight site world is disposed again')
     await app.close()
   }
   finally {
@@ -100,6 +105,29 @@ test('H06 the concurrent plugin-protocol probe detects closure pollution between
   const g2 = good.configure({ singleTilde: false })
   assert.notStrictEqual(g1, g2)
   await runtime.dispose()
+})
+
+test('S8 createHylaApp() refuses a deployment whose request world breaks the request budget, before any tenant exists', async () => {
+  const rootDir = await mkdtemp(path.join(tmpdir(), 'hyla-preflight-request-'))
+  try {
+    await assert.rejects(
+      createHylaApp({
+        backend: { kind: 'filesystem', rootDir },
+        runtime: { overrides: [override(RequestHandler, violations.HeavyRequestHandler)] },
+      }),
+      error => {
+        assert.ok(error instanceof PreflightError)
+        assert.deepEqual(error.reports.map(report => report.ok), [true, true, false], 'infrastructure and site pass; the request shape fails')
+        const report = error.reports.at(-1)
+        assert.equal(report.entry, RequestEntry.id)
+        assert.match(report.violations.join('\n'), /11 local Services exceed the budget of 10/)
+        return true
+      },
+    )
+  }
+  finally {
+    await rm(rootDir, { recursive: true, force: true })
+  }
 })
 
 test('H12 request budget: the real request world stays within budget, and explain() shows what would break it', async () => {
@@ -221,4 +249,15 @@ test('H01 the data model normalizes input, orders deterministically and treats l
   assert.equal(matchesFilter(posts[2], { visibility: 'public' }), false)
   assert.equal(matchesFilter(posts[2], { visibility: 'all', locale: 'zh-CN' }), true)
   assert.equal(matchesFilter(posts[0], { visibility: 'public', category: 'a' }), true)
+})
+
+test('H01 / S9 normalizeDomain: one canonical spelling per host (case, port, trailing dot, IDNA), nothing else passes', () => {
+  assert.equal(normalizeDomain('Example.COM.'), 'example.com')
+  assert.equal(normalizeDomain(' EXAMPLE.com:8080 '), 'example.com')
+  assert.equal(normalizeDomain('bücher.example'), 'xn--bcher-kva.example')
+  assert.equal(normalizeDomain('XN--BCHER-KVA.example.'), 'xn--bcher-kva.example')
+  assert.equal(normalizeDomain('日本.jp'), 'xn--wgv71a.jp')
+  for (const bad of ['', '.', 'exa mple.com', 'a_b.com', 'host:80:80', 'a/b.com', undefined]) {
+    assert.equal(normalizeDomain(bad), undefined, JSON.stringify(bad))
+  }
 })

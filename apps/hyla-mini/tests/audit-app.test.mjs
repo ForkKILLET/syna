@@ -4,9 +4,12 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import net from 'node:net'
+import { execFile } from 'node:child_process'
 import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { promisify } from 'node:util'
 import { override } from '@syna/core'
 import {
   AuthOptions,
@@ -345,6 +348,123 @@ test('F-AP-09 stop() issued while start() is in flight wins: the loop never runs
     await worker.stop()
     assert.equal(worker.state, 'stopped')
     assert.equal(harness.app.runtime.inspect().liveEnvCount, liveBefore)
+  }
+  finally {
+    await harness.close()
+  }
+})
+
+// Third review round (docs/AUDIT.md, S4 / S9): worker supervision, domain table refresh.
+
+test('S4 a tick that throws ends the loop in state `failed` with its world released; stop() reports the error and start() recovers', async () => {
+  const harness = await createFilesystemApp()
+  try {
+    const worker = await harness.app.app.deps.worker.load()
+    const manager = await harness.app.app.deps.sites.load()
+    const liveBefore = harness.app.runtime.inspect().liveEnvCount
+    const realSweep = manager.sweep
+    manager.sweep = async () => { throw new Error('sweep exploded') }
+    await worker.start({ intervalMs: 5 })
+    assert.ok(await until(() => worker.state === 'failed'), `the loop ended in state failed, not ${worker.state}`)
+    assert.match(String(worker.lastError), /sweep exploded/)
+    assert.equal(harness.app.runtime.inspect().liveEnvCount, liveBefore, 'the failed loop released its world')
+    await assert.rejects(worker.stop(), /sweep exploded/)
+    assert.equal(worker.state, 'stopped')
+    // The next start() runs a fresh loop; the stale error is gone.
+    manager.sweep = realSweep
+    await worker.start({ intervalMs: 5 })
+    assert.equal(worker.lastError, undefined)
+    assert.ok(await until(() => worker.ticks >= 2))
+    await worker.stop()
+    assert.equal(worker.state, 'stopped')
+    assert.equal(harness.app.runtime.inspect().liveEnvCount, liveBefore)
+  }
+  finally {
+    await harness.close()
+  }
+})
+
+test('S4 under the default unhandled-rejection policy a failing worker tick does not crash the process; close() reports it', async () => {
+  const run = promisify(execFile)
+  const dist = fileURLToPath(new URL('../dist/index.js', import.meta.url))
+  const harness = fileURLToPath(new URL('./helpers/app-harness.mjs', import.meta.url))
+  const script = `
+    import ${JSON.stringify(dist)}
+    import { createFilesystemApp } from ${JSON.stringify(harness)}
+    const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
+    const app = await createFilesystemApp()
+    const worker = await app.app.app.deps.worker.load()
+    const manager = await app.app.app.deps.sites.load()
+    manager.sweep = async () => { throw new Error('tick exploded') }
+    await worker.start({ intervalMs: 5 })
+    const deadline = Date.now() + 3_000
+    while (worker.state !== 'failed' && Date.now() < deadline) await sleep(5)
+    const state = worker.state
+    const report = await app.app.close()
+    await app.close()
+    console.log(JSON.stringify({ state, errors: report.errors.map(error => error.message + ' <- ' + (error.cause?.message ?? '')) }))
+  `
+  const result = await run(process.execPath, ['--input-type=module', '-e', script])
+    .then(value => ({ code: 0, ...value }), error => ({ code: error.code, stdout: error.stdout, stderr: error.stderr }))
+  assert.equal(result.code, 0, `the process died:\n${result.stderr}`)
+  const outcome = JSON.parse(result.stdout.trim().split('\n').at(-1))
+  assert.equal(outcome.state, 'failed')
+  assert.ok(outcome.errors.some(message => /^tick exploded/.test(message)), `the failure reached the owner's cleanup report through the worker's cleanup: ${JSON.stringify(outcome)}`)
+})
+
+test('S9 a tenant saved after startup is served without a restart; unknown hosts reload the domain table at most once per interval and share one reload', async () => {
+  const harness = await createFilesystemApp()
+  let server
+  try {
+    const store = await harness.app.app.deps.store.load()
+    const domains = await harness.app.domains()
+    assert.equal(domains.refreshes, 1)
+    server = await startHttpServer({ app: harness.app.app, domains, domainRefreshMinIntervalMs: 300, onError: () => undefined })
+    await sleep(320) // the initial load counts as a reload: nothing reloads inside its interval
+    // Two unknown hosts inside one interval cost one reload.
+    assert.equal((await fetchText(`${server.url}/`, { headers: { host: 'nobody.test' } })).status, 404)
+    assert.equal((await fetchText(`${server.url}/`, { headers: { host: 'nobody-else.test' } })).status, 404)
+    assert.equal(domains.refreshes, 2)
+    // Concurrent unknown hosts share one reload.
+    await sleep(320)
+    const concurrent = await Promise.all(['a.nobody.test', 'b.nobody.test', 'c.nobody.test'].map(host => fetchText(`${server.url}/`, { headers: { host } })))
+    assert.deepEqual(concurrent.map(response => response.status), [404, 404, 404])
+    assert.equal(domains.refreshes, 3)
+    // A tenant saved now is routable after the interval, through the unknown-host reload.
+    await store.forTenant('delta').saveSiteConfig({ ...siteConfig('delta', AUTH.alpha), domains: ['delta.test'] })
+    await sleep(320)
+    const served = await fetchText(`${server.url}/`, { headers: { host: 'delta.test' } })
+    assert.equal(served.status, 200, served.body)
+    assert.equal(domains.resolve('delta.test'), 'delta')
+    assert.equal(domains.refreshes, 4)
+    // A known host never triggers a reload.
+    assert.equal((await fetchText(`${server.url}/`, { headers: { host: 'alpha.test' } })).status, 200)
+    assert.equal(domains.refreshes, 4)
+  }
+  finally {
+    await server?.close()
+    await harness.close()
+  }
+})
+
+test('S9 the maintenance worker reloads the domain table on every tick; a failed reload is counted and keeps the previous table', async () => {
+  const harness = await createFilesystemApp()
+  try {
+    const store = await harness.app.app.deps.store.load()
+    const domains = await harness.app.domains()
+    const worker = await harness.app.app.deps.worker.load()
+    await worker.start({ intervalMs: 5, domains })
+    await store.forTenant('epsilon').saveSiteConfig({ ...siteConfig('epsilon', AUTH.alpha), domains: ['epsilon.test'] })
+    assert.ok(await until(() => domains.resolve('epsilon.test') === 'epsilon'), 'the worker picked up the saved tenant')
+    assert.equal(worker.refreshFailures, 0)
+    const realRefresh = domains.refresh
+    domains.refresh = async () => { throw new Error('store unavailable') }
+    assert.ok(await until(() => worker.refreshFailures >= 2))
+    assert.equal(worker.state, 'running', 'a failed reload does not end the loop')
+    assert.equal(domains.resolve('epsilon.test'), 'epsilon', 'the previous table stays in use')
+    domains.refresh = realRefresh
+    await worker.stop()
+    assert.equal(worker.state, 'stopped')
   }
   finally {
     await harness.close()

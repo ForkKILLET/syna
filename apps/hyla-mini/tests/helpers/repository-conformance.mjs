@@ -313,6 +313,11 @@ export function repositoryConformance(name, makeStore) {
         beta.saveSiteConfig({ ...betaConfig, domains: [`${alphaDomain}:8080`] }),
         DomainConflictError,
       )
+      await assert.rejects(
+        beta.saveSiteConfig({ ...betaConfig, domains: [`${alphaDomain.toUpperCase()}.`] }),
+        DomainConflictError,
+        'a fully-qualified spelling (trailing dot) is the same claim',
+      )
       const revisionBefore = (await beta.getSiteConfig()).configRevision
       assert.equal((await beta.getSiteConfig()).configRevision, revisionBefore, 'a refused save changes nothing')
       // Control: a tenant may keep (re-save) its own domains and add new ones.

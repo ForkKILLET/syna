@@ -22,7 +22,20 @@ export interface DomainTable {
   resolve(host: string): string | undefined
   readonly size: number
   readonly conflicts: readonly DomainConflict[]
+  /** Reloads the table from the store. Concurrent calls share one reload. */
   refresh(): Promise<void>
+  /**
+   * Reloads unless a reload started less than `minIntervalMs` ago (a reload in
+   * flight is joined). Returns whether the table was reloaded. Used by the HTTP
+   * server on an unknown host, so a tenant saved after startup is served
+   * without a restart while a flood of unknown hosts costs one store scan per
+   * interval.
+   */
+  refreshIfStale(minIntervalMs: number): Promise<boolean>
+  /** Completed reloads (the initial load included). */
+  readonly refreshes: number
+  /** When the last reload started (epoch ms). */
+  readonly refreshedAt: number
 }
 
 export const normalizeHost = normalizeDomain
@@ -38,7 +51,11 @@ export function requestHost(headers: RequestHeaders, trustProxy: boolean): strin
 export async function loadDomainTable(store: ContentStore): Promise<DomainTable> {
   let table = new Map<string, string>()
   let conflicts: DomainConflict[] = []
-  const refresh = async (): Promise<void> => {
+  let inFlight: Promise<void> | undefined
+  let refreshes = 0
+  let refreshedAt = 0
+  const reload = async (): Promise<void> => {
+    refreshedAt = Date.now()
     const claims = new Map<string, Set<string>>()
     for (const tenantId of await store.listTenants()) {
       const config = await store.forTenant(tenantId).getSiteConfig()
@@ -59,12 +76,26 @@ export async function loadDomainTable(store: ContentStore): Promise<DomainTable>
     }
     table = next
     conflicts = nextConflicts.sort((left, right) => left.host.localeCompare(right.host))
+    refreshes += 1
+  }
+  const refresh = (): Promise<void> => {
+    inFlight ??= reload().finally(() => { inFlight = undefined })
+    return inFlight
+  }
+  const refreshIfStale = async (minIntervalMs: number): Promise<boolean> => {
+    if (inFlight) { await inFlight; return true }
+    if (Date.now() - refreshedAt < minIntervalMs) return false
+    await refresh()
+    return true
   }
   await refresh()
   return {
     resolve: host => table.get(host),
     get size() { return table.size },
     get conflicts() { return conflicts },
+    get refreshes() { return refreshes },
+    get refreshedAt() { return refreshedAt },
     refresh,
+    refreshIfStale,
   }
 }

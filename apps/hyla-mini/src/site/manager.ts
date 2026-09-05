@@ -4,7 +4,7 @@ import { ContentBackend } from '../domain/content.js'
 import type { SiteConfig } from '../domain/model.js'
 import { SiteAuth } from '../auth/contract.js'
 import { SiteEntry } from './entries.js'
-import { DEFAULT_SITE_MANAGER_SETTINGS, SiteManagerOptions, type SiteManagerSettings } from './inputs.js'
+import { DEFAULT_SITE_MANAGER_SETTINGS, SiteManagerOptions, defaultReservedForRequests, type SiteManagerSettings } from './inputs.js'
 import type { SiteContext } from './context.js'
 
 export type LeasePurpose = 'request' | 'build' | 'background'
@@ -31,6 +31,8 @@ export interface SiteRecordView {
 
 export interface SiteManagerStats {
   readonly capacity: number
+  /** Units only request leases may take as new SiteEnvs (see `SiteManagerSettings.reservedForRequests`). */
+  readonly reservedForRequests: number
   /** Records occupying capacity: creating + active + draining + disposing. Never exceeds `capacity`. */
   readonly records: number
   readonly active: number
@@ -40,6 +42,7 @@ export interface SiteManagerStats {
   readonly disposing: number
   readonly leases: number
   readonly pendingAcquires: number
+  readonly waitingByPurpose: Readonly<Record<LeasePurpose, number>>
   readonly evictions: number
   readonly creations: number
   readonly creationFailures: number
@@ -109,6 +112,8 @@ interface SiteRecord {
   readonly key: string
   readonly tenantId: string
   readonly configRevision: number
+  /** The tenant generation (invalidate() counter) this world was created for; part of the key. */
+  readonly generation: number
   state: 'creating' | 'active' | 'draining' | 'disposing' | 'disposed'
   leases: number
   lastReleasedAt: number
@@ -119,6 +124,7 @@ interface SiteRecord {
 }
 
 interface Waiter {
+  readonly purpose: LeasePurpose
   readonly resolve: () => void
   readonly reject: (error: Error) => void
   readonly timer: NodeJS.Timeout
@@ -138,7 +144,18 @@ function runtimeIdentity(): string {
 export const SiteEnvironmentManager = define.service('site-environment-manager', {
   requires: { sites: SiteEntry, store: ContentBackend, options: SiteManagerOptions },
   async setup({ sites, store, options }, { onDispose, signal }): Promise<SiteEnvironmentManager> {
-    const settings: SiteManagerSettings = Object.freeze({ ...DEFAULT_SITE_MANAGER_SETTINGS, ...options.read() })
+    const provided = options.read()
+    const merged = { ...DEFAULT_SITE_MANAGER_SETTINGS, ...provided }
+    const settings: SiteManagerSettings = Object.freeze({
+      ...merged,
+      reservedForRequests: provided.reservedForRequests ?? defaultReservedForRequests(merged.capacity),
+    })
+    if (!Number.isSafeInteger(settings.capacity) || settings.capacity < 1) {
+      throw new TypeError('siteManager.capacity must be a positive integer.')
+    }
+    if (!Number.isSafeInteger(settings.reservedForRequests) || settings.reservedForRequests < 0 || settings.reservedForRequests >= settings.capacity) {
+      throw new TypeError(`siteManager.reservedForRequests must be an integer in [0, capacity); got ${String(settings.reservedForRequests)} for capacity ${settings.capacity}.`)
+    }
     const boundSites = await sites.load()
     const contentStore = await store.load()
     const runtimeId = runtimeIdentity()
@@ -176,13 +193,43 @@ export const SiteEnvironmentManager = define.service('site-environment-manager',
     const liveRecords = (): SiteRecord[] => [...records.values()].filter(record => record.state !== 'disposed')
     const capacityUsed = (): number => liveRecords().length + reservations
 
-    /** Hands one freed unit of capacity to the longest-waiting acquirer, as a reservation it already owns when it wakes. */
+    /** Whether `free` units of capacity would let the next eligible waiter proceed. */
+    const waiterServable = (free: number): boolean => {
+      if (waiters.length === 0) return false
+      return waiters.some(waiter => waiter.purpose === 'request') ? free > 0 : free > settings.reservedForRequests
+    }
+
+    /**
+     * Hands one freed unit of capacity to a waiting acquirer, as a reservation it
+     * already owns when it wakes: the longest-waiting request first; a build or
+     * background acquirer only while more than `reservedForRequests` units are free.
+     */
     const grantWaiter = (): void => {
-      if (waiters.length === 0 || capacityUsed() >= settings.capacity) return
-      const waiter = waiters.shift()!
-      clearTimeout(waiter.timer)
+      if (!waiterServable(settings.capacity - capacityUsed())) return
+      const index = Math.max(0, waiters.findIndex(waiter => waiter.purpose === 'request'))
+      const [waiter] = waiters.splice(index, 1)
+      clearTimeout(waiter!.timer)
       reservations += 1
-      waiter.resolve()
+      waiter!.resolve()
+    }
+
+    /** A reservation that will not become a record: the unit is free again, and the queue is told. */
+    const releaseReservation = (): void => {
+      reservations -= 1
+      grantWaiter()
+    }
+
+    const isNewer = (record: SiteRecord, generation: number, configRevision: number): boolean =>
+      record.generation > generation || (record.generation === generation && record.configRevision > configRevision)
+
+    /** The newest world of a tenant that still accepts leases, by (generation, configRevision). */
+    const newestLiveRecord = (tenantId: string): SiteRecord | undefined => {
+      let newest: SiteRecord | undefined
+      for (const record of liveRecords()) {
+        if (record.tenantId !== tenantId || record.state === 'draining' || record.state === 'disposing') continue
+        if (!newest || isNewer(record, newest.generation, newest.configRevision)) newest = record
+      }
+      return newest
     }
 
     /** A record nobody leases must not outlive its usefulness: draining (or closing) → dispose. */
@@ -232,7 +279,7 @@ export const SiteEnvironmentManager = define.service('site-environment-manager',
       return true
     }
 
-    const waitForCapacity = (): Promise<void> => {
+    const waitForCapacity = (purpose: LeasePurpose): Promise<void> => {
       if (waiters.length >= settings.maxPendingAcquires) {
         rejectedForCapacity += 1
         return Promise.reject(new SiteCapacityError(
@@ -241,6 +288,7 @@ export const SiteEnvironmentManager = define.service('site-environment-manager',
       }
       return new Promise<void>((resolve, reject) => {
         const waiter: Waiter = {
+          purpose,
           resolve,
           reject,
           timer: setTimeout(() => {
@@ -255,13 +303,16 @@ export const SiteEnvironmentManager = define.service('site-environment-manager',
     }
 
     /**
-     * Returns holding one reservation. When the working set is full, the
-     * acquirer starts closing the longest-idle Env (if any) and joins the
-     * queue: the unit is granted, in arrival order, only once a close settles,
-     * so the working set never exceeds `capacity` even while Envs are closing.
+     * Returns holding one reservation. When the working set is full for this
+     * purpose (requests may use every unit; builds and background work leave
+     * `reservedForRequests` units alone), the acquirer starts closing the
+     * longest-idle Env (if any) and joins the queue: the unit is granted, in
+     * arrival order and requests first, only once a close settles, so the
+     * working set never exceeds `capacity` even while Envs are closing.
      */
-    const reserveCapacity = async (): Promise<void> => {
-      if (capacityUsed() < settings.capacity) {
+    const reserveCapacity = async (purpose: LeasePurpose): Promise<void> => {
+      const limit = purpose === 'request' ? settings.capacity : settings.capacity - settings.reservedForRequests
+      if (capacityUsed() < limit) {
         reservations += 1
         return
       }
@@ -272,8 +323,8 @@ export const SiteEnvironmentManager = define.service('site-environment-manager',
         )
       }
       evictIdle()
-      await waitForCapacity() // resolved with a reservation already granted to this acquirer
-      if (closed) { reservations -= 1; throw new SiteManagerClosedError() }
+      await waitForCapacity(purpose) // resolved with a reservation already granted to this acquirer
+      if (closed) { releaseReservation(); throw new SiteManagerClosedError() }
     }
 
     const create = (record: SiteRecord, config: SiteConfig): Promise<void> => {
@@ -332,12 +383,13 @@ export const SiteEnvironmentManager = define.service('site-environment-manager',
     }
 
     const acquire = async (tenantId: string, purpose: LeasePurpose): Promise<SiteLease> => {
-      void purpose
       // A configuration that keeps changing while we acquire makes us re-read and
       // join the newest world; that is bounded by the acquire timeout, not by a
       // fixed number of attempts, so a burst of saves cannot fail live requests.
       const deadline = Date.now() + settings.acquireTimeoutMs
       const stillRetrying = (): boolean => Date.now() < deadline
+      const keptChanging = (attempt: number, what: string): SiteCapacityError =>
+        new SiteCapacityError(`Site ${tenantId} ${what} for ${settings.acquireTimeoutMs} ms while acquiring (${attempt} attempts).`)
       for (let attempt = 1; ; attempt += 1) {
         if (closed) throw new SiteManagerClosedError()
         assertNotBackingOff(tenantId)
@@ -345,29 +397,48 @@ export const SiteEnvironmentManager = define.service('site-environment-manager',
         // Re-checked after the store round-trip: a burst of acquirers arriving while
         // the first one fails must join the backoff, not each start its own attempt.
         assertNotBackingOff(tenantId)
-        const key = keyFor(tenantId, config.configRevision)
+        const generation = generations.get(tenantId) ?? 0
+        let key = keyFor(tenantId, config.configRevision)
 
-        // Rotate every other world of this tenant (older revision or invalidated
-        // generation) to draining: no new leases, close as soon as it is idle.
-        for (const record of liveRecords()) {
-          if (record.tenantId === tenantId && record.key !== key && record.state !== 'draining') {
-            record.state = 'draining'
-            settle(record)
+        // Rotation is monotonic. A concurrent acquirer may already hold a newer
+        // world than this read describes (a stale read behind a save, or an
+        // invalidate() that raced the read): join it, never drain it for an older
+        // read. Only worlds older than the read (older revision or invalidated
+        // generation) rotate to draining: no new leases, close as soon as idle.
+        let record = newestLiveRecord(tenantId)
+        if (record && isNewer(record, generation, config.configRevision)) {
+          key = record.key
+        }
+        else {
+          for (const other of liveRecords()) {
+            if (other.tenantId === tenantId && other.key !== key && other.state !== 'draining') {
+              other.state = 'draining'
+              settle(other)
+            }
           }
+          record = records.get(key)
         }
 
-        let record = records.get(key)
         if (record?.state === 'draining') {
           // This acquirer read an older configuration than a concurrent one: re-read and join the newer world.
           if (stillRetrying()) continue
-          throw new SiteCapacityError(`Site ${tenantId} configuration kept changing for ${settings.acquireTimeoutMs} ms while acquiring (${attempt} attempts).`)
+          throw keptChanging(attempt, 'configuration kept changing')
         }
         if (!record || record.state === 'disposed') {
-          await reserveCapacity()
-          if (closed) { reservations -= 1; throw new SiteManagerClosedError() }
+          await reserveCapacity(purpose)
+          if (closed) { releaseReservation(); throw new SiteManagerClosedError() }
+          // The wait may have outlived the read: an invalidate() moved the generation,
+          // or another acquirer created this world or a newer one meanwhile. A record
+          // created now from the old read would be stale from birth; read again.
+          const concurrent = newestLiveRecord(tenantId)
+          if ((generations.get(tenantId) ?? 0) !== generation || (concurrent && isNewer(concurrent, generation, config.configRevision))) {
+            releaseReservation()
+            if (stillRetrying()) continue
+            throw keptChanging(attempt, 'configuration kept changing')
+          }
           record = records.get(key)
           if (!record || record.state === 'disposed') {
-            record = { key, tenantId, configRevision: config.configRevision, state: 'creating', leases: 0, lastReleasedAt: Date.now() }
+            record = { key, tenantId, configRevision: config.configRevision, generation, state: 'creating', leases: 0, lastReleasedAt: Date.now() }
             records.set(key, record)
             reservations -= 1 // the record now counts as live capacity
             record.leases += 1 // hold the record while creating so eviction cannot take it
@@ -380,7 +451,7 @@ export const SiteEnvironmentManager = define.service('site-environment-manager',
             }
           }
           else {
-            reservations -= 1 // somebody else inserted the record meanwhile
+            releaseReservation() // somebody else inserted the record meanwhile: the unit is free again, and the queue is told
           }
         }
         if (record.state === 'creating' && record.creation) {
@@ -398,15 +469,15 @@ export const SiteEnvironmentManager = define.service('site-environment-manager',
           // invalidate() while it was being created): read the current configuration
           // and join the current world instead of failing the caller.
           if ((record.state === 'draining' || record.state === 'disposing' || record.state === 'disposed') && stillRetrying()) continue
-          throw new SiteCapacityError(`Site environment ${key} is ${record.state} and the configuration kept changing for ${settings.acquireTimeoutMs} ms (${attempt} attempts).`)
+          throw keptChanging(attempt, `environment ${record.key} is ${record.state} and the configuration kept changing`)
         }
         record.leases += 1
         let released = false
         const current = record
         return {
-          key,
+          key: current.key,
           tenantId,
-          configRevision: config.configRevision,
+          configRevision: current.configRevision,
           env,
           context,
           release() {
@@ -415,10 +486,14 @@ export const SiteEnvironmentManager = define.service('site-environment-manager',
             current.leases = Math.max(0, current.leases - 1)
             current.lastReleasedAt = Date.now()
             if (current.leases === 0 && (current.state === 'draining' || closed)) void disposeRecord(current)
-            else if (current.leases === 0 && waiters.length > 0 && capacityUsed() >= settings.capacity) {
-              // An idle env is worth more to a waiting acquirer than to a cache: evict it and hand the capacity over.
-              evictions += 1
-              void disposeRecord(current)
+            else if (current.leases === 0 && current.state === 'active' && waiters.length > 0) {
+              // An idle env is worth more to a waiting acquirer than to a cache: when
+              // closing it is what lets the next eligible waiter proceed, hand it over.
+              const free = settings.capacity - capacityUsed()
+              if (!waiterServable(free) && waiterServable(free + 1)) {
+                evictions += 1
+                void disposeRecord(current)
+              }
             }
           },
         }
@@ -496,6 +571,7 @@ export const SiteEnvironmentManager = define.service('site-environment-manager',
         const live = liveRecords()
         return {
           capacity: settings.capacity,
+          reservedForRequests: settings.reservedForRequests,
           records: live.length,
           active: live.filter(record => record.state === 'active' && record.leases > 0).length,
           idle: live.filter(record => record.state === 'active' && record.leases === 0).length,
@@ -504,6 +580,11 @@ export const SiteEnvironmentManager = define.service('site-environment-manager',
           disposing: live.filter(record => record.state === 'disposing').length,
           leases: live.reduce((sum, record) => sum + record.leases, 0),
           pendingAcquires: waiters.length,
+          waitingByPurpose: {
+            request: waiters.filter(waiter => waiter.purpose === 'request').length,
+            build: waiters.filter(waiter => waiter.purpose === 'build').length,
+            background: waiters.filter(waiter => waiter.purpose === 'background').length,
+          },
           evictions,
           creations,
           creationFailures,

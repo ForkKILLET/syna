@@ -170,14 +170,23 @@ test('H11 / P05 working set stays bounded under hot-spot, rotating and long-tail
     assert.equal(manager.stats().records, 0, 'unvisited tenants have no Env')
 
     const heapSamples = []
+    const rootEnvs = harness.app.runtime.inspect().liveEnvCount // infrastructure + app
+    assert.equal(rootEnvs, 2)
+    let maxSiteEnvsAlive = 0
     const sampleHeap = label => {
       if (typeof globalThis.gc === 'function') globalThis.gc()
-      heapSamples.push({ label, heapUsed: process.memoryUsage().heapUsed, records: manager.stats().records, liveEnvs: harness.app.runtime.inspect().liveEnvCount })
+      const stats = manager.stats()
+      const liveEnvs = harness.app.runtime.inspect().liveEnvCount
+      heapSamples.push({ label, heapUsed: process.memoryUsage().heapUsed, records: stats.records, disposing: stats.disposing, liveEnvs })
+      assert.ok(liveEnvs - rootEnvs <= 6, `${label}: ${liveEnvs - rootEnvs} site Envs alive (closing ones included) exceed the capacity of 6`)
     }
     sampleHeap('start')
     const maxRecords = { hot: 0, rotate: 0, tail: 0, mixed: 0 }
     const touch = async (tenantId, phase) => {
       const lease = await manager.acquire(tenantId, 'request')
+      // Capacity is a bound on real Envs: a SiteEnv still closing counts, so the
+      // Runtime never holds more site worlds than the capacity, at any lease.
+      maxSiteEnvsAlive = Math.max(maxSiteEnvsAlive, harness.app.runtime.inspect().liveEnvCount - rootEnvs)
       await lease.context.renderIndex({ kind: 'anonymous' })
       maxRecords[phase] = Math.max(maxRecords[phase], manager.stats().records)
       lease.release()
@@ -207,6 +216,8 @@ test('H11 / P05 working set stays bounded under hot-spot, rotating and long-tail
 
     const stats = manager.stats()
     for (const phase of Object.keys(maxRecords)) assert.ok(maxRecords[phase] <= 6, `${phase} exceeded capacity: ${maxRecords[phase]}`)
+    assert.ok(maxSiteEnvsAlive <= 6, `site Envs alive exceeded the capacity at some lease: ${maxSiteEnvsAlive}`)
+    assert.ok(maxSiteEnvsAlive >= 6, `the working set was exercised up to its capacity: ${maxSiteEnvsAlive}`)
     assert.equal(stats.records, 0, 'idle envs are evicted by TTL')
     assert.equal(harness.app.runtime.inspect().liveEnvCount, 2, 'only infrastructure and app envs remain')
     assert.ok(stats.evictions > 100)
@@ -220,6 +231,7 @@ test('H11 / P05 working set stays bounded under hot-spot, rotating and long-tail
       tenants: tenants.length,
       capacity: 6,
       maxRecordsPerPhase: maxRecords,
+      maxSiteEnvsAlive,
       finalStats: stats,
       planCache: harness.app.runtime.inspect().planCache,
       heapSamples,
@@ -263,4 +275,217 @@ test('H11 shutdown with concurrent acquire/release: no acquire after close, ever
   assert.equal(manager.stats().records, 0)
   await harness.close()
   void fixture
+})
+
+// Third review round (docs/AUDIT.md, S2 / S5 / S6): reservation hand-off,
+// monotonic rotation under stale reads and invalidation, lease purposes.
+
+/**
+ * Gates the manager's configuration reads per tenant AFTER the real read has
+ * completed: once a gate opens, the acquirer continues on microtasks alone (no
+ * I/O), so the interleaving of several acquirers is exact.
+ */
+function gateConfigReads(store) {
+  const gates = new Map()
+  const entry = tenantId => {
+    let gate = gates.get(tenantId)
+    if (!gate) {
+      let open
+      const opened = new Promise(resolve => { open = resolve })
+      gate = { opened, open, waiting: 0, isOpen: false }
+      gates.set(tenantId, gate)
+    }
+    return gate
+  }
+  const realForTenant = store.forTenant.bind(store)
+  store.forTenant = tenantId => {
+    const repository = realForTenant(tenantId)
+    return {
+      ...repository,
+      async getSiteConfig() {
+        const config = await repository.getSiteConfig()
+        const gate = entry(tenantId)
+        if (!gate.isOpen) {
+          gate.waiting += 1
+          await gate.opened
+        }
+        return config
+      },
+    }
+  }
+  return {
+    waiting: tenantId => entry(tenantId).waiting,
+    open(tenantId) {
+      const gate = entry(tenantId)
+      gate.isOpen = true
+      gate.open()
+    },
+    restore() { store.forTenant = realForTenant },
+  }
+}
+
+test('S2 a reservation whose record was created meanwhile is handed to the next waiter: a third acquirer never starves behind it', async () => {
+  const harness = await createFilesystemApp({ app: { siteManager: { capacity: 2, idleTtlMs: 60_000, acquireTimeoutMs: 3_000 } } })
+  try {
+    const store = await harness.app.app.deps.store.load()
+    const [x, y] = await addTenants(store, 2)
+    const manager = await harness.app.app.deps.sites.load()
+    const gates = gateConfigReads(store)
+    // A and B both read X's configuration (no record yet); C reads Y's.
+    const a = manager.acquire(x, 'request')
+    const b = manager.acquire(x, 'request')
+    const c = manager.acquire(y, 'request')
+    await waitUntil(() => gates.waiting(x) === 2 && gates.waiting(y) === 1)
+    // Same tick: A and B reserve the two units (B's becomes redundant once A
+    // inserts the record); C finds the working set full and queues.
+    gates.open(x)
+    gates.open(y)
+    const started = Date.now()
+    const leases = await Promise.all([a, b, c])
+    assert.ok(Date.now() - started < 1_000, 'C was served by the redundant reservation, not by the acquire timeout')
+    assert.equal(leases[0].key, leases[1].key, 'A and B share one SiteEnv')
+    assert.equal(leases[2].tenantId, y)
+    assert.equal(manager.stats().creations, 2)
+    assert.equal(manager.stats().rejectedForCapacity, 0)
+    assert.equal(manager.stats().pendingAcquires, 0)
+    for (const lease of leases) lease.release()
+    gates.restore()
+  }
+  finally {
+    await harness.close()
+  }
+})
+
+test('S5 a stale configuration read joins the newer world instead of draining it', async () => {
+  const harness = await createFilesystemApp({ app: { siteManager: { capacity: 4, idleTtlMs: 60_000 } } })
+  try {
+    const store = await harness.app.app.deps.store.load()
+    const manager = await harness.app.app.deps.sites.load()
+    const repository = store.forTenant('alpha')
+    const first = await manager.acquire('alpha', 'request')
+    first.release()
+    const saved = await repository.saveSiteConfig({ ...(await repository.getSiteConfig()), title: 'rev+1' })
+    const current = await manager.acquire('alpha', 'request')
+    assert.equal(current.configRevision, saved.configRevision)
+    assert.equal(manager.stats().creations, 2)
+    await waitUntil(() => manager.records().length === 1, 2_000)
+
+    // The next read returns the previous revision once (a replica behind a save, a
+    // cached read that raced the write): rotation is monotonic, so the acquirer
+    // joins the newer SiteEnv; the newer world is never drained for an older read.
+    const realForTenant = store.forTenant.bind(store)
+    let stale = 1
+    store.forTenant = tenantId => {
+      const real = realForTenant(tenantId)
+      return {
+        ...real,
+        async getSiteConfig() {
+          const config = await real.getSiteConfig()
+          if (tenantId === 'alpha' && stale > 0) { stale -= 1; return { ...config, configRevision: config.configRevision - 1, title: 'stale' } }
+          return config
+        },
+      }
+    }
+    try {
+      const joined = await manager.acquire('alpha', 'request')
+      assert.equal(joined.key, current.key, 'the stale reader joined the current world')
+      assert.equal(joined.configRevision, saved.configRevision)
+      assert.equal(stale, 0, 'the stale read was consumed')
+      assert.equal(manager.stats().creations, 2, 'no SiteEnv was created for the stale revision')
+      assert.deepEqual(manager.records().map(record => record.state), ['active'], 'the current world was not drained')
+      joined.release()
+    }
+    finally {
+      store.forTenant = realForTenant
+    }
+    current.release()
+  }
+  finally {
+    await harness.close()
+  }
+})
+
+test('S5 an invalidate() during the capacity wait is honoured: the SiteEnv created afterwards belongs to the new generation', async () => {
+  const harness = await createFilesystemApp({ app: { siteManager: { capacity: 1, idleTtlMs: 60_000, acquireTimeoutMs: 2_000 } } })
+  try {
+    const manager = await harness.app.app.deps.sites.load()
+    const alpha = await manager.acquire('alpha', 'request')
+    const waiting = manager.acquire('beta', 'request') // read the configuration, then queued: alpha holds the only unit
+    await waitUntil(() => manager.stats().pendingAcquires === 1)
+    manager.invalidate('beta') // generation 0 → 1 while the acquirer waits
+    alpha.release() // the idle alpha env is closed for the waiter
+    const beta = await waiting
+    assert.ok(beta.key.endsWith('|g1'), `the record created after the wait carries the new generation: ${beta.key}`)
+    assert.equal(manager.stats().creations, 2)
+    // A follow-up acquire joins that record instead of rotating it away as stale.
+    const again = await manager.acquire('beta', 'request')
+    assert.equal(again.key, beta.key)
+    assert.equal(manager.stats().creations, 2)
+    assert.deepEqual(manager.records().map(record => record.state), ['active'])
+    again.release()
+    beta.release()
+  }
+  finally {
+    await harness.close()
+  }
+})
+
+test('S6 lease purposes: builds never take the last unit, requests are served while builds wait, and a queued request goes before an earlier build', async () => {
+  const harness = await createFilesystemApp({ app: { siteManager: { capacity: 2, idleTtlMs: 5, sweepIntervalMs: 60_000, acquireTimeoutMs: 3_000 } } })
+  try {
+    const store = await harness.app.app.deps.store.load()
+    const [gamma] = await addTenants(store, 1)
+    const manager = await harness.app.app.deps.sites.load()
+    assert.equal(manager.settings.reservedForRequests, 1, 'default: one unit of a capacity ≥ 2 is kept for requests')
+    assert.equal(manager.stats().reservedForRequests, 1)
+
+    const build1 = await manager.acquire('alpha', 'build') // the first unit is free for anybody
+    const build2 = manager.acquire('beta', 'build') // the last unit is not for a build
+    await waitUntil(() => manager.stats().waitingByPurpose.build === 1)
+    const request = await manager.acquire('beta', 'request') // a request takes it immediately
+    assert.equal(manager.stats().records, 2)
+    assert.equal(manager.stats().waitingByPurpose.build, 1, 'the build is still waiting')
+    // A build joining an existing SiteEnv needs no unit at all.
+    const buildOnBeta = await manager.acquire('beta', 'build')
+    assert.equal(buildOnBeta.key, request.key)
+    buildOnBeta.release()
+
+    const request2 = manager.acquire(gamma, 'request') // queued behind a full working set
+    await waitUntil(() => manager.stats().waitingByPurpose.request === 1)
+    request.release() // beta is idle: it is closed for the waiting request, not for the earlier build
+    const served = await request2
+    assert.equal(served.tenantId, gamma)
+    assert.equal(manager.stats().waitingByPurpose.build, 1, 'the earlier build still waits: requests go first')
+    assert.deepEqual(manager.stats().waitingByPurpose, { request: 0, build: 1, background: 0 })
+
+    served.release()
+    build1.release()
+    await sleep(10)
+    await manager.sweep() // both idle envs are past their TTL: the build finally gets a unit
+    const build2Lease = await build2
+    assert.equal(build2Lease.tenantId, 'beta')
+    assert.deepEqual(manager.stats().waitingByPurpose, { request: 0, build: 0, background: 0 })
+    assert.equal(manager.stats().rejectedForCapacity, 0)
+    build2Lease.release()
+  }
+  finally {
+    await harness.close()
+  }
+})
+
+test('S6 reservedForRequests is validated at startup and 0 for a capacity of 1', async () => {
+  await assert.rejects(
+    createFilesystemApp({ app: { siteManager: { capacity: 2, reservedForRequests: 2 } } }),
+    error => error instanceof TypeError && /reservedForRequests/.test(error.message),
+  )
+  const harness = await createFilesystemApp({ app: { siteManager: { capacity: 1 } } })
+  try {
+    const manager = await harness.app.app.deps.sites.load()
+    assert.equal(manager.settings.reservedForRequests, 0)
+    const build = await manager.acquire('alpha', 'build') // with nothing reserved a build may take the only unit
+    build.release()
+  }
+  finally {
+    await harness.close()
+  }
 })

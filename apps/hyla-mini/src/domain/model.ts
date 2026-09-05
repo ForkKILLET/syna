@@ -3,6 +3,8 @@
  * Tag, navigation/title configuration and render recipes. Language is ordinary
  * business data (a `locale` field), not a framework concept.
  */
+import { domainToASCII } from 'node:url'
+
 export type Locale = 'zh-CN' | 'en'
 export const LOCALES: readonly Locale[] = Object.freeze(['zh-CN', 'en'])
 
@@ -196,11 +198,18 @@ export function matchesFilter(post: Post, filter: PostFilter): boolean {
 
 /**
  * Canonical form of a host name for the domain table and for domain-claim
- * checks: trimmed, lower-cased, port removed. Returns undefined for anything
- * that is not a plain DNS-style name.
+ * checks: trimmed, lower-cased, one port and one trailing dot removed, then
+ * IDNA-encoded (`url.domainToASCII`) so a Unicode label and its punycode form
+ * are the same claim. Returns undefined for anything that is not a plain
+ * DNS-style name.
  */
 export function normalizeDomain(value: string | undefined): string | undefined {
   if (!value) return undefined
-  const host = value.trim().toLowerCase().replace(/:\d+$/, '')
-  return /^[a-z0-9.-]+$/.test(host) ? host : undefined
+  let host = value.trim().toLowerCase().replace(/:\d+$/, '')
+  if (host.endsWith('.')) host = host.slice(0, -1)
+  // Letters, digits, marks, dots and hyphens only, before IDNA: the URL host
+  // parser behind domainToASCII would otherwise cut at a delimiter ("a/b.com" → "a").
+  if (host.length === 0 || !/^[\p{L}\p{N}\p{M}.-]+$/u.test(host)) return undefined
+  const ascii = domainToASCII(host)
+  return ascii && /^[a-z0-9.-]+$/.test(ascii) ? ascii : undefined
 }
