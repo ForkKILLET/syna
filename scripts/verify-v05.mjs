@@ -39,7 +39,8 @@ function log(message) {
 }
 
 // Steps run in their own process groups under a bounded timeout policy: scripts/lib/step-runner.mjs (I-111).
-const runner = createStepRunner({ root, logsDir, log, portable })
+// Every finished step is appended to the manifest by the runner itself (`onStep`), so no step can run unrecorded.
+const runner = createStepRunner({ root, logsDir, log, portable, onStep: step => steps.push(step) })
 const run = runner.run
 // A signal to the gate ends the running step's whole process tree before the gate exits.
 for (const signal of ['SIGINT', 'SIGTERM']) {
@@ -300,6 +301,8 @@ await developmentGate()
 let releaseResult
 if (release && !insideArchive) releaseResult = await releaseGate(sourceFingerprint)
 
+// A manifest that recorded no test counts is not evidence of anything: BLOCKED, never COMPLETE.
+if (!steps.some(step => step.tests)) blocked.push({ step: 'manifest', reason: 'no step recorded test counts; the run was not recorded' })
 const mustRun = steps.filter(step => step.mustRun !== false)
 const failed = mustRun.filter(step => !step.ok)
 const skipped = mustRun.reduce((sum, step) => sum + (step.tests?.skipped ?? 0), 0)

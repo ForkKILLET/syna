@@ -35,9 +35,10 @@ function killGroup(child, signal) {
 }
 
 /**
- * @param {{ root: string, logsDir: string, log?: (line: string) => void, portable?: (text: string) => string, defaults?: Partial<typeof DEFAULTS> }} settings
+ * `onStep` receives every finished step (the gate appends it to its manifest); `run()` resolves with the same object.
+ * @param {{ root: string, logsDir: string, log?: (line: string) => void, portable?: (text: string) => string, onStep?: (step: object) => void, defaults?: Partial<typeof DEFAULTS> }} settings
  */
-export function createStepRunner({ root, logsDir, log = () => undefined, portable = text => text, defaults = {} }) {
+export function createStepRunner({ root, logsDir, log = () => undefined, portable = text => text, onStep = () => undefined, defaults = {} }) {
   const limits = { ...DEFAULTS, ...defaults }
   const active = new Set()
 
@@ -103,6 +104,7 @@ export function createStepRunner({ root, logsDir, log = () => undefined, portabl
         if (timedOut) step.note = `timed out after ${timeoutMs} ms (SIGTERM to the process group, SIGKILL after ${killGraceMs} ms)`
         if (closeTimedOut) step.note = `${step.note ? `${step.note}; ` : ''}stdio not released within ${closeWaitMs} ms of exit (a process outside the step's group still held the pipes)`
         log(`${step.ok ? 'ok  ' : 'FAIL'} ${name} (exit ${code}${signal ? `/${signal}` : ''}, ${step.durationMs} ms${counts ? `, tests ${counts.pass}/${counts.tests} pass, ${counts.fail} fail, ${notRun} not run` : ''}${step.note ? `; ${step.note}` : ''})`)
+        onStep(step)
         resolve(step)
       }
 

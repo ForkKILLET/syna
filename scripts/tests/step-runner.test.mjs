@@ -11,7 +11,8 @@ import { createStepRunner, parseTap } from '../lib/step-runner.mjs'
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const logsDir = mkdtempSync(path.join(tmpdir(), 'syna-step-runner-'))
 after(() => rmSync(logsDir, { recursive: true, force: true }))
-const runner = createStepRunner({ root, logsDir })
+const recorded = []
+const runner = createStepRunner({ root, logsDir, onStep: step => recorded.push(step) })
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
 const alive = pid => { try { process.kill(pid, 0); return true } catch { return false } }
 const pidFileFor = name => path.join(logsDir, `${name}.pid`)
@@ -46,6 +47,8 @@ test('a step that exits 0 is ok, its TAP counts are parsed and its output is log
   assert.equal(step.exitCode, 0)
   assert.deepEqual(step.tests, { tests: 2, pass: 2, fail: 0, skipped: 0, todo: 0, cancelled: 0 })
   assert.match(readFileSync(path.join(root, step.log), 'utf8'), /# pass 2/)
+  // The gate records steps through onStep: the very object run() resolves with, so the manifest cannot miss a step.
+  assert.equal(recorded.at(-1), step)
 })
 
 test('expectStdout turns an exit-0 step without the expected lines into a failed step', async () => {
