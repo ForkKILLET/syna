@@ -34,9 +34,8 @@ jobs:
       - run: npm run demo:hyla-mini
 
   # The release gate (G0 + G1: archive, rebuild from the archive, pack, consumer smoke, manifest) with
-  # its outputs kept as a workflow artifact. NOT VERIFIED IN THE CLOUD: this job was written and checked
-  # locally (the workflow syntax and every script it calls run on the developer machine); the repository
-  # had not been pushed when it was added, so no run of it exists. See work/v05/STATE.md.
+  # its outputs kept as a workflow artifact. First cloud run: 2026-09-05, run 33995206873 on 09e2931
+  # (success; gate COMPLETE 710/710 on PostgreSQL 16 / Node 22). See work/v05/STATE.md.
   release-gate:
     needs: check
     runs-on: ubuntu-latest

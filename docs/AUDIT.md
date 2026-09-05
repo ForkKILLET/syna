@@ -102,7 +102,7 @@ Why item 4c cannot be solved under the model. The close of an Env must be bounde
 
 Two further auditors reviewed HEAD 6bb36c2 and reported about thirty-five findings across the core, the Hyla-mini site manager, caches and rendering, static output, the two backends, and delivery. Every claim was re-verified against the source of the time (aa196b5) by three read-only passes; the two core claims C3 and C4 were reproduced live before anything was changed. The rule of the round: stay inside the semantic model (`docs/SEMANTIC_MODEL.md`, task book K/H items) or show the item cannot be solved under it. Fixes were made in groups (core, site manager, caches and security, static output, backends, delivery), one commit each, every fix with a regression test shown to fail on the pre-fix sources. Issue numbers I-58…I-84 in `work/v05/ISSUES.md`; decisions D35…D53; migration notes M-22…M-30. This round's own probes are archived under `work/v05/probes/review-3-2026-09-05/`.
 
-Three design questions were decided with the user: `Family.range()` types as the origin's Contract view (D36); post identity is `(tenantId, id)` on both backends (D51); the CI release-gate job is included and labelled as not verified in the cloud (D53).
+Three design questions were decided with the user: `Family.range()` types as the origin's Contract view (D36); post identity is `(tenantId, id)` on both backends (D51); the CI release-gate job is included and was labelled as not verified in the cloud until it ran (D53; verified on 2026-09-05 by GitHub Actions run 33995206873).
 
 | finding | verdict | fix | regression |
 |---|---|---|---|
@@ -135,7 +135,7 @@ Three design questions were decided with the user: `Family.range()` types as the
 | B4 `withClient` destroyed the connection on every error | holds | destroy only on connection-level errors (I-81, D52) | pool policy |
 | D1 / V2 demo `fetch` cannot set `Host` → dynamic cells 404; gate checked exit code only | holds (committed logs showed `404 22 bytes`) | self-asserting demo over `node:http`; `expectStdout` in the gate (I-82, D53) | gate steps `hyla-demo-filesystem`, `rebuild-demo` |
 | V3 "530 tests" = 265 × 2 | holds | `distinctTests` / `rebuildTests`; VALIDATION wording (I-83, D53) | manifest |
-| V1 / V5 no CI release gate; archives unpublished | holds | `release-gate` job with artifact upload; labelled not verified in the cloud (I-84, D53) | — (cloud run pending) |
+| V1 / V5 no CI release gate; archives unpublished | holds | `release-gate` job with artifact upload (I-84, D53) | GitHub Actions run 33995206873 on 09e2931: `release-gate` success, gate COMPLETE 710/710 (2026-09-05) |
 | extra: vacuous `revisionBefore` assertion; VALIDATION artefact table stale by construction | hold | assertion fixed; table replaced by a pointer to the run's hash list (I-79, I-83) | conformance |
 | V4 other documentation claims (ALS, selector, `InputRef.load`) | inaccurate: already v0.5-correct | — | — |
 | lineage key / template size grows with Env depth | kept as a limit | bounded by `planCache.maxEntries` (F-CD-04) | — |
