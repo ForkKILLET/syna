@@ -2,7 +2,6 @@ import {
   createRuntime,
   definePackage,
   loadAll,
-  opaque,
   type DependencyRef,
   type EntryExplanation,
   type EntryParameters,
@@ -98,17 +97,9 @@ const Minimal = define.service('minimal', {
 const minimalInstance: ServiceInstance<typeof Minimal> = { ping: () => 'pong' }
 void minimalInstance
 
-// A setup may wrap an instance whose own API has `then` with opaque().
-interface Thenish { then(): string }
-const ThenishService = define.service('thenish', {
-  setup: () => opaque<Thenish>({ then: () => 'not a promise' }),
-})
-const thenishInstance: ServiceInstance<typeof ThenishService> = { then: () => 'x' }
-void thenishInstance
-
 const NoParams = define.entry('no-params', { requires: { minimal: Minimal } })
 const runtime = createRuntime({
-  services: [Implementation, Consumer, Minimal, ThenishService],
+  services: [Implementation, Consumer, Minimal],
   initialization: { deadlineMs: 5_000 },
   diagnostics: { onEvent: event => { void event.type } },
 })

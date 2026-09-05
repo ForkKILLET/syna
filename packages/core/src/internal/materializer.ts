@@ -7,7 +7,6 @@ import type {
   ServiceLifecycle,
 } from '../descriptors.js'
 import { SynaError } from '../errors.js'
-import { OPAQUE_INSTANCE, isForeignThenable, isOpaqueInstance } from '../opaque.js'
 import {
   dependantFirstComponentOrder,
   stronglyConnectedComponents,
@@ -48,6 +47,13 @@ type RaceResult =
   | { readonly kind: 'resolved'; readonly value: unknown }
   | { readonly kind: 'rejected'; readonly error: unknown }
   | { readonly kind: 'timeout' }
+
+function isForeignThenable(value: unknown): boolean {
+  if (value instanceof Promise) return false
+  if (typeof value !== 'object' && typeof value !== 'function') return false
+  if (value === null) return false
+  return typeof (value as { then?: unknown }).then === 'function'
+}
 
 function raceDeadline(promise: Promise<unknown>, deadlineMs: number): Promise<RaceResult> {
   const settled = promise.then(
@@ -338,7 +344,7 @@ export class Materializer {
           env: owner.id,
         })
       }
-      rawPromise = Promise.resolve(raw).then(value => isOpaqueInstance(value) ? value[OPAQUE_INSTANCE] : value)
+      rawPromise = Promise.resolve(raw)
     }
     catch (error) {
       rawPromise = Promise.reject(error)

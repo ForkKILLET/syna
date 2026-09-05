@@ -1,0 +1,131 @@
+{
+  "tenants": {
+    "alpha": {
+      "site": {
+        "title": "Alpha Notes",
+        "domains": ["alpha.test", "www.alpha.test"],
+        "defaultLocale": "en",
+        "theme": { "name": "paper", "accent": "#3366cc" },
+        "navigation": [
+          { "label": "Home", "href": "/" },
+          { "label": "Engineering", "href": "/category/engineering" }
+        ]
+      },
+      "categories": [
+        { "slug": "engineering", "name": "Engineering" },
+        { "slug": "notes", "name": "Notes" }
+      ],
+      "tags": [
+        { "slug": "syna", "name": "Syna" },
+        { "slug": "postgres", "name": "PostgreSQL" }
+      ],
+      "posts": [
+        {
+          "id": "alpha-p1",
+          "slug": "hello-world",
+          "locale": "en",
+          "title": "Hello, world",
+          "status": "published",
+          "categories": ["engineering", "notes"],
+          "primaryCategory": "engineering",
+          "tags": ["syna"],
+          "createdAt": "2026-01-10T08:00:00.000Z",
+          "updatedAt": "2026-01-10T08:00:00.000Z",
+          "body": "# Hello\n\nThis is **Alpha**'s first post about [Syna](https://example.test/syna).\n\n- one\n- two\n\n| a | b |\n|---|---|\n| 1 | 2 |\n"
+        },
+        {
+          "id": "alpha-p2",
+          "slug": "shared-slug",
+          "locale": "en",
+          "title": "Alpha's take on the shared slug",
+          "status": "published",
+          "categories": ["notes"],
+          "tags": ["syna", "postgres"],
+          "createdAt": "2026-01-12T08:00:00.000Z",
+          "updatedAt": "2026-01-12T08:00:00.000Z",
+          "body": "Alpha content for the slug that both tenants use.\n\n<script>alert('alpha')</script>\n\n~~strike~~ works with GFM.\n"
+        },
+        {
+          "id": "alpha-p3",
+          "slug": "draft-plans",
+          "locale": "en",
+          "title": "Draft plans (must never leak)",
+          "status": "draft",
+          "categories": ["notes"],
+          "tags": [],
+          "createdAt": "2026-01-13T08:00:00.000Z",
+          "updatedAt": "2026-01-13T08:00:00.000Z",
+          "body": "ALPHA-DRAFT-SECRET\n"
+        },
+        {
+          "id": "alpha-p4",
+          "slug": "members-only",
+          "locale": "en",
+          "title": "Members only",
+          "status": "private",
+          "categories": ["engineering"],
+          "tags": ["syna"],
+          "createdAt": "2026-01-14T08:00:00.000Z",
+          "updatedAt": "2026-01-14T08:00:00.000Z",
+          "body": "ALPHA-PRIVATE-SECRET for signed-in alpha members.\n"
+        }
+      ]
+    },
+    "beta": {
+      "site": {
+        "title": "Beta 博客",
+        "domains": ["beta.test"],
+        "defaultLocale": "zh-CN",
+        "theme": { "name": "ink", "accent": "#cc3366" },
+        "navigation": [
+          { "label": "首页", "href": "/" },
+          { "label": "随笔", "href": "/category/essays" }
+        ]
+      },
+      "categories": [
+        { "slug": "essays", "name": "随笔" }
+      ],
+      "tags": [
+        { "slug": "syna", "name": "Syna" }
+      ],
+      "posts": [
+        {
+          "id": "beta-p1",
+          "slug": "shared-slug",
+          "locale": "zh-CN",
+          "title": "Beta 对同名 slug 的看法",
+          "status": "published",
+          "categories": ["essays"],
+          "tags": ["syna"],
+          "createdAt": "2026-02-01T08:00:00.000Z",
+          "updatedAt": "2026-02-01T08:00:00.000Z",
+          "body": "这是 **Beta** 租户的内容。两个租户使用了同一个 slug，但输出必须不同。\n"
+        },
+        {
+          "id": "beta-p2",
+          "slug": "ni-hao",
+          "locale": "zh-CN",
+          "title": "你好，世界",
+          "status": "published",
+          "categories": ["essays"],
+          "tags": [],
+          "createdAt": "2026-02-02T08:00:00.000Z",
+          "updatedAt": "2026-02-02T08:00:00.000Z",
+          "body": "第一篇中文文章。\n\n1. 一\n2. 二\n"
+        },
+        {
+          "id": "beta-p3",
+          "slug": "private-diary",
+          "locale": "zh-CN",
+          "title": "私密日记",
+          "status": "private",
+          "categories": ["essays"],
+          "tags": [],
+          "createdAt": "2026-02-03T08:00:00.000Z",
+          "updatedAt": "2026-02-03T08:00:00.000Z",
+          "body": "BETA-PRIVATE-SECRET\n"
+        }
+      ]
+    }
+  }
+}

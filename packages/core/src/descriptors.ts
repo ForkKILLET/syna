@@ -1,5 +1,4 @@
 import type { DiagnosticCode, SynaErrorCode } from './errors.js'
-import type { OpaqueInstance } from './opaque.js'
 
 export type Awaitable<T> = T | PromiseLike<T>
 
@@ -266,7 +265,12 @@ export interface ServiceLifecycle {
   onDispose(cleanup: () => Awaitable<void>): void
 }
 
-export type SetupResult<Instance> = Awaitable<Instance | OpaqueInstance<Instance>>
+/**
+ * A setup result is awaited like any Promise-returning function. Consequently a
+ * Service instance can never itself be thenable: JavaScript would assimilate
+ * it on every `await`. Wrap such objects in a plain holder (`{ client }`).
+ */
+export type SetupResult<Instance> = Awaitable<Instance>
 
 export interface ServiceDefinition<
   Requires extends DependencyMap,

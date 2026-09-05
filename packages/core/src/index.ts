@@ -7,9 +7,6 @@ export {
   override,
 } from './definition.js'
 
-export { opaque } from './opaque.js'
-export type { OpaqueInstance } from './opaque.js'
-
 export {
   createRuntime,
   defaultRuntimePolicy,

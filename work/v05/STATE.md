@@ -1,7 +1,8 @@
 # Syna v0.5 + Hyla-mini — STATE
 
 ## Current phase
-Phase A (recon) complete → entering Phase B (Hyla-mini first vertical path).
+Phase C started early for the kernel (v0.5 core compiled, 88 migrated tests pass, 4 demos run).
+Phase B (Hyla-mini vertical path) in progress: domain skeleton written; data adapters + app layers next.
 
 ## Environment (recorded 2026-09-04, local machine)
 - Host: Darwin 25.2.0 arm64, Apple M4 Pro (14 cores), 48 GiB RAM
