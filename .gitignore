@@ -4,3 +4,9 @@ node_modules/
 coverage/
 .tmp/
 **/.tsbuildinfo
+dist/
+dist-local/
+work/pg/
+work/release/
+work/v05/logs/
+validation/tmp/
