@@ -1,9 +1,9 @@
 # Syna v0.5 + Hyla-mini — STATE
 
 ## Current phase
-Phase E: audit findings applied (I-17…I-48, all confirmed defects fixed with regression tests; see ISSUES.md), docs and ledgers updated, audit reports/probes archived to docs/audit/.
-G0 dev gate: COMPLETE earlier (pre-audit source); must be re-run as part of G1 on the final source.
-Next: commit → `node scripts/verify-v05.mjs --release` (nothing else running) → refresh docs/VALIDATION.md from RELEASE_MANIFEST.json → final commit → session report with the real command summary and archive list.
+Phase F: release gate. `node scripts/verify-v05.mjs --release` COMPLETE (exit 0) at commit f9a3b35: 30 steps, 506/506 tests, 0 skipped, fingerprint 68119800…43a79; docs/VALIDATION.md regenerated from that manifest.
+Release-gate history (2026-09-05): run 1 PARTIAL — archive scan rejected two strings in the archived cache-delivery audit report (reworded, c9006e4); run 2 PARTIAL — H10 backpressure test raced on concurrent config reads (test fixed, f9a3b35, I-49); run 3 COMPLETE.
+Next: commit VALIDATION.md + ledgers → final `--release` run on that source (RELEASE_MANIFEST.json) → commit release evidence → session report.
 
 ## Environment (recorded 2026-09-04, local machine)
 - Host: Darwin 25.2.0 arm64, Apple M4 Pro (14 cores), 48 GiB RAM
@@ -36,4 +36,6 @@ Documented-only items: F-PL-08 (D22), F-CD-04 residual template size, F-CD-07 ba
 
 ## Resources created by this task (cleanup list)
 - work/pg/ (temporary PostgreSQL cluster data, gitignored) — stopped/removed by scripts/pg-test-cluster.mjs stop
-- work/release/ (archives, unpack dirs)
+- work/release/ (archives, packed tarballs, staging copy syna-v0.5.0-source/; gitignored)
+- validation/v0.5-release/ and RELEASE_MANIFEST.json (committed evidence of the final run)
+- rebuild directories are created with mkdtemp under the OS temp dir and removed by the orchestrator (none left after the runs)

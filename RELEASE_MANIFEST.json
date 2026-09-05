@@ -1,0 +1,539 @@
+{
+  "name": "Syna v0.5.0 + Hyla-mini",
+  "version": "0.5.0",
+  "status": "COMPLETE",
+  "mode": "release",
+  "generatedAt": "2026-09-05T04:42:33.548Z",
+  "startedAt": "2026-09-05T04:41:28.494Z",
+  "environment": {
+    "node": "v26.0.0",
+    "platform": "darwin",
+    "arch": "arm64",
+    "cwd": ".",
+    "gitProvenance": {
+      "commit": "f9a3b355d47ec693011b99ece3d3abdc14da53b6",
+      "dirty": false
+    }
+  },
+  "source": {
+    "algorithm": "sha256(path\\nsha256(content)\\n...)",
+    "files": 224,
+    "digest": "68119800a53ee307d4ecb4523db6fc8066a1a4bdb0c0b0bc7725c68129243a79"
+  },
+  "steps": [
+    {
+      "name": "clean",
+      "command": "npm run clean",
+      "cwd": ".",
+      "startedAt": "2026-09-05T04:41:28.555Z",
+      "endedAt": "2026-09-05T04:41:28.709Z",
+      "durationMs": 154,
+      "exitCode": 0,
+      "signal": null,
+      "mustRun": true,
+      "log": "validation/v0.5-release/logs/clean.log",
+      "ok": true
+    },
+    {
+      "name": "build",
+      "command": "npm run build",
+      "cwd": ".",
+      "startedAt": "2026-09-05T04:41:28.709Z",
+      "endedAt": "2026-09-05T04:41:30.469Z",
+      "durationMs": 1760,
+      "exitCode": 0,
+      "signal": null,
+      "mustRun": true,
+      "log": "validation/v0.5-release/logs/build.log",
+      "ok": true
+    },
+    {
+      "name": "type-tests",
+      "command": "npm run type-tests",
+      "cwd": ".",
+      "startedAt": "2026-09-05T04:41:30.469Z",
+      "endedAt": "2026-09-05T04:41:31.018Z",
+      "durationMs": 549,
+      "exitCode": 0,
+      "signal": null,
+      "mustRun": true,
+      "log": "validation/v0.5-release/logs/type-tests.log",
+      "ok": true
+    },
+    {
+      "name": "core-tests",
+      "command": "node --test --test-reporter=tap packages/core/tests/contracts.test.mjs packages/core/tests/core.test.mjs packages/core/tests/hardening.test.mjs packages/core/tests/lifecycle.test.mjs packages/core/tests/reference-planner.test.mjs packages/core/tests/semver.test.mjs packages/core/tests/v04-adversarial.test.mjs packages/core/tests/v04-corrections.test.mjs packages/core/tests/v04-finalization.test.mjs packages/core/tests/v04-regressions.test.mjs packages/core/tests/v05-attempts.test.mjs packages/core/tests/v05-audit-lifecycle.test.mjs packages/core/tests/v05-audit-planning.test.mjs packages/core/tests/v05-cache-cleanup.test.mjs packages/core/tests/v05-definitions.test.mjs packages/core/tests/v05-explain.test.mjs packages/core/tests/v05-planner.test.mjs packages/core/tests/v05-promises.test.mjs packages/core/tests/v05-realms-override.test.mjs",
+      "cwd": ".",
+      "startedAt": "2026-09-05T04:41:31.019Z",
+      "endedAt": "2026-09-05T04:41:31.877Z",
+      "durationMs": 858,
+      "exitCode": 0,
+      "signal": null,
+      "tests": {
+        "tests": 148,
+        "pass": 148,
+        "fail": 0,
+        "skipped": 0,
+        "todo": 0,
+        "cancelled": 0
+      },
+      "mustRun": true,
+      "log": "validation/v0.5-release/logs/core-tests.log",
+      "ok": true
+    },
+    {
+      "name": "hyla-filesystem-tests",
+      "command": "node --test --test-reporter=tap apps/hyla-mini/tests/filesystem.test.mjs",
+      "cwd": ".",
+      "startedAt": "2026-09-05T04:41:31.877Z",
+      "endedAt": "2026-09-05T04:41:32.571Z",
+      "durationMs": 694,
+      "exitCode": 0,
+      "signal": null,
+      "tests": {
+        "tests": 47,
+        "pass": 47,
+        "fail": 0,
+        "skipped": 0,
+        "todo": 0,
+        "cancelled": 0
+      },
+      "mustRun": true,
+      "log": "validation/v0.5-release/logs/hyla-filesystem-tests.log",
+      "ok": true
+    },
+    {
+      "name": "hyla-render-tests",
+      "command": "node --test --test-reporter=tap apps/hyla-mini/tests/render.test.mjs",
+      "cwd": ".",
+      "startedAt": "2026-09-05T04:41:32.571Z",
+      "endedAt": "2026-09-05T04:41:32.818Z",
+      "durationMs": 247,
+      "exitCode": 0,
+      "signal": null,
+      "tests": {
+        "tests": 4,
+        "pass": 4,
+        "fail": 0,
+        "skipped": 0,
+        "todo": 0,
+        "cancelled": 0
+      },
+      "mustRun": true,
+      "log": "validation/v0.5-release/logs/hyla-render-tests.log",
+      "ok": true
+    },
+    {
+      "name": "hyla-tenants-auth-preflight-tests",
+      "command": "node --test --test-reporter=tap apps/hyla-mini/tests/tenants-auth.test.mjs apps/hyla-mini/tests/preflight.test.mjs",
+      "cwd": ".",
+      "startedAt": "2026-09-05T04:41:32.818Z",
+      "endedAt": "2026-09-05T04:41:33.178Z",
+      "durationMs": 360,
+      "exitCode": 0,
+      "signal": null,
+      "tests": {
+        "tests": 10,
+        "pass": 10,
+        "fail": 0,
+        "skipped": 0,
+        "todo": 0,
+        "cancelled": 0
+      },
+      "mustRun": true,
+      "log": "validation/v0.5-release/logs/hyla-tenants-auth-preflight-tests.log",
+      "ok": true
+    },
+    {
+      "name": "hyla-audit-regression-tests",
+      "command": "node --test --test-reporter=tap apps/hyla-mini/tests/audit-app.test.mjs",
+      "cwd": ".",
+      "startedAt": "2026-09-05T04:41:33.178Z",
+      "endedAt": "2026-09-05T04:41:36.864Z",
+      "durationMs": 3686,
+      "exitCode": 0,
+      "signal": null,
+      "tests": {
+        "tests": 12,
+        "pass": 12,
+        "fail": 0,
+        "skipped": 0,
+        "todo": 0,
+        "cancelled": 0
+      },
+      "mustRun": true,
+      "log": "validation/v0.5-release/logs/hyla-audit-regression-tests.log",
+      "ok": true
+    },
+    {
+      "name": "hyla-site-manager-working-set-tests",
+      "command": "node --test --test-reporter=tap --expose-gc apps/hyla-mini/tests/site-manager.test.mjs",
+      "env": {
+        "SYNA_WORKING_SET_OUT": "<root>/validation/v0.5-release/working-set.json"
+      },
+      "cwd": ".",
+      "startedAt": "2026-09-05T04:41:36.864Z",
+      "endedAt": "2026-09-05T04:41:40.412Z",
+      "durationMs": 3548,
+      "exitCode": 0,
+      "signal": null,
+      "tests": {
+        "tests": 5,
+        "pass": 5,
+        "fail": 0,
+        "skipped": 0,
+        "todo": 0,
+        "cancelled": 0
+      },
+      "mustRun": true,
+      "log": "validation/v0.5-release/logs/hyla-site-manager-working-set-tests.log",
+      "ok": true
+    },
+    {
+      "name": "hyla-postgres-and-matrix-tests",
+      "command": "node scripts/pg-test-cluster.mjs with -- node --test --test-reporter=tap apps/hyla-mini/tests/postgres.test.mjs apps/hyla-mini/tests/matrix.test.mjs",
+      "env": {
+        "SYNA_PG_CLUSTER_DIR": "<root>/work/pg-release"
+      },
+      "cwd": ".",
+      "startedAt": "2026-09-05T04:41:40.412Z",
+      "endedAt": "2026-09-05T04:41:41.578Z",
+      "durationMs": 1166,
+      "exitCode": 0,
+      "signal": null,
+      "tests": {
+        "tests": 27,
+        "pass": 27,
+        "fail": 0,
+        "skipped": 0,
+        "todo": 0,
+        "cancelled": 0
+      },
+      "mustRun": true,
+      "log": "validation/v0.5-release/logs/hyla-postgres-and-matrix-tests.log",
+      "ok": true
+    },
+    {
+      "name": "demos",
+      "command": "npm run demo",
+      "cwd": ".",
+      "startedAt": "2026-09-05T04:41:41.578Z",
+      "endedAt": "2026-09-05T04:42:18.946Z",
+      "durationMs": 37368,
+      "exitCode": 0,
+      "signal": null,
+      "mustRun": true,
+      "log": "validation/v0.5-release/logs/demos.log",
+      "ok": true
+    },
+    {
+      "name": "hyla-demo-filesystem",
+      "command": "node apps/hyla-mini/bin/hyla-mini.mjs demo --root <root>/work/demo-content",
+      "cwd": ".",
+      "startedAt": "2026-09-05T04:42:18.946Z",
+      "endedAt": "2026-09-05T04:42:19.259Z",
+      "durationMs": 313,
+      "exitCode": 0,
+      "signal": null,
+      "mustRun": true,
+      "log": "validation/v0.5-release/logs/hyla-demo-filesystem.log",
+      "ok": true
+    },
+    {
+      "name": "benchmarks",
+      "command": "node --expose-gc benchmarks/v0.5-planning.mjs <root>/validation/v0.5-release/benchmark-v0.5.json",
+      "cwd": ".",
+      "startedAt": "2026-09-05T04:42:19.260Z",
+      "endedAt": "2026-09-05T04:42:22.432Z",
+      "durationMs": 3172,
+      "exitCode": 0,
+      "signal": null,
+      "mustRun": true,
+      "log": "validation/v0.5-release/logs/benchmarks.log",
+      "ok": true
+    },
+    {
+      "name": "archive-scan",
+      "ok": true,
+      "exitCode": 0,
+      "mustRun": true,
+      "command": "internal",
+      "log": "validation/v0.5-release/archive-scan.json"
+    },
+    {
+      "name": "archive-tar",
+      "command": "tar -czf <root>/work/release/syna-v0.5.0-source.tar.gz -C <root>/work/release syna-v0.5.0-source",
+      "cwd": ".",
+      "startedAt": "2026-09-05T04:42:22.499Z",
+      "endedAt": "2026-09-05T04:42:22.605Z",
+      "durationMs": 106,
+      "exitCode": 0,
+      "signal": null,
+      "mustRun": true,
+      "log": "validation/v0.5-release/logs/archive-tar.log",
+      "ok": true
+    },
+    {
+      "name": "archive-zip",
+      "command": "zip -qr <root>/work/release/syna-v0.5.0-source.zip syna-v0.5.0-source",
+      "cwd": "work/release",
+      "startedAt": "2026-09-05T04:42:22.605Z",
+      "endedAt": "2026-09-05T04:42:22.630Z",
+      "durationMs": 25,
+      "exitCode": 0,
+      "signal": null,
+      "mustRun": true,
+      "log": "validation/v0.5-release/logs/archive-zip.log",
+      "ok": true
+    },
+    {
+      "name": "rebuild-unpack",
+      "command": "tar -xzf <root>/work/release/syna-v0.5.0-source.tar.gz -C /var/folders/y0/gk3fktfn14g1xqyjjqr9mq8h0000gn/T/syna-v05-rebuild-qWrWQA",
+      "cwd": ".",
+      "startedAt": "2026-09-05T04:42:22.631Z",
+      "endedAt": "2026-09-05T04:42:22.724Z",
+      "durationMs": 93,
+      "exitCode": 0,
+      "signal": null,
+      "mustRun": true,
+      "log": "validation/v0.5-release/logs/rebuild-unpack.log",
+      "ok": true
+    },
+    {
+      "name": "rebuild-install",
+      "command": "npm ci --no-fund --no-audit",
+      "cwd": "../../../../var/folders/y0/gk3fktfn14g1xqyjjqr9mq8h0000gn/T/syna-v05-rebuild-qWrWQA/syna-v0.5.0-source",
+      "startedAt": "2026-09-05T04:42:22.724Z",
+      "endedAt": "2026-09-05T04:42:23.280Z",
+      "durationMs": 556,
+      "exitCode": 0,
+      "signal": null,
+      "mustRun": true,
+      "log": "validation/v0.5-release/logs/rebuild-install.log",
+      "ok": true
+    },
+    {
+      "name": "rebuild-build",
+      "command": "npm run build",
+      "cwd": "../../../../var/folders/y0/gk3fktfn14g1xqyjjqr9mq8h0000gn/T/syna-v05-rebuild-qWrWQA/syna-v0.5.0-source",
+      "startedAt": "2026-09-05T04:42:23.280Z",
+      "endedAt": "2026-09-05T04:42:25.186Z",
+      "durationMs": 1906,
+      "exitCode": 0,
+      "signal": null,
+      "mustRun": true,
+      "log": "validation/v0.5-release/logs/rebuild-build.log",
+      "ok": true
+    },
+    {
+      "name": "rebuild-type-tests",
+      "command": "npm run type-tests",
+      "cwd": "../../../../var/folders/y0/gk3fktfn14g1xqyjjqr9mq8h0000gn/T/syna-v05-rebuild-qWrWQA/syna-v0.5.0-source",
+      "startedAt": "2026-09-05T04:42:25.186Z",
+      "endedAt": "2026-09-05T04:42:25.734Z",
+      "durationMs": 548,
+      "exitCode": 0,
+      "signal": null,
+      "mustRun": true,
+      "log": "validation/v0.5-release/logs/rebuild-type-tests.log",
+      "ok": true
+    },
+    {
+      "name": "rebuild-core-tests",
+      "command": "node --test --test-reporter=tap packages/core/tests/contracts.test.mjs packages/core/tests/core.test.mjs packages/core/tests/hardening.test.mjs packages/core/tests/lifecycle.test.mjs packages/core/tests/reference-planner.test.mjs packages/core/tests/semver.test.mjs packages/core/tests/v04-adversarial.test.mjs packages/core/tests/v04-corrections.test.mjs packages/core/tests/v04-finalization.test.mjs packages/core/tests/v04-regressions.test.mjs packages/core/tests/v05-attempts.test.mjs packages/core/tests/v05-audit-lifecycle.test.mjs packages/core/tests/v05-audit-planning.test.mjs packages/core/tests/v05-cache-cleanup.test.mjs packages/core/tests/v05-definitions.test.mjs packages/core/tests/v05-explain.test.mjs packages/core/tests/v05-planner.test.mjs packages/core/tests/v05-promises.test.mjs packages/core/tests/v05-realms-override.test.mjs",
+      "cwd": "../../../../var/folders/y0/gk3fktfn14g1xqyjjqr9mq8h0000gn/T/syna-v05-rebuild-qWrWQA/syna-v0.5.0-source",
+      "startedAt": "2026-09-05T04:42:25.734Z",
+      "endedAt": "2026-09-05T04:42:26.578Z",
+      "durationMs": 844,
+      "exitCode": 0,
+      "signal": null,
+      "tests": {
+        "tests": 148,
+        "pass": 148,
+        "fail": 0,
+        "skipped": 0,
+        "todo": 0,
+        "cancelled": 0
+      },
+      "mustRun": true,
+      "log": "validation/v0.5-release/logs/rebuild-core-tests.log",
+      "ok": true
+    },
+    {
+      "name": "rebuild-app-tests",
+      "command": "node --test --test-reporter=tap --expose-gc apps/hyla-mini/tests/filesystem.test.mjs apps/hyla-mini/tests/render.test.mjs apps/hyla-mini/tests/tenants-auth.test.mjs apps/hyla-mini/tests/preflight.test.mjs apps/hyla-mini/tests/audit-app.test.mjs apps/hyla-mini/tests/site-manager.test.mjs",
+      "cwd": "../../../../var/folders/y0/gk3fktfn14g1xqyjjqr9mq8h0000gn/T/syna-v05-rebuild-qWrWQA/syna-v0.5.0-source",
+      "startedAt": "2026-09-05T04:42:26.578Z",
+      "endedAt": "2026-09-05T04:42:30.323Z",
+      "durationMs": 3745,
+      "exitCode": 0,
+      "signal": null,
+      "tests": {
+        "tests": 78,
+        "pass": 78,
+        "fail": 0,
+        "skipped": 0,
+        "todo": 0,
+        "cancelled": 0
+      },
+      "mustRun": true,
+      "log": "validation/v0.5-release/logs/rebuild-app-tests.log",
+      "ok": true
+    },
+    {
+      "name": "rebuild-postgres-matrix-tests",
+      "command": "node scripts/pg-test-cluster.mjs with -- node --test --test-reporter=tap apps/hyla-mini/tests/postgres.test.mjs apps/hyla-mini/tests/matrix.test.mjs",
+      "env": {
+        "SYNA_PG_CLUSTER_DIR": "/var/folders/y0/gk3fktfn14g1xqyjjqr9mq8h0000gn/T/syna-v05-rebuild-qWrWQA/pg"
+      },
+      "cwd": "../../../../var/folders/y0/gk3fktfn14g1xqyjjqr9mq8h0000gn/T/syna-v05-rebuild-qWrWQA/syna-v0.5.0-source",
+      "startedAt": "2026-09-05T04:42:30.323Z",
+      "endedAt": "2026-09-05T04:42:31.455Z",
+      "durationMs": 1132,
+      "exitCode": 0,
+      "signal": null,
+      "tests": {
+        "tests": 27,
+        "pass": 27,
+        "fail": 0,
+        "skipped": 0,
+        "todo": 0,
+        "cancelled": 0
+      },
+      "mustRun": true,
+      "log": "validation/v0.5-release/logs/rebuild-postgres-matrix-tests.log",
+      "ok": true
+    },
+    {
+      "name": "rebuild-demo",
+      "command": "node apps/hyla-mini/bin/hyla-mini.mjs demo --root /var/folders/y0/gk3fktfn14g1xqyjjqr9mq8h0000gn/T/syna-v05-rebuild-qWrWQA/demo-content",
+      "cwd": "../../../../var/folders/y0/gk3fktfn14g1xqyjjqr9mq8h0000gn/T/syna-v05-rebuild-qWrWQA/syna-v0.5.0-source",
+      "startedAt": "2026-09-05T04:42:31.455Z",
+      "endedAt": "2026-09-05T04:42:31.677Z",
+      "durationMs": 222,
+      "exitCode": 0,
+      "signal": null,
+      "mustRun": true,
+      "log": "validation/v0.5-release/logs/rebuild-demo.log",
+      "ok": true
+    },
+    {
+      "name": "pack-core",
+      "command": "npm pack --pack-destination <root>/work/release/pack /var/folders/y0/gk3fktfn14g1xqyjjqr9mq8h0000gn/T/syna-v05-rebuild-qWrWQA/syna-v0.5.0-source/packages/core",
+      "cwd": "work/release/pack",
+      "startedAt": "2026-09-05T04:42:31.677Z",
+      "endedAt": "2026-09-05T04:42:31.897Z",
+      "durationMs": 220,
+      "exitCode": 0,
+      "signal": null,
+      "mustRun": true,
+      "log": "validation/v0.5-release/logs/pack-core.log",
+      "ok": true
+    },
+    {
+      "name": "pack-tsconfig",
+      "command": "npm pack --pack-destination <root>/work/release/pack /var/folders/y0/gk3fktfn14g1xqyjjqr9mq8h0000gn/T/syna-v05-rebuild-qWrWQA/syna-v0.5.0-source/packages/tsconfig",
+      "cwd": "work/release/pack",
+      "startedAt": "2026-09-05T04:42:31.897Z",
+      "endedAt": "2026-09-05T04:42:32.059Z",
+      "durationMs": 162,
+      "exitCode": 0,
+      "signal": null,
+      "mustRun": true,
+      "log": "validation/v0.5-release/logs/pack-tsconfig.log",
+      "ok": true
+    },
+    {
+      "name": "consumer-install",
+      "command": "npm install --no-fund --no-audit",
+      "cwd": "../../../../var/folders/y0/gk3fktfn14g1xqyjjqr9mq8h0000gn/T/syna-v05-rebuild-qWrWQA/consumer",
+      "startedAt": "2026-09-05T04:42:32.060Z",
+      "endedAt": "2026-09-05T04:42:32.651Z",
+      "durationMs": 591,
+      "exitCode": 0,
+      "signal": null,
+      "mustRun": true,
+      "log": "validation/v0.5-release/logs/consumer-install.log",
+      "ok": true
+    },
+    {
+      "name": "consumer-build",
+      "command": "npm run build",
+      "cwd": "../../../../var/folders/y0/gk3fktfn14g1xqyjjqr9mq8h0000gn/T/syna-v05-rebuild-qWrWQA/consumer",
+      "startedAt": "2026-09-05T04:42:32.651Z",
+      "endedAt": "2026-09-05T04:42:33.186Z",
+      "durationMs": 535,
+      "exitCode": 0,
+      "signal": null,
+      "mustRun": true,
+      "log": "validation/v0.5-release/logs/consumer-build.log",
+      "ok": true
+    },
+    {
+      "name": "consumer-run",
+      "command": "npm run -s start",
+      "cwd": "../../../../var/folders/y0/gk3fktfn14g1xqyjjqr9mq8h0000gn/T/syna-v05-rebuild-qWrWQA/consumer",
+      "startedAt": "2026-09-05T04:42:33.186Z",
+      "endedAt": "2026-09-05T04:42:33.344Z",
+      "durationMs": 158,
+      "exitCode": 0,
+      "signal": null,
+      "mustRun": true,
+      "log": "validation/v0.5-release/logs/consumer-run.log",
+      "ok": true
+    },
+    {
+      "name": "consumer-smoke-result",
+      "ok": true,
+      "exitCode": 0,
+      "mustRun": true,
+      "command": "internal",
+      "log": "validation/v0.5-release/logs/consumer-run.log",
+      "output": {
+        "result": 42,
+        "revision": "7.3.1",
+        "explainOk": true
+      }
+    }
+  ],
+  "totals": {
+    "steps": 30,
+    "failed": 0,
+    "skippedTests": 0,
+    "tests": 506,
+    "passed": 506
+  },
+  "blocked": [],
+  "release": {
+    "archives": [
+      {
+        "path": "work/release/syna-v0.5.0-source.tar.gz",
+        "bytes": 372131,
+        "sha256": "09a5f9be05bc34c4c27992e4bcd0c5f01d363f55e512e74ad308a80eadc9cbb5"
+      },
+      {
+        "path": "work/release/syna-v0.5.0-source.zip",
+        "bytes": 483195,
+        "sha256": "9fd9e85a88d3545d1d3424b46cc7d028bb22941e4ff31a41746b849b4246a3df"
+      }
+    ],
+    "packed": [
+      {
+        "path": "work/release/pack/syna-core-0.5.0.tgz",
+        "bytes": 88811,
+        "sha256": "497c07d3b1e1b9caed1d7571d45ee5255254875449cc5963024e4f97a96da329"
+      },
+      {
+        "path": "work/release/pack/syna-tsconfig-0.5.0.tgz",
+        "bytes": 1483,
+        "sha256": "81861252837e4c2c934f8a06380e247086cb1f868c9e8c8f93bc76f7d7725cbf"
+      }
+    ],
+    "sourceFingerprint": {
+      "algorithm": "sha256(path\\nsha256(content)\\n...)",
+      "files": 224,
+      "digest": "68119800a53ee307d4ecb4523db6fc8066a1a4bdb0c0b0bc7725c68129243a79"
+    },
+    "rebuiltFrom": "work/release/syna-v0.5.0-source.tar.gz"
+  }
+}
