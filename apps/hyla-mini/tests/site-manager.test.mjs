@@ -32,6 +32,14 @@ async function addTenants(store, count) {
   return ids
 }
 
+const waitUntil = async (predicate, timeoutMs = 2_000) => {
+  const deadline = Date.now() + timeoutMs
+  while (!predicate()) {
+    if (Date.now() > deadline) throw new Error('waitUntil: condition not met in time')
+    await sleep(2)
+  }
+}
+
 test('H10 leases are single-flight per key, idempotent on release, evicted only when idle, and bounded by capacity with backpressure', async () => {
   const harness = await createFilesystemApp({ app: { siteManager: { capacity: 3, idleTtlMs: 60_000, maxPendingAcquires: 2, acquireTimeoutMs: 300 } } })
   try {
@@ -59,14 +67,16 @@ test('H10 leases are single-flight per key, idempotent on release, evicted only 
 
     // All three are leased: further tenants queue (bounded) and time out instead of evicting a live tenant.
     const started = Date.now()
+    // The wait queue is FIFO by arrival; an acquirer arrives after its configuration read, so B is
+    // issued only once A is queued (two concurrent reads could otherwise complete in either order).
     const waitingA = manager.acquire(tenants[4], 'request').catch(error => error)
+    await waitUntil(() => manager.stats().pendingAcquires === 1)
     const waitingB = manager.acquire(tenants[5], 'request').catch(error => error)
-    await sleep(10)
-    assert.equal(manager.stats().pendingAcquires, 2)
+    await waitUntil(() => manager.stats().pendingAcquires === 2)
     await assert.rejects(manager.acquire(tenants[0], 'request'), error => error.code === 'SITE_CAPACITY')
     fourth.release()
     const resultA = await waitingA
-    assert.equal(resultA.tenantId, tenants[4], 'a released env made room; the waiter proceeded')
+    assert.equal(resultA.tenantId, tenants[4], `a released env made room; the waiter proceeded${resultA instanceof Error ? ` — got ${resultA.code ?? resultA.name}: ${resultA.message}` : ''}`)
     const resultB = await waitingB
     assert.equal(resultB.code, 'SITE_CAPACITY', 'the second waiter timed out')
     assert.ok(Date.now() - started >= 250)
