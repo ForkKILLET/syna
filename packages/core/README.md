@@ -1,30 +1,25 @@
 # @syna/core
 
-Immutable, version-aware, scope-aware dependency injection and capability composition for Node.js and TypeScript.
+Immutable, scope-aware capability composition for TypeScript: a finite Runtime of versioned Services, Entry-created Env worlds, one canonical slot per resolved node, parent-only reuse, lazy or eager materialization with plain Promises, and `explain()` for every plan.
 
 ```ts
 import packageJson from '#syna/package' with { type: 'json' }
 import { createRuntime, definePackage } from '@syna/core'
 
 const define = definePackage(packageJson)
-const Name = define.input<string>('name')
-const Greeter = define.service({
-  requires: { name: Name },
-  setup: async ({ name }) => ({ greet: async () => `Hello, ${await name.load()}` }),
+const Config = define.input<{ url: string }>('config')
+const Database = define.service('database', {
+  requires: { config: Config },
+  setup: ({ config }, { onDispose }) => {
+    const pool = connect(config.read().url)
+    onDispose(() => pool.end())
+    return pool
+  },
 })
-const Main = define.entry({
-  requires: { greeter: Greeter },
-  parameters: { name: Name },
-})
+const App = define.entry({ requires: { database: Database }, parameters: { config: Config } })
 
-await using runtime = createRuntime({ services: [Greeter] })
-await runtime.run(Main, { name: 'Syna' }, async ({ greeter }) => {
-  console.log(await (await greeter.load()).greet())
-})
+const runtime = createRuntime({ services: [Database] })
+await runtime.run(App, { config: { url: '...' } }, async ({ database }) => (await database.load()).query('select 1'))
 ```
 
-Key API: `definePackage`, `define.service`, `define.contract`, `define.input`, `define.binding`, `define.entry`, `auto`, `override`, `loadAll`, and `createRuntime`.
-
-`DependencyRef.load()` is a strong setup dependency. `DependencyRef.preload()` is explicit best-effort background warming. Runtime, Env, and implementation leases support async disposal.
-
-See the workspace `docs/` directory for the semantic model, API reference, architecture, validation, and adversarial audit.
+See the workspace `docs/API_REFERENCE.md`, `docs/SEMANTIC_MODEL.md` and `docs/SEMANTIC_CHANGES_V05.md`. Node ≥ 22.

@@ -1,0 +1,159 @@
+{
+  "generatedAt": "2026-09-05T01:59:10.742Z",
+  "environment": {
+    "node": "v26.0.0",
+    "platform": "darwin",
+    "arch": "arm64",
+    "cpuCount": 14,
+    "gcExposed": true
+  },
+  "methodology": {
+    "warmSiblingEntry": "enter + dispose; no explicit Service materialization",
+    "requestIterations": 500,
+    "selectorAndBindingIterations": 1000,
+    "note": "Numbers are machine-specific; cache cardinality and non-linear growth checks are the portable assertions."
+  },
+  "cases": [
+    {
+      "name": "request-chain-100-depth-2",
+      "serviceCount": 100,
+      "depth": 2,
+      "iterations": 500,
+      "timing": {
+        "minMs": 0.06041700000000105,
+        "p50Ms": 0.08125000000001137,
+        "p95Ms": 0.14837500000000148,
+        "p99Ms": 0.19408300000000622,
+        "maxMs": 0.23870900000000006,
+        "meanMs": 0.09150183799999996
+      },
+      "heapDeltaBytes": 188680,
+      "planCache": {
+        "hits": 549,
+        "misses": 3,
+        "entries": 3,
+        "evictions": 0,
+        "maxEntries": 64
+      }
+    },
+    {
+      "name": "request-chain-100-depth-6",
+      "serviceCount": 100,
+      "depth": 6,
+      "iterations": 500,
+      "timing": {
+        "minMs": 0.0504579999999919,
+        "p50Ms": 0.05258299999999849,
+        "p95Ms": 0.0707919999999973,
+        "p99Ms": 0.20858299999997598,
+        "maxMs": 0.2505000000000024,
+        "meanMs": 0.05859024799999995
+      },
+      "heapDeltaBytes": -37648,
+      "planCache": {
+        "hits": 549,
+        "misses": 7,
+        "entries": 7,
+        "evictions": 0,
+        "maxEntries": 64
+      }
+    },
+    {
+      "name": "request-chain-300-depth-2",
+      "serviceCount": 300,
+      "depth": 2,
+      "iterations": 500,
+      "timing": {
+        "minMs": 0.1372920000000022,
+        "p50Ms": 0.15504199999998036,
+        "p95Ms": 0.30404199999998127,
+        "p99Ms": 0.4072920000000124,
+        "maxMs": 0.4823329999999828,
+        "meanMs": 0.1781615940000003
+      },
+      "heapDeltaBytes": 113600,
+      "planCache": {
+        "hits": 549,
+        "misses": 3,
+        "entries": 3,
+        "evictions": 0,
+        "maxEntries": 64
+      }
+    },
+    {
+      "name": "request-chain-300-depth-6",
+      "serviceCount": 300,
+      "depth": 6,
+      "iterations": 500,
+      "timing": {
+        "minMs": 0.13816600000001245,
+        "p50Ms": 0.15587499999998045,
+        "p95Ms": 0.3229589999999689,
+        "p99Ms": 0.4114579999999819,
+        "maxMs": 0.8419160000000261,
+        "meanMs": 0.17645806200000072
+      },
+      "heapDeltaBytes": 56328,
+      "planCache": {
+        "hits": 549,
+        "misses": 7,
+        "entries": 7,
+        "evictions": 0,
+        "maxEntries": 64
+      }
+    },
+    {
+      "name": "selector-request-3-candidates",
+      "candidateCount": 3,
+      "iterations": 1000,
+      "timing": {
+        "minMs": 0.035375000000044565,
+        "p50Ms": 0.03762499999999136,
+        "p95Ms": 0.05633399999999256,
+        "p99Ms": 0.07616600000000062,
+        "maxMs": 0.18083400000000438,
+        "meanMs": 0.04145690599999978
+      },
+      "heapDeltaBytes": 154304,
+      "planCache": {
+        "hits": 4396,
+        "misses": 5,
+        "entries": 5,
+        "evictions": 0,
+        "maxEntries": 32
+      }
+    },
+    {
+      "name": "binding-request-2-choices",
+      "choiceCount": 2,
+      "iterations": 1000,
+      "timing": {
+        "minMs": 0.015958000000011907,
+        "p50Ms": 0.01720799999998235,
+        "p95Ms": 0.02341599999999744,
+        "p99Ms": 0.03612500000002683,
+        "maxMs": 0.3941669999999817,
+        "meanMs": 0.01930341100000089
+      },
+      "heapDeltaBytes": 122560,
+      "planCache": {
+        "hits": 1098,
+        "misses": 3,
+        "entries": 3,
+        "evictions": 0,
+        "maxEntries": 32
+      }
+    },
+    {
+      "name": "bounded-lru-entry-shape-churn",
+      "generatedEntryShapes": 500,
+      "planCache": {
+        "hits": 0,
+        "misses": 500,
+        "entries": 16,
+        "evictions": 484,
+        "maxEntries": 16
+      }
+    }
+  ]
+}

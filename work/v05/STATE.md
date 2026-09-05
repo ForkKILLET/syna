@@ -1,8 +1,9 @@
 # Syna v0.5 + Hyla-mini — STATE
 
 ## Current phase
-Phase C started early for the kernel (v0.5 core compiled, 88 migrated tests pass, 4 demos run).
-Phase B (Hyla-mini vertical path) in progress: domain skeleton written; data adapters + app layers next.
+Phase D: independent audits running (3 fresh-context subagents: promise-lifecycle, app-permissions, cache-delivery).
+G0 dev gate: COMPLETE (validation/v0.5-dev/manifest.json — 217 tests, 0 failed, 0 skipped, benchmarks within budgets).
+Next: apply audit findings with regressions → `node scripts/verify-v05.mjs --release` → docs/AUDIT.md + docs/VALIDATION.md → final report.
 
 ## Environment (recorded 2026-09-04, local machine)
 - Host: Darwin 25.2.0 arm64, Apple M4 Pro (14 cores), 48 GiB RAM
@@ -22,7 +23,7 @@ Phase B (Hyla-mini vertical path) in progress: domain skeleton written; data ada
 - Baseline has no lockfile; committed `dist/` outputs; hand-written semver.
 
 ## Actual failures / open items
-(none yet — see ISSUES.md as they are recorded)
+None open in the dev gate. Audit findings pending (see work/v05/audit/*/REPORT.md when written).
 
 ## Modified files
 - (Phase A) work/v05/*.md, .gitignore, package-lock.json

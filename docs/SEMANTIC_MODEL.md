@@ -1,4 +1,4 @@
-# Syna Core Semantic Model v0
+# Syna Core Semantic Model v0 (v0.5 wording)
 
 ## 1. Static Runtime
 
@@ -32,9 +32,9 @@ Only Service nodes materialize user instances. Other nodes use immediately-ready
 
 For each Env and each canonical resolved node, there is at most one visible canonical slot. A slot has exactly one owner Env. A descendant may reuse an ancestor-owned slot.
 
-## 4. Maximal ancestral reuse
+## 4. Parent-only canonical reuse
 
-A child reuses the maximum valid subset of its parent’s visible slots. A parent slot is reusable only when the child has the same nominal node and every bound dependency slot remains identical. A changed dependency slot removes the dependent from the reuse set; this propagates to a fixed point over the reverse dependency graph.
+A child reuses the greatest valid subset of its **parent's currently visible** slots (a parent slot may be owned by an earlier ancestor). A parent slot is reusable only when the child has the same nominal node and every bound dependency slot remains identical. A changed dependency slot removes the dependant from the reuse set; this propagates to a fixed point over the reverse dependency graph. Historical slots that the parent no longer exposes are never searched. Payload equality and whether setup already ran are never reuse criteria.
 
 `fresh` is a hard non-reuse constraint. `share` is a hard reuse constraint. Failure to satisfy a hard constraint aborts the Entry.
 
@@ -56,7 +56,7 @@ A normal static dependency choice site has one deterministic result in a lineage
 
 A Family with `uniqueWithin: 'lineage'` anchors when it first appears in an Env lineage. Descendants may not select a different revision, resolved structure, or slot for that Family. Siblings whose common ancestor never anchored the Family may anchor independently.
 
-This is not Runtime-global or process-global uniqueness.
+This is not Runtime-global or process-global uniqueness. The anchor persists through descendants that do not use the Family; when the Family reappears it re-attaches to the anchored slot only if every dependency slot matches, otherwise the Entry fails with the full conflict chain.
 
 ## 8. Contracts
 
@@ -64,8 +64,8 @@ A Contract has nominal runtime identity and compile-time API shape, but no insta
 
 - A naked Contract requires an unambiguous implementation family.
 - `auto(C)` creates an independent implementation choice site governed by explicit Runtime policy.
-- `C.selector` freezes admitted candidates and preflights each in an independent child world. Candidates need not coexist.
-- `C.all` requires all admitted implementation revisions to coexist in the current Env.
+- `C.all` requires all admitted implementation revisions to coexist in the current Env (recommended collection form).
+- `C.selector` is a deprecated compatibility form: candidates are pre-flighted as independent child plans; opening one needs a Ready anchor.
 
 Private transitive Service definitions are not discoverable Contract candidates unless explicitly admitted.
 
@@ -79,7 +79,7 @@ Selection identity and Service instance identity remain distinct: descendants ca
 
 An Entry may be a Service dependency. The injected Bound Entry is anchored at the unique owner Env of the consuming Service slot, not at an ambient caller Env. This permits a Service to construct typed child worlds without making “current Env” dynamic or ambiguous.
 
-A Service-owned Bound Entry may be invoked while its owner Env is activating. The child becomes part of the same activation transaction: failure rolls back the child, and parent/child setup waits participate in the same materialization-cycle rules. Invocation after the owner begins disposal is forbidden.
+A Service-owned Bound Entry can only be entered from a Ready owner. Invoking it while the owner is still activating rejects with `OWNER_NOT_READY` (an ordinary rejected Promise); invoking it after the owner begins disposal rejects with `INVALID_ENV_STATE`. There is no activation transaction and no provisional Ready.
 
 ## 11. Materialization
 
@@ -87,24 +87,25 @@ Topology precedes materialization. A Service slot moves through:
 
 ```text
 Dormant → Starting → Ready → Disposing → Disposed
-              └────→ Failed
+              └────→ Failed ──(recovery)──→ Starting
+                       └→ Abandoned (attempt never settled before the owner closed)
 ```
 
-`DependencyRef.load()` materializes an already-planned slot and, when called during setup, establishes a strong dependency in that setup's completion barrier. This remains true even if user code discards the returned Promise. `DependencyRef.preload()` is the explicit non-blocking alternative and does not make the caller setup wait.
+`DependencyRef.load()` materializes an already-planned slot and returns a plain Promise. Whether the caller awaits it is ordinary JavaScript; the Runtime adds no barrier and no obligation. One actual `setup()` execution is an attempt; each caller is a waiter; concurrent waiters join one attempt; a waiter may end its own wait with an AbortSignal without affecting the attempt.
 
-Concurrent callers share one setup sequence. Failure is sticky by default. A failure policy may retry within one sequence and may optionally permit one atomically shared recovery sequence on a later `load()` after cooldown.
+Failure is sticky by default. A failure policy may retry within one sequence (never after a failed rollback) and may allow one shared recovery sequence on a later `load()` after cooldown. A per-attempt initialization deadline turns a never-settling setup into `INITIALIZATION_TIMEOUT`; the attempt is then blocked from overlapping with a new one until its raw Promise settles, and late results are discarded, cleaned up and reported.
 
-An eager Service slot must be Ready before its Env becomes Ready. Unrelated eager slots have no startup order guarantee and may run concurrently.
+An eager Service slot must be Ready before its Env becomes Ready. Unrelated eager slots have no startup order guarantee.
 
 ## 12. Cycles
 
 Structural dependency cycles are legal. Their strongly connected components fork as indivisible reuse units.
 
-During setup, each strong `load()` adds an edge to the dynamic materialization graph and joins the caller's completion barrier. Adding an edge that closes a cycle fails immediately with `CIRCULAR_MATERIALIZATION`. Because strong-vs-background intent is explicit (`load()` versus `preload()`), the Runtime does not guess whether JavaScript happened to await a Promise.
+A cycle of setup waits cannot be proven from Promises. The Runtime records which `load()` calls each attempt issued and, when the deadline expires, reports the observed load-call cycle as diagnostic information — an observation, not a deadlock proof. Legal pre-fetching and racing patterns are never misreported.
 
 ## 13. Disposal
 
-A parent cannot dispose before its descendants. Each Env disposes only Service slots it owns.
+A parent cannot dispose before its descendants. Closing first refuses new work and aborts the owner signal, then waits for descendants and registered attempts, then disposes owned slots. Each Env disposes only Service slots it owns; attempts that never settle are reported (`UNSETTLED_ATTEMPT`) rather than claimed closed.
 
 For materialized owned slots, the structural graph is condensed to an SCC DAG. SCCs are disposed dependant-first. Within an SCC, cleanup uses reverse materialization-completion order and offers no stronger business ordering guarantee.
 

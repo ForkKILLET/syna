@@ -1,0 +1,47 @@
+# 从 v0.4 迁移到 v0.5（MIGRATION_V04_TO_V05）
+
+原则：v0.4 中仅因 bug 才能成功的行为不是兼容目标；正确性修复逐条列出。旧测试若断言已撤回语义，已按下表改写（编号 M-xx 出现在测试注释里）。
+
+## 弃用 / 修正总表
+
+| # | 变化 | v0.4 | v0.5 | 你需要做什么 |
+|---|---|---|---|---|
+| M-01 | Input 读取 | `await ref.load()` | `ref.read()` 同步返回原载荷 | 把 Input 的 `load()` 换成 `read()`；旧 `load()` 仍在但弃用且会 await thenable |
+| M-02 | `loadAll()` | 接受任意 refs | 只接受 Service 类 refs（InputRef 没有 `preload`，类型上被排除） | 从批量中移除 Input refs |
+| M-03 | `load()` 签名 | `load()` | `load(options?: { signal })` | 可选：传入 AbortSignal 只取消自己的等待 |
+| M-04 | 版本字符串 | 手写解析器接受 `'1'`、`'2.4'` | 必须完整 semver；范围在定义期校验 | 修正 package.json 版本与 `Binding.to(..., range)` 字面量 |
+| M-05 | activation 期开子世界 | 允许，返回"Ready" child | `OWNER_NOT_READY` | 把 worker/子世界的启动移到 setup 返回的控制对象里，由宿主在 root Ready 后调用 |
+| M-06 | 未 await 的 `load()` | 成为 setup barrier | 普通后台操作 | 需要等待就 `await`；`preload()` 与 `void ref.load()` 等价 |
+| M-07 | 等待环 | 立即 `CIRCULAR_MATERIALIZATION` | 可配置 deadline → `INITIALIZATION_TIMEOUT` | 在测试里设置 `initialization.deadlineMs` 或 `setupDeadlineMs` |
+| M-08 | 私有 Entry range root | `MISSING_SERVICE` | 与 exact 一致地解析 | 无需改动；确保 owner 的 exact 闭包包含目标 revision |
+| M-09 | semver 实现 | 自研 | npm `semver`（`includePrerelease: true`） | 注意 `*`/`^` 会匹配已 admitted 的 prerelease |
+| M-10 | rollback 失败 | 继续重试 | 结束本轮 sequence（AggregateError） | 让 `onDispose` 清理幂等 |
+| M-11 | Runtime 选项 | — | 新增 `initialization`、`disposal`、`planning`、`diagnostics` | 可选 |
+| M-12 | 错误码 | `CIRCULAR_MATERIALIZATION` | 移除；新增 `INITIALIZATION_TIMEOUT`、`OWNER_NOT_READY`、`LOAD_CANCELLED`、`UNSETTLED_ATTEMPT`、`PLANNING_BUDGET_EXCEEDED` | 更新错误处理分支 |
+| M-13 | activation 失败 | SynaError 原样抛出 | 一律包成 `ENTRY_ACTIVATION_FAILED`，`cause` 为底层错误，`details.causeCode` 给出内层码 | 从 `error.cause`/`details.causeCode` 读取原因 |
+| M-14 | `C.selector` | 一等 primitive | 最小兼容（`@deprecated`） | 迁到 `C.all` 或显式 Entry |
+| M-15 | thenable 实例 | 未定义 | 实例不能是 thenable（await 必然吸收）；同步返回外部 thenable 触发 `foreign-thenable-setup` 诊断事件 | 把 thenable 客户端放进普通 holder 对象 |
+| M-16 | `RuntimeInspection` | — | 新增 `overriddenServices`、`liveEnvCount` | 可选 |
+| M-17 | `check()` 的意外错误 | `checkFrom(..., rethrowUnexpected)` 内部参数 | 非拓扑错误（策略 TypeError、无效 descriptor、budget）一律抛出 | 无需改动 |
+
+## 改写的旧测试（逐项）
+
+| 文件 | 原断言 | 现断言 | 编号 |
+|---|---|---|---|
+| hardening.test.mjs | 经 Ready service 的 setup 环立即 CIRCULAR | INITIALIZATION_TIMEOUT（等待经由实例方法，不可观察 load 边，诚实说明） | M-07 |
+| hardening.test.mjs | owner 激活期 BoundEntry 进入返回 ready | OWNER_NOT_READY；Ready 后同一 handle 可用 | M-05 |
+| lifecycle.test.mjs | C↔D setup 环立即失败 | deadline 诊断含 suspectedWaitCycle | M-07 |
+| lifecycle.test.mjs | 经 selector/all 的环立即失败 | INITIALIZATION_TIMEOUT | M-07 |
+| semver.test.mjs | `parseVersion('1')` 合法；非法范围报"Invalid semantic version" | 版本必须完整；非法范围报"not a valid semver range"；新增 union/prerelease 用例 | M-04/M-09 |
+| v04-corrections.test.mjs | preload 非阻塞而未 await load 强等待 | 两者都非阻塞 | M-06 |
+| v04-corrections.test.mjs | eager 在 activation 事务内开 child | eager 被拒（OWNER_NOT_READY），Ready Env 内 lazy 可开 | M-05 |
+| v04-corrections.test.mjs | parent-setup→child-eager→parent 环 | ENTRY_ACTIVATION_FAILED cause OWNER_NOT_READY | M-05/M-13 |
+| v04-finalization.test.mjs | 失败 parent 回滚结构化 child | child 根本不会启动；本地 eager 回滚 | M-05 |
+| v04-finalization.test.mjs | 未 await 的 load 是 barrier | 不是 barrier；消费者不被后续毒化 | M-06 |
+| v04-regressions.test.mjs | 未 await load 形成环 | 两种模式都成功 | M-06 |
+| v04-regressions.test.mjs | eager 在激活期创建结构化 child | 宿主在 Ready 后 `start()` | M-05 |
+| v04-regressions.test.mjs | selector.open 参与激活事务 | ENTRY_ACTIVATION_FAILED cause OWNER_NOT_READY | M-05 |
+
+## 文档修正
+
+v0.4 README 中 `onDispose(() => pool.close())` 出现在**拥有** pool 的 Service 内是正确的；本轮补充的规则是：Service 不得 `onDispose` 关闭它并不拥有的依赖（例如 Repository 不能关闭共享 Pool）。Hyla-mini 的 `DatabasePool` 是唯一调用 `pool.end()` 的地方。

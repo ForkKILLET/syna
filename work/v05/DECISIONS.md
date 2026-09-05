@@ -17,3 +17,9 @@
 | D13 | `C.selector` kept as minimal compatibility (deprecated); `C.all` is the recommended same-Env collection | keep | §6. |
 | D14 | Real PostgreSQL via `pg`; tests run against a temporary cluster from Homebrew binaries (`scripts/pg-test-cluster.mjs`), or `SYNA_TEST_PG_URL` | keep | H02; Docker daemon not running on this host. |
 | D15 | Hyla-mini lives in `apps/hyla-mini` (one package, internal folders); old v0.4 demo packages kept and ported | keep | §8 “no dozens of wrapper layers”. |
+| D16 | A `Family.range()` dependency selects among revisions the Runtime knows (admitted ∪ owner exact closure); a range alone introduces no definition | keep | K06/K10 consistency; the Runtime is closed (K01). Documented in SEMANTIC_CHANGES §7. |
+| D17 | No `opaque()` helper: Service instances must not be thenable; foreign thenables returned by setup are awaited (JS semantics) and diagnosed via `foreign-thenable-setup` | exclude | `await` assimilates any thenable on every hop; a wrapper cannot make `load()` deliver one. MIGRATION M-15. |
+| D18 | Every activation failure is `ENTRY_ACTIVATION_FAILED` with `cause` (+ `details.causeCode`) | fix | One code for one phase; inner codes stay reachable. MIGRATION M-13. |
+| D19 | Hyla `SiteEnvironmentManager` loads the site Authenticator at SiteEnv creation | extend | Every request needs it; configuration errors surface at cold creation (H10) instead of on a tenant's first request. |
+| D20 | Manager capacity uses reservations handed to the longest waiter; an idle env released while acquirers wait is evicted for them | fix | Prevents waiter starvation and slot stealing (ISSUES I-14). |
+| D21 | Independent audits run as fresh-context subagents writing only under `work/v05/audit/`; production fixes are applied by the main session with regression tests | keep | §5/§13 independence; no self-certified PASS. |

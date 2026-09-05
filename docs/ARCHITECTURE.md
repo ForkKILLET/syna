@@ -1,70 +1,45 @@
-# Architecture
-
-## Source layout
+# Architecture (v0.5, as implemented)
 
 ```text
 packages/core/src/
-├── definition.ts                 package-scoped descriptor constructors
-├── descriptors.ts                public TypeScript contracts
-├── loading.ts                    typed `loadAll()` helper
-├── runtime.ts                    public Runtime/Env orchestration
-├── semver.ts                     bounded semantic-version parser and matcher
-├── graph.ts                      SCC discovery and dependant-first order
-├── errors.ts                     structured errors and diagnostics
+├── definition.ts                       definePackage(), auto(), forward(), override(), descriptor constructors
+├── descriptors.ts                      public TypeScript contracts (no runtime code)
+├── errors.ts                           SynaError, code union, diagnostics
+├── semver.ts                           thin wrapper over npm `semver` (includePrerelease)
+├── loading.ts                          loadAll()
+├── graph.ts                            SCC discovery, dependant-first order
+├── runtime.ts                          RuntimeImpl / EnvImpl: entry points, BoundEntry, activation & closing order
 └── internal/
-    ├── definition-registry.ts    admission, private definitions, overrides, warnings
-    ├── resolution-realm.ts       public and Service-owned Entry authority
-    ├── graph-builder.ts          dependency lowering and exact graph construction
-    ├── entry-planner.ts          immutable planning and canonical-slot reuse
-    ├── plan-cache.ts             bounded deterministic LRU
-    ├── materializer.ts           setup barriers, wait graph, retry, cancellation
-    ├── implementation-directory.ts Contract candidates, refs, selector/set views
-    ├── runtime-model.ts          internal nodes, slots, plans, and states
-    ├── runtime-utils.ts          nominal identity and ordering helpers
-    ├── abort.ts                  abort-aware delay utilities
-    └── solve-errors.ts           explicit backtrackable unsatisfiability
+    ├── identity.ts                     nominal identity, structural signatures, ordering helpers
+    ├── definition-compiler.ts          DefinitionCompiler: admission, private closure, CompiledService, overrides, realms
+    ├── resolution-realm.ts             public / private-entry realms
+    ├── graph-builder.ts                GraphBuilder: lowering of roots and manifests to exact nominal nodes
+    ├── entry-planner.ts                EntryPlanner: inputs/bindings, choice backtracking with budget, parent-only reuse fixed point,
+    │                                   lineage anchors, slot allocation, explain()
+    ├── plan-cache.ts                   bounded deterministic LRU for plan templates
+    ├── implementation-directory.ts     read-only candidate directory, persistent refs, policy-order validation, CandidateIndex
+    ├── implementation-views.ts         C.all set and compatibility selector built on the directory
+    ├── materializer.ts                 attempts, waiters, deadlines, retry/recovery, late results, dependant-first disposal
+    ├── abort.ts                        abortable sleep, per-caller wait cancellation, bounded settle
+    ├── solve-errors.ts                 backtrackable topology errors
+    └── runtime-model.ts                internal records: CompiledService, slots, attempts, plans, realms
 ```
 
-## Definition registry
+## Responsibility boundaries
 
-`createRuntime()` compiles a finite immutable public admission set and exact private dependency closure. Definition overrides are applied at this layer: the source keeps its public nominal identity while its executable manifest comes from the replacement. Contract enumeration therefore sees one coherent source candidate rather than source/target phantom duplicates.
+- **DefinitionCompiler** turns `createRuntime({ services, overrides })` into `CompiledService` records. Public descriptors never carry internal state; overrides never create a second public identity. It also owns the exact-closure computation that defines a Service's private realm.
+- **GraphBuilder** lowers Entry roots and Service manifests into nodes with stable ids (`service:<key>`, `input:<id>`, `binding:<id>`, `all:<contract>`, `entry:<site>:<id>`). It raises `NeedChoice` for auto/range/contract sites; it never allocates slots.
+- **EntryPlanner** owns everything about a plan: parameters, choices (with the search budget), the parent-only reuse fixed point with fork causes, persistent lineage anchors, slot allocation, plan-template caching and `explain()`. It cannot start a setup: it has no reference to the Materializer.
+- **ImplementationDirectory / views** are the single implementation of candidate identity, persistent-ref resolution and policy-order validation shared by `C.all`, the compatibility selector and the catalog.
+- **Materializer** realizes already-created slots: one attempt per slot at a time, waiters joining the sequence promise, per-attempt refs that record pending loads for diagnostics only, deadlines, retry/backoff with owner-signal cancellation, recovery after exhaustion, discard-and-report of late results, dependant-first disposal. It never changes topology or versions.
+- **RuntimeImpl / EnvImpl** wire the pieces: planning entry points (`enter`, `check`, `explain`), Ready-anchor enforcement for BoundEntry, synthetic values (collections, bound entries), activation (start owned eager slots) and the closing order.
 
-A Service-owned Entry receives a restricted resolution realm. Its declared exact private roots and their transitive exact dependencies are available; unrelated private definitions and private Contract implementations remain undiscoverable.
+## What the boundaries prevent
 
-## Entry planning
+- The planner cannot execute setup (no materializer reference); the materializer cannot alter versions or slots (it only reads slot records); the plan cache stores templates (graphs + choices) and never Env or slot instances; diagnostics (`onEvent`) are fire-and-forget and cannot change outcomes.
+- No AsyncLocalStorage: caller attribution for pending-load diagnostics comes from the refs handed to each attempt.
+- No hidden `__contract`/string-prefix state carries internal records; `InternalCandidateRef` and `CompiledService` are internal types.
 
-An Entry plan combines inherited roots, local requirements, Input provisions, Binding assignments, deterministic choices, Contract lowering, scope constraints, and lineage-uniqueness anchors.
+## Deliberately absent
 
-The planner uses stable nominal node IDs and computes the greatest valid parent-slot reuse fixed point. General bisimulation is not in the hot path. A changed dependency slot removes its dependant from the reuse set until convergence, including SCC-wide propagation.
-
-Compiled graph templates are cached by semantic shape only: parent plan signature, Entry definition, effective Binding choices, scope directives, resolution realm, and policy-sensitive choices. Env ids, slot ids, Input payloads, and CandidateRef identities never enter the key. The cache is bounded LRU storage with visible hit/miss/eviction counters.
-
-## Contract lowering
-
-- exact Service and Service range → one Service node;
-- naked Contract / `auto(C)` → one selected implementation node;
-- `C.selector` → a synthetic selector node with frozen candidate descriptors and stable candidate Entry templates;
-- `C.all` → a synthetic same-Env set with an edge to every candidate node;
-- Binding → a synthetic projection to the selected provider;
-- Entry dependency → a synthetic BoundEntry carrying owner anchor and resolution realm.
-
-## Materialization
-
-Topology and slots exist before setup. A dependency ref has two deliberately different operations:
-
-```text
-load()    strong setup dependency; joins the caller's completion barrier
-preload() background warm-up; does not make the caller setup wait
-```
-
-The materializer therefore never tries to infer JavaScript `await` behavior. Strong edges form an exact dynamic wait graph; a cycle fails immediately. Concurrent callers of one slot join one setup sequence.
-
-Retry/backoff is abort-aware. After exhaustion, a Service may remain sticky or allow one future `load()` to start a new shared sequence after cooldown. Disposal prevents additional attempts and cancels pending backoff.
-
-## Activation transactions
-
-Eager slots must become Ready before the Env is published. A Service-owned Entry may create a child during owner activation; the child is registered in the same structured activation tree. Any failure rolls back descendants and locally started resources. A child that waits back into its still-starting owner produces a normal materialization-cycle error.
-
-## Disposal
-
-Disposal closes descendants first, aborts the owner signal, waits for in-flight setup to settle, condenses materialized owned Service slots into an SCC DAG, and disposes dependants before dependencies. SCC-internal cleanup uses reverse materialization completion order without stronger business guarantees.
+Prepared/activation groups, cross-ancestor historical reuse, Env merge or multiple parents, ambient caller Env, hot installation, reactive Inputs, cross-process uniqueness, forced revocation of escaped instances, a custom Promise/effect DSL for deadlock detection.
