@@ -1,0 +1,38 @@
+{
+  "name": "@syna-demo/postgres",
+  "version": "3.2.1",
+  "private": true,
+  "type": "module",
+  "description": "Syna demo package @syna-demo/postgres",
+  "imports": {
+    "#syna/package": "./package.json"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "syna": {
+    "id": "demo.postgres",
+    "metadata": {
+      "displayName": "PostgreSQL",
+      "description": "Lifecycle-managed PostgreSQL-like pool"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@syna/core": "0.4.0",
+    "@syna-demo/logger": "1.1.0"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "devDependencies": {
+    "@syna/tsconfig": "0.4.0"
+  }
+}

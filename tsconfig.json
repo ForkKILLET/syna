@@ -1,0 +1,44 @@
+{
+  "files": [],
+  "references": [
+    {
+      "path": "./packages/core"
+    },
+    {
+      "path": "./packages/llm-contract"
+    },
+    {
+      "path": "./packages/logger"
+    },
+    {
+      "path": "./packages/postgres"
+    },
+    {
+      "path": "./packages/openai-v1"
+    },
+    {
+      "path": "./packages/openai-v2"
+    },
+    {
+      "path": "./packages/claude"
+    },
+    {
+      "path": "./packages/hyla"
+    },
+    {
+      "path": "./packages/fluida"
+    },
+    {
+      "path": "./apps/hyla-demo"
+    },
+    {
+      "path": "./apps/fluida-demo"
+    },
+    {
+      "path": "./apps/features-demo"
+    },
+    {
+      "path": "./apps/minimal-demo"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "name": "syna-v0.4-reference-workspace",
+  "private": true,
+  "type": "module",
+  "version": "0.4.0",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "clean": "find packages apps -type d -name dist -prune -exec rm -rf {} + && find packages apps -name '*.tsbuildinfo' -delete",
+    "build": "tsc -b packages/core --force && tsc -b tsconfig.json --force",
+    "typecheck": "tsc -b tsconfig.json --pretty false && npm run type-tests",
+    "test": "npm run build && node --test packages/core/tests/*.test.mjs",
+    "demo:hyla": "npm run build && node apps/hyla-demo/dist/index.js",
+    "demo:fluida": "npm run build && node apps/fluida-demo/dist/index.js",
+    "demo:features": "npm run build && node apps/features-demo/dist/index.js",
+    "demo": "npm run demo:minimal && npm run demo:hyla && npm run demo:fluida && npm run demo:features",
+    "check": "npm run typecheck && npm test && npm run demo",
+    "type-tests": "tsc -p packages/core/tsconfig.type-tests.json --pretty false",
+    "demo:minimal": "npm run build && node apps/minimal-demo/dist/index.js",
+    "test:coverage": "npm run build && node --test --experimental-test-coverage packages/core/tests/*.test.mjs",
+    "benchmark:v04": "npm run build && node --expose-gc benchmarks/v0.4-planning.mjs benchmarks/results-v0.4.0.json"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "packageManager": "npm@10.9.2",
+  "description": "Executable Syna v0.4 design-correction reference implementation",
+  "devDependencies": {
+    "@types/node": "^22.19.7",
+    "typescript": "^5.8.3"
+  }
+}

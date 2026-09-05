@@ -1,0 +1,1 @@
+{"version":3,"file":"runtime-model.js","sourceRoot":"","sources":["../../src/internal/runtime-model.ts"],"names":[],"mappings":"AAuKA,MAAM,OAAO,UAAW,SAAQ,KAAK;IAC1B,IAAI,CAAgB;IAC7B,YAAY,IAAoB;QAC9B,KAAK,CAAC,sCAAsC,IAAI,CAAC,IAAI,GAAG,CAAC,CAAA;QACzD,IAAI,CAAC,IAAI,GAAG,YAAY,CAAA;QACxB,IAAI,CAAC,IAAI,GAAG,IAAI,CAAA;IAClB,CAAC;CACF"}

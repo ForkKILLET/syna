@@ -1,0 +1,92 @@
+{
+  "generatedAt": "2026-09-04T01:38:58.340Z",
+  "environment": {
+    "node": "v22.16.0",
+    "platform": "linux",
+    "arch": "x64",
+    "cpuCount": 5
+  },
+  "methodology": {
+    "measurement": "warm sibling Request Entry enter+dispose, no Service materialization",
+    "warmup": 25,
+    "iterations": 250
+  },
+  "cases": [
+    {
+      "serviceCount": 100,
+      "depth": 2,
+      "iterations": 250,
+      "coldMs": 9.271103999999994,
+      "warm": {
+        "minMs": 0.1071500000000043,
+        "p50Ms": 0.21000300000000038,
+        "p95Ms": 0.5448109999999957,
+        "p99Ms": 0.8192399999999935,
+        "maxMs": 1.1205680000000058,
+        "meanMs": 0.2609829879999996
+      },
+      "planCache": {
+        "hits": 275,
+        "misses": 3,
+        "entries": 3
+      }
+    },
+    {
+      "serviceCount": 100,
+      "depth": 6,
+      "iterations": 250,
+      "coldMs": 4.995116999999993,
+      "warm": {
+        "minMs": 0.10047899999997867,
+        "p50Ms": 0.18460400000000732,
+        "p95Ms": 0.42550399999998945,
+        "p99Ms": 0.527795999999995,
+        "maxMs": 0.727942999999982,
+        "meanMs": 0.1906538760000009
+      },
+      "planCache": {
+        "hits": 279,
+        "misses": 3,
+        "entries": 3
+      }
+    },
+    {
+      "serviceCount": 300,
+      "depth": 2,
+      "iterations": 250,
+      "coldMs": 9.760031999999995,
+      "warm": {
+        "minMs": 0.27874499999995805,
+        "p50Ms": 0.322529999999972,
+        "p95Ms": 0.7478839999999991,
+        "p99Ms": 0.9134899999999675,
+        "maxMs": 1.3064750000000345,
+        "meanMs": 0.3847456479999997
+      },
+      "planCache": {
+        "hits": 275,
+        "misses": 3,
+        "entries": 3
+      }
+    },
+    {
+      "serviceCount": 300,
+      "depth": 6,
+      "iterations": 250,
+      "coldMs": 13.175858000000005,
+      "warm": {
+        "minMs": 0.27904499999999643,
+        "p50Ms": 0.3123350000000187,
+        "p95Ms": 0.8726389999999924,
+        "p99Ms": 0.9853270000000407,
+        "maxMs": 1.3934100000000171,
+        "meanMs": 0.36043061600000303
+      },
+      "planCache": {
+        "hits": 279,
+        "misses": 3,
+        "entries": 3
+      }
+    }
+  ]
+}

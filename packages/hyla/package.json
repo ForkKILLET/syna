@@ -1,0 +1,40 @@
+{
+  "name": "@syna-demo/hyla",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Syna demo package @syna-demo/hyla",
+  "imports": {
+    "#syna/package": "./package.json"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "syna": {
+    "id": "demo.hyla",
+    "metadata": {
+      "displayName": "Hyla Demo",
+      "description": "Highly modular blog framework thought experiment"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@syna/core": "0.4.0",
+    "@syna-demo/llm-contract": "1.0.0",
+    "@syna-demo/logger": "1.1.0",
+    "@syna-demo/postgres": "3.2.1"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "devDependencies": {
+    "@syna/tsconfig": "0.4.0"
+  }
+}

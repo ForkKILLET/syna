@@ -1,0 +1,3 @@
+/goal 先完整读取工作区根目录的 SYNA_V05_EXECUTION_PROMPT.md，并按该任务书实施 Syna v0.5 + Hyla-mini：先建立真实应用纵向用例，再由应用与反例驱动内核修复。不得恢复跨祖先普通实例搜索、Prepared、隐藏 setup barrier，也不得新造 implSelector 公共名或绕过真实 PostgreSQL。
+成功结束必须同时满足：主任务书 K/H/R/P 验收项均有实际测试或核验依据；TypeScript、回归、真实 PostgreSQL/文件系统×动态/静态四格、三配方工厂共享、双租户/auth、SiteEnv 租约/驱逐/配置版本、check/explain、缓存/工作集与预算测试全部完成；新上下文审计不存在未解决的已确认阻断缺陷；最终源码归档已解包到空目录重新安装、编译、运行必跑核心与应用测试；node scripts/verify-v05.mjs --release 实际退出 0 且输出 COMPLETE，含源码 fingerprint、逐命令结果、必跑项目零 skip、归档路径/大小/哈希与有效非空 JSON。最后把该命令的真实摘要及归档清单输出到会话，不以“已完成”的文字代替证据，不改验收条件、不跳过 PostgreSQL、不把旧 dist 当新源码。
+持续执行、修复和复验，不停在规划或某个子任务通过。若仅因权限、依赖服务或其他确实无法自行消除的外部条件阻塞，完成其余可做部分后记录 work/v05/STATE.md 和精确复现命令，报告 BLOCKED 并暂停；BLOCKED 不是成功，也不能因任务大或代码仍有 bug 就声称外部阻塞。

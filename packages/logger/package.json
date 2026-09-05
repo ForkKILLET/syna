@@ -1,0 +1,37 @@
+{
+  "name": "@syna-demo/logger",
+  "version": "1.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Syna demo package @syna-demo/logger",
+  "imports": {
+    "#syna/package": "./package.json"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "syna": {
+    "id": "demo.logger",
+    "metadata": {
+      "displayName": "Demo Logger",
+      "description": "Structured demo logger"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@syna/core": "0.4.0"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "devDependencies": {
+    "@syna/tsconfig": "0.4.0"
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "name": "@syna-demo/claude",
+  "version": "3.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Syna demo package @syna-demo/claude",
+  "imports": {
+    "#syna/package": "./package.json"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "syna": {
+    "id": "demo.llm.claude",
+    "metadata": {
+      "displayName": "Claude",
+      "description": "Anthropic-compatible LLM connector",
+      "tags": [
+        "cloud",
+        "commercial"
+      ]
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@syna/core": "0.4.0",
+    "@syna-demo/llm-contract": "1.0.0",
+    "@syna-demo/logger": "1.1.0"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "devDependencies": {
+    "@syna/tsconfig": "0.4.0"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "name": "@syna/tsconfig",
+  "version": "0.4.0",
+  "description": "TypeScript presets for Syna package authors",
+  "files": [
+    "node-library.json",
+    "node-app.json",
+    "README.md",
+    "LICENSE"
+  ],
+  "exports": {
+    "./node-library.json": "./node-library.json",
+    "./node-app.json": "./node-app.json"
+  },
+  "license": "MIT",
+  "engines": {
+    "node": ">=22"
+  }
+}
