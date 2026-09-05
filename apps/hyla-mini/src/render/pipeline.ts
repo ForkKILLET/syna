@@ -113,7 +113,13 @@ export const PipelineBuilder = define.service('pipeline-builder', {
         return Object.freeze(Object.fromEntries(entries))
       },
       build(input) {
-        const document = parseRecipeDocument(input)
+        let document: RecipeDocument
+        try {
+          document = parseRecipeDocument(input)
+        }
+        catch (error) {
+          return Promise.reject(error)
+        }
         const key = JSON.stringify(document)
         const cached = cache.get(key)
         if (cached) {

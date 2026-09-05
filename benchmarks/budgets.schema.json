@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["description", "lockedAt", "cases"],
+  "properties": {
+    "description": { "type": "string" },
+    "lockedAt": { "type": "string" },
+    "cases": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["metric", "max"],
+        "properties": { "metric": { "type": "string" }, "max": { "type": "number" } }
+      }
+    }
+  }
+}
