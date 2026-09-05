@@ -2,73 +2,73 @@ TAP version 13
 # Subtest: H06 the render infrastructure preflight refuses a factory that depends on the current request before anything listens
 ok 1 - H06 the render infrastructure preflight refuses a factory that depends on the current request before anything listens
   ---
-  duration_ms: 16.213833
+  duration_ms: 16.357792
   type: 'test'
   ...
 # Subtest: H06 a replacement renderer that reads site facts is refused at the infrastructure preflight with the dependency path
 ok 2 - H06 a replacement renderer that reads site facts is refused at the infrastructure preflight with the dependency path
   ---
-  duration_ms: 0.802
+  duration_ms: 0.731958
   type: 'test'
   ...
 # Subtest: H06 the concurrent plugin-protocol probe detects closure pollution between products (check() cannot; a runtime test can)
 ok 3 - H06 the concurrent plugin-protocol probe detects closure pollution between products (check() cannot; a runtime test can)
   ---
-  duration_ms: 5.329625
+  duration_ms: 5.108334
   type: 'test'
   ...
 # Subtest: S8 createHylaApp() refuses a deployment whose request world breaks the request budget, before any tenant exists
 ok 4 - S8 createHylaApp() refuses a deployment whose request world breaks the request budget, before any tenant exists
   ---
-  duration_ms: 2.154625
+  duration_ms: 2.075084
   type: 'test'
   ...
 # Subtest: H12 request budget: the real request world stays within budget, and explain() shows what would break it
 ok 5 - H12 request budget: the real request world stays within budget, and explain() shows what would break it
   ---
-  duration_ms: 39.648042
+  duration_ms: 39.458833
   type: 'test'
   ...
 # Subtest: H12 a transitive CurrentRequest dependency in infrastructure is explained as a per-request fork and blocked by the budget
 ok 6 - H12 a transitive CurrentRequest dependency in infrastructure is explained as a per-request fork and blocked by the budget
   ---
-  duration_ms: 0.491458
+  duration_ms: 0.471167
   type: 'test'
   ...
 # Subtest: H13 the worker is started by the host after the root is Ready, loops in its own child world and stops before shared resources close
 ok 7 - H13 the worker is started by the host after the root is Ready, loops in its own child world and stops before shared resources close
   ---
-  duration_ms: 87.119625
+  duration_ms: 86.219042
   type: 'test'
   ...
 # Subtest: H01 the data model normalizes input, orders deterministically and treats locale and visibility as data
 ok 8 - H01 the data model normalizes input, orders deterministically and treats locale and visibility as data
   ---
-  duration_ms: 0.3405
+  duration_ms: 0.258125
   type: 'test'
   ...
 # Subtest: H01 / S9 normalizeDomain: one canonical spelling per host (case, port, trailing dot, IDNA), nothing else passes
 ok 9 - H01 / S9 normalizeDomain: one canonical spelling per host (case, port, trailing dot, IDNA), nothing else passes
   ---
-  duration_ms: 1.200875
+  duration_ms: 1.198334
   type: 'test'
   ...
 # Subtest: H08 domains map to tenants through the controlled table; unknown hosts and untrusted forwarded hosts are refused
 ok 10 - H08 domains map to tenants through the controlled table; unknown hosts and untrusted forwarded hosts are refused
   ---
-  duration_ms: 83.095166
+  duration_ms: 82.290958
   type: 'test'
   ...
 # Subtest: H08 a trusted proxy may supply the host; page caches are partitioned by tenant, locale and visibility
 ok 11 - H08 a trusted proxy may supply the host; page caches are partitioned by tenant, locale and visibility
   ---
-  duration_ms: 38.514708
+  duration_ms: 38.811167
   type: 'test'
   ...
 # Subtest: H09 two authenticators are swapped per site without touching content code; anonymous reads public only; A cannot read B
 ok 12 - H09 two authenticators are swapped per site without touching content code; anonymous reads public only; A cannot read B
   ---
-  duration_ms: 51.118833
+  duration_ms: 48.590625
   type: 'test'
   ...
 1..12
@@ -79,4 +79,4 @@ ok 12 - H09 two authenticators are swapped per site without touching content cod
 # cancelled 0
 # skipped 0
 # todo 0
-# duration_ms 354.001459
+# duration_ms 347.96575

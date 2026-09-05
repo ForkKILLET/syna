@@ -2,1003 +2,1003 @@ TAP version 13
 # Subtest: a naked Contract rejects ambiguous implementation families
 ok 1 - a naked Contract rejects ambiguous implementation families
   ---
-  duration_ms: 8.501667
+  duration_ms: 8.744375
   type: 'test'
   ...
 # Subtest: auto Contract choices are independent per dependency edge
 ok 2 - auto Contract choices are independent per dependency edge
   ---
-  duration_ms: 2.421667
+  duration_ms: 2.453875
   type: 'test'
   ...
 # Subtest: Contract.all exposes every admitted revision and shares canonical slots
 ok 3 - Contract.all exposes every admitted revision and shares canonical slots
   ---
-  duration_ms: 0.84125
+  duration_ms: 0.815208
   type: 'test'
   ...
 # Subtest: selector CandidateRefs are exact and scoped to their canonical selector slot
 ok 4 - selector CandidateRefs are exact and scoped to their canonical selector slot
   ---
-  duration_ms: 1.119042
+  duration_ms: 1.09125
   type: 'test'
   ...
 # Subtest: Binding choices persist by family/range and are inherited by descendants
 ok 5 - Binding choices persist by family/range and are inherited by descendants
   ---
-  duration_ms: 3.153416
+  duration_ms: 4.985541
   type: 'test'
   ...
 # Subtest: reassigning a Binding forks its synthetic slot and reverse dependency closure
 ok 6 - reassigning a Binding forks its synthetic slot and reverse dependency closure
   ---
-  duration_ms: 5.751333
+  duration_ms: 2.998625
   type: 'test'
   ...
 # Subtest: selector candidate changes propagate through its canonical synthetic slot
 ok 7 - selector candidate changes propagate through its canonical synthetic slot
   ---
-  duration_ms: 1.018666
+  duration_ms: 2.358292
   type: 'test'
   ...
 # Subtest: Contract.all includes eager candidates and only eager ones materialize at activation
 ok 8 - Contract.all includes eager candidates and only eager ones materialize at activation
   ---
-  duration_ms: 0.3815
+  duration_ms: 0.395083
   type: 'test'
   ...
 # Subtest: selector fails when all advertised implementations cannot coexist
 ok 9 - selector fails when all advertised implementations cannot coexist
   ---
-  duration_ms: 0.325334
+  duration_ms: 0.346292
   type: 'test'
   ...
 # Subtest: private transitive Contract implementations never leak into auto or selector candidates
 ok 10 - private transitive Contract implementations never leak into auto or selector candidates
   ---
-  duration_ms: 0.498458
+  duration_ms: 0.537666
   type: 'test'
   ...
 # Subtest: durable implementation refs serialize, parse and upgrade within their version intent
 ok 11 - durable implementation refs serialize, parse and upgrade within their version intent
   ---
-  duration_ms: 0.779208
+  duration_ms: 0.795541
   type: 'test'
   ...
 # Subtest: definePackage derives stable service identities and exact versions from the manifest
 ok 12 - definePackage derives stable service identities and exact versions from the manifest
   ---
-  duration_ms: 0.939041
+  duration_ms: 0.9535
   type: 'test'
   ...
 # Subtest: Runtime construction creates no Env or instance; access order does not affect ownership
 ok 13 - Runtime construction creates no Env or instance; access order does not affect ownership
   ---
-  duration_ms: 8.878542
+  duration_ms: 11.587084
   type: 'test'
   ...
 # Subtest: DependencyRef is safely destructurable and materializes only when load() is called
 ok 14 - DependencyRef is safely destructurable and materializes only when load() is called
   ---
-  duration_ms: 0.301042
+  duration_ms: 1.020917
   type: 'test'
   ...
 # Subtest: re-providing an Input forks exactly its reverse dependency closure
 ok 15 - re-providing an Input forks exactly its reverse dependency closure
   ---
-  duration_ms: 0.760417
+  duration_ms: 1.810417
   type: 'test'
   ...
 # Subtest: fresh forks a slot and all dependants; share is a hard constraint
 ok 16 - fresh forks a slot and all dependants; share is a hard constraint
   ---
-  duration_ms: 0.906666
+  duration_ms: 1.14075
   type: 'test'
   ...
 # Subtest: service ranges are deterministic and prefer compatible ancestor revisions
 ok 17 - service ranges are deterministic and prefer compatible ancestor revisions
   ---
-  duration_ms: 3.059792
+  duration_ms: 3.150125
   type: 'test'
   ...
 # Subtest: freshening one member of a structural SCC forks the whole SCC
 ok 18 - freshening one member of a structural SCC forks the whole SCC
   ---
-  duration_ms: 0.408666
+  duration_ms: 0.372667
   type: 'test'
   ...
 # Subtest: different root Envs may independently anchor different revisions of a fixed family
 ok 19 - different root Envs may independently anchor different revisions of a fixed family
   ---
-  duration_ms: 0.459917
+  duration_ms: 0.454375
   type: 'test'
   ...
 # Subtest: a descendant cannot diverge a lineage-fixed family
 ok 20 - a descendant cannot diverge a lineage-fixed family
   ---
-  duration_ms: 0.297333
+  duration_ms: 0.275791
   type: 'test'
   ...
 # Subtest: a disposed Env cannot materialize a dormant owned slot
 ok 21 - a disposed Env cannot materialize a dormant owned slot
   ---
-  duration_ms: 0.174625
+  duration_ms: 0.23225
   type: 'test'
   ...
 # Subtest: slot topology is invariant under different materialization orders
 ok 22 - slot topology is invariant under different materialization orders
   ---
-  duration_ms: 0.803
+  duration_ms: 0.7575
   type: 'test'
   ...
 # Subtest: nominally identical physical package copies canonicalize; a differing setup body or manifest fails
 ok 23 - nominally identical physical package copies canonicalize; a differing setup body or manifest fails
   ---
-  duration_ms: 0.344167
+  duration_ms: 0.369708
   type: 'test'
   ...
 # Subtest: private transitive services are usable internally but not publicly admitted
 ok 24 - private transitive services are usable internally but not publicly admitted
   ---
-  duration_ms: 0.918875
+  duration_ms: 0.96325
   type: 'test'
   ...
 # Subtest: run() gives typed dependency refs directly and guarantees disposal
 ok 25 - run() gives typed dependency refs directly and guarantees disposal
   ---
-  duration_ms: 0.231125
+  duration_ms: 0.220708
   type: 'test'
   ...
 # Subtest: descriptor API identities are independent from package semver and change only with apiVersion
 ok 26 - descriptor API identities are independent from package semver and change only with apiVersion
   ---
-  duration_ms: 0.164833
+  duration_ms: 0.154709
   type: 'test'
   ...
 # Subtest: 0.x implementation refs use the exact installed version as the caret baseline
 ok 27 - 0.x implementation refs use the exact installed version as the caret baseline
   ---
-  duration_ms: 18.402375
+  duration_ms: 15.438334
   type: 'test'
   ...
 # Subtest: a setup wait cycle routed through a Ready service ends with INITIALIZATION_TIMEOUT instead of hanging
 ok 28 - a setup wait cycle routed through a Ready service ends with INITIALIZATION_TIMEOUT instead of hanging
   ---
-  duration_ms: 42.789209
+  duration_ms: 42.502875
   type: 'test'
   ...
 # Subtest: an Entry dependency is bound to the owner Env of the Service slot
 ok 29 - an Entry dependency is bound to the owner Env of the Service slot
   ---
-  duration_ms: 1.636084
+  duration_ms: 1.616375
   type: 'test'
   ...
 # Subtest: a selector freezes candidates but plans each candidate as an independent child world
 ok 30 - a selector freezes candidates but plans each candidate as an independent child world
   ---
-  duration_ms: 1.346417
+  duration_ms: 1.178958
   type: 'test'
   ...
 # Subtest: runtime.check validates topology without materializing eager services or publishing an Env
 ok 31 - runtime.check validates topology without materializing eager services or publishing an Env
   ---
-  duration_ms: 0.429625
+  duration_ms: 0.551917
   type: 'test'
   ...
 # Subtest: construction-time substitution rewrites exact dependency edges without mutating a live Runtime
 ok 32 - construction-time substitution rewrites exact dependency edges without mutating a live Runtime
   ---
-  duration_ms: 0.3495
+  duration_ms: 0.443958
   type: 'test'
   ...
 # Subtest: retry is opt-in and all concurrent waiters share one sequence of setup attempts
 ok 33 - retry is opt-in and all concurrent waiters share one sequence of setup attempts
   ---
-  duration_ms: 0.258833
+  duration_ms: 0.331041
   type: 'test'
   ...
 # Subtest: plan templates are reused for repeated request-shaped Entries with different Input payloads
 ok 34 - plan templates are reused for repeated request-shaped Entries with different Input payloads
   ---
-  duration_ms: 0.612584
+  duration_ms: 1.133584
   type: 'test'
   ...
 # Subtest: policy bugs propagate directly instead of being disguised as topology backtracking failures
 ok 35 - policy bugs propagate directly instead of being disguised as topology backtracking failures
   ---
-  duration_ms: 0.194
+  duration_ms: 0.2945
   type: 'test'
   ...
 # Subtest: structured run preserves the callback error and exposes disposal failure as suppressed
 ok 36 - structured run preserves the callback error and exposes disposal failure as suppressed
   ---
-  duration_ms: 0.360916
+  duration_ms: 0.409417
   type: 'test'
   ...
 # Subtest: fresh and share may target a Service Family rather than one exact revision
 ok 37 - fresh and share may target a Service Family rather than one exact revision
   ---
-  duration_ms: 0.416625
+  duration_ms: 0.459375
   type: 'test'
   ...
 # Subtest: an owner-bound Entry entered during owner activation rejects with OWNER_NOT_READY
 ok 38 - an owner-bound Entry entered during owner activation rejects with OWNER_NOT_READY
   ---
-  duration_ms: 0.343291
+  duration_ms: 0.355458
   type: 'test'
   ...
 # Subtest: non-semantic metadata drift produces a warning without changing nominal graph identity
 ok 39 - non-semantic metadata drift produces a warning without changing nominal graph identity
   ---
-  duration_ms: 0.858583
+  duration_ms: 0.868833
   type: 'test'
   ...
 # Subtest: re-providing an Input creates a new slot while reassigning the same exact Binding choice is a no-op
 ok 40 - re-providing an Input creates a new slot while reassigning the same exact Binding choice is a no-op
   ---
-  duration_ms: 0.960167
+  duration_ms: 0.378416
   type: 'test'
   ...
 # Subtest: auto candidate backtracking includes lineage and slot-assignment constraints
 ok 41 - auto candidate backtracking includes lineage and slot-assignment constraints
   ---
-  duration_ms: 0.976458
+  duration_ms: 1.22875
   type: 'test'
   ...
 # Subtest: selector candidate preflight does not hide unexpected policy failures as unavailable candidates
 ok 42 - selector candidate preflight does not hide unexpected policy failures as unavailable candidates
   ---
-  duration_ms: 0.846458
+  duration_ms: 0.996208
   type: 'test'
   ...
 # Subtest: selector persistent refs use the Runtime version policy and prefer an active ancestor revision
 ok 43 - selector persistent refs use the Runtime version policy and prefer an active ancestor revision
   ---
-  duration_ms: 0.429834
+  duration_ms: 0.506958
   type: 'test'
   ...
 # Subtest: Runtime definition overrides preserve the source Contract identity
 ok 44 - Runtime definition overrides preserve the source Contract identity
   ---
-  duration_ms: 0.261375
+  duration_ms: 0.311417
   type: 'test'
   ...
 # Subtest: structural cycles are legal after setup; pending setup wait cycles hit the initialization deadline
 ok 45 - structural cycles are legal after setup; pending setup wait cycles hit the initialization deadline
   ---
-  duration_ms: 54.144
+  duration_ms: 69.794542
   type: 'test'
   ...
 # Subtest: concurrent requests for one dormant slot share exactly one setup
 ok 46 - concurrent requests for one dormant slot share exactly one setup
   ---
-  duration_ms: 0.439583
+  duration_ms: 0.419458
   type: 'test'
   ...
 # Subtest: parallel eager setup has no ordering guarantee and can start concurrently
 ok 47 - parallel eager setup has no ordering guarantee and can start concurrently
   ---
-  duration_ms: 1.110084
+  duration_ms: 0.781416
   type: 'test'
   ...
 # Subtest: dispose is dependant-before-dependency and reverse completion inside an SCC
 ok 48 - dispose is dependant-before-dependency and reverse completion inside an SCC
   ---
-  duration_ms: 0.931834
+  duration_ms: 0.774083
   type: 'test'
   ...
 # Subtest: disposing a parent recursively disposes descendants before parent-owned slots
 ok 49 - disposing a parent recursively disposes descendants before parent-owned slots
   ---
-  duration_ms: 0.634584
+  duration_ms: 0.614417
   type: 'test'
   ...
 # Subtest: failed setup is sticky for a canonical slot
 ok 50 - failed setup is sticky for a canonical slot
   ---
-  duration_ms: 0.389875
+  duration_ms: 0.620042
   type: 'test'
   ...
 # Subtest: failed eager activation rolls back newly started local services
 ok 51 - failed eager activation rolls back newly started local services
   ---
-  duration_ms: 0.480584
+  duration_ms: 0.490667
   type: 'test'
   ...
 # Subtest: a setup that waits for a collection member which waits back on it hits the initialization deadline
 ok 52 - a setup that waits for a collection member which waits back on it hits the initialization deadline
   ---
-  duration_ms: 41.8845
+  duration_ms: 42.404833
   type: 'test'
   ...
 # Subtest: reference parent-only planner agrees with the production planner on 200 seeded random graphs
 ok 53 - reference parent-only planner agrees with the production planner on 200 seeded random graphs
   ---
-  duration_ms: 68.907208
+  duration_ms: 77.568459
   type: 'test'
   ...
 # Subtest: reference planner: the greatest reuse set is the union of all valid subsets (fixed point), shown on a hand-built diamond
 ok 54 - reference planner: the greatest reuse set is the union of all valid subsets (fixed point), shown on a hand-built diamond
   ---
-  duration_ms: 0.276542
+  duration_ms: 0.287584
   type: 'test'
   ...
 # Subtest: semantic versions parse and normalize complete package versions only
 ok 55 - semantic versions parse and normalize complete package versions only
   ---
-  duration_ms: 1.545417
+  duration_ms: 1.390875
   type: 'test'
   ...
 # Subtest: semantic version comparison follows semver precedence
 ok 56 - semantic version comparison follows semver precedence
   ---
-  duration_ms: 0.198208
+  duration_ms: 0.187708
   type: 'test'
   ...
 # Subtest: ranges cover exact, caret, tilde, wildcard, comparator sets, unions and prereleases
 ok 57 - ranges cover exact, caret, tilde, wildcard, comparator sets, unions and prereleases
   ---
-  duration_ms: 3.032709
+  duration_ms: 3.703292
   type: 'test'
   ...
 # Subtest: plan cache never reuses root-site mappings across different Entry lineages
 ok 58 - plan cache never reuses root-site mappings across different Entry lineages
   ---
-  duration_ms: 10.028875
+  duration_ms: 17.698708
   type: 'test'
   ...
 # Subtest: equivalent sibling Entry invocations share templates without sharing Env-local slots
 ok 59 - equivalent sibling Entry invocations share templates without sharing Env-local slots
   ---
-  duration_ms: 0.773542
+  duration_ms: 1.767333
   type: 'test'
   ...
 # Subtest: runtime disposal releases compiled plan templates
 ok 60 - runtime disposal releases compiled plan templates
   ---
-  duration_ms: 0.232167
+  duration_ms: 0.297041
   type: 'test'
   ...
 # Subtest: check() reports ownership from explicit plan identity rather than Env id prefixes
 ok 61 - check() reports ownership from explicit plan identity rather than Env id prefixes
   ---
-  duration_ms: 0.226375
+  duration_ms: 0.265708
   type: 'test'
   ...
 # Subtest: loadAll materializes a typed group concurrently and preserves keys
 ok 62 - loadAll materializes a typed group concurrently and preserves keys
   ---
-  duration_ms: 1.063541
+  duration_ms: 1.19475
   type: 'test'
   ...
 # Subtest: override chains preserve the original public identity and reject cycles
 ok 63 - override chains preserve the original public identity and reject cycles
   ---
-  duration_ms: 0.750542
+  duration_ms: 0.738708
   type: 'test'
   ...
 # Subtest: retry-on-next-load cooldown is exactly-once across concurrent callers
 ok 64 - retry-on-next-load cooldown is exactly-once across concurrent callers
   ---
-  duration_ms: 22.182958
+  duration_ms: 22.221667
   type: 'test'
   ...
 # Subtest: selector candidate plan templates are reused and the cache remains bounded
 ok 65 - selector candidate plan templates are reused and the cache remains bounded
   ---
-  duration_ms: 45.7605
+  duration_ms: 35.484458
   type: 'test'
   ...
 # Subtest: preload and un-awaited load are both non-blocking and never create a false setup cycle
 ok 66 - preload and un-awaited load are both non-blocking and never create a false setup cycle
   ---
-  duration_ms: 0.596417
+  duration_ms: 0.642625
   type: 'test'
   ...
 # Subtest: dispose aborts the remaining retry schedule
 ok 67 - dispose aborts the remaining retry schedule
   ---
-  duration_ms: 32.38425
+  duration_ms: 32.879917
   type: 'test'
   ...
 # Subtest: definition override is coherent for exact, Contract, all and scope targeting
 ok 68 - definition override is coherent for exact, Contract, all and scope targeting
   ---
-  duration_ms: 1.0415
+  duration_ms: 1.064708
   type: 'test'
   ...
 # Subtest: a Service-owned Entry may resolve its declared exact private roots
 ok 69 - a Service-owned Entry may resolve its declared exact private roots
   ---
-  duration_ms: 0.48
+  duration_ms: 0.45925
   type: 'test'
   ...
 # Subtest: retry-on-next-load starts a fresh setup sequence after exhaustion
 ok 70 - retry-on-next-load starts a fresh setup sequence after exhaustion
   ---
-  duration_ms: 0.401291
+  duration_ms: 0.396167
   type: 'test'
   ...
 # Subtest: BoundEntry.enter needs a Ready owner: eager setup is refused, lazy setup in a Ready Env succeeds
 ok 71 - BoundEntry.enter needs a Ready owner: eager setup is refused, lazy setup in a Ready Env succeeds
   ---
-  duration_ms: 0.314333
+  duration_ms: 0.328459
   type: 'test'
   ...
 # Subtest: a parent setup that opens a worker world of its activating owner fails with OWNER_NOT_READY
 ok 72 - a parent setup that opens a worker world of its activating owner fails with OWNER_NOT_READY
   ---
-  duration_ms: 0.237916
+  duration_ms: 0.24975
   type: 'test'
   ...
 # Subtest: loadAll materializes named dependency refs concurrently and preserves keys
 ok 73 - loadAll materializes named dependency refs concurrently and preserves keys
   ---
-  duration_ms: 6.282709
+  duration_ms: 5.713125
   type: 'test'
   ...
 # Subtest: Runtime, Env and implementation leases expose explicit async disposal
 ok 74 - Runtime, Env and implementation leases expose explicit async disposal
   ---
-  duration_ms: 0.567125
+  duration_ms: 0.482916
   type: 'test'
   ...
 # Subtest: private Entry realms expose declared exact roots but do not discover private Contract implementations
 ok 75 - private Entry realms expose declared exact roots but do not discover private Contract implementations
   ---
-  duration_ms: 9.992042
+  duration_ms: 14.350833
   type: 'test'
   ...
 # Subtest: owner-bound Entry context is explicit: app-owned capabilities do not inherit caller-local Inputs
 ok 76 - owner-bound Entry context is explicit: app-owned capabilities do not inherit caller-local Inputs
   ---
-  duration_ms: 1.82975
+  duration_ms: 1.816333
   type: 'test'
   ...
 # Subtest: preload failure does not fail the caller setup, but remains observable on explicit load
 ok 77 - preload failure does not fail the caller setup, but remains observable on explicit load
   ---
-  duration_ms: 0.599625
+  duration_ms: 0.640792
   type: 'test'
   ...
 # Subtest: disposing during retry-on-next-load cooldown prevents a recovery generation
 ok 78 - disposing during retry-on-next-load cooldown prevents a recovery generation
   ---
-  duration_ms: 15.352667
+  duration_ms: 12.23875
   type: 'test'
   ...
 # Subtest: failed parent activation cannot have started a child world; local eager slots roll back
 ok 79 - failed parent activation cannot have started a child world; local eager slots roll back
   ---
-  duration_ms: 0.724042
+  duration_ms: 0.713584
   type: 'test'
   ...
 # Subtest: Binding-dependent plan templates do not leak exact choices across sibling Envs
 ok 80 - Binding-dependent plan templates do not leak exact choices across sibling Envs
   ---
-  duration_ms: 0.777042
+  duration_ms: 0.769541
   type: 'test'
   ...
 # Subtest: an un-awaited load() does not become a setup barrier for the caller
 ok 81 - an un-awaited load() does not become a setup barrier for the caller
   ---
-  duration_ms: 1.040541
+  duration_ms: 1.431042
   type: 'test'
   ...
 # Subtest: selector candidate planning is reusable and bounded across short-lived request Envs
 ok 82 - selector candidate planning is reusable and bounded across short-lived request Envs
   ---
-  duration_ms: 37.568792
+  duration_ms: 38.793375
   type: 'test'
   ...
 # Subtest: preload and un-awaited load are both non-blocking background operations
 ok 83 - preload and un-awaited load are both non-blocking background operations
   ---
-  duration_ms: 1.634375
+  duration_ms: 1.656875
   type: 'test'
   ...
 # Subtest: disposing an owner aborts an in-progress retry sequence and backoff
 ok 84 - disposing an owner aborts an in-progress retry sequence and backoff
   ---
-  duration_ms: 1.442083
+  duration_ms: 0.939583
   type: 'test'
   ...
 # Subtest: definition override preserves source admission identity across exact, Contract, selector, all and scope constraints
 ok 85 - definition override preserves source admission identity across exact, Contract, selector, all and scope constraints
   ---
-  duration_ms: 3.634042
+  duration_ms: 2.069416
   type: 'test'
   ...
 # Subtest: a Service-owned Entry may resolve exact private roots without exposing them publicly
 ok 86 - a Service-owned Entry may resolve exact private roots without exposing them publicly
   ---
-  duration_ms: 0.592709
+  duration_ms: 0.515792
   type: 'test'
   ...
 # Subtest: retry-on-next-load starts a new exactly-once setup sequence after exhaustion
 ok 87 - retry-on-next-load starts a new exactly-once setup sequence after exhaustion
   ---
-  duration_ms: 0.487333
+  duration_ms: 0.463667
   type: 'test'
   ...
 # Subtest: a worker world is started by the host after the owner is Ready, not during eager setup
 ok 88 - a worker world is started by the host after the owner is Ready, not during eager setup
   ---
-  duration_ms: 0.369709
+  duration_ms: 0.366667
   type: 'test'
   ...
 # Subtest: plan cache is capped and reports eviction rather than retaining unlimited Entry shapes
 ok 89 - plan cache is capped and reports eviction rather than retaining unlimited Entry shapes
   ---
-  duration_ms: 0.738667
+  duration_ms: 1.353375
   type: 'test'
   ...
 # Subtest: selector.open during the anchor Env activation is refused with OWNER_NOT_READY
 ok 90 - selector.open during the anchor Env activation is refused with OWNER_NOT_READY
   ---
-  duration_ms: 0.374125
+  duration_ms: 0.461792
   type: 'test'
   ...
 # Subtest: R10 a caller cancelling its own wait does not cancel the shared attempt or other waiters
 ok 91 - R10 a caller cancelling its own wait does not cancel the shared attempt or other waiters
   ---
-  duration_ms: 11.590208
+  duration_ms: 11.1905
   type: 'test'
   ...
 # Subtest: R10 the owner stop signal reaches a child that waits for it before the owner waits for the child
 ok 92 - R10 the owner stop signal reaches a child that waits for it before the owner waits for the child
   ---
-  duration_ms: 1.0165
+  duration_ms: 0.988541
   type: 'test'
   ...
 # Subtest: R09 owner disposal cancels retry backoff; a rollback failure ends the sequence instead of retrying
 ok 93 - R09 owner disposal cancels retry backoff; a rollback failure ends the sequence instead of retrying
   ---
-  duration_ms: 23.571125
+  duration_ms: 21.608167
   type: 'test'
   ...
 # Subtest: R09 retry-on-next-load recovery starts exactly one new sequence and is refused while an old attempt still runs
 ok 94 - R09 retry-on-next-load recovery starts exactly one new sequence and is refused while an old attempt still runs
   ---
-  duration_ms: 33.348583
+  duration_ms: 33.564167
   type: 'test'
   ...
 # Subtest: K08 a Ready instance is never swapped by a later load; concurrent waiters join one attempt
 ok 95 - K08 a Ready instance is never swapped by a later load; concurrent waiters join one attempt
   ---
-  duration_ms: 0.565583
+  duration_ms: 0.477416
   type: 'test'
   ...
 # Subtest: K08 disposal reports an attempt that never settles as UNSETTLED_ATTEMPT and marks the slot abandoned
 ok 96 - K08 disposal reports an attempt that never settles as UNSETTLED_ATTEMPT and marks the slot abandoned
   ---
-  duration_ms: 44.581208
+  duration_ms: 43.066083
   type: 'test'
   ...
 # Subtest: K08 a setup that completes after the owner started closing is discarded and cleaned up
 ok 97 - K08 a setup that completes after the owner started closing is discarded and cleaned up
   ---
-  duration_ms: 7.340583
+  duration_ms: 6.403375
   type: 'test'
   ...
 # Subtest: R11 callback failure and dispose failure are both kept; every cleanup still runs; cleanup opens no dormant slot
 ok 98 - R11 callback failure and dispose failure are both kept; every cleanup still runs; cleanup opens no dormant slot
   ---
-  duration_ms: 1.03175
+  duration_ms: 0.931667
   type: 'test'
   ...
 # Subtest: F-PL-01 dispose() of a non-cooperative setup is bounded by disposal.graceMs, not by the initialization deadline
 ok 99 - F-PL-01 dispose() of a non-cooperative setup is bounded by disposal.graceMs, not by the initialization deadline
   ---
-  duration_ms: 69.314875
+  duration_ms: 58.941667
   type: 'test'
   ...
 # Subtest: F-PL-01 setupDeadlineMs: Infinity cannot turn a stuck setup into a hanging dispose(), enter() or run()
 ok 100 - F-PL-01 setupDeadlineMs: Infinity cannot turn a stuck setup into a hanging dispose(), enter() or run()
   ---
-  duration_ms: 125.790333
+  duration_ms: 123.934583
   type: 'test'
   ...
 # Subtest: F-PL-01 control: a cooperative setup that unwinds within the grace period disposes cleanly
 ok 101 - F-PL-01 control: a cooperative setup that unwinds within the grace period disposes cleanly
   ---
-  duration_ms: 19.148167
+  duration_ms: 16.58525
   type: 'test'
   ...
 # Subtest: F-PL-02 onDispose() registered after the deadline passed is honoured by the late-settlement cleanup
 ok 102 - F-PL-02 onDispose() registered after the deadline passed is honoured by the late-settlement cleanup
   ---
-  duration_ms: 34.0245
+  duration_ms: 33.313709
   type: 'test'
   ...
 # Subtest: F-PL-02 onDispose() registered after the owner closed mid-setup is still run once the setup settles
 ok 103 - F-PL-02 onDispose() registered after the owner closed mid-setup is still run once the setup settles
   ---
-  duration_ms: 40.175417
+  duration_ms: 38.560625
   type: 'test'
   ...
 # Subtest: F-PL-02 control: onDispose() from a stale lifecycle after the setup settled is still refused
 ok 104 - F-PL-02 control: onDispose() from a stale lifecycle after the setup settled is still refused
   ---
-  duration_ms: 0.549917
+  duration_ms: 0.545292
   type: 'test'
   ...
 # Subtest: F-PL-03 an ancestor closing broadcasts the stop signal to every descendant before waiting on any of them
 ok 105 - F-PL-03 an ancestor closing broadcasts the stop signal to every descendant before waiting on any of them
   ---
-  duration_ms: 0.913875
+  duration_ms: 0.902917
   type: 'test'
   ...
 # Subtest: F-PL-03 runtime.dispose() closes independent roots concurrently, bounded by the slowest
 ok 106 - F-PL-03 runtime.dispose() closes independent roots concurrently, bounded by the slowest
   ---
-  duration_ms: 152.008083
+  duration_ms: 151.01125
   type: 'test'
   ...
 # Subtest: F-PL-04 an Env with an abandoned attempt stays disposing (and counted) until the late result is cleaned up
 ok 107 - F-PL-04 an Env with an abandoned attempt stays disposing (and counted) until the late result is cleaned up
   ---
-  duration_ms: 55.98725
+  duration_ms: 53.543958
   type: 'test'
   ...
 # Subtest: F-PL-04 a parent whose child holds an abandoned attempt is disposing until the child finalizes
 ok 108 - F-PL-04 a parent whose child holds an abandoned attempt is disposing until the child finalizes
   ---
-  duration_ms: 40.815416
+  duration_ms: 38.712917
   type: 'test'
   ...
 # Subtest: F-PL-05 disposal order follows a dependency that passes through a never-started slot
 ok 109 - F-PL-05 disposal order follows a dependency that passes through a never-started slot
   ---
-  duration_ms: 0.610792
+  duration_ms: 0.507917
   type: 'test'
   ...
 # Subtest: F-PL-06 a load() Promise that nobody handles is an unhandled rejection whether it joined a running attempt or hit a failed slot
 ok 110 - F-PL-06 a load() Promise that nobody handles is an unhandled rejection whether it joined a running attempt or hit a failed slot
   ---
-  duration_ms: 148.859334
+  duration_ms: 152.011209
   type: 'test'
   ...
 # Subtest: F-PL-06 every caller receives its own Promise; the shared attempt is still one
 ok 111 - F-PL-06 every caller receives its own Promise; the shared attempt is still one
   ---
-  duration_ms: 5.591
+  duration_ms: 6.140792
   type: 'test'
   ...
 # Subtest: F-PL-07 load() with an already-aborted signal starts nothing
 ok 112 - F-PL-07 load() with an already-aborted signal starts nothing
   ---
-  duration_ms: 0.252291
+  duration_ms: 0.271167
   type: 'test'
   ...
 # Subtest: F-CD-01 explain() lists an Input or Binding required by a Service deep in the graph, not only declared Entry parameters
 ok 113 - F-CD-01 explain() lists an Input or Binding required by a Service deep in the graph, not only declared Entry parameters
   ---
-  duration_ms: 11.281375
+  duration_ms: 9.212959
   type: 'test'
   ...
 # Subtest: F-CD-02 a failure every candidate shares keeps its own code instead of UNSATISFIABLE_TOPOLOGY, independent of requires order
 ok 114 - F-CD-02 a failure every candidate shares keeps its own code instead of UNSATISFIABLE_TOPOLOGY, independent of requires order
   ---
-  duration_ms: 2.582041
+  duration_ms: 2.657417
   type: 'test'
   ...
 # Subtest: F-CD-02 control: candidates that fail for different reasons are still UNSATISFIABLE_TOPOLOGY and explain() collects every nested missing Input
 ok 115 - F-CD-02 control: candidates that fail for different reasons are still UNSATISFIABLE_TOPOLOGY and explain() collects every nested missing Input
   ---
-  duration_ms: 0.424041
+  duration_ms: 0.507209
   type: 'test'
   ...
 # Subtest: F-CD-04 plan-template keys carry a digest of the parent signature: bounded key size, hits on repeats, misses under another parent
 ok 116 - F-CD-04 plan-template keys carry a digest of the parent signature: bounded key size, hits on repeats, misses under another parent
   ---
-  duration_ms: 13.221583
+  duration_ms: 11.746042
   type: 'test'
   ...
 # Subtest: F-CL3-01 selector candidates are keyed by the physical revision: two Runtimes sharing a Contract object do not contaminate each other
 ok 117 - F-CL3-01 selector candidates are keyed by the physical revision: two Runtimes sharing a Contract object do not contaminate each other
   ---
-  duration_ms: 12.828042
+  duration_ms: 11.973084
   type: 'test'
   ...
 # Subtest: F-CL3-02 setup drift is DUPLICATE_DEFINITION on a template hit, after check(), and for a range family whose uniqueWithin drifts
 ok 118 - F-CL3-02 setup drift is DUPLICATE_DEFINITION on a template hit, after check(), and for a range family whose uniqueWithin drifts
   ---
-  duration_ms: 3.950208
+  duration_ms: 3.207833
   type: 'test'
   ...
 # Subtest: F-CL3-03 an attempt whose Env handle was dropped is still closed as unreachable: cleanups run, the event names the Env, the ledger empties
 ok 119 - F-CL3-03 an attempt whose Env handle was dropped is still closed as unreachable: cleanups run, the event names the Env, the ledger empties
   ---
-  duration_ms: 981.050917
+  duration_ms: 944.544167
   type: 'test'
   ...
 # Subtest: F-CL3-04 plans do not depend on the insertion order of requires keys, on the cache, or on admission order
 ok 120 - F-CL3-04 plans do not depend on the insertion order of requires keys, on the cache, or on admission order
   ---
-  duration_ms: 4.120792
+  duration_ms: 3.332792
   type: 'test'
   ...
 # Subtest: F-CL3-05a a failed setup whose rollback outlives the grace is reported as rolling back, listed in the ledger, and its slot ends disposed
 ok 121 - F-CL3-05a a failed setup whose rollback outlives the grace is reported as rolling back, listed in the ledger, and its slot ends disposed
   ---
-  duration_ms: 47.218417
+  duration_ms: 47.244791
   type: 'test'
   ...
 # Subtest: F-CL3-05b during a late cleanup the ledger still lists the attempt as settling and runtime.dispose() reports it
 ok 122 - F-CL3-05b during a late cleanup the ledger still lists the attempt as settling and runtime.dispose() reports it
   ---
-  duration_ms: 36.607541
+  duration_ms: 32.418584
   type: 'test'
   ...
 # Subtest: F-CL3-05c runtime.dispose() waits within the grace for a settling attempt instead of reporting a cleanup that is about to finish
 ok 123 - F-CL3-05c runtime.dispose() waits within the grace for a settling attempt instead of reporting a cleanup that is about to finish
   ---
-  duration_ms: 255.236208
+  duration_ms: 252.525167
   type: 'test'
   ...
 # Subtest: F-CL3-08 run() keeps a successful business result on the close error
 ok 124 - F-CL3-08 run() keeps a successful business result on the close error
   ---
-  duration_ms: 26.756333
+  duration_ms: 27.475583
   type: 'test'
   ...
 # Subtest: F-CL3-09 check() and explain() consume no slot ids: the first real Env is numbered from slot-1
 ok 125 - F-CL3-09 check() and explain() consume no slot ids: the first real Env is numbered from slot-1
   ---
-  duration_ms: 1.473417
+  duration_ms: 1.045625
   type: 'test'
   ...
 # Subtest: R17 plan-cache disabled, enabled and constantly evicting yield identical topologies and explanations
 ok 126 - R17 plan-cache disabled, enabled and constantly evicting yield identical topologies and explanations
   ---
-  duration_ms: 19.264792
+  duration_ms: 19.475875
   type: 'test'
   ...
 # Subtest: R17 cache keys separate public and private realms, and templates never cross slots between parents of equal shape
 ok 127 - R17 cache keys separate public and private realms, and templates never cross slots between parents of equal shape
   ---
-  duration_ms: 2.282708
+  duration_ms: 2.443542
   type: 'test'
   ...
 # Subtest: R18 10,000 request/BoundEntry churns do not grow live Envs, plan templates or registries
 ok 128 - R18 10,000 request/BoundEntry churns do not grow live Envs, plan templates or registries
   ---
-  duration_ms: 388.496958
+  duration_ms: 404.224833
   type: 'test'
   ...
 # Subtest: R19 SCC members fork together and dispose in reverse completion order; a late-loaded dependency still closes after its dependants
 ok 129 - R19 SCC members fork together and dispose in reverse completion order; a late-loaded dependency still closes after its dependants
   ---
-  duration_ms: 0.839
+  duration_ms: 0.713
   type: 'test'
   ...
 # Subtest: K09 Ready means every locally owned eager slot is Ready; inherited eager slots are not restarted; closing refuses new work first
 ok 130 - K09 Ready means every locally owned eager slot is Ready; inherited eager slots are not restarted; closing refuses new work first
   ---
-  duration_ms: 5.428083
+  duration_ms: 5.19125
   type: 'test'
   ...
 # Subtest: R17 plan templates are keyed by the lineage anchors: equal-shape gap Envs, one anchored and one not, never share a template in either order; a stale hit is re-solved
 ok 131 - R17 plan templates are keyed by the lineage anchors: equal-shape gap Envs, one anchored and one not, never share a template in either order; a stale hit is re-solved
   ---
-  duration_ms: 5.253541
+  duration_ms: 5.907708
   type: 'test'
   ...
 # Subtest: R01 Binding.to resolves 0.2.x, 0.0.x and ordinary 2.x providers and never widens to lower published versions
 ok 132 - R01 Binding.to resolves 0.2.x, 0.0.x and ordinary 2.x providers and never widens to lower published versions
   ---
-  duration_ms: 16.283833
+  duration_ms: 16.020416
   type: 'test'
   ...
 # Subtest: R01 persistent refs: no target family means an explicit failure, never a supplier substitution; upgrades resolve inside the intent
 ok 133 - R01 persistent refs: no target family means an explicit failure, never a supplier substitution; upgrades resolve inside the intent
   ---
-  duration_ms: 0.605125
+  duration_ms: 0.49025
   type: 'test'
   ...
 # Subtest: R20 exported names stay stable, package version is injected, descriptor apiVersion is independent of package major, physical duplicates canonicalize
 ok 134 - R20 exported names stay stable, package version is injected, descriptor apiVersion is independent of package major, physical duplicates canonicalize
   ---
-  duration_ms: 0.874541
+  duration_ms: 0.726833
   type: 'test'
   ...
 # Subtest: K01 Runtime construction is closed and inert: no Env, slot or instance; unknown definitions are refused; invalid options are TypeErrors
 ok 135 - K01 Runtime construction is closed and inert: no Env, slot or instance; unknown definitions are refused; invalid options are TypeErrors
   ---
-  duration_ms: 0.484416
+  duration_ms: 0.474459
   type: 'test'
   ...
 # Subtest: K12 explain distinguishes inherited, new and forked nodes and gives the cause path for a per-request rebuild
 ok 136 - K12 explain distinguishes inherited, new and forked nodes and gives the cause path for a per-request rebuild
   ---
-  duration_ms: 11.244625
+  duration_ms: 11.711583
   type: 'test'
   ...
 # Subtest: K12 check/explain never execute setup and report unsatisfiable constraints, missing parameters and budget exhaustion honestly
 ok 137 - K12 check/explain never execute setup and report unsatisfiable constraints, missing parameters and budget exhaustion honestly
   ---
-  duration_ms: 1.930583
+  duration_ms: 2.077417
   type: 'test'
   ...
 # Subtest: K12 planning consumes no Env id and grows the registries only by the distinct descriptors it meets
 ok 138 - K12 planning consumes no Env id and grows the registries only by the distinct descriptors it meets
   ---
-  duration_ms: 4.780666
+  duration_ms: 4.580042
   type: 'test'
   ...
 # Subtest: R12 parent-only reuse: a Binding flip-back creates a new provider instance while ancestor-owned shared slots are still reused
 ok 139 - R12 parent-only reuse: a Binding flip-back creates a new provider instance while ancestor-owned shared slots are still reused
   ---
-  duration_ms: 11.378625
+  duration_ms: 12.247541
   type: 'test'
   ...
 # Subtest: R13 a lineage-unique anchor survives a descendant that drops the family (Binding flip) and re-attaches when dependencies still match
 ok 140 - R13 a lineage-unique anchor survives a descendant that drops the family (Binding flip) and re-attaches when dependencies still match
   ---
-  duration_ms: 1.204583
+  duration_ms: 1.148708
   type: 'test'
   ...
 # Subtest: R13 a unique family cannot silently get a second instance: re-provided dependency conflicts with the chain; anchor mismatch on re-appearance is explicit; siblings anchor independently
 ok 141 - R13 a unique family cannot silently get a second instance: re-provided dependency conflicts with the chain; anchor mismatch on re-appearance is explicit; siblings anchor independently
   ---
-  duration_ms: 1.906417
+  duration_ms: 1.883291
   type: 'test'
   ...
 # Subtest: R14 C.all shares the slot with a direct dependency, keeps every revision, and propagates slot changes to collection and consumers
 ok 142 - R14 C.all shares the slot with a direct dependency, keeps every revision, and propagates slot changes to collection and consumers
   ---
-  duration_ms: 0.996542
+  duration_ms: 1.008125
   type: 'test'
   ...
 # Subtest: R14 C.all is unsatisfiable as a whole when members cannot coexist, and a collection CandidateRef is scoped to its collection
 ok 143 - R14 C.all is unsatisfiable as a whole when members cannot coexist, and a collection CandidateRef is scoped to its collection
   ---
-  duration_ms: 0.6875
+  duration_ms: 0.654584
   type: 'test'
   ...
 # Subtest: R15 an auto choice site is stable along a lineage, independent per edge; bare ambiguity and missing policy are distinct errors; policy bugs propagate
 ok 144 - R15 an auto choice site is stable along a lineage, independent per edge; bare ambiguity and missing policy are distinct errors; policy bugs propagate
   ---
-  duration_ms: 1.188959
+  duration_ms: 1.140959
   type: 'test'
   ...
 # Subtest: R16 same Binding choice is a no-op, same Input payload re-provision forks, omitted parameter and undefined differ, duplicate parameters rejected
 ok 145 - R16 same Binding choice is a no-op, same Input payload re-provision forks, omitted parameter and undefined differ, duplicate parameters rejected
   ---
-  duration_ms: 3.769833
+  duration_ms: 3.525375
   type: 'test'
   ...
 # Subtest: K03 fresh/share accept exact and family targets; conflicts fail explicitly; payload equality never drives reuse
 ok 146 - K03 fresh/share accept exact and family targets; conflicts fail explicitly; payload equality never drives reuse
   ---
-  duration_ms: 0.58075
+  duration_ms: 0.549709
   type: 'test'
   ...
 # Subtest: R05 Input.read() preserves payload identity for Promise, thenable, function and undefined payloads
 ok 147 - R05 Input.read() preserves payload identity for Promise, thenable, function and undefined payloads
   ---
-  duration_ms: 11.530833
+  duration_ms: 10.887167
   type: 'test'
   ...
 # Subtest: R05 ServiceRef is not thenable: Promise.resolve(ref) yields the ref and starts nothing
 ok 148 - R05 ServiceRef is not thenable: Promise.resolve(ref) yields the ref and starts nothing
   ---
-  duration_ms: 1.731541
+  duration_ms: 1.742
   type: 'test'
   ...
 # Subtest: K07 an un-awaited load() inside setup is a background operation, not a barrier
 ok 149 - K07 an un-awaited load() inside setup is a background operation, not a barrier
   ---
-  duration_ms: 0.42675
+  duration_ms: 0.423583
   type: 'test'
   ...
 # Subtest: R02 catching a lazy backend failure yields a degraded Ready consumer; an eager backend fails the Env instead
 ok 150 - R02 catching a lazy backend failure yields a degraded Ready consumer; an eager backend fails the Env instead
   ---
-  duration_ms: 1.323
+  duration_ms: 2.251875
   type: 'test'
   ...
 # Subtest: R03 a Ready Helper running its own background load with its own catch does not add obligations to the Caller
 ok 151 - R03 a Ready Helper running its own background load with its own catch does not add obligations to the Caller
   ---
-  duration_ms: 7.1975
+  duration_ms: 6.719708
   type: 'test'
   ...
 # Subtest: R04 structural A<->B is legal; runtime mutual calls work; Promise.race fallback and legal prefetch are not misreported
 ok 152 - R04 structural A<->B is legal; runtime mutual calls work; Promise.race fallback and legal prefetch are not misreported
   ---
-  duration_ms: 13.529875
+  duration_ms: 12.257833
   type: 'test'
   ...
 # Subtest: R04 a genuinely pending wait cycle is reported by the initialization deadline with the observed load() cycle
 ok 153 - R04 a genuinely pending wait cycle is reported by the initialization deadline with the observed load() cycle
   ---
-  duration_ms: 33.082125
+  duration_ms: 32.044792
   type: 'test'
   ...
 # Subtest: K07 loadAll is an ordinary catchable batch; planning errors and materialization failures stay distinct
 ok 154 - K07 loadAll is an ordinary catchable batch; planning errors and materialization failures stay distinct
   ---
-  duration_ms: 0.660417
+  duration_ms: 0.707542
   type: 'test'
   ...
 # Subtest: K07 a foreign thenable returned by setup is awaited (JavaScript semantics) and diagnosed; instances are never thenable
 ok 155 - K07 a foreign thenable returned by setup is awaited (JavaScript semantics) and diagnosed; instances are never thenable
   ---
-  duration_ms: 0.285
+  duration_ms: 0.285791
   type: 'test'
   ...
 # Subtest: R06 override: Real needs config, Fake does not; Fake adds its own private helper; every resolution path agrees; source appears once
 ok 156 - R06 override: Real needs config, Fake does not; Fake adds its own private helper; every resolution path agrees; source appears once
   ---
-  duration_ms: 14.85075
+  duration_ms: 14.7315
   type: 'test'
   ...
 # Subtest: R07 a Service-owned Entry resolves exact and range private roots identically; public callers with the same descriptor are refused; private Contract implementations do not leak
 ok 157 - R07 a Service-owned Entry resolves exact and range private roots identically; public callers with the same descriptor are refused; private Contract implementations do not leak
   ---
-  duration_ms: 2.968541
+  duration_ms: 2.722
   type: 'test'
   ...
 # Subtest: R07 a range prefers an admitted newer revision over its private origin, and only revisions providing the origin's Contracts are candidates
 ok 158 - R07 a range prefers an admitted newer revision over its private origin, and only revisions providing the origin's Contracts are candidates
   ---
-  duration_ms: 1.091291
+  duration_ms: 1.102375
   type: 'test'
   ...
 # Subtest: R08 an owner-bound Entry stays bound to its owner after inheritance; app-owned UoW never sees request Inputs; explicit parameters work; the handle causes no fresh
 ok 159 - R08 an owner-bound Entry stays bound to its owner after inheritance; app-owned UoW never sees request Inputs; explicit parameters work; the handle causes no fresh
   ---
-  duration_ms: 0.962875
+  duration_ms: 1.412834
   type: 'test'
   ...
 # Subtest: K10 a Service-owned Entry declared in requires does not pull its future roots or Inputs into the current graph
 ok 160 - K10 a Service-owned Entry declared in requires does not pull its future roots or Inputs into the current graph
   ---
-  duration_ms: 0.226166
+  duration_ms: 0.276625
   type: 'test'
   ...
 # Subtest: R-1 a failed rollback is final: retry-on-next-load starts no further attempt (ROLLBACK_FAILED), while a clean rollback still recovers
 ok 161 - R-1 a failed rollback is final: retry-on-next-load starts no further attempt (ROLLBACK_FAILED), while a clean rollback still recovers
   ---
-  duration_ms: 23.125833
+  duration_ms: 22.00425
   type: 'test'
   ...
 # Subtest: R-1 a late cleanup that fails after INITIALIZATION_TIMEOUT makes the slot final too; a clean late cleanup still allows recovery
 ok 162 - R-1 a late cleanup that fails after INITIALIZATION_TIMEOUT makes the slot final too; a clean late cleanup still allows recovery
   ---
-  duration_ms: 46.945083
+  duration_ms: 45.792125
   type: 'test'
   ...
 # Subtest: R-1/R-4 a caught cancellation never leaves an unhandled rejection, on every cancellation path
 ok 163 - R-1/R-4 a caught cancellation never leaves an unhandled rejection, on every cancellation path
   ---
-  duration_ms: 241.515834
+  duration_ms: 235.342625
   type: 'test'
   ...
 # Subtest: R-3 the bounded close ends the Runtime's hold on an Env: abandoned attempts live in a ledger, not in retained Env graphs
 ok 164 - R-3 the bounded close ends the Runtime's hold on an Env: abandoned attempts live in a ledger, not in retained Env graphs
   ---
-  duration_ms: 18.469917
+  duration_ms: 17.1885
   type: 'test'
   ...
 # Subtest: R-3 retention is bounded by the user's own Promise: a setup that can never settle is collected and its attempt closed as unreachable
 ok 165 - R-3 retention is bounded by the user's own Promise: a setup that can never settle is collected and its attempt closed as unreachable
   ---
-  duration_ms: 212.077167
+  duration_ms: 206.22225
   type: 'test'
   ...
 # Subtest: R-4 the dependencies of an abandoned attempt are closed in the normal order after the grace, and the report acknowledges it
 ok 166 - R-4 the dependencies of an abandoned attempt are closed in the normal order after the grace, and the report acknowledges it
   ---
-  duration_ms: 30.254666
+  duration_ms: 27.655291
   type: 'test'
   ...
 # Subtest: R-5 a setup deadline that fires inside the disposal grace does not hide the attempt: the close reports it, the Env stays disposing until it settles
 ok 167 - R-5 a setup deadline that fires inside the disposal grace does not hide the attempt: the close reports it, the Env stays disposing until it settles
   ---
-  duration_ms: 431.128917
+  duration_ms: 428.305208
   type: 'test'
   ...
 1..167
@@ -1009,4 +1009,4 @@ ok 167 - R-5 a setup deadline that fires inside the disposal grace does not hide
 # cancelled 0
 # skipped 0
 # todo 0
-# duration_ms 1575.363167
+# duration_ms 1535.602625

@@ -2,133 +2,133 @@ TAP version 13
 # Subtest: F-AP-01 a SiteEnv rotated to draining while it is still being created is closed once nobody leases it
 ok 1 - F-AP-01 a SiteEnv rotated to draining while it is still being created is closed once nobody leases it
   ---
-  duration_ms: 3143.637458
+  duration_ms: 3135.654667
   type: 'test'
   ...
 # Subtest: F-AP-02 invalidate() while a lease is held: new acquires get a fresh env immediately; the old one closes when released
 ok 2 - F-AP-02 invalidate() while a lease is held: new acquires get a fresh env immediately; the old one closes when released
   ---
-  duration_ms: 32.49375
+  duration_ms: 37.784958
   type: 'test'
   ...
 # Subtest: F-AP-03 malformed request targets are answered with 400 instead of hanging the connection or escaping as rejections
 ok 3 - F-AP-03 malformed request targets are answered with 400 instead of hanging the connection or escaping as rejections
   ---
-  duration_ms: 74.8385
+  duration_ms: 77.556
   type: 'test'
   ...
 # Subtest: F-AP-04 edits and visibility changes reach cached pages without a configuration save
 ok 4 - F-AP-04 edits and visibility changes reach cached pages without a configuration save
   ---
-  duration_ms: 51.9945
+  duration_ms: 55.556125
   type: 'test'
   ...
 # Subtest: F-AP-05/06 a burst of acquirers on a fast-failing tenant shares one creation attempt; HTTP clients see codes, not internals
 ok 5 - F-AP-05/06 a burst of acquirers on a fast-failing tenant shares one creation attempt; HTTP clients see codes, not internals
   ---
-  duration_ms: 30.6205
+  duration_ms: 34.719416
   type: 'test'
   ...
 # Subtest: F-AP-07/11 an unreachable database fails createHylaApp() with the connection error itself, and the runtime is released
 ok 6 - F-AP-07/11 an unreachable database fails createHylaApp() with the connection error itself, and the runtime is released
   ---
-  duration_ms: 2.266625
+  duration_ms: 2.721084
   type: 'test'
   ...
 # Subtest: F-AP-08 the static builder never deletes files it did not write, and refuses a foreign non-empty directory
 ok 7 - F-AP-08 the static builder never deletes files it did not write, and refuses a foreign non-empty directory
   ---
-  duration_ms: 48.21225
+  duration_ms: 72.943417
   type: 'test'
   ...
 # Subtest: F-AP-08b symbolic links under the output directory are refused by the builder before it touches anything and are never published by the static server (T1)
 ok 8 - F-AP-08b symbolic links under the output directory are refused by the builder before it touches anything and are never published by the static server (T1)
   ---
-  duration_ms: 36.718875
+  duration_ms: 40.828125
   type: 'test'
   ...
 # Subtest: F-AP-08c a build is one content snapshot published file by file: a failed render leaves the previous build byte-identical, concurrent builds serialize, a live lock is refused and a stale one taken over, a moving content version is retried and finally refused (T2/T3)
 ok 9 - F-AP-08c a build is one content snapshot published file by file: a failed render leaves the previous build byte-identical, concurrent builds serialize, a live lock is refused and a stale one taken over, a moving content version is retried and finally refused (T2/T3)
   ---
-  duration_ms: 75.785958
+  duration_ms: 83.11875
   type: 'test'
   ...
 # Subtest: F-AP-09 stop() issued while start() is in flight wins: the loop never runs and the worker world is released
 ok 10 - F-AP-09 stop() issued while start() is in flight wins: the loop never runs and the worker world is released
   ---
-  duration_ms: 26.19025
+  duration_ms: 24.910541
   type: 'test'
   ...
 # Subtest: S4 a tick that throws ends the loop in state `failed` with its world released; stop() reports the error and start() recovers
 ok 11 - S4 a tick that throws ends the loop in state `failed` with its world released; stop() reports the error and start() recovers
   ---
-  duration_ms: 27.200792
+  duration_ms: 29.407709
   type: 'test'
   ...
 # Subtest: S4 under the default unhandled-rejection policy a failing worker tick does not crash the process; close() reports it
 ok 12 - S4 under the default unhandled-rejection policy a failing worker tick does not crash the process; close() reports it
   ---
-  duration_ms: 201.595833
+  duration_ms: 215.23475
   type: 'test'
   ...
 # Subtest: S9 a tenant saved after startup is served without a restart; unknown hosts reload the domain table at most once per interval and share one reload
 ok 13 - S9 a tenant saved after startup is served without a restart; unknown hosts reload the domain table at most once per interval and share one reload
   ---
-  duration_ms: 1021.667292
+  duration_ms: 1024.438667
   type: 'test'
   ...
 # Subtest: S9 the maintenance worker reloads the domain table on every tick; a failed reload is counted and keeps the previous table
 ok 14 - S9 the maintenance worker reloads the domain table on every tick; a failed reload is counted and keeps the previous table
   ---
-  duration_ms: 50.353375
+  duration_ms: 48.01275
   type: 'test'
   ...
 # Subtest: R3 /comments/preview goes through the untrusted policy: a stage registered after the site's sanitizer cannot emit script there, while the trusted body recipe runs as written
 ok 15 - R3 /comments/preview goes through the untrusted policy: a stage registered after the site's sanitizer cannot emit script there, while the trusted body recipe runs as written
   ---
-  duration_ms: 27.312542
+  duration_ms: 28.960458
   type: 'test'
   ...
 # Subtest: R4 a malformed session cookie is an anonymous request, not a 500
 ok 16 - R4 a malformed session cookie is an anonymous request, not a 500
   ---
-  duration_ms: 25.904916
+  duration_ms: 25.569875
   type: 'test'
   ...
 # Subtest: F-AP-10 an override whose instance lacks the Authenticator interface fails site creation, not the first request
 ok 17 - F-AP-10 an override whose instance lacks the Authenticator interface fails site creation, not the first request
   ---
-  duration_ms: 24.226834
+  duration_ms: 24.397416
   type: 'test'
   ...
 # Subtest: F-AP-12 close() reports leases still held at shutdown instead of discarding the report
 ok 18 - F-AP-12 close() reports leases still held at shutdown instead of discarding the report
   ---
-  duration_ms: 71.913459
+  duration_ms: 68.788458
   type: 'test'
   ...
 # Subtest: F-AP-13 an out-of-band domain conflict disables only that host and is reported; every other tenant keeps serving
 ok 19 - F-AP-13 an out-of-band domain conflict disables only that host and is reported; every other tenant keeps serving
   ---
-  duration_ms: 26.245458
+  duration_ms: 26.314667
   type: 'test'
   ...
 # Subtest: control: the fixture tenants still round-trip through the two-tenant HTTP path after the audit fixes
 ok 20 - control: the fixture tenants still round-trip through the two-tenant HTTP path after the audit fixes
   ---
-  duration_ms: 24.718667
+  duration_ms: 25.410541
   type: 'test'
   ...
 # Subtest: F-AP3-06 a build manifest this builder did not write, or one of another tenant, is BAD_MANIFEST and nothing it lists is deleted
 ok 21 - F-AP3-06 a build manifest this builder did not write, or one of another tenant, is BAD_MANIFEST and nothing it lists is deleted
   ---
-  duration_ms: 36.12875
+  duration_ms: 36.627209
   type: 'test'
   ...
 # Subtest: F-AP3-08 a static build renders from the listing it already holds: no repository read per post
 ok 22 - F-AP3-08 a static build renders from the listing it already holds: no repository read per post
   ---
-  duration_ms: 29.926458
+  duration_ms: 29.279458
   type: 'test'
   ...
 1..22
@@ -139,4 +139,4 @@ ok 22 - F-AP3-08 a static build renders from the listing it already holds: no re
 # cancelled 0
 # skipped 0
 # todo 0
-# duration_ms 5262.611667
+# duration_ms 5320.462417

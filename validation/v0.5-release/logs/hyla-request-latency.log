@@ -1,13 +1,13 @@
 started: postgres://syna@127.0.0.1:54329/postgres
 pg-test-cluster: server PostgreSQL 17.10 at postgres://syna@127.0.0.1:54329/postgres (temporary cluster)
-filesystem  post-page-cached           n=200  p50 1.22 ms  p95 1.83 ms  p99 2.67 ms
-filesystem  index-cached               n=200  p50 0.46 ms  p95 0.65 ms  p99 0.74 ms
-filesystem  comment-preview-untrusted  n=200  p50 0.47 ms  p95 0.63 ms  p99 0.74 ms
-filesystem  post-page-cold-site        n= 50  p50 1.41 ms  p95 2.04 ms  p99 2.15 ms
-postgres    post-page-cached           n=200  p50 0.52 ms  p95 0.77 ms  p99 0.89 ms
-postgres    index-cached               n=200  p50 0.32 ms  p95 0.36 ms  p99 0.40 ms
-postgres    comment-preview-untrusted  n=200  p50 0.35 ms  p95 0.45 ms  p99 0.54 ms
-postgres    post-page-cold-site        n= 50  p50 0.70 ms  p95 1.04 ms  p99 1.17 ms
+filesystem  post-page-cached           n=200  p50 1.20 ms  p95 1.77 ms  p99 2.24 ms
+filesystem  index-cached               n=200  p50 0.47 ms  p95 0.82 ms  p99 1.11 ms
+filesystem  comment-preview-untrusted  n=200  p50 0.44 ms  p95 0.60 ms  p99 0.73 ms
+filesystem  post-page-cold-site        n= 50  p50 1.28 ms  p95 1.50 ms  p99 1.87 ms
+postgres    post-page-cached           n=200  p50 0.52 ms  p95 0.80 ms  p99 0.91 ms
+postgres    index-cached               n=200  p50 0.33 ms  p95 0.37 ms  p99 0.40 ms
+postgres    comment-preview-untrusted  n=200  p50 0.36 ms  p95 0.42 ms  p99 0.55 ms
+postgres    post-page-cold-site        n= 50  p50 0.69 ms  p95 0.90 ms  p99 0.90 ms
 written /Users/weibohan/Workspace/syna-v0.5/validation/v0.5-release/hyla-request-latency.json
 stopped
 removed /Users/weibohan/Workspace/syna-v0.5/work/pg-release

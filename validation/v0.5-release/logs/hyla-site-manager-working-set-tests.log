@@ -2,85 +2,85 @@ TAP version 13
 # Subtest: H10 leases are single-flight per key, idempotent on release, evicted only when idle, and bounded by capacity with backpressure
 ok 1 - H10 leases are single-flight per key, idempotent on release, evicted only when idle, and bounded by capacity with backpressure
   ---
-  duration_ms: 376.697625
+  duration_ms: 370.779625
   type: 'test'
   ...
 # Subtest: H10 configuration update under traffic: new requests enter the new revision, in-flight requests finish on the old one, old envs are released and never accumulate
 ok 2 - H10 configuration update under traffic: new requests enter the new revision, in-flight requests finish on the old one, old envs are released and never accumulate
   ---
-  duration_ms: 51.22025
+  duration_ms: 44.917417
   type: 'test'
   ...
 # Subtest: H10 a cold creation failure leaves no poisoned single-flight promise and backs off; shutdown refuses new acquires and reports unreleased leases
 ok 3 - H10 a cold creation failure leaves no poisoned single-flight promise and backs off; shutdown refuses new acquires and reports unreleased leases
   ---
-  duration_ms: 200.640916
+  duration_ms: 197.705375
   type: 'test'
   ...
 # Subtest: H11 / P05 working set stays bounded under hot-spot, rotating and long-tail access with many tenants; heap trend is sampled after GC
 ok 4 - H11 / P05 working set stays bounded under hot-spot, rotating and long-tail access with many tenants; heap trend is sampled after GC
   ---
-  duration_ms: 1581.971458
+  duration_ms: 1565.137584
   type: 'test'
   ...
 # Subtest: H11 shutdown with concurrent acquire/release: no acquire after close, every lease accounted for
 ok 5 - H11 shutdown with concurrent acquire/release: no acquire after close, every lease accounted for
   ---
-  duration_ms: 35.757667
+  duration_ms: 47.225125
   type: 'test'
   ...
 # Subtest: S2 a reservation whose record was created meanwhile is handed to the next waiter: a third acquirer never starves behind it
 ok 6 - S2 a reservation whose record was created meanwhile is handed to the next waiter: a third acquirer never starves behind it
   ---
-  duration_ms: 26.257125
+  duration_ms: 26.229333
   type: 'test'
   ...
 # Subtest: S5 a stale configuration read joins the newer world instead of draining it
 ok 7 - S5 a stale configuration read joins the newer world instead of draining it
   ---
-  duration_ms: 23.216542
+  duration_ms: 23.183
   type: 'test'
   ...
 # Subtest: S5 an invalidate() during the capacity wait is honoured: the SiteEnv created afterwards belongs to the new generation
 ok 8 - S5 an invalidate() during the capacity wait is honoured: the SiteEnv created afterwards belongs to the new generation
   ---
-  duration_ms: 21.622708
+  duration_ms: 21.560625
   type: 'test'
   ...
 # Subtest: S6 lease purposes: builds never take the last unit, requests are served while builds wait, and a queued request goes before an earlier build
 ok 9 - S6 lease purposes: builds never take the last unit, requests are served while builds wait, and a queued request goes before an earlier build
   ---
-  duration_ms: 38.740625
+  duration_ms: 37.389959
   type: 'test'
   ...
 # Subtest: S6 reservedForRequests is validated at startup and 0 for a capacity of 1
 ok 10 - S6 reservedForRequests is validated at startup and 0 for a capacity of 1
   ---
-  duration_ms: 22.020834
+  duration_ms: 23.45775
   type: 'test'
   ...
 # Subtest: F-AP3-07 a closing SiteEnv frees its key at once: an acquirer of the same tenant gets a new SiteEnv without spinning on configuration reads or waiting for the close
 ok 11 - F-AP3-07 a closing SiteEnv frees its key at once: an acquirer of the same tenant gets a new SiteEnv without spinning on configuration reads or waiting for the close
   ---
-  duration_ms: 1224.747792
+  duration_ms: 1226.041958
   type: 'test'
   ...
 # Subtest: F-AP3-03 a build acquirer closes idle SiteEnvs only when that makes it servable: none for a unit it can never take, as many as it needs otherwise
 ok 12 - F-AP3-03 a build acquirer closes idle SiteEnvs only when that makes it servable: none for a unit it can never take, as many as it needs otherwise
   ---
-  duration_ms: 561.068125
+  duration_ms: 542.294042
   type: 'test'
   ...
 # Subtest: F-AP3-04 a creation cut short by shutdown() fails with SITE_MANAGER_CLOSED, counts as no creation failure and leaks no SiteEnv
 ok 13 - F-AP3-04 a creation cut short by shutdown() fails with SITE_MANAGER_CLOSED, counts as no creation failure and leaks no SiteEnv
   ---
-  duration_ms: 325.646542
+  duration_ms: 325.648292
   type: 'test'
   ...
 # Subtest: F-AP3-05 one deadline bounds the whole acquire: a waiter granted late whose generation moved is refused within acquireTimeoutMs
 ok 14 - F-AP3-05 one deadline bounds the whole acquire: a waiter granted late whose generation moved is refused within acquireTimeoutMs
   ---
-  duration_ms: 437.491459
+  duration_ms: 437.224792
   type: 'test'
   ...
 1..14
@@ -91,4 +91,4 @@ ok 14 - F-AP3-05 one deadline bounds the whole acquire: a waiter granted late wh
 # cancelled 0
 # skipped 0
 # todo 0
-# duration_ms 5105.707459
+# duration_ms 5072.891166
