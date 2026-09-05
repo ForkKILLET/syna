@@ -3,177 +3,177 @@ TAP version 13
 # Subtest: H04 PostgreSQL → HTTP and PostgreSQL → static files render the same public content
 ok 1 - H04 PostgreSQL → HTTP and PostgreSQL → static files render the same public content
   ---
-  duration_ms: 125.663458
+  duration_ms: 91.522
   type: 'test'
   ...
 # Subtest: H04 filesystem → HTTP and filesystem → static files render the same public content
 ok 2 - H04 filesystem → HTTP and filesystem → static files render the same public content
   ---
-  duration_ms: 75.442875
+  duration_ms: 59.966792
   type: 'test'
   ...
 # Subtest: H04 the two backends produce identical public pages for identical fixtures
 ok 3 - H04 the two backends produce identical public pages for identical fixtures
   ---
-  duration_ms: 68.274916
+  duration_ms: 64.4325
   type: 'test'
   ...
 # Subtest: postgres: repository conformance
     # Subtest: reports its backend and lists the seeded tenants
     ok 1 - reports its backend and lists the seeded tenants
       ---
-      duration_ms: 1.324959
+      duration_ms: 1.135625
       type: 'test'
       ...
     # Subtest: lists public posts versus all posts
     ok 2 - lists public posts versus all posts
       ---
-      duration_ms: 2.207666
+      duration_ms: 2.066292
       type: 'test'
       ...
     # Subtest: never returns drafts or private posts with public visibility
     ok 3 - never returns drafts or private posts with public visibility
       ---
-      duration_ms: 2.026834
+      duration_ms: 2.142208
       type: 'test'
       ...
     # Subtest: resolves the shared slug to a different post per tenant
     ok 4 - resolves the shared slug to a different post per tenant
       ---
-      duration_ms: 0.7705
+      duration_ms: 0.475667
       type: 'test'
       ...
     # Subtest: isolates tenants: alpha never sees beta rows
     ok 5 - isolates tenants: alpha never sees beta rows
       ---
-      duration_ms: 3.687375
+      duration_ms: 1.967375
       type: 'test'
       ...
     # Subtest: applies locale, category and tag filters
     ok 6 - applies locale, category and tag filters
       ---
-      duration_ms: 3.658666
+      duration_ms: 1.354
       type: 'test'
       ...
     # Subtest: round-trips every stored field of a post
     ok 7 - round-trips every stored field of a post
       ---
-      duration_ms: 1.679167
+      duration_ms: 0.551167
       type: 'test'
       ...
     # Subtest: orders posts deterministically with comparePosts (newest first, then slug)
     ok 8 - orders posts deterministically with comparePosts (newest first, then slug)
       ---
-      duration_ms: 2.441375
+      duration_ms: 0.661375
       type: 'test'
       ...
     # Subtest: increments the revision and keeps the id when the slug changes
     ok 9 - increments the revision and keeps the id when the slug changes
       ---
-      duration_ms: 4.974667
+      duration_ms: 3.185417
       type: 'test'
       ...
     # Subtest: rejects a slug already used by a different id in the same tenant
     ok 10 - rejects a slug already used by a different id in the same tenant
       ---
-      duration_ms: 2.652459
+      duration_ms: 2.0175
       type: 'test'
       ...
     # Subtest: rejects unsafe tenant ids, slugs and invalid input
     ok 11 - rejects unsafe tenant ids, slugs and invalid input
       ---
-      duration_ms: 0.597041
+      duration_ms: 0.551708
       type: 'test'
       ...
     # Subtest: round-trips categories and tags and upserts by slug
     ok 12 - round-trips categories and tags and upserts by slug
       ---
-      duration_ms: 2.090917
+      duration_ms: 1.994708
       type: 'test'
       ...
     # Subtest: saves the site config and increments configRevision
     ok 13 - saves the site config and increments configRevision
       ---
-      duration_ms: 4.622625
+      duration_ms: 2.2285
       type: 'test'
       ...
     # Subtest: runs work inside transaction() against the tenant repository
     ok 14 - runs work inside transaction() against the tenant repository
       ---
-      duration_ms: 2.163042
+      duration_ms: 1.722
       type: 'test'
       ...
     # Subtest: re-seeding is idempotent in content and increments revisions
     ok 15 - re-seeding is idempotent in content and increments revisions
       ---
-      duration_ms: 5.122875
+      duration_ms: 4.792833
       type: 'test'
       ...
     # Subtest: contentVersion changes on every mutation of the tenant and never for another tenant
     ok 16 - contentVersion changes on every mutation of the tenant and never for another tenant
       ---
-      duration_ms: 5.406625
+      duration_ms: 4.684958
       type: 'test'
       ...
     # Subtest: saveSiteConfig refuses a domain another tenant already claims (DomainConflictError), also when spelled differently
     ok 17 - saveSiteConfig refuses a domain another tenant already claims (DomainConflictError), also when spelled differently
       ---
-      duration_ms: 2.647833
+      duration_ms: 2.492667
       type: 'test'
       ...
     # Subtest: deleteTenant removes only that tenant
     ok 18 - deleteTenant removes only that tenant
       ---
-      duration_ms: 5.864875
+      duration_ms: 3.532792
       type: 'test'
       ...
     1..18
 ok 4 - postgres: repository conformance
   ---
-  duration_ms: 101.865417
+  duration_ms: 69.435167
   type: 'suite'
   ...
 # Subtest: postgres: transactions, pool sharing and disposal
     # Subtest: uses the isolated schema for every table and pins search_path
     ok 1 - uses the isolated schema for every table and pins search_path
       ---
-      duration_ms: 3.724541
+      duration_ms: 2.349667
       type: 'test'
       ...
     # Subtest: rolls back the whole transaction when work throws
     ok 2 - rolls back the whole transaction when work throws
       ---
-      duration_ms: 12.27725
+      duration_ms: 8.594125
       type: 'test'
       ...
     # Subtest: keeps concurrent transactions on different tenants from interleaving state
     ok 3 - keeps concurrent transactions on different tenants from interleaving state
       ---
-      duration_ms: 10.768
+      duration_ms: 8.229875
       type: 'test'
       ...
     # Subtest: serializes conflicting writers on the unique (tenant_id, slug) constraint
     ok 4 - serializes conflicting writers on the unique (tenant_id, slug) constraint
       ---
-      duration_ms: 7.556791
+      duration_ms: 7.873333
       type: 'test'
       ...
     # Subtest: shares one pool across repositories and child Envs and stays within max
     ok 5 - shares one pool across repositories and child Envs and stays within max
       ---
-      duration_ms: 18.451167
+      duration_ms: 8.787833
       type: 'test'
       ...
     # Subtest: ends the pool on runtime.dispose()
     ok 6 - ends the pool on runtime.dispose()
       ---
-      duration_ms: 0.823208
+      duration_ms: 0.40775
       type: 'test'
       ...
     1..6
 ok 5 - postgres: transactions, pool sharing and disposal
   ---
-  duration_ms: 61.252125
+  duration_ms: 40.881375
   type: 'suite'
   ...
 1..5
@@ -184,6 +184,6 @@ ok 5 - postgres: transactions, pool sharing and disposal
 # cancelled 0
 # skipped 0
 # todo 0
-# duration_ms 436.961208
+# duration_ms 385.297
 stopped
 removed /Users/weibohan/Workspace/syna-v0.5/work/pg-release

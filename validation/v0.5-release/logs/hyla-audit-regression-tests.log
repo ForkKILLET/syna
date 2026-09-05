@@ -2,73 +2,73 @@ TAP version 13
 # Subtest: F-AP-01 a SiteEnv rotated to draining while it is still being created is closed once nobody leases it
 ok 1 - F-AP-01 a SiteEnv rotated to draining while it is still being created is closed once nobody leases it
   ---
-  duration_ms: 3131.861792
+  duration_ms: 3126.253084
   type: 'test'
   ...
 # Subtest: F-AP-02 invalidate() while a lease is held: new acquires get a fresh env immediately; the old one closes when released
 ok 2 - F-AP-02 invalidate() while a lease is held: new acquires get a fresh env immediately; the old one closes when released
   ---
-  duration_ms: 32.255792
+  duration_ms: 34.111042
   type: 'test'
   ...
 # Subtest: F-AP-03 malformed request targets are answered with 400 instead of hanging the connection or escaping as rejections
 ok 3 - F-AP-03 malformed request targets are answered with 400 instead of hanging the connection or escaping as rejections
   ---
-  duration_ms: 70.078833
+  duration_ms: 71.809375
   type: 'test'
   ...
 # Subtest: F-AP-04 edits and visibility changes reach cached pages without a configuration save
 ok 4 - F-AP-04 edits and visibility changes reach cached pages without a configuration save
   ---
-  duration_ms: 45.251208
+  duration_ms: 45.346208
   type: 'test'
   ...
 # Subtest: F-AP-05/06 a burst of acquirers on a fast-failing tenant shares one creation attempt; HTTP clients see codes, not internals
 ok 5 - F-AP-05/06 a burst of acquirers on a fast-failing tenant shares one creation attempt; HTTP clients see codes, not internals
   ---
-  duration_ms: 20.35725
+  duration_ms: 21.585959
   type: 'test'
   ...
 # Subtest: F-AP-07/11 an unreachable database fails createHylaApp() with the connection error itself, and the runtime is released
 ok 6 - F-AP-07/11 an unreachable database fails createHylaApp() with the connection error itself, and the runtime is released
   ---
-  duration_ms: 1.878083
+  duration_ms: 1.91825
   type: 'test'
   ...
 # Subtest: F-AP-08 the static builder never deletes files it did not write, and refuses a foreign non-empty directory
 ok 7 - F-AP-08 the static builder never deletes files it did not write, and refuses a foreign non-empty directory
   ---
-  duration_ms: 46.919167
+  duration_ms: 41.9765
   type: 'test'
   ...
 # Subtest: F-AP-09 stop() issued while start() is in flight wins: the loop never runs and the worker world is released
 ok 8 - F-AP-09 stop() issued while start() is in flight wins: the loop never runs and the worker world is released
   ---
-  duration_ms: 21.255875
+  duration_ms: 19.304416
   type: 'test'
   ...
 # Subtest: F-AP-10 an override whose instance lacks the Authenticator interface fails site creation, not the first request
 ok 9 - F-AP-10 an override whose instance lacks the Authenticator interface fails site creation, not the first request
   ---
-  duration_ms: 18.830334
+  duration_ms: 17.933667
   type: 'test'
   ...
 # Subtest: F-AP-12 close() reports leases still held at shutdown instead of discarding the report
 ok 10 - F-AP-12 close() reports leases still held at shutdown instead of discarding the report
   ---
-  duration_ms: 63.327959
+  duration_ms: 60.163167
   type: 'test'
   ...
 # Subtest: F-AP-13 an out-of-band domain conflict disables only that host and is reported; every other tenant keeps serving
 ok 11 - F-AP-13 an out-of-band domain conflict disables only that host and is reported; every other tenant keeps serving
   ---
-  duration_ms: 23.357
+  duration_ms: 26.92025
   type: 'test'
   ...
 # Subtest: control: the fixture tenants still round-trip through the two-tenant HTTP path after the audit fixes
 ok 12 - control: the fixture tenants still round-trip through the two-tenant HTTP path after the audit fixes
   ---
-  duration_ms: 20.904375
+  duration_ms: 21.47275
   type: 'test'
   ...
 1..12
@@ -79,4 +79,4 @@ ok 12 - control: the fixture tenants still round-trip through the two-tenant HTT
 # cancelled 0
 # skipped 0
 # todo 0
-# duration_ms 3658.685625
+# duration_ms 3646.875958
