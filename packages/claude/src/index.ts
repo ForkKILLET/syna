@@ -16,7 +16,7 @@ export const Claude = define.service({
     displayName: 'Claude connector',
   },
   async setup({ call, logger }): Promise<Claude> {
-    const context = await call.load()
+    const context = call.read()
     const log = await logger.load()
 
     return {

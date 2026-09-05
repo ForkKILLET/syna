@@ -81,7 +81,8 @@ test('selector candidate planning is reusable and bounded across short-lived req
   await runtime.dispose()
 })
 
-test('preload is non-blocking while un-awaited load remains a strong setup dependency', async () => {
+// v0.5 (MIGRATION M-06): both forms are background operations; neither blocks B.
+test('preload and un-awaited load are both non-blocking background operations', async () => {
   const define = defineFor('v04.materialization-protocol')
   let A
   let B
@@ -134,10 +135,8 @@ test('preload is non-blocking while un-awaited load remains a strong setup depen
   const strongRuntime = createRuntime({ services: [A, B, C] })
   const strongEnv = await strongRuntime.enter(Entry, { mode: 'strong' })
   await strongEnv.deps.a.load()
-  await assert.rejects(
-    strongEnv.deps.b.load(),
-    error => error.code === 'CIRCULAR_MATERIALIZATION',
-  )
+  assert.equal((await withTimeout(strongEnv.deps.b.load())).id, 'b')
+  assert.equal((await withTimeout(strongEnv.deps.c.load())).id, 'c')
   await strongRuntime.dispose()
 })
 
@@ -286,7 +285,9 @@ test('retry-on-next-load starts a new exactly-once setup sequence after exhausti
   await runtime.dispose()
 })
 
-test('an eager Service may create a structured child Entry during owner activation', async () => {
+// v0.5 (MIGRATION M-05 / K10): the coordinator's setup returns an initialized
+// control object; the host starts the worker world after the root is Ready.
+test('a worker world is started by the host after the owner is Ready, not during eager setup', async () => {
   const define = defineFor('v04.activation-entry')
   let childStarts = 0
   let childDisposes = 0
@@ -304,16 +305,22 @@ test('an eager Service may create a structured child Entry during owner activati
     requires: { workerEntry: WorkerEntry },
     async setup({ workerEntry }, { onDispose }) {
       const bound = await workerEntry.load()
-      const child = await bound.enter()
-      const worker = await child.deps.worker.load()
-      onDispose(() => child.dispose())
-      return { worker }
+      let child
+      onDispose(async () => { await child?.dispose() })
+      return {
+        async start() {
+          child = await bound.enter()
+          return child.deps.worker.load()
+        },
+      }
     },
   })
   const Root = define.entry({ requires: { coordinator: Coordinator } })
   const runtime = createRuntime({ services: [Coordinator] })
   const env = await runtime.enter(Root)
-  assert.equal((await env.deps.coordinator.load()).worker.id, 'worker')
+  assert.equal(childStarts, 0)
+  const coordinator = await env.deps.coordinator.load()
+  assert.equal((await coordinator.start()).id, 'worker')
   assert.equal(childStarts, 1)
   await runtime.dispose()
   assert.equal(childDisposes, 1)
@@ -334,7 +341,7 @@ test('plan cache is capped and reports eviction rather than retaining unlimited 
   await runtime.dispose()
 })
 
-test('selector.open participates in the surrounding setup activation transaction', async () => {
+test('selector.open during the anchor Env activation is refused with OWNER_NOT_READY', async () => {
   const define = defineFor('v04.selector-activation-cycle')
   const Plugin = define.contract()
   let Manager
@@ -360,7 +367,7 @@ test('selector.open participates in the surrounding setup activation transaction
   const runtime = createRuntime({ services: [Manager, Candidate] })
   await assert.rejects(
     withTimeout(runtime.enter(Root)),
-    error => error.code === 'CIRCULAR_MATERIALIZATION',
+    error => error.code === 'ENTRY_ACTIVATION_FAILED' && error.cause?.code === 'OWNER_NOT_READY',
   )
   await runtime.dispose().catch(() => undefined)
 })

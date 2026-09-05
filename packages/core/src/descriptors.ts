@@ -1,4 +1,5 @@
-import type { SynaErrorCode } from './errors.js'
+import type { DiagnosticCode, SynaErrorCode } from './errors.js'
+import type { OpaqueInstance } from './opaque.js'
 
 export type Awaitable<T> = T | PromiseLike<T>
 
@@ -51,7 +52,10 @@ export interface AutoImplementation<C extends Contract<any> = Contract<any>> {
   readonly contract: C
 }
 
-/** Enumerate implementations as separately planned child worlds. */
+/**
+ * Enumerate implementations as separately planned child worlds.
+ * @deprecated Minimal compatibility surface; prefer `Contract.all` or an explicit Entry.
+ */
 export interface ImplementationSelectorDependency<
   C extends Contract<any> = Contract<any>,
 > {
@@ -75,6 +79,7 @@ export interface Contract<Api = unknown> {
   readonly id: string
   readonly apiVersion: number
   readonly metadata: Readonly<DescriptorMetadata>
+  /** @deprecated Compatibility only. */
   readonly selector: ImplementationSelectorDependency<Contract<Api>>
   readonly all: AllImplementations<Contract<Api>>
   readonly __api?: Api
@@ -177,6 +182,7 @@ export interface BoundEntry<E extends EntryDescriptor<any, any>> {
   enter(...args: EntryArguments<E>): Promise<EnvHandle<E['requires']>>
   run<Result>(...args: EntryRunArguments<E, Result>): Promise<Result>
   check(...args: EntryArguments<E>): Promise<EntryCheck>
+  explain(...args: EntryArguments<E>): Promise<EntryExplanation>
 }
 
 /** Every descriptor accepted in a Service or Entry `requires` map. */
@@ -218,22 +224,49 @@ export type DependencyOutput<D> =
                     ? BoundEntry<UnwrapForward<D>>
                     : never
 
-/** Explicit lazy access to one already-planned canonical slot. */
+export interface LoadOptions {
+  /** Ends only this caller's wait. The shared setup attempt keeps running. */
+  readonly signal?: AbortSignal
+}
+
+/**
+ * Lazy access to one already-planned canonical slot. `load()` returns a plain
+ * Promise; the Runtime attaches no hidden barrier or completion tracking to it.
+ * The ref itself is never thenable.
+ */
 export interface DependencyRef<T> {
-  /** Establish a strong setup dependency and materialize the target slot. */
-  load(): Promise<T>
-  /** Start materialization without making the current setup wait for it. */
+  load(options?: LoadOptions): Promise<T>
+  /**
+   * Start materialization of the real slot without waiting. Failures follow
+   * the slot's normal failure policy and are visible to later `load()` calls.
+   */
   preload(): void
 }
 
+/** Synchronous access to an Input payload. The payload is returned exactly as provided. */
+export interface InputRef<T> {
+  read(): T
+  /** @deprecated Use `read()`. Thenable payloads are awaited by this form. */
+  load(): Promise<Awaited<T>>
+}
+
+export type DependencyRefFor<D> =
+  UnwrapForward<D> extends Input<infer T>
+    ? InputRef<T>
+    : DependencyRef<DependencyOutput<D>>
+
 export type DependencyRefs<Requires extends DependencyMap> = {
-  readonly [Key in keyof Requires]: DependencyRef<DependencyOutput<Requires[Key]>>
+  readonly [Key in keyof Requires]: DependencyRefFor<Requires[Key]>
 }
 
 export interface ServiceLifecycle {
+  /** Aborted when the owner Env starts closing. It never force-kills JavaScript. */
   readonly signal: AbortSignal
+  /** Register cleanup for resources this setup attempt created. Never close shared dependencies. */
   onDispose(cleanup: () => Awaitable<void>): void
 }
+
+export type SetupResult<Instance> = Awaitable<Instance | OpaqueInstance<Instance>>
 
 export interface ServiceDefinition<
   Requires extends DependencyMap,
@@ -246,12 +279,14 @@ export interface ServiceDefinition<
   /** `lineage` prevents a descendant from selecting or owning a divergent node. */
   readonly uniqueWithin?: 'lineage'
   readonly failure?: ServiceFailurePolicy
+  /** Per-attempt initialization deadline; overrides the Runtime default. `Infinity` disables it. */
+  readonly setupDeadlineMs?: number
   readonly metadata?: DescriptorMetadata
   readonly revisionMetadata?: DescriptorMetadata
   readonly setup: (
     dependencies: DependencyRefs<Requires>,
     lifecycle: ServiceLifecycle,
-  ) => Awaitable<Instance>
+  ) => SetupResult<Instance>
 }
 
 /** Exact Service revision exported by one installed package instance. */
@@ -265,18 +300,19 @@ export interface ServiceRevision<Instance = unknown> {
   readonly provides: readonly Contract[]
   readonly eager: boolean
   readonly failure: NormalizedServiceFailurePolicy
+  readonly setupDeadlineMs: number | undefined
   readonly metadata: Readonly<DescriptorMetadata>
   setup(
     dependencies: DependencyRefs<DependencyMap>,
     lifecycle: ServiceLifecycle,
-  ): Awaitable<Instance>
+  ): SetupResult<Instance>
   range(version?: string): ServiceRange<ServiceFamily<Instance>>
 }
 
 export type ServiceInstance<S> =
   S extends ServiceRevision<infer Instance> ? Instance : never
 
-/** Exact selector-local candidate identity. It is intentionally not durable. */
+/** Exact collection-local candidate identity. It is intentionally not durable. */
 export interface CandidateRef<C extends Contract<any> = Contract<any>> {
   readonly kind: 'candidate-ref'
   readonly contract: C
@@ -299,7 +335,7 @@ export type CandidateAvailability =
   | { readonly status: 'available' }
   | {
       readonly status: 'unavailable'
-      readonly code: SynaErrorCode | 'UNKNOWN_ERROR'
+      readonly code: DiagnosticCode
       readonly message: string
       readonly details: Readonly<Record<string, unknown>>
     }
@@ -322,7 +358,10 @@ export interface ImplementationLease<C extends Contract<any> = Contract<any>> {
   [Symbol.asyncDispose](): Promise<void>
 }
 
-/** Candidate list whose members are materialized in isolated child Envs. */
+/**
+ * Candidate list whose members are materialized in isolated child Envs.
+ * @deprecated Compatibility only; `open()`/`run()` require a Ready anchor Env.
+ */
 export interface ImplementationSelector<C extends Contract<any> = Contract<any>>
   extends Iterable<ImplementationCandidate<C>> {
   readonly contract: C
@@ -340,7 +379,7 @@ export interface ImplementationSelector<C extends Contract<any> = Contract<any>>
   ): Promise<Result>
 }
 
-/** Strong current-Env collection: every candidate must coexist in one topology. */
+/** Same-Env collection: every candidate is a real node of the current topology. */
 export interface ImplementationSet<C extends Contract<any> = Contract<any>>
   extends Iterable<ImplementationCandidate<C>> {
   readonly contract: C
@@ -348,6 +387,7 @@ export interface ImplementationSet<C extends Contract<any> = Contract<any>>
   resolve(ref: PersistentImplementationRef<C>): ImplementationCandidate<C>
   load(
     candidate: ImplementationCandidate<C> | CandidateRef<C> | PersistentImplementationRef<C>,
+    options?: LoadOptions,
   ): Promise<ContractApi<C>>
 }
 
@@ -430,6 +470,7 @@ export interface RuntimePolicy {
   ): readonly ServiceRevision[]
 }
 
+/** Read-only definition metadata. It never creates an Env or instance. */
 export interface RuntimeCatalog {
   implementations<C extends Contract<any>>(
     contract: C,
@@ -437,6 +478,8 @@ export interface RuntimeCatalog {
   resolve<C extends Contract<any>>(
     ref: PersistentImplementationRef<C>,
   ): ImplementationDescriptor<C>
+  /** Publicly admitted exact revisions of one Service family, highest first. */
+  revisions(familyId: string): readonly string[]
 }
 
 export interface ServiceOverride<
@@ -452,17 +495,72 @@ export interface PlanCacheOptions {
   readonly maxEntries?: number
 }
 
+export interface InitializationOptions {
+  /** Default per-attempt setup deadline. Reports INITIALIZATION_TIMEOUT; never proves a deadlock. */
+  readonly deadlineMs?: number
+}
+
+export interface DisposalOptions {
+  /** How long disposal waits for a timed-out setup attempt to actually settle before reporting it as abandoned. */
+  readonly graceMs?: number
+}
+
+export interface PlanningOptions {
+  /** Maximum candidate-choice expansions per Entry plan before PLANNING_BUDGET_EXCEEDED. */
+  readonly searchBudget?: number
+}
+
+export type RuntimeEvent =
+  | {
+      readonly type: 'late-setup-result'
+      readonly slot: string
+      readonly revision: string
+      readonly env: string
+      readonly cleanupErrors: readonly unknown[]
+    }
+  | {
+      readonly type: 'late-setup-failure'
+      readonly slot: string
+      readonly revision: string
+      readonly env: string
+      readonly error: unknown
+      readonly cleanupErrors: readonly unknown[]
+    }
+  | {
+      readonly type: 'attempt-abandoned'
+      readonly slot: string
+      readonly revision: string
+      readonly env: string
+      readonly elapsedMs: number
+    }
+  | {
+      readonly type: 'foreign-thenable-setup'
+      readonly slot: string
+      readonly revision: string
+      readonly env: string
+    }
+
+export interface DiagnosticsOptions {
+  readonly onEvent?: (event: RuntimeEvent) => void
+}
+
 export interface CreateRuntimeOptions {
   readonly services: readonly ServiceRevision[]
   readonly policy?: Partial<RuntimePolicy>
   readonly overrides?: readonly ServiceOverride[]
   readonly planCache?: PlanCacheOptions
+  readonly initialization?: InitializationOptions
+  readonly disposal?: DisposalOptions
+  readonly planning?: PlanningOptions
+  readonly diagnostics?: DiagnosticsOptions
 }
 
 export interface RuntimeInspection {
   readonly admittedServices: readonly string[]
   readonly internalServices: readonly string[]
+  readonly overriddenServices: readonly string[]
   readonly rootEnvCount: number
+  readonly liveEnvCount: number
   readonly planCache: {
     readonly hits: number
     readonly misses: number
@@ -507,7 +605,7 @@ export interface PlannedEnvInspection {
 }
 
 export interface EntryDiagnostic {
-  readonly code: SynaErrorCode | 'UNKNOWN_ERROR'
+  readonly code: DiagnosticCode
   readonly message: string
   readonly details: Readonly<Record<string, unknown>>
 }
@@ -516,10 +614,75 @@ export type EntryCheck =
   | { readonly ok: true; readonly inspection: PlannedEnvInspection }
   | { readonly ok: false; readonly error: EntryDiagnostic }
 
+/** Why a node could not reuse its parent's visible slot. */
+export type ForkCause =
+  | { readonly kind: 'root' }
+  | { readonly kind: 'not-in-parent' }
+  | { readonly kind: 'fresh'; readonly target: string }
+  | { readonly kind: 'input-provided'; readonly input: string }
+  | { readonly kind: 'binding-changed'; readonly binding: string }
+  | { readonly kind: 'structure-changed' }
+  | { readonly kind: 'anchor-dependency-mismatch'; readonly family: string; readonly via: string }
+  | { readonly kind: 'dependency-forked'; readonly via: string; readonly dependency: string }
+
+export type NodeDisposition = 'inherited' | 'new' | 'forked'
+
+export interface ExplainedNode {
+  readonly nodeId: string
+  readonly kind: InspectionNodeKind
+  readonly label: string
+  readonly disposition: NodeDisposition
+  readonly eager: boolean
+  readonly cause?: ForkCause
+  /** Node ids from this node to the terminal cause. */
+  readonly path: readonly string[]
+}
+
+export interface ExplainCounts {
+  readonly inherited: number
+  readonly new: number
+  readonly forked: number
+}
+
+export interface EntryExplanationSuccess {
+  readonly ok: true
+  readonly entry: string
+  readonly parent?: string
+  readonly parameters: {
+    readonly inputsProvided: readonly string[]
+    readonly inputsInherited: readonly string[]
+    readonly bindingsResolved: Readonly<Record<string, string>>
+    readonly bindingsInherited: Readonly<Record<string, string>>
+  }
+  readonly services: ExplainCounts & {
+    readonly eagerToStart: number
+    readonly eagerInherited: number
+  }
+  readonly inputs: { readonly inherited: number; readonly provided: number }
+  readonly synthetic: ExplainCounts
+  readonly choices: Readonly<Record<string, string>>
+  readonly nodes: readonly ExplainedNode[]
+  /** Every node that is not inherited, with cause and path. */
+  readonly forks: readonly ExplainedNode[]
+}
+
+export interface EntryExplanationFailure {
+  readonly ok: false
+  readonly entry: string
+  readonly parent?: string
+  readonly error: EntryDiagnostic
+  readonly missingInputs: readonly string[]
+  readonly missingBindings: readonly string[]
+}
+
+export type EntryExplanation = EntryExplanationSuccess | EntryExplanationFailure
+
+export type EnvState = 'activating' | 'ready' | 'disposing' | 'disposed'
+
 export interface EnvHandle<Requires extends DependencyMap = DependencyMap> {
   readonly id: string
   readonly deps: DependencyRefs<Requires>
-  readonly state: 'activating' | 'ready' | 'disposing' | 'disposed'
+  readonly state: EnvState
 
   enter<E extends EntryDescriptor<any, any>>(
     entry: E,
@@ -535,6 +698,11 @@ export interface EnvHandle<Requires extends DependencyMap = DependencyMap> {
     entry: E,
     ...args: EntryArguments<E>
   ): Promise<EntryCheck>
+
+  explain<E extends EntryDescriptor<any, any>>(
+    entry: E,
+    ...args: EntryArguments<E>
+  ): Promise<EntryExplanation>
 
   derive(options?: DeriveOptions): Promise<EnvHandle<{}>>
   bind<E extends EntryDescriptor<any, any>>(entry: E): BoundEntry<E>
@@ -560,6 +728,11 @@ export interface SynaRuntime {
     entry: E,
     ...args: EntryArguments<E>
   ): Promise<EntryCheck>
+
+  explain<E extends EntryDescriptor<any, any>>(
+    entry: E,
+    ...args: EntryArguments<E>
+  ): Promise<EntryExplanation>
 
   inspect(): RuntimeInspection
   dispose(): Promise<void>
@@ -638,3 +811,5 @@ export interface PackageDefinitions {
     definition: EntryDefinition<Requires, Parameters>,
   ): EntryDescriptor<Requires, Parameters>
 }
+
+export type { SynaErrorCode }

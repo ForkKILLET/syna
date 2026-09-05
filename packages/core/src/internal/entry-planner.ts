@@ -4,7 +4,10 @@ import type {
   Contract,
   Dependency,
   EntryDescriptor,
+  EntryExplanationSuccess,
   EntryParameters,
+  ExplainedNode,
+  ForkCause,
   Input,
   PlannedEnvInspection,
   RuntimePolicy,
@@ -14,16 +17,19 @@ import type {
 } from '../descriptors.js'
 import { SynaError } from '../errors.js'
 import { satisfiesVersion } from '../semver.js'
-import { DefinitionRegistry } from './definition-registry.js'
+import { DefinitionCompiler } from './definition-compiler.js'
 import { GraphBuilder, type GraphBuilderHost } from './graph-builder.js'
 import { ImplementationDirectory } from './implementation-directory.js'
 import { PlanTemplateCache, type CacheStats } from './plan-cache.js'
 import type {
   BindingChoiceSlot,
+  CompiledService,
   EnvPlanView,
   GraphBuildResult,
   InputSlot,
+  NodeExplanation,
   PlanEntryParameters,
+  PlanNode,
   ResolvedPlan,
   ResolutionRealm,
   RootSite,
@@ -39,8 +45,7 @@ import {
   isServiceRevision,
   providesContract,
   stableJson,
-} from './runtime-utils.js'
-
+} from './identity.js'
 import { isBacktrackableTopologyError } from './solve-errors.js'
 
 function graphSignature(
@@ -81,6 +86,9 @@ export function entryDefinitionSignature(entry: EntryDescriptor): string {
 }
 
 function scopeTargetIdentity(target: ScopeTarget): string {
+  if (typeof target !== 'object' || target === null) {
+    throw new SynaError('INVALID_DESCRIPTOR', 'Scope targets must be Service revisions or families.')
+  }
   return target.kind === 'service-revision'
     ? `revision:${target.key}`
     : `family:${target.id}`
@@ -90,14 +98,19 @@ function scopeTargetSet(targets: readonly ScopeTarget[] | undefined): ScopeTarge
   const revisionKeys = new Set<string>()
   const familyIds = new Set<string>()
   for (const target of targets ?? []) {
+    scopeTargetIdentity(target)
     if (target.kind === 'service-revision') revisionKeys.add(target.key)
     else familyIds.add(target.id)
   }
   return { revisionKeys, familyIds }
 }
 
-function targetSetHas(set: ScopeTargetSet, revision: ServiceRevision): boolean {
+function targetSetHas(set: ScopeTargetSet, revision: CompiledService): boolean {
   return set.revisionKeys.has(revision.key) || set.familyIds.has(revision.family.id)
+}
+
+function scopeTargetLabel(set: ScopeTargetSet, revision: CompiledService): string {
+  return set.revisionKeys.has(revision.key) ? revision.key : revision.family.id
 }
 
 interface CachedGraphTemplate {
@@ -116,26 +129,40 @@ export interface PlannedEntry {
   readonly rootSiteByEntryKey: ReadonlyMap<string, string>
 }
 
+interface ReuseCandidate {
+  readonly slot: RuntimeSlot
+  readonly viaAnchor: boolean
+}
+
 /**
- * Compiles immutable Entry declarations into resolved node graphs and
- * canonical logical slots. It deliberately has no authority to materialize a
- * Service or mutate a live Env.
+ * Compiles immutable Entry declarations into resolved node graphs and canonical
+ * logical slots. It has no authority to materialize a Service or mutate a live
+ * Env: it only reads the parent's plan and produces a new plan.
+ *
+ * Reuse is parent-only: a node reuses a slot when the parent currently exposes
+ * the same nominal node with identical dependency slots (fixed point over the
+ * reverse dependency graph). The single exception is a lineage-unique family
+ * whose anchored slot may be re-attached when every dependency slot matches.
  */
 export class EntryPlanner implements GraphBuilderHost {
-  readonly admittedRevisions: readonly ServiceRevision[]
+  readonly admitted: readonly CompiledService[]
 
   private readonly planTemplates: PlanTemplateCache<CachedGraphTemplate>
   private nextEnvNumber = 1
   private nextSlotNumber = 1
 
   constructor(
-    private readonly definitions: DefinitionRegistry,
-    private readonly implementationDirectory: ImplementationDirectory,
+    private readonly compiler: DefinitionCompiler,
+    private readonly directory: ImplementationDirectory,
     readonly policy: RuntimePolicy,
     maxCacheEntries: number,
+    private readonly searchBudget: number,
   ) {
-    this.admittedRevisions = definitions.admittedRevisions
+    this.admitted = compiler.admitted
     this.planTemplates = new PlanTemplateCache(maxCacheEntries)
+    if (!Number.isSafeInteger(searchBudget) || searchBudget < 1) {
+      throw new TypeError('planning.searchBudget must be a positive safe integer.')
+    }
   }
 
   cacheStats(): CacheStats {
@@ -153,12 +180,32 @@ export class EntryPlanner implements GraphBuilderHost {
     checking: boolean,
     realm: ResolutionRealm,
   ): PlannedEntry {
-    this.definitions.registerEntry(descriptor)
+    this.compiler.registerEntry(descriptor)
+    if (input !== undefined && (typeof input !== 'object' || input === null)) {
+      throw new SynaError('INVALID_DESCRIPTOR', `Entry ${descriptor.id} parameters must be an object.`)
+    }
 
     const envId = `${checking ? 'check' : 'env'}-${this.nextEnvNumber++}`
     const normalizedInput = (input ?? {}) as EntryParameters<E>
-    const inputSlots = this.prepareInputs(envId, parent, descriptor, normalizedInput)
-    const bindingChoices = this.prepareBindings(envId, parent, descriptor, normalizedInput)
+    const inputs = this.prepareInputs(envId, parent, descriptor, normalizedInput)
+    const bindings = this.prepareBindings(envId, parent, descriptor, normalizedInput)
+    if (inputs.missing.length > 0 || bindings.missing.length > 0) {
+      const code = inputs.missing.length > 0 ? 'MISSING_INPUT' : 'MISSING_BINDING'
+      throw new SynaError(
+        code,
+        `Entry ${descriptor.id} is missing ${[
+          ...inputs.missing.map(item => `input ${item}`),
+          ...bindings.missing.map(item => `binding ${item}`),
+        ].join(', ')}.`,
+        {
+          entry: descriptor.id,
+          missing: [...inputs.missing, ...bindings.missing],
+          missingInputs: inputs.missing,
+          missingBindings: bindings.missing,
+        },
+      )
+    }
+
     const lineageKey = `${parent?.plan.lineageKey ?? 'root'}>${descriptor.id}`
     const rootSiteByEntryKey = new Map<string, string>()
     const rootSites = [...(parent?.plan.rootSites ?? [])]
@@ -184,22 +231,16 @@ export class EntryPlanner implements GraphBuilderHost {
       lineageKey,
       ...(parent ? { parent } : {}),
       rootSites,
-      inputSlots,
-      bindingChoices,
+      inputSlots: inputs.slots,
+      providedInputIds: inputs.providedIds,
+      bindingChoices: bindings.choices,
+      changedBindingIds: bindings.changedIds,
       inheritedChoices: parent?.plan.choices ?? new Map(),
       fresh,
       share,
     }
 
-    const templateKey = this.planTemplateKey(
-      parent,
-      descriptor,
-      inputSlots,
-      bindingChoices,
-      fresh,
-      share,
-      realm,
-    )
+    const templateKey = this.planTemplateKey(parent, descriptor, inputs.slots, bindings.choices, fresh, share, realm)
     const cached = this.planTemplates.get(templateKey)
     if (cached) {
       return {
@@ -209,7 +250,8 @@ export class EntryPlanner implements GraphBuilderHost {
       }
     }
 
-    const solved = this.solvePlanTemplate(planInput, new Map(planInput.inheritedChoices))
+    const budget = { remaining: this.searchBudget }
+    const solved = this.solvePlanTemplate(planInput, new Map(planInput.inheritedChoices), budget)
     this.planTemplates.set(templateKey, solved.template)
     return { envId, plan: solved.plan, rootSiteByEntryKey }
   }
@@ -228,6 +270,101 @@ export class EntryPlanner implements GraphBuilderHost {
     })
   }
 
+  explain(
+    plan: ResolvedPlan,
+    descriptor: EntryDescriptor,
+    parent: PlanningParent | undefined,
+  ): EntryExplanationSuccess {
+    const nodes: ExplainedNode[] = []
+    const pathFor = (nodeId: string): string[] => {
+      const path = [nodeId]
+      const seen = new Set(path)
+      let current = plan.explanations.get(nodeId)?.cause
+      while (current && current.kind === 'dependency-forked' && !seen.has(current.dependency)) {
+        path.push(current.dependency)
+        seen.add(current.dependency)
+        current = plan.explanations.get(current.dependency)?.cause
+      }
+      return path
+    }
+    for (const node of [...plan.nodes.values()].sort((a, b) => a.id.localeCompare(b.id))) {
+      const explanation = plan.explanations.get(node.id)!
+      nodes.push(Object.freeze({
+        nodeId: node.id,
+        kind: node.kind,
+        label: node.label,
+        disposition: explanation.disposition,
+        eager: node.kind === 'service' && node.revision.eager,
+        ...(explanation.cause ? { cause: explanation.cause } : {}),
+        path: Object.freeze(explanation.disposition === 'inherited' ? [node.id] : pathFor(node.id)),
+      }))
+    }
+    const count = (predicate: (node: ExplainedNode) => boolean) => {
+      const selected = nodes.filter(predicate)
+      return {
+        inherited: selected.filter(node => node.disposition === 'inherited').length,
+        new: selected.filter(node => node.disposition === 'new').length,
+        forked: selected.filter(node => node.disposition === 'forked').length,
+      }
+    }
+    const services = count(node => node.kind === 'service')
+    const inputNodes = nodes.filter(node => node.kind === 'input')
+    const bindingNodes = [...plan.nodes.values()]
+      .filter(node => node.kind === 'binding')
+    const providedInputIds = new Set(
+      Object.values(descriptor.parameters)
+        .filter((parameter): parameter is Input => parameter.kind === 'input')
+        .map(parameter => parameter.id),
+    )
+    const ownBindingIds = new Set(
+      Object.values(descriptor.parameters)
+        .filter((parameter): parameter is Binding => parameter.kind === 'binding')
+        .map(parameter => parameter.id),
+    )
+    const bindingsResolved: Record<string, string> = {}
+    const bindingsInherited: Record<string, string> = {}
+    for (const node of bindingNodes) {
+      if (node.kind !== 'binding') continue
+      const target = ownBindingIds.has(node.binding.id) ? bindingsResolved : bindingsInherited
+      target[node.binding.id] = node.revision.key
+    }
+    for (const [bindingId, choice] of plan.bindingChoices) {
+      if (ownBindingIds.has(bindingId) && !(bindingId in bindingsResolved)) {
+        bindingsResolved[bindingId] = choice.revision.key
+      }
+    }
+
+    return Object.freeze({
+      ok: true as const,
+      entry: descriptor.id,
+      ...(parent ? { parent: parent.id } : {}),
+      parameters: Object.freeze({
+        inputsProvided: Object.freeze([...providedInputIds].sort()),
+        inputsInherited: Object.freeze(
+          inputNodes
+            .filter(node => node.disposition === 'inherited')
+            .map(node => node.label)
+            .sort(),
+        ),
+        bindingsResolved: Object.freeze(bindingsResolved),
+        bindingsInherited: Object.freeze(bindingsInherited),
+      }),
+      services: Object.freeze({
+        ...services,
+        eagerToStart: nodes.filter(node => node.kind === 'service' && node.eager && node.disposition !== 'inherited').length,
+        eagerInherited: nodes.filter(node => node.kind === 'service' && node.eager && node.disposition === 'inherited').length,
+      }),
+      inputs: Object.freeze({
+        inherited: inputNodes.filter(node => node.disposition === 'inherited').length,
+        provided: inputNodes.filter(node => node.disposition !== 'inherited').length,
+      }),
+      synthetic: Object.freeze(count(node => node.kind !== 'service' && node.kind !== 'input')),
+      choices: Object.freeze(Object.fromEntries(plan.choices)),
+      nodes: Object.freeze(nodes),
+      forks: Object.freeze(nodes.filter(node => node.disposition !== 'inherited')),
+    })
+  }
+
   activeRevisionKeys(plan?: ResolvedPlan): ReadonlySet<string> {
     if (!plan) return new Set()
     return new Set(
@@ -237,41 +374,49 @@ export class EntryPlanner implements GraphBuilderHost {
     )
   }
 
-  canonicalRevision(revision: ServiceRevision, publicOnly: boolean): ServiceRevision {
-    return this.definitions.canonicalRevision(revision, publicOnly)
+  // GraphBuilderHost -------------------------------------------------------
+
+  compiledExact(revision: ServiceRevision): CompiledService {
+    return this.compiler.compiledExact(revision)
   }
 
-  entryRealm(
-    owner: ServiceRevision,
-    dependencySite: string,
-    entry: EntryDescriptor,
-  ): ResolutionRealm {
-    return this.definitions.entryRealm(owner, dependencySite, entry)
+  familyRevisions(familyId: string): readonly CompiledService[] {
+    return this.compiler.familyRevisions(familyId)
+  }
+
+  serviceRealm(owner: CompiledService): ResolutionRealm {
+    return this.compiler.realmFor(owner)
   }
 
   registerFamily(family: ServiceFamily): void {
-    this.definitions.registerFamily(family)
+    this.compiler.registerFamily(family)
   }
 
   registerContract(contract: Contract): void {
-    this.definitions.registerContract(contract)
+    this.compiler.registerContract(contract)
   }
 
   registerInput(input: Input): void {
-    this.definitions.registerInput(input)
+    this.compiler.registerInput(input)
   }
 
   registerBinding(binding: Binding): void {
-    this.definitions.registerBinding(binding)
+    this.compiler.registerBinding(binding)
   }
 
-  validateCandidateOrder(
-    original: readonly ServiceRevision[],
-    ordered: readonly ServiceRevision[],
-    site: string,
-  ): readonly ServiceRevision[] {
-    return this.implementationDirectory.validateOrder(original, ordered, site)
+  registerEntry(entry: EntryDescriptor): void {
+    this.compiler.registerEntry(entry)
   }
+
+  orderCandidates(
+    candidates: readonly CompiledService[],
+    order: (revisions: readonly ServiceRevision[]) => readonly ServiceRevision[],
+    site: string,
+  ): readonly CompiledService[] {
+    return this.directory.orderCandidates(candidates, order, site)
+  }
+
+  // Internals ---------------------------------------------------------------
 
   private planTemplateKey(
     parent: PlanningParent | undefined,
@@ -306,6 +451,7 @@ export class EntryPlanner implements GraphBuilderHost {
   private solvePlanTemplate(
     input: PlanEntryParameters,
     choices: ReadonlyMap<string, string>,
+    budget: { remaining: number },
   ): { readonly template: CachedGraphTemplate; readonly plan: ResolvedPlan } {
     try {
       const graph = new GraphBuilder(
@@ -331,10 +477,18 @@ export class EntryPlanner implements GraphBuilderHost {
       if (!(error instanceof NeedChoice)) throw error
       const failures: SynaError[] = []
       for (const candidate of error.data.candidates) {
+        budget.remaining -= 1
+        if (budget.remaining < 0) {
+          throw new SynaError(
+            'PLANNING_BUDGET_EXCEEDED',
+            `Planning ${input.lineageKey} exhausted its candidate search budget (${this.searchBudget}); this is a budget limit, not a proof of unsatisfiability.`,
+            { site: error.data.site, budget: this.searchBudget },
+          )
+        }
         const nextChoices = new Map(choices)
         nextChoices.set(error.data.site, candidate.key)
         try {
-          return this.solvePlanTemplate(input, nextChoices)
+          return this.solvePlanTemplate(input, nextChoices, budget)
         }
         catch (candidateError) {
           if (!isBacktrackableTopologyError(candidateError)) throw candidateError
@@ -347,7 +501,7 @@ export class EntryPlanner implements GraphBuilderHost {
         {
           site: error.data.site,
           candidates: error.data.candidates.map(candidate => candidate.key),
-          failures: failures.map(failure => ({ code: failure.code, message: failure.message })),
+          failures: failures.map(failure => ({ code: failure.code, message: failure.message, details: failure.details })),
         },
         failures[0] ? { cause: failures[0] } : undefined,
       )
@@ -366,23 +520,59 @@ export class EntryPlanner implements GraphBuilderHost {
     this.validateScopeTargets(input.fresh, activeServices, 'fresh', input.envId)
     this.validateScopeTargets(input.share, activeServices, 'share', input.envId)
 
-    const reusable = new Map<string, RuntimeSlot>()
     const parentPlan = input.parent?.plan
-    if (parentPlan) {
-      for (const node of graph.nodes.values()) {
-        const parentNode = parentPlan.nodes.get(node.id)
-        if (!parentNode || parentNode.kind !== node.kind || parentNode.label !== node.label) continue
-        const parentSlot = parentPlan.slotsByNode.get(node.id)
-        if (!parentSlot) continue
+    const anchors = new Map(parentPlan?.anchors ?? [])
+    const reusable = new Map<string, ReuseCandidate>()
+    const causes = new Map<string, ForkCause>()
 
-        if (node.kind === 'input') {
-          if (input.inputSlots.get(node.descriptor.id) === parentSlot) reusable.set(node.id, parentSlot)
-          continue
+    const inputSlotFor = (node: PlanNode): RuntimeSlot | undefined =>
+      node.kind === 'input' ? input.inputSlots.get(node.descriptor.id) : undefined
+
+    for (const node of graph.nodes.values()) {
+      if (node.kind === 'input') {
+        if (input.providedInputIds.has(node.descriptor.id)) {
+          causes.set(node.id, { kind: 'input-provided', input: node.descriptor.id })
         }
-        if (node.kind === 'service' && targetSetHas(input.fresh, node.revision)) continue
-        reusable.set(node.id, parentSlot)
+        continue
       }
+      if (!parentPlan) {
+        causes.set(node.id, { kind: 'root' })
+        continue
+      }
+      if (node.kind === 'service' && targetSetHas(input.fresh, node.revision)) {
+        causes.set(node.id, { kind: 'fresh', target: scopeTargetLabel(input.fresh, node.revision) })
+        continue
+      }
+      const parentNode = parentPlan.nodes.get(node.id)
+      if (!parentNode) {
+        if (node.kind === 'service' && node.revision.family.uniqueWithin === 'lineage') {
+          const anchor = anchors.get(node.revision.family.id)
+          if (anchor && anchor.service.key === node.revision.key) {
+            reusable.set(node.id, { slot: anchor, viaAnchor: true })
+            continue
+          }
+        }
+        causes.set(node.id, { kind: 'not-in-parent' })
+        continue
+      }
+      if (parentNode.kind !== node.kind || parentNode.label !== node.label) {
+        causes.set(
+          node.id,
+          node.kind === 'binding'
+            ? { kind: 'binding-changed', binding: node.binding.id }
+            : { kind: 'structure-changed' },
+        )
+        continue
+      }
+      const parentSlot = parentPlan.slotsByNode.get(node.id)
+      if (!parentSlot) {
+        causes.set(node.id, { kind: 'not-in-parent' })
+        continue
+      }
+      reusable.set(node.id, { slot: parentSlot, viaAnchor: false })
+    }
 
+    if (parentPlan) {
       const reverse = new Map<string, Set<string>>()
       for (const node of graph.nodes.values()) {
         for (const target of node.edges.values()) {
@@ -392,33 +582,36 @@ export class EntryPlanner implements GraphBuilderHost {
         }
       }
 
-      const dependenciesMatch = (nodeId: string): boolean => {
+      const mismatch = (nodeId: string): { via: string; dependency: string } | undefined => {
         const node = graph.nodes.get(nodeId)!
-        if (node.kind === 'input') return true
-        const parentNode = parentPlan.nodes.get(nodeId)
-        if (!parentNode) return false
+        const candidate = reusable.get(nodeId)
+        if (!candidate) return undefined
         for (const [edge, targetId] of node.edges) {
-          const parentTargetId = parentNode.edges.get(edge)
-          if (!parentTargetId) return false
-          const expectedSlot = parentPlan.slotsByNode.get(parentTargetId)
-          const currentTargetNode = graph.nodes.get(targetId)!
-          const currentSlot = currentTargetNode.kind === 'input'
-            ? input.inputSlots.get(currentTargetNode.descriptor.id)
-            : reusable.get(targetId)
-          if (!expectedSlot || currentSlot !== expectedSlot) return false
+          const expected = candidate.slot.requires.get(edge)
+          const targetNode = graph.nodes.get(targetId)!
+          const current = inputSlotFor(targetNode) ?? reusable.get(targetId)?.slot
+          if (!expected || current !== expected) return { via: edge, dependency: targetId }
         }
-        return true
+        return undefined
       }
 
-      const queue: string[] = []
-      for (const nodeId of reusable.keys()) {
-        if (!dependenciesMatch(nodeId)) queue.push(nodeId)
-      }
+      const queue = [...reusable.keys()]
       const queued = new Set(queue)
       while (queue.length > 0) {
         const nodeId = queue.shift()!
         queued.delete(nodeId)
-        if (!reusable.delete(nodeId)) continue
+        const candidate = reusable.get(nodeId)
+        if (!candidate) continue
+        const failure = mismatch(nodeId)
+        if (!failure) continue
+        reusable.delete(nodeId)
+        const node = graph.nodes.get(nodeId)!
+        causes.set(
+          nodeId,
+          candidate.viaAnchor && node.kind === 'service'
+            ? { kind: 'anchor-dependency-mismatch', family: node.revision.family.id, via: failure.via }
+            : { kind: 'dependency-forked', via: failure.via, dependency: failure.dependency },
+        )
         for (const dependant of reverse.get(nodeId) ?? []) {
           if (reusable.has(dependant) && !queued.has(dependant)) {
             queue.push(dependant)
@@ -428,13 +621,28 @@ export class EntryPlanner implements GraphBuilderHost {
       }
     }
 
+    const causePath = (nodeId: string): string[] => {
+      const path = [nodeId]
+      let cause = causes.get(nodeId)
+      while (cause && cause.kind === 'dependency-forked' && !path.includes(cause.dependency)) {
+        path.push(cause.dependency)
+        cause = causes.get(cause.dependency)
+      }
+      return path
+    }
+
     for (const node of activeServices) {
       if (!targetSetHas(input.share, node.revision)) continue
       if (!reusable.has(node.id)) {
         throw new SynaError(
           'SHARE_CONSTRAINT_FAILED',
           `${node.revision.key} cannot reuse its parent-visible slot in Env ${input.envId}.`,
-          { revision: node.revision.key, env: input.envId },
+          {
+            revision: node.revision.key,
+            env: input.envId,
+            cause: causes.get(node.id),
+            path: causePath(node.id),
+          },
         )
       }
     }
@@ -447,7 +655,7 @@ export class EntryPlanner implements GraphBuilderHost {
       }
       const inherited = reusable.get(node.id)
       if (inherited) {
-        slotsByNode.set(node.id, inherited)
+        slotsByNode.set(node.id, inherited.slot)
         continue
       }
       if (node.kind === 'service') {
@@ -455,12 +663,11 @@ export class EntryPlanner implements GraphBuilderHost {
           kind: 'service',
           id: this.allocateSlotId(),
           ownerEnvId: input.envId,
-          revision: node.revision,
+          service: node.revision,
           requires: new Map(),
           state: 'dormant',
           cleanups: [],
-          attempts: 0,
-          generation: 0,
+          attemptCount: 0,
         }
         slotsByNode.set(node.id, slot)
       }
@@ -484,25 +691,35 @@ export class EntryPlanner implements GraphBuilderHost {
       }
     }
 
-    const anchors = new Map(input.parent?.plan.anchors ?? [])
-    const uniqueByFamily = new Map<string, ServiceSlot[]>()
+    const uniqueByFamily = new Map<string, ServicePlanNode[]>()
     for (const node of activeServices) {
       if (node.revision.family.uniqueWithin !== 'lineage') continue
-      const slot = slotsByNode.get(node.id) as ServiceSlot
       const list = uniqueByFamily.get(node.revision.family.id) ?? []
-      list.push(slot)
+      list.push(node)
       uniqueByFamily.set(node.revision.family.id, list)
     }
 
-    for (const [familyId, slots] of uniqueByFamily) {
+    for (const [familyId, nodes] of uniqueByFamily) {
+      const slots = nodes.map(node => slotsByNode.get(node.id) as ServiceSlot)
       const distinct = [...new Set(slots)]
       const anchor = anchors.get(familyId)
       if (anchor) {
-        if (distinct.some(slot => slot !== anchor)) {
+        const divergent = nodes.filter(node => slotsByNode.get(node.id) !== anchor)
+        if (divergent.length > 0) {
           throw new SynaError(
             'LINEAGE_UNIQUENESS_CONFLICT',
-            `Lineage-unique Service Family ${familyId} cannot diverge below its anchor.`,
-            { family: familyId, anchorSlot: anchor.id, attemptedSlots: distinct.map(slot => slot.id) },
+            `Lineage-unique Service Family ${familyId} cannot diverge below its anchor ${anchor.service.key} (slot ${anchor.id}).`,
+            {
+              family: familyId,
+              anchorRevision: anchor.service.key,
+              anchorSlot: anchor.id,
+              attempted: divergent.map(node => ({
+                revision: node.revision.key,
+                slot: (slotsByNode.get(node.id) as ServiceSlot).id,
+                cause: causes.get(node.id),
+                path: causePath(node.id),
+              })),
+            },
           )
         }
       }
@@ -511,11 +728,28 @@ export class EntryPlanner implements GraphBuilderHost {
           throw new SynaError(
             'LINEAGE_UNIQUENESS_CONFLICT',
             `Lineage-unique Service Family ${familyId} would create multiple slots in one lineage.`,
-            { family: familyId, slots: distinct.map(slot => slot.id) },
+            { family: familyId, slots: distinct.map(slot => `${slot.service.key}#${slot.id}`) },
           )
         }
         if (distinct[0]) anchors.set(familyId, distinct[0])
       }
+    }
+
+    const explanations = new Map<string, NodeExplanation>()
+    for (const node of graph.nodes.values()) {
+      const cause = causes.get(node.id)
+      if (node.kind === 'input') {
+        explanations.set(node.id, cause
+          ? { disposition: 'new', cause }
+          : { disposition: 'inherited', cause: undefined })
+        continue
+      }
+      if (reusable.has(node.id)) {
+        explanations.set(node.id, { disposition: 'inherited', cause: undefined })
+        continue
+      }
+      const disposition = cause?.kind === 'root' || cause?.kind === 'not-in-parent' ? 'new' : 'forked'
+      explanations.set(node.id, { disposition, cause })
     }
 
     return {
@@ -527,6 +761,7 @@ export class EntryPlanner implements GraphBuilderHost {
       bindingChoices: input.bindingChoices,
       choices: new Map(choices),
       anchors,
+      explanations,
       signature,
       lineageKey: input.lineageKey,
       envId: input.envId,
@@ -568,25 +803,8 @@ export class EntryPlanner implements GraphBuilderHost {
   ): ScopeTargetSet {
     const left = scopeTargetSet(first)
     const right = scopeTargetSet(second)
-    const revisionKeys = new Set<string>()
-    const familyIds = new Set<string>()
-
-    for (const key of [...left.revisionKeys, ...right.revisionKeys]) {
-      const effective = this.definitions.effectiveRevisionByKey(key)
-      if (!effective) {
-        revisionKeys.add(key)
-        continue
-      }
-      revisionKeys.add(effective.key)
-      familyIds.add(effective.family.id)
-    }
-
-    for (const familyId of [...left.familyIds, ...right.familyIds]) {
-      const effectiveIds = this.definitions.effectiveFamilyIds(familyId)
-      if (effectiveIds.length === 0) familyIds.add(familyId)
-      else for (const effectiveId of effectiveIds) familyIds.add(effectiveId)
-    }
-
+    const revisionKeys = new Set<string>([...left.revisionKeys, ...right.revisionKeys])
+    const familyIds = new Set<string>([...left.familyIds, ...right.familyIds])
     return { revisionKeys, familyIds }
   }
 
@@ -595,18 +813,21 @@ export class EntryPlanner implements GraphBuilderHost {
     parent: PlanningParent | undefined,
     descriptor: E,
     input: EntryParameters<E>,
-  ): ReadonlyMap<string, InputSlot> {
+  ): {
+    readonly slots: ReadonlyMap<string, InputSlot>
+    readonly providedIds: ReadonlySet<string>
+    readonly missing: readonly string[]
+  } {
     const result = new Map(parent?.plan.inputSlots ?? [])
+    const providedIds = new Set<string>()
+    const missing: string[] = []
     const provided = input as Readonly<Record<string, unknown>>
     for (const [key, parameter] of Object.entries(descriptor.parameters) as [string, Input | Binding][]) {
       if (parameter.kind !== 'input') continue
       this.registerInput(parameter)
       if (!(key in provided)) {
-        throw new SynaError(
-          'MISSING_INPUT',
-          `Entry ${descriptor.id} requires an input for ${key} (${parameter.id}).`,
-          { entry: descriptor.id, key, input: parameter.id },
-        )
+        missing.push(parameter.id)
+        continue
       }
       const slot: InputSlot = Object.freeze({
         kind: 'input',
@@ -618,8 +839,9 @@ export class EntryPlanner implements GraphBuilderHost {
         requires: new Map(),
       })
       result.set(parameter.id, slot)
+      providedIds.add(parameter.id)
     }
-    return result
+    return { slots: result, providedIds, missing }
   }
 
   private prepareBindings<E extends EntryDescriptor<any, any>>(
@@ -627,18 +849,21 @@ export class EntryPlanner implements GraphBuilderHost {
     parent: PlanningParent | undefined,
     descriptor: E,
     input: EntryParameters<E>,
-  ): ReadonlyMap<string, BindingChoiceSlot> {
+  ): {
+    readonly choices: ReadonlyMap<string, BindingChoiceSlot>
+    readonly changedIds: ReadonlySet<string>
+    readonly missing: readonly string[]
+  } {
     const result = new Map(parent?.plan.bindingChoices ?? [])
+    const changedIds = new Set<string>()
+    const missing: string[] = []
     const assignments = input as Readonly<Record<string, unknown>>
     for (const [key, parameter] of Object.entries(descriptor.parameters) as [string, Input | Binding][]) {
       if (parameter.kind !== 'binding') continue
       this.registerBinding(parameter)
       if (!(key in assignments)) {
-        throw new SynaError(
-          'MISSING_BINDING',
-          `Entry ${descriptor.id} requires an assignment for ${key} (${parameter.id}).`,
-          { entry: descriptor.id, key, binding: parameter.id },
-        )
+        missing.push(parameter.id)
+        continue
       }
       const revision = this.resolveBindingAssignment(
         parameter,
@@ -649,6 +874,7 @@ export class EntryPlanner implements GraphBuilderHost {
       // Binding equality is nominal and decidable; selecting the same exact
       // revision is deliberately a no-op, unlike re-providing an Input.
       if (inherited?.revision.key === revision.key) continue
+      changedIds.add(parameter.id)
       result.set(parameter.id, Object.freeze({
         id: this.allocateChoiceId(),
         ownerEnvId: envId,
@@ -656,29 +882,38 @@ export class EntryPlanner implements GraphBuilderHost {
         revision,
       }))
     }
-    return result
+    return { choices: result, changedIds, missing }
   }
 
   private resolveBindingAssignment(
     binding: Binding,
     assignment: BindingAssignment<any>,
     parentPlan?: ResolvedPlan,
-  ): ServiceRevision {
-    let revision: ServiceRevision
+  ): CompiledService {
+    let revision: CompiledService
     if (isServiceRevision(assignment)) {
-      revision = this.canonicalRevision(assignment, true)
+      const compiled = this.compiler.compiledExact(assignment)
+      if (!compiled.admitted) {
+        throw new SynaError(
+          'MISSING_SERVICE',
+          `${compiled.key} is not admitted by this Runtime and cannot be assigned to Binding ${binding.id}.`,
+          { binding: binding.id, revision: compiled.key },
+        )
+      }
+      revision = compiled
     }
     else {
-      if (assignment.kind !== 'persistent-implementation-ref') {
-        throw new SynaError('INVALID_DESCRIPTOR', `Invalid assignment for Binding ${binding.id}.`)
+      if (typeof assignment !== 'object' || assignment === null || assignment.kind !== 'persistent-implementation-ref') {
+        throw new SynaError('INVALID_DESCRIPTOR', `Invalid assignment for Binding ${binding.id}.`, { binding: binding.id })
       }
       if (assignment.contractId !== binding.contract.id) {
         throw new SynaError(
           'INCOMPATIBLE_IMPLEMENTATION',
           `Implementation reference for ${assignment.contractId} cannot satisfy Binding ${binding.id} (${binding.contract.id}).`,
+          { binding: binding.id, contract: binding.contract.id, reference: assignment.contractId },
         )
       }
-      const candidates = this.implementationDirectory
+      const candidates = this.directory
         .candidatesForImplementationId(assignment.implementationId)
         .filter(candidate => satisfiesVersion(candidate.version, assignment.version))
         .filter(candidate => providesContract(candidate, binding.contract))
@@ -686,15 +921,20 @@ export class EntryPlanner implements GraphBuilderHost {
         throw new SynaError(
           'MISSING_IMPLEMENTATION',
           `No admitted ${assignment.implementationId} revision satisfies ${assignment.version} and ${binding.contract.id}.`,
-          { binding: binding.id, implementation: assignment.implementationId, version: assignment.version },
+          {
+            binding: binding.id,
+            implementation: assignment.implementationId,
+            version: assignment.version,
+            available: this.directory.revisions(assignment.implementationId),
+          },
         )
       }
       const site = `binding:${binding.id}`
-      revision = this.validateCandidateOrder(
+      revision = this.orderCandidates(
         candidates,
-        this.policy.orderVersionCandidates(
+        revisions => this.policy.orderVersionCandidates(
           candidates[0]!.family,
-          candidates,
+          revisions,
           {
             site,
             parentActiveRevisionKeys: this.activeRevisionKeys(parentPlan),

@@ -176,36 +176,46 @@ test('disposing during retry-on-next-load cooldown prevents a recovery generatio
   await runtime.dispose()
 })
 
-test('failed parent activation rolls back a structured child Env and its resources', async () => {
+// v0.5 (MIGRATION M-05): there is no activation transaction to roll a child
+// back into. The child world is refused while the owner activates, so nothing
+// of it ever starts; the failed root still rolls back its own started slots.
+test('failed parent activation cannot have started a child world; local eager slots roll back', async () => {
   const define = defineFor('activation-child-rollback')
   let childStarts = 0
-  let childDisposes = 0
+  const events = []
   const Worker = define.service('worker', {
     eager: true,
-    setup(_dependencies, { onDispose }) {
+    setup() {
       childStarts += 1
-      onDispose(() => { childDisposes += 1 })
       return {}
     },
   })
   const WorkerEntry = define.entry('worker-entry', { requires: { worker: Worker } })
+  const Sibling = define.service('sibling', {
+    eager: true,
+    setup(_dependencies, { onDispose }) {
+      events.push('sibling-start')
+      onDispose(() => events.push('sibling-dispose'))
+      return {}
+    },
+  })
   const Coordinator = define.service('coordinator', {
     eager: true,
-    requires: { workers: WorkerEntry },
-    async setup({ workers }) {
+    requires: { workers: WorkerEntry, sibling: Sibling },
+    async setup({ workers, sibling }) {
+      await sibling.load()
       await (await workers.load()).enter()
-      throw new Error('coordinator failed after child activation')
+      throw new Error('unreachable')
     },
   })
   const Root = define.entry({ requires: { coordinator: Coordinator } })
   const runtime = createRuntime({ services: [Coordinator] })
   await assert.rejects(
     runtime.enter(Root),
-    error => error.code === 'ENTRY_ACTIVATION_FAILED'
-      && error.cause?.message === 'coordinator failed after child activation',
+    error => error.code === 'ENTRY_ACTIVATION_FAILED' && error.cause?.code === 'OWNER_NOT_READY',
   )
-  assert.equal(childStarts, 1)
-  assert.equal(childDisposes, 1)
+  assert.equal(childStarts, 0)
+  assert.deepEqual(events, ['sibling-start', 'sibling-dispose'])
   assert.equal(runtime.inspect().rootEnvCount, 0)
   await runtime.dispose()
 })
@@ -234,7 +244,9 @@ test('Binding-dependent plan templates do not leak exact choices across sibling 
   await runtime.dispose()
 })
 
-test('load() is a setup barrier even when its Promise is deliberately not awaited', async () => {
+// v0.5 (MIGRATION M-06): an un-awaited load() is a plain background Promise; the
+// caller becomes Ready on its own result and is never poisoned afterwards.
+test('an un-awaited load() does not become a setup barrier for the caller', async () => {
   const define = defineFor('strong-load-barrier')
   const release = deferred()
   let dependencyReady = false
@@ -261,10 +273,13 @@ test('load() is a setup barrier even when its Promise is deliberately not awaite
     return value
   })
   await new Promise(resolve => setImmediate(resolve))
-  assert.equal(consumerReady, false)
+  assert.equal(consumerReady, true)
   assert.equal(dependencyReady, false)
+  const consumer = await loading
+  assert.equal(consumer.id, 'consumer')
   release.resolve()
-  assert.equal((await loading).id, 'consumer')
+  await new Promise(resolve => setImmediate(resolve))
   assert.equal(dependencyReady, true)
+  assert.strictEqual(await env.deps.consumer.load(), consumer)
   await runtime.dispose()
 })

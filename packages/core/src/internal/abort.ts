@@ -1,7 +1,7 @@
 import { SynaError } from '../errors.js'
 
-export function abortError(message: string): SynaError {
-  return new SynaError('INVALID_ENV_STATE', message)
+export function abortError(message: string, details: Readonly<Record<string, unknown>> = {}): SynaError {
+  return new SynaError('INVALID_ENV_STATE', message, details)
 }
 
 export function assertNotAborted(signal: AbortSignal, message: string): void {
@@ -34,5 +34,42 @@ export function sleepAbortable(
       cleanup()
       reject(abortError(message))
     }
+  })
+}
+
+/**
+ * Ends one caller's wait when its signal aborts. The underlying promise is
+ * untouched: other waiters and the shared attempt continue.
+ */
+export function waitWithSignal<T>(
+  promise: Promise<T>,
+  signal: AbortSignal | undefined,
+  describe: () => Readonly<Record<string, unknown>>,
+): Promise<T> {
+  if (!signal) return promise
+  if (signal.aborted) {
+    return Promise.reject(new SynaError('LOAD_CANCELLED', 'The caller cancelled its wait.', describe()))
+  }
+  return new Promise<T>((resolve, reject) => {
+    const onAbort = (): void => {
+      reject(new SynaError('LOAD_CANCELLED', 'The caller cancelled its wait.', describe()))
+    }
+    signal.addEventListener('abort', onAbort, { once: true })
+    promise.then(
+      value => { signal.removeEventListener('abort', onAbort); resolve(value) },
+      error => { signal.removeEventListener('abort', onAbort); reject(error) },
+    )
+  })
+}
+
+/** Resolves to `true` when the promise settles within the timeout, `false` otherwise. */
+export function settlesWithin(promise: Promise<unknown>, milliseconds: number): Promise<boolean> {
+  if (!Number.isFinite(milliseconds)) return promise.then(() => true, () => true)
+  return new Promise<boolean>(resolve => {
+    const timer = setTimeout(() => resolve(false), Math.max(0, milliseconds))
+    promise.then(
+      () => { clearTimeout(timer); resolve(true) },
+      () => { clearTimeout(timer); resolve(true) },
+    )
   })
 }

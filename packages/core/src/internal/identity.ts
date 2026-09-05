@@ -1,17 +1,16 @@
 import type {
   Contract,
   Dependency,
-  DependencyRef,
   ServiceRevision,
 } from '../descriptors.js'
 import { SynaError } from '../errors.js'
 import { compareVersions } from '../semver.js'
 
-export function createDependencyRef<T>(
-  load: () => Promise<T>,
-  preload: () => void,
-): DependencyRef<T> {
-  return Object.freeze({ load, preload })
+export interface RevisionLike {
+  readonly key: string
+  readonly version: string
+  readonly family: { readonly id: string }
+  readonly provides: readonly Contract[]
 }
 
 export function isServiceRevision(value: unknown): value is ServiceRevision {
@@ -26,6 +25,9 @@ export function unwrapDependency(
   let current: Dependency = input
   const seen = new Set<unknown>()
 
+  if (typeof current !== 'object' || current === null) {
+    throw new SynaError('INVALID_DESCRIPTOR', 'A dependency must be a descriptor object.')
+  }
   while (current.kind === 'forward-dependency') {
     if (seen.has(current)) {
       throw new SynaError(
@@ -35,14 +37,17 @@ export function unwrapDependency(
     }
     seen.add(current)
     current = current.get()
+    if (typeof current !== 'object' || current === null) {
+      throw new SynaError('INVALID_DESCRIPTOR', 'A forward dependency resolved to a non-descriptor value.')
+    }
   }
 
   return current as Exclude<Dependency, { kind: 'forward-dependency' }>
 }
 
 export function providesContract(
-  revision: ServiceRevision,
-  contract: Contract,
+  revision: RevisionLike,
+  contract: Pick<Contract, 'id'>,
 ): boolean {
   return revision.provides.some(provided => provided.id === contract.id)
 }
@@ -59,6 +64,11 @@ export function dependencyIdentity(input: Dependency): string {
     case 'implementation-selector': return `selector:${dependency.contract.id}`
     case 'all-implementations': return `all:${dependency.contract.id}`
     case 'entry': return `entry:${dependency.id}`
+    default:
+      throw new SynaError(
+        'INVALID_DESCRIPTOR',
+        `Unknown dependency descriptor kind ${String((dependency as { kind?: unknown }).kind)}.`,
+      )
   }
 }
 
@@ -72,7 +82,7 @@ export function stableJson(value: unknown): string {
       .map(([key, item]) => `${JSON.stringify(key)}:${stableJson(item)}`)
       .join(',')}}`
   }
-  return JSON.stringify(value)
+  return JSON.stringify(value) ?? 'undefined'
 }
 
 /** Structural identity only. Human-facing metadata is intentionally excluded. */
@@ -87,6 +97,7 @@ export function revisionStructuralSignature(revision: ServiceRevision): string {
     `uniqueWithin=${revision.family.uniqueWithin}`,
     `eager=${revision.eager}`,
     `failure=${stableJson(revision.failure)}`,
+    `deadline=${String(revision.setupDeadlineMs)}`,
     `provides=${contracts}`,
     `deps=${dependencies}`,
   ].join('|')
@@ -99,10 +110,12 @@ export function revisionMetadataSignature(revision: ServiceRevision): string {
   })
 }
 
+/** Returns a warning for metadata drift; throws for structural conflicts. */
 export function assertEquivalentRevisionDefinitions(
   canonical: ServiceRevision,
   received: ServiceRevision,
 ): string | undefined {
+  if (canonical === received) return undefined
   const expected = revisionStructuralSignature(canonical)
   const actual = revisionStructuralSignature(received)
   if (expected !== actual) {
@@ -120,9 +133,10 @@ export function assertEquivalentRevisionDefinitions(
     : `Service Revision ${received.key} was loaded with different non-semantic metadata.`
 }
 
+/** Family id ascending, then version descending. */
 export function compareRevisionIdentity(
-  left: ServiceRevision,
-  right: ServiceRevision,
+  left: RevisionLike,
+  right: RevisionLike,
 ): number {
   const familyComparison = left.family.id.localeCompare(right.family.id)
   if (familyComparison !== 0) return familyComparison
@@ -130,20 +144,14 @@ export function compareRevisionIdentity(
 }
 
 /** Prefer an already active exact revision, then the highest compatible version. */
-export function defaultVersionOrder(
-  candidates: readonly ServiceRevision[],
+export function defaultVersionOrder<T extends RevisionLike>(
+  candidates: readonly T[],
   parentActiveRevisionKeys: ReadonlySet<string>,
-): readonly ServiceRevision[] {
+): readonly T[] {
   return [...candidates].sort((left, right) => {
     const leftInherited = parentActiveRevisionKeys.has(left.key) ? 1 : 0
     const rightInherited = parentActiveRevisionKeys.has(right.key) ? 1 : 0
     if (leftInherited !== rightInherited) return rightInherited - leftInherited
     return compareVersions(right.version, left.version)
   })
-}
-
-export function distinctImplementationFamilies(
-  candidates: readonly ServiceRevision[],
-): readonly string[] {
-  return [...new Set(candidates.map(candidate => candidate.family.id))].sort()
 }

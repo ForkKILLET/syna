@@ -1,6 +1,6 @@
 {
   "name": "@syna/core",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Scope-aware capability composition runtime for TypeScript",
   "type": "module",
   "exports": {
@@ -26,7 +26,11 @@
   "license": "MIT",
   "sideEffects": false,
   "devDependencies": {
-    "@syna/tsconfig": "0.4.0",
-    "@types/node": "^22.19.7"
+    "@syna/tsconfig": "0.5.0",
+    "@types/node": "^22.19.7",
+    "@types/semver": "^7.8.0"
+  },
+  "dependencies": {
+    "semver": "^7.8.5"
   }
 }

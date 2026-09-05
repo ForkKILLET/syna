@@ -12,7 +12,9 @@ const makeDefine = (id, version = '1.0.0') => definePackage({
   syna: { id },
 })
 
-test('structural cycles are legal after setup; setup wait cycles fail immediately', async () => {
+// v0.5 (MIGRATION M-07): a genuine pending setup cycle is reported by the
+// initialization deadline with the observed load() cycle.
+test('structural cycles are legal after setup; pending setup wait cycles hit the initialization deadline', async () => {
   const define = makeDefine('test.lifecycle-cycle')
   let A
   let B
@@ -42,9 +44,18 @@ test('structural cycles are legal after setup; setup wait cycles fail immediatel
     async setup({ c }) { await c.load(); return {} },
   })
   const BadEntry = define.entry('bad', { requires: { c: C } })
-  const badRuntime = createRuntime({ services: [C, D] })
+  const badRuntime = createRuntime({ services: [C, D], initialization: { deadlineMs: 40 } })
   const badEnv = await badRuntime.enter(BadEntry)
-  await assert.rejects(badEnv.deps.c.load(), error => error.code === 'CIRCULAR_MATERIALIZATION')
+  await assert.rejects(badEnv.deps.c.load(), error => {
+    assert.equal(error.code, 'INITIALIZATION_TIMEOUT')
+    // Whichever attempt's deadline fires first reports the cycle from its own slot.
+    const cycle = error.details.suspectedWaitCycle
+    assert.equal(cycle.length, 3)
+    assert.equal(cycle[0], cycle[2])
+    assert.deepEqual(new Set(cycle), new Set([C.key, D.key]))
+    assert.match(error.message, /observation, not a proof/)
+    return true
+  })
   await badEnv.dispose()
 })
 
@@ -214,7 +225,7 @@ test('failed eager activation rolls back newly started local services', async ()
   assert.equal(runtime.inspect().rootEnvCount, 0)
 })
 
-test('materialization cycles routed through a selector are detected', async () => {
+test('a setup that waits for a collection member which waits back on it hits the initialization deadline', async () => {
   const define = makeDefine('test.selector-cycle')
   const Plugin = define.contract()
   let Manager
@@ -233,8 +244,8 @@ test('materialization cycles routed through a selector are detected', async () =
     async setup({ manager }) { await manager.load(); return {} },
   })
   const Entry = define.entry({ requires: { manager: Manager } })
-  const runtime = createRuntime({ services: [Manager, Candidate] })
+  const runtime = createRuntime({ services: [Manager, Candidate], initialization: { deadlineMs: 40 } })
   const env = await runtime.enter(Entry)
-  await assert.rejects(env.deps.manager.load(), error => error.code === 'CIRCULAR_MATERIALIZATION')
+  await assert.rejects(env.deps.manager.load(), error => error.code === 'INITIALIZATION_TIMEOUT')
   await env.dispose()
 })

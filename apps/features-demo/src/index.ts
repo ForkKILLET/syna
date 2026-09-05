@@ -18,7 +18,7 @@ const Counter = define.service('counter', {
     const id = ++counterStarts
     return {
       id,
-      epoch: async () => epoch.load(),
+      epoch: async () => epoch.read(),
     }
   },
 })

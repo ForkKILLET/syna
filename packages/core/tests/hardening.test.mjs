@@ -58,7 +58,9 @@ test('0.x implementation refs use the exact installed version as the caret basel
   await runtime.dispose()
 })
 
-test('a setup wait cycle routed through a Ready service is detected instead of hanging', async () => {
+// v0.5 (MIGRATION M-07): a load() wait is a plain Promise. A pending cycle is not
+// failed immediately; the configurable initialization deadline reports it.
+test('a setup wait cycle routed through a Ready service ends with INITIALIZATION_TIMEOUT instead of hanging', async () => {
   const define = makeDefine('test.ready-indirect-cycle')
   let A
   let B
@@ -89,12 +91,19 @@ test('a setup wait cycle routed through a Ready service is detected instead of h
   })
 
   const Entry = define.entry({ requires: { a: A, b: B } })
-  const runtime = createRuntime({ services: [A, B, C] })
+  const runtime = createRuntime({ services: [A, B, C], initialization: { deadlineMs: 40 } })
   const env = await runtime.enter(Entry)
   await env.deps.a.load()
   await assert.rejects(
-    withTimeout(env.deps.b.load()),
-    error => error.code === 'CIRCULAR_MATERIALIZATION',
+    withTimeout(env.deps.b.load(), 2000),
+    error => {
+      assert.equal(error.code, 'INITIALIZATION_TIMEOUT')
+      assert.equal(error.details.revision, B.key)
+      // The wait went through a Ready instance's method, so no load() edge from B
+      // is observable; the deadline is the honest fallback, not a deadlock proof.
+      assert.equal(typeof error.details.elapsedMs, 'number')
+      return true
+    },
   )
   await runtime.dispose()
 })
@@ -384,24 +393,36 @@ test('fresh and share may target a Service Family rather than one exact revision
   await runtime.dispose()
 })
 
-test('an owner-bound Entry participates in the enclosing activation transaction', async () => {
+// v0.5 (MIGRATION M-05): no activation transaction. A BoundEntry anchored at an
+// owner that is still activating rejects with OWNER_NOT_READY; the rejection is
+// an ordinary Promise the setup may catch.
+test('an owner-bound Entry entered during owner activation rejects with OWNER_NOT_READY', async () => {
   const define = makeDefine('test.bound-entry-activation')
   const ChildEntry = define.entry('child', {})
-  let childReady = false
+  let observed
   const Eager = define.service({
     eager: true,
     requires: { child: ChildEntry },
     async setup({ child }) {
       const bound = await child.load()
-      const childEnv = await bound.enter()
-      childReady = childEnv.state === 'ready'
-      return {}
+      try {
+        await bound.enter()
+        observed = 'entered'
+      }
+      catch (error) {
+        observed = error.code
+      }
+      return { start: () => bound.enter() }
     },
   })
   const Root = define.entry({ requires: { eager: Eager } })
   const runtime = createRuntime({ services: [Eager] })
-  await runtime.enter(Root)
-  assert.equal(childReady, true)
+  const root = await runtime.enter(Root)
+  assert.equal(observed, 'OWNER_NOT_READY')
+  // Once the owner is Ready the same handle works.
+  const child = await (await root.deps.eager.load()).start()
+  assert.equal(child.state, 'ready')
+  assert.equal(child.inspect().parentId, root.id)
   await runtime.dispose()
 })
 

@@ -7,12 +7,15 @@ export {
   override,
 } from './definition.js'
 
+export { opaque } from './opaque.js'
+export type { OpaqueInstance } from './opaque.js'
+
 export {
   createRuntime,
   defaultRuntimePolicy,
 } from './runtime.js'
 
-export { SynaError } from './errors.js'
+export { SynaError, isSynaError } from './errors.js'
 export { loadAll } from './loading.js'
 export type { DiagnosticCode, SynaErrorCode } from './errors.js'
 
@@ -34,9 +37,12 @@ export type {
   DependencyMap,
   DependencyOutput,
   DependencyRef,
+  DependencyRefFor,
   DependencyRefs,
   DeriveOptions,
   DescriptorMetadata,
+  DiagnosticsOptions,
+  DisposalOptions,
   EntryArguments,
   EntryCallback,
   EntryCheck,
@@ -44,16 +50,23 @@ export type {
   EntryDefinition,
   EntryDependencies,
   EntryDescriptor,
+  EntryExplanation,
+  EntryExplanationFailure,
+  EntryExplanationSuccess,
   EntryParameter,
   EntryParameterMap,
   EntryParameterValue,
   EntryParameterValues,
   EntryParameters,
   EntryRunArguments,
-  FailureAfterExhaustion,
   EnvHandle,
   EnvInspection,
   EnvInspectionNode,
+  EnvState,
+  ExplainCounts,
+  ExplainedNode,
+  FailureAfterExhaustion,
+  ForkCause,
   ForwardDependency,
   ImplementationCandidate,
   ImplementationDescriptor,
@@ -61,18 +74,25 @@ export type {
   ImplementationSelector,
   ImplementationSelectorDependency,
   ImplementationSet,
+  InitializationOptions,
   Input,
+  InputRef,
   InputType,
+  InspectionNodeKind,
+  LoadOptions,
   MetadataValue,
+  NodeDisposition,
   NormalizedServiceFailurePolicy,
   PackageDefinitions,
   PlannedEnvInspection,
   PackageDescriptor,
   PackageManifest,
   PlanCacheOptions,
+  PlanningOptions,
   PersistentImplementationRef,
   ProvidedShape,
   RuntimeCatalog,
+  RuntimeEvent,
   RuntimeInspection,
   RuntimePolicy,
   RuntimePolicyContext,
@@ -86,6 +106,7 @@ export type {
   ServiceRange,
   ServiceRevision,
   ServiceOverride,
+  SetupResult,
   SynaRuntime,
   UniquenessPolicy,
 } from './descriptors.js'

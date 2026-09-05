@@ -75,7 +75,7 @@ export const BlogRuntime = define.service('blog-runtime', {
   setup({ blog, database }): BlogRuntime {
     return {
       async describe() {
-        const current = await blog.load()
+        const current = blog.read()
         return `${current.title} (${current.id})`
       },
       async databasePool() {
@@ -99,8 +99,8 @@ export const ArticleSummarizer = define.service('article-summarizer', {
   setup({ blog, call, llm }): ArticleSummarizer {
     return {
       async summarize(article) {
-        const currentBlog = await blog.load()
-        const callContext = await call.load()
+        const currentBlog = blog.read()
+        const callContext = call.read()
         const connector = await llm.load()
         return connector.complete(
           `Summarize for ${currentBlog.title} (${callContext.requestId}): ${article}`,

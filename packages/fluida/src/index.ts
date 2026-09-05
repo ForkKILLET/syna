@@ -30,7 +30,7 @@ export const Transaction = define.service('transaction', {
     { onDispose },
   ): Promise<Transaction> {
     const db = await database.load()
-    const tx = await context.load()
+    const tx = context.read()
     let state: Transaction['state'] = 'open'
 
     onDispose(() => {

@@ -63,7 +63,9 @@ test('selector candidate plan templates are reused and the cache remains bounded
   await runtime.dispose()
 })
 
-test('preload is explicitly non-blocking and does not create a false setup cycle', async () => {
+// v0.5 (MIGRATION M-06): preload() and an un-awaited load() are both plain
+// background operations; neither adds a completion barrier or a cycle.
+test('preload and un-awaited load are both non-blocking and never create a false setup cycle', async () => {
   const define = makeDefine('v04.preload')
   let A
   let B
@@ -206,28 +208,42 @@ test('retry-on-next-load starts a fresh setup sequence after exhaustion', async 
   await runtime.dispose()
 })
 
-test('an eager Service may create a child Env inside the same activation transaction', async () => {
+// v0.5 (MIGRATION M-05): an eager Service cannot open a child of its own
+// activating owner. A lazy Service whose owner is already Ready can.
+test('BoundEntry.enter needs a Ready owner: eager setup is refused, lazy setup in a Ready Env succeeds', async () => {
   const define = makeDefine('v04.activation-child')
   const Child = define.entry('child', {})
-  let entered = false
-  const Eager = define.service({
+  let eagerObserved
+  const Eager = define.service('eager', {
     eager: true,
     requires: { child: Child },
     async setup({ child }) {
       const bound = await child.load()
-      const env = await bound.enter()
-      entered = env.state === 'ready'
+      eagerObserved = await bound.enter().then(() => 'entered', error => error.code)
       return {}
     },
   })
-  const Root = define.entry({ requires: { eager: Eager } })
-  const runtime = createRuntime({ services: [Eager] })
-  await runtime.enter(Root)
-  assert.equal(entered, true)
+  let lazyObserved
+  const Lazy = define.service('lazy', {
+    requires: { child: Child },
+    async setup({ child }) {
+      const bound = await child.load()
+      const env = await bound.enter()
+      lazyObserved = env.state
+      await env.dispose()
+      return {}
+    },
+  })
+  const Root = define.entry({ requires: { eager: Eager, lazy: Lazy } })
+  const runtime = createRuntime({ services: [Eager, Lazy] })
+  const root = await runtime.enter(Root)
+  assert.equal(eagerObserved, 'OWNER_NOT_READY')
+  await root.deps.lazy.load()
+  assert.equal(lazyObserved, 'ready')
   await runtime.dispose()
 })
 
-test('activation transactions detect parent-setup to child-eager to parent cycles', async () => {
+test('a parent setup that opens a worker world of its activating owner fails with OWNER_NOT_READY', async () => {
   const define = makeDefine('v04.activation-cycle')
   let Parent
   const Worker = define.service('worker', {
@@ -251,8 +267,9 @@ test('activation transactions detect parent-setup to child-eager to parent cycle
   const runtime = createRuntime({ services: [Parent] })
   await assert.rejects(
     withTimeout(runtime.enter(Root)),
-    error => error.code === 'CIRCULAR_MATERIALIZATION',
+    error => error.code === 'ENTRY_ACTIVATION_FAILED' && error.cause?.code === 'OWNER_NOT_READY',
   )
+  assert.equal(runtime.inspect().rootEnvCount, 0)
   await runtime.dispose().catch(() => undefined)
 })
 

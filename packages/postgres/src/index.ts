@@ -57,7 +57,7 @@ export const Postgres = define.service({
     { config, logger, metrics },
     { onDispose },
   ): Promise<Postgres> {
-    const options = await config.load()
+    const options = config.read()
     const log = await logger.load()
     const counters = await metrics.load()
     const poolId = nextPoolId++

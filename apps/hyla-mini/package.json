@@ -1,0 +1,54 @@
+{
+  "name": "@hyla/mini",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Hyla-mini: a narrow but complete multi-tenant blog engine built on Syna v0.5",
+  "imports": {
+    "#syna/package": "./package.json"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "hyla-mini": "./bin/hyla-mini.mjs"
+  },
+  "syna": {
+    "id": "hyla.mini",
+    "metadata": {
+      "displayName": "Hyla-mini"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "node --test tests/*.test.mjs"
+  },
+  "dependencies": {
+    "@syna/core": "0.5.0",
+    "ajv": "^8.20.0",
+    "pg": "^8.23.0",
+    "rehype-sanitize": "^6.0.0",
+    "rehype-stringify": "^10.0.1",
+    "remark-gfm": "^4.0.1",
+    "remark-parse": "^11.0.0",
+    "remark-rehype": "^11.1.2",
+    "unified": "^11.0.5",
+    "unist-util-visit": "^5.1.0",
+    "yaml": "^2.9.0"
+  },
+  "devDependencies": {
+    "@syna/tsconfig": "0.5.0",
+    "@types/hast": "^3.0.5",
+    "@types/mdast": "^4.0.4",
+    "@types/pg": "^8.23.1",
+    "@types/unist": "^3.0.3"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

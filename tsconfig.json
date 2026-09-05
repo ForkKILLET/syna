@@ -39,6 +39,9 @@
     },
     {
       "path": "./apps/minimal-demo"
+    },
+    {
+      "path": "./apps/hyla-mini"
     }
   ]
 }

@@ -27,7 +27,7 @@ import type {
   ServiceRevision,
   ServiceOverride,
 } from './descriptors.js'
-import { normalizeVersion } from './semver.js'
+import { assertValidRange, caretRange, normalizeVersion } from './semver.js'
 
 function assertId(id: string, kind: string): void {
   if (id.trim().length === 0) throw new TypeError(`${kind} id must not be empty.`)
@@ -107,6 +107,7 @@ function createPersistentImplementationRef<C extends Contract<any>>(
   if (version.trim().length === 0) {
     throw new TypeError('Implementation version intent must not be empty.')
   }
+  assertValidRange(version, `Implementation version intent for ${implementationId}`)
   return Object.freeze({
     kind: 'persistent-implementation-ref',
     contractId: contract.id,
@@ -150,6 +151,13 @@ export function forward<D extends Dependency>(get: () => D): ForwardDependency<D
   return Object.freeze({ kind: 'forward-dependency', get })
 }
 
+/**
+ * Construction-time definition override. The source keeps its nominal identity,
+ * public Contract membership, eagerness and metadata; the replacement supplies
+ * the executable `requires`, `setup`, failure policy and deadline. TypeScript
+ * checks that the replacement's instance type is assignable to the source's;
+ * the Runtime cannot verify behaviour and does not pretend to.
+ */
 export function override<
   From extends ServiceRevision<any>,
   To extends ServiceRevision<any>,
@@ -158,10 +166,6 @@ export function override<
   to: ServiceInstance<To> extends ServiceInstance<From> ? To : never,
 ): ServiceOverride<From, To> {
   return Object.freeze({ kind: 'service-override', from, to })
-}
-
-function defaultCompatibleRange(version: string): string {
-  return `^${normalizeVersion(version)}`
 }
 
 function normalizeFailure(
@@ -189,7 +193,18 @@ function normalizeFailure(
       throw new TypeError(`${name} must be a non-negative number.`)
     }
   }
+  if (afterExhaustion !== 'sticky' && afterExhaustion !== 'retry-on-next-load') {
+    throw new TypeError('failure.afterExhaustion must be "sticky" or "retry-on-next-load".')
+  }
   return Object.freeze({ attempts, delayMs, afterExhaustion, cooldownMs })
+}
+
+function normalizeDeadline(value: number | undefined): number | undefined {
+  if (value === undefined) return undefined
+  if (Number.isNaN(value) || value <= 0) {
+    throw new TypeError('setupDeadlineMs must be a positive number or Infinity.')
+  }
+  return value
 }
 
 function assertUniqueParameterIds(parameters: EntryParameterMap): void {
@@ -220,6 +235,11 @@ function assertEntryParameter(value: unknown, key: string): asserts value is Ent
 }
 
 function normalizePackage(manifest: PackageManifest): PackageDescriptor {
+  if (typeof manifest !== 'object' || manifest === null) {
+    throw new TypeError('definePackage() expects a package.json object.')
+  }
+  if (typeof manifest.name !== 'string') throw new TypeError('package.json name must be a string.')
+  if (typeof manifest.version !== 'string') throw new TypeError('package.json version must be a string.')
   assertId(manifest.name, 'Package name')
   const version = normalizeVersion(manifest.version)
   const id = manifest.syna?.id ?? manifest.name
@@ -313,6 +333,9 @@ export function definePackage(manifest: PackageManifest): PackageDefinitions {
     options?: DefinitionOptions,
   ): Binding<C> {
     assertLocalName(name, 'Binding')
+    if (typeof contract !== 'object' || contract === null || contract.kind !== 'contract') {
+      throw new TypeError(`Binding ${name} must reference a Contract descriptor.`)
+    }
     const apiVersion = assertApiVersion(options?.apiVersion)
     const id = bindingId(name, apiVersion)
     const binding: Binding<C> = {
@@ -321,7 +344,7 @@ export function definePackage(manifest: PackageManifest): PackageDefinitions {
       apiVersion,
       contract,
       metadata: freezeMetadata(options?.metadata),
-      to(service, version = defaultCompatibleRange(service.version)) {
+      to(service, version = caretRange(service.version)) {
         if (!service.provides.some((provided: Contract) => provided.id === contract.id)) {
           throw new TypeError(
             `${service.key} does not explicitly provide Contract ${contract.id}.`,
@@ -349,6 +372,12 @@ export function definePackage(manifest: PackageManifest): PackageDefinitions {
     second?: ServiceDefinition<Requires, Provides, Instance>,
   ): ServiceRevision<Instance> {
     const { name, definition } = definitionArguments(first, second)
+    if (typeof definition.setup !== 'function') {
+      throw new TypeError(`Service ${serviceId(name)} must define a setup function.`)
+    }
+    if (definition.uniqueWithin !== undefined && definition.uniqueWithin !== 'lineage') {
+      throw new TypeError('uniqueWithin must be "lineage" when provided.')
+    }
     const family: ServiceFamily<Instance> = Object.freeze({
       kind: 'service-family',
       id: serviceId(name),
@@ -365,9 +394,11 @@ export function definePackage(manifest: PackageManifest): PackageDefinitions {
       provides: Object.freeze([...(definition.provides ?? [])]) as unknown as Provides,
       eager: definition.eager ?? false,
       failure: normalizeFailure(definition.failure),
+      setupDeadlineMs: normalizeDeadline(definition.setupDeadlineMs),
       metadata: freezeMetadata(definition.revisionMetadata),
       setup: definition.setup,
       range(version = '*') {
+        assertValidRange(version, `Range for ${family.id}`)
         return Object.freeze({
           kind: 'service-range' as const,
           family,

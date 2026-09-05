@@ -1,6 +1,4 @@
-import type { EntryDescriptor, ServiceRevision } from '../descriptors.js'
 import type { ResolutionRealm } from './runtime-model.js'
-import { stableJson, unwrapDependency } from './runtime-utils.js'
 
 export const PUBLIC_REALM: ResolutionRealm = Object.freeze({
   kind: 'public',
@@ -8,25 +6,25 @@ export const PUBLIC_REALM: ResolutionRealm = Object.freeze({
 })
 
 /**
- * A Service-owned Entry may expose exact private roots declared by that Entry.
- * Contract, auto, selector, all and range resolution remain public by design.
+ * A Service-owned Entry resolves its roots with the authority of the owning
+ * Service: exact and range roots may select revisions from that Service's
+ * private transitive closure. Contract, auto, selector and all discovery
+ * remain public. Realm identity depends only on the owner revision, so plan
+ * templates for the same owner are shared.
  */
 export function privateEntryRealm(
-  owner: ServiceRevision,
-  dependencySite: string,
-  entry: EntryDescriptor,
+  ownerKey: string,
+  closureKeys: ReadonlySet<string>,
 ): ResolutionRealm {
-  const exactRoots = Object.entries(entry.requires)
-    .map(([key, dependency]) => {
-      const resolved = unwrapDependency(dependency)
-      return resolved.kind === 'service-revision'
-        ? [key, resolved.key] as const
-        : undefined
-    })
-    .filter((item): item is readonly [string, string] => item !== undefined)
-
   return Object.freeze({
     kind: 'private-entry',
-    id: `private-entry:${owner.key}:${dependencySite}:${stableJson(exactRoots)}`,
+    id: `private-entry:${ownerKey}`,
+    ownerKey,
+    closureKeys,
   })
+}
+
+export function realmAllows(realm: ResolutionRealm, revisionKey: string, admitted: boolean): boolean {
+  if (admitted) return true
+  return realm.kind === 'private-entry' && realm.closureKeys.has(revisionKey)
 }

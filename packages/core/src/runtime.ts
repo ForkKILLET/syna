@@ -1,7 +1,6 @@
 import packageJson from '../package.json' with { type: 'json' }
 import type {
   BoundEntry,
-  CandidateRef,
   Contract,
   CreateRuntimeOptions,
   DeriveOptions,
@@ -11,17 +10,17 @@ import type {
   EntryArguments,
   EntryCheck,
   EntryDescriptor,
+  EntryExplanation,
   EntryParameters,
   EntryRunArguments,
   EnvHandle,
   EnvInspection,
   EnvInspectionNode,
-  ImplementationCandidate,
-  ImplementationLease,
-  ImplementationSelector,
-  ImplementationSet,
+  InputRef,
+  LoadOptions,
   PersistentImplementationRef,
   RuntimeCatalog,
+  RuntimeEvent,
   RuntimeInspection,
   RuntimePolicy,
   RuntimePolicyContext,
@@ -29,31 +28,31 @@ import type {
   ServiceRevision,
   SynaRuntime,
 } from './descriptors.js'
-import { asSynaError, diagnosticFromError, SynaError } from './errors.js'
+import { diagnosticFromError, SynaError } from './errors.js'
 import type {
-  AllPlanNode,
   EnvState,
   ResolvedPlan,
   ResolutionRealm,
   RuntimeSlot,
-  SelectorPlanNode,
   ServiceSlot,
-  SyntheticSlot,
 } from './internal/runtime-model.js'
-import { defaultVersionOrder } from './internal/runtime-utils.js'
+import { defaultVersionOrder } from './internal/identity.js'
 import { PUBLIC_REALM } from './internal/resolution-realm.js'
 import { Materializer } from './internal/materializer.js'
-import { DefinitionRegistry } from './internal/definition-registry.js'
+import { DefinitionCompiler } from './internal/definition-compiler.js'
+import { ImplementationDirectory } from './internal/implementation-directory.js'
+import { EntryPlanner, entryDefinitionSignature } from './internal/entry-planner.js'
 import {
-  ImplementationDirectory,
-  type CandidateAvailabilityInput,
-} from './internal/implementation-directory.js'
-import {
-  EntryPlanner,
-  entryDefinitionSignature,
-} from './internal/entry-planner.js'
+  createImplementationSet,
+  createSelector,
+  type ImplementationViewHost,
+} from './internal/implementation-views.js'
 import { isBacktrackableTopologyError } from './internal/solve-errors.js'
 
+const DEFAULT_DEADLINE_MS = 30_000
+const DEFAULT_DISPOSAL_GRACE_MS = 2_000
+const DEFAULT_SEARCH_BUDGET = 10_000
+const DEFAULT_PLAN_CACHE_ENTRIES = 512
 
 const internalPackage = Object.freeze({
   name: '@syna/core',
@@ -87,6 +86,14 @@ function addSuppressed(primary: unknown, cleanup: unknown): unknown {
     'Entry execution and Env disposal both failed.',
     primary instanceof Error ? { cause: primary } : undefined,
   )
+}
+
+function positiveNumber(value: number | undefined, fallback: number, name: string): number {
+  if (value === undefined) return fallback
+  if (typeof value !== 'number' || Number.isNaN(value) || value <= 0) {
+    throw new TypeError(`${name} must be a positive number.`)
+  }
+  return value
 }
 
 export const defaultRuntimePolicy: RuntimePolicy = Object.freeze({
@@ -129,11 +136,11 @@ class EnvImpl<Requires extends DependencyMap> implements EnvHandle<Requires> {
     readonly plan: ResolvedPlan,
     rootSiteByEntryKey: ReadonlyMap<string, string>,
   ) {
-    const refs: Record<string, DependencyRef<unknown>> = {}
+    const refs: Record<string, DependencyRef<unknown> | InputRef<unknown>> = {}
     for (const [key, rootSiteId] of rootSiteByEntryKey) {
       const nodeId = plan.rootNodeBySite.get(rootSiteId)!
       const slot = plan.slotsByNode.get(nodeId)!
-      refs[key] = runtime.createDependencyRef(slot)
+      refs[key] = runtime.createRefFor(slot)
     }
     this.deps = Object.freeze(refs) as unknown as DependencyRefs<Requires>
   }
@@ -153,7 +160,7 @@ class EnvImpl<Requires extends DependencyMap> implements EnvHandle<Requires> {
       ? [{} as EntryParameters<E>, args[0]]
       : args
     const child = await this.runtime.enterFrom(this, descriptor, input, PUBLIC_REALM)
-    return this.runtime.executeStructured(child as EnvImpl<any>, () => callback(child.deps, child))
+    return this.runtime.executeStructured(child, () => Promise.resolve(callback(child.deps, child)))
   }
 
   check<E extends EntryDescriptor<any, any>>(
@@ -163,12 +170,19 @@ class EnvImpl<Requires extends DependencyMap> implements EnvHandle<Requires> {
     return this.runtime.checkFrom(this, descriptor, args[0] as EntryParameters<E> | undefined, PUBLIC_REALM)
   }
 
+  explain<E extends EntryDescriptor<any, any>>(
+    descriptor: E,
+    ...args: EntryArguments<E>
+  ): Promise<EntryExplanation> {
+    return this.runtime.explainFrom(this, descriptor, args[0] as EntryParameters<E> | undefined, PUBLIC_REALM)
+  }
+
   derive(options: DeriveOptions = {}): Promise<EnvHandle<{}>> {
     return this.runtime.enterFrom(this, internalDeriveEntry, { scope: options }, PUBLIC_REALM)
   }
 
   bind<E extends EntryDescriptor<any, any>>(descriptor: E): BoundEntry<E> {
-    return this.runtime.createBoundEntry(descriptor, this, PUBLIC_REALM, false)
+    return this.runtime.createBoundEntry(descriptor, this.id, PUBLIC_REALM)
   }
 
   inspect(): EnvInspection {
@@ -207,22 +221,26 @@ class EnvImpl<Requires extends DependencyMap> implements EnvHandle<Requires> {
   }
 }
 
-class RuntimeImpl implements SynaRuntime {
-  readonly admittedRevisions: readonly ServiceRevision[]
+class RuntimeImpl implements SynaRuntime, ImplementationViewHost {
   readonly policy: RuntimePolicy
   readonly catalog: RuntimeCatalog
   readonly roots = new Set<EnvImpl<any>>()
+  readonly directory: ImplementationDirectory
+  readonly internalPackage = internalPackage
 
-  private readonly definitions: DefinitionRegistry
-  private readonly materializer = new Materializer()
-  private readonly implementationDirectory: ImplementationDirectory
+  private readonly compiler: DefinitionCompiler
+  private readonly materializer: Materializer
   private readonly envById = new Map<string, EnvImpl<any>>()
   private readonly planner: EntryPlanner
+  private readonly onEvent: (event: RuntimeEvent) => void
 
   private disposed = false
   private disposePromise?: Promise<void>
 
   constructor(options: CreateRuntimeOptions) {
+    if (typeof options !== 'object' || options === null) {
+      throw new TypeError('createRuntime() expects an options object.')
+    }
     const policy = options.policy ?? {}
     this.policy = Object.freeze({
       orderAutoCandidates:
@@ -230,39 +248,50 @@ class RuntimeImpl implements SynaRuntime {
       orderVersionCandidates:
         policy.orderVersionCandidates ?? defaultRuntimePolicy.orderVersionCandidates,
     })
+    const onEvent = options.diagnostics?.onEvent
+    this.onEvent = event => {
+      if (!onEvent) return
+      try { onEvent(event) }
+      catch { /* diagnostics must never change business outcomes */ }
+    }
 
-    this.definitions = new DefinitionRegistry(
+    this.compiler = new DefinitionCompiler(
       options.services,
       options.overrides ?? [],
       entryDefinitionSignature,
     )
-    this.admittedRevisions = this.definitions.admittedRevisions
-    this.implementationDirectory = new ImplementationDirectory(
-      this.admittedRevisions,
-      this.policy,
-    )
+    this.directory = new ImplementationDirectory(this.compiler.admitted, this.policy)
     this.planner = new EntryPlanner(
-      this.definitions,
-      this.implementationDirectory,
+      this.compiler,
+      this.directory,
       this.policy,
-      options.planCache?.maxEntries ?? 512,
+      options.planCache?.maxEntries ?? DEFAULT_PLAN_CACHE_ENTRIES,
+      options.planning?.searchBudget ?? DEFAULT_SEARCH_BUDGET,
     )
+    this.materializer = new Materializer({
+      deadlineMs: positiveNumber(options.initialization?.deadlineMs, DEFAULT_DEADLINE_MS, 'initialization.deadlineMs'),
+      disposalGraceMs: positiveNumber(options.disposal?.graceMs, DEFAULT_DISPOSAL_GRACE_MS, 'disposal.graceMs'),
+      onEvent: this.onEvent,
+    })
 
     this.catalog = Object.freeze({
       implementations: <C extends Contract>(contract: C) =>
-        this.implementationDirectory.implementations(contract),
+        this.directory.implementations(contract),
       resolve: <C extends Contract>(ref: PersistentImplementationRef<C>) =>
-        this.implementationDirectory.resolveCatalog(ref),
+        this.directory.resolveCatalog(ref),
+      revisions: (familyId: string) => this.directory.revisions(familyId),
     })
   }
 
   inspect(): RuntimeInspection {
     const planCache = this.planner.cacheStats()
-    const definitions = this.definitions.inspect()
+    const definitions = this.compiler.inspect()
     return {
       admittedServices: definitions.admittedServices,
       internalServices: definitions.internalServices,
+      overriddenServices: definitions.overriddenServices,
       rootEnvCount: [...this.roots].filter(root => root.state !== 'disposed').length,
+      liveEnvCount: this.envById.size,
       planCache,
       definitionWarnings: definitions.warnings,
     }
@@ -283,7 +312,7 @@ class RuntimeImpl implements SynaRuntime {
       ? [{} as EntryParameters<E>, args[0]]
       : args
     const env = await this.enterFrom(undefined, descriptor, input, PUBLIC_REALM)
-    return this.executeStructured(env as EnvImpl<any>, () => callback(env.deps, env))
+    return this.executeStructured(env, () => Promise.resolve(callback(env.deps, env)))
   }
 
   check<E extends EntryDescriptor<any, any>>(
@@ -293,9 +322,15 @@ class RuntimeImpl implements SynaRuntime {
     return this.checkFrom(undefined, descriptor, args[0] as EntryParameters<E> | undefined, PUBLIC_REALM)
   }
 
+  explain<E extends EntryDescriptor<any, any>>(
+    descriptor: E,
+    ...args: EntryArguments<E>
+  ): Promise<EntryExplanation> {
+    return this.explainFrom(undefined, descriptor, args[0] as EntryParameters<E> | undefined, PUBLIC_REALM)
+  }
+
   dispose(): Promise<void> {
     this.disposePromise ??= (async () => {
-      if (this.disposed) return
       this.disposed = true
       const errors: unknown[] = []
       for (const root of [...this.roots]) {
@@ -314,9 +349,24 @@ class RuntimeImpl implements SynaRuntime {
     return this.dispose()
   }
 
+  // ImplementationViewHost ------------------------------------------------------
+
+  activeRevisionKeys(envId: string): ReadonlySet<string> {
+    return this.planner.activeRevisionKeys(this.envById.get(envId)?.plan)
+  }
+
+  checkPlanOnly(anchorEnvId: string, descriptor: EntryDescriptor, realm: ResolutionRealm): Promise<EntryCheck> {
+    const anchor = this.requireEnv(anchorEnvId)
+    return this.checkFrom(anchor, descriptor, {}, realm, true)
+  }
+
+  loadSlot(slot: RuntimeSlot, options?: LoadOptions): Promise<unknown> {
+    return this.materializer.load(slot, options)
+  }
+
   async executeStructured<Result>(
-    env: EnvImpl<any>,
-    callback: () => PromiseLike<Result> | Result,
+    env: EnvHandle,
+    callback: () => Promise<Result> | Result,
   ): Promise<Result> {
     let result: Result
     try {
@@ -331,58 +381,36 @@ class RuntimeImpl implements SynaRuntime {
     return result
   }
 
+  /**
+   * A BoundEntry is anchored at one Env id. Entering requires that Env to be
+   * Ready: an owner that is still activating yields OWNER_NOT_READY, a plain
+   * rejected Promise the caller may catch. Planning (`check`/`explain`) is pure
+   * and is allowed while the anchor activates.
+   */
   createBoundEntry<E extends EntryDescriptor<any, any>>(
     descriptor: E,
-    anchor: EnvImpl<any>,
+    anchorEnvId: string,
     realm: ResolutionRealm,
-    allowActivatingAnchor: boolean,
   ): BoundEntry<E> {
-    const enterBound = (...args: EntryArguments<E>): Promise<EnvHandle<E['requires']>> => {
-      const frame = this.materializer.activeFrame()
-      const operation = this.enterFrom(
-        anchor,
-        descriptor,
-        args[0] as EntryParameters<E> | undefined,
-        realm,
-        allowActivatingAnchor,
-        frame?.slot,
-      )
-      return this.materializer.trackStrongOperation(operation, frame)
-    }
+    const anchor = (): EnvImpl<any> => this.requireEnv(anchorEnvId)
+    const enterBound = async (...args: EntryArguments<E>): Promise<EnvHandle<E['requires']>> =>
+      this.enterFrom(anchor(), descriptor, args[0] as EntryParameters<E> | undefined, realm)
 
-    const runBound = <Result>(...args: EntryRunArguments<E, Result>): Promise<Result> => {
-      const frame = this.materializer.activeFrame()
+    const runBound = async <Result>(...args: EntryRunArguments<E, Result>): Promise<Result> => {
       const [input, callback] = args.length === 1
         ? [{} as EntryParameters<E>, args[0]]
         : args
-      const operation = (async () => {
-        const child = await this.enterFrom(
-          anchor,
-          descriptor,
-          input,
-          realm,
-          allowActivatingAnchor,
-          frame?.slot,
-        )
-        return this.executeStructured(
-          child as EnvImpl<any>,
-          () => callback(child.deps, child),
-        )
-      })()
-      return this.materializer.trackStrongOperation(operation, frame)
+      const child = await this.enterFrom(anchor(), descriptor, input, realm)
+      return this.executeStructured(child, () => Promise.resolve(callback(child.deps, child)))
     }
 
     return Object.freeze({
       enter: enterBound,
       run: runBound,
-      check: (...args: EntryArguments<E>) =>
-        this.checkFrom(
-          anchor,
-          descriptor,
-          args[0] as EntryParameters<E> | undefined,
-          realm,
-          allowActivatingAnchor,
-        ),
+      check: async (...args: EntryArguments<E>) =>
+        this.checkFrom(anchor(), descriptor, args[0] as EntryParameters<E> | undefined, realm, true),
+      explain: async (...args: EntryArguments<E>) =>
+        this.explainFrom(anchor(), descriptor, args[0] as EntryParameters<E> | undefined, realm, true),
     })
   }
 
@@ -392,22 +420,40 @@ class RuntimeImpl implements SynaRuntime {
     input: EntryParameters<E> | undefined,
     realm: ResolutionRealm = PUBLIC_REALM,
     allowActivatingParent = false,
-    rethrowUnexpected = false,
   ): Promise<EntryCheck> {
     try {
-      const { plan } = this.planEntry(
-        parent,
-        descriptor,
-        input,
-        true,
-        allowActivatingParent,
-        realm,
-      )
+      const { plan } = this.planEntry(parent, descriptor, input, true, allowActivatingParent, realm)
       return Object.freeze({ ok: true, inspection: this.planner.inspect(plan) })
     }
     catch (error) {
-      if (rethrowUnexpected && !isBacktrackableTopologyError(error)) throw error
+      if (!isBacktrackableTopologyError(error)) throw error
       return Object.freeze({ ok: false, error: diagnosticFromError(error) })
+    }
+  }
+
+  async explainFrom<E extends EntryDescriptor<any, any>>(
+    parent: EnvImpl<any> | undefined,
+    descriptor: E,
+    input: EntryParameters<E> | undefined,
+    realm: ResolutionRealm = PUBLIC_REALM,
+    allowActivatingParent = false,
+  ): Promise<EntryExplanation> {
+    try {
+      const { plan } = this.planEntry(parent, descriptor, input, true, allowActivatingParent, realm)
+      return this.planner.explain(plan, descriptor, parent)
+    }
+    catch (error) {
+      if (!isBacktrackableTopologyError(error)) throw error
+      const missingInputs = Array.isArray(error.details.missingInputs) ? error.details.missingInputs as string[] : []
+      const missingBindings = Array.isArray(error.details.missingBindings) ? error.details.missingBindings as string[] : []
+      return Object.freeze({
+        ok: false,
+        entry: descriptor.id,
+        ...(parent ? { parent: parent.id } : {}),
+        error: diagnosticFromError(error),
+        missingInputs: Object.freeze([...missingInputs]),
+        missingBindings: Object.freeze([...missingBindings]),
+      })
     }
   }
 
@@ -416,17 +462,8 @@ class RuntimeImpl implements SynaRuntime {
     descriptor: E,
     input: EntryParameters<E> | undefined,
     realm: ResolutionRealm = PUBLIC_REALM,
-    allowActivatingParent = false,
-    activationRequester?: ServiceSlot,
-  ): Promise<EnvHandle<E['requires']>> {
-    const { envId, plan, rootSiteByEntryKey } = this.planEntry(
-      parent,
-      descriptor,
-      input,
-      false,
-      allowActivatingParent,
-      realm,
-    )
+  ): Promise<EnvImpl<E['requires']>> {
+    const { envId, plan, rootSiteByEntryKey } = this.planEntry(parent, descriptor, input, false, false, realm)
     const env = new EnvImpl<E['requires']>(this, envId, parent, plan, rootSiteByEntryKey)
     this.envById.set(env.id, env)
 
@@ -437,19 +474,9 @@ class RuntimeImpl implements SynaRuntime {
     if (parent) parent.children.add(env)
     else this.roots.add(env)
 
-    const activationTaskId = `activation:${env.id}`
-    if (activationRequester) {
-      this.materializer.addWaitEdge(
-        activationRequester.id,
-        activationTaskId,
-        activationRequester.revision.key,
-        `Entry ${descriptor.id}`,
-      )
-    }
-
     try {
       await this.prepareSyntheticValues(env)
-      await this.activateEnv(env, activationTaskId)
+      await this.activateEnv(env)
       if (env.state !== 'activating') {
         throw new SynaError(
           'INVALID_ENV_STATE',
@@ -461,20 +488,41 @@ class RuntimeImpl implements SynaRuntime {
       return env
     }
     catch (error) {
-      try { await env.dispose() }
-      catch (cleanup) { throw addSuppressed(error, cleanup) }
-      throw asSynaError(
-        error,
+      // Activation failures are always reported as ENTRY_ACTIVATION_FAILED with
+      // the underlying error as `cause`, whatever its type. Planning errors are
+      // thrown before this point and keep their own codes.
+      const failure = new SynaError(
         'ENTRY_ACTIVATION_FAILED',
-        `Entry ${descriptor.id} failed while activating Env ${envId}.`,
-        { entry: descriptor.id, env: envId },
+        `Entry ${descriptor.id} failed while activating Env ${envId}: ${error instanceof Error ? error.message : String(error)}`,
+        {
+          entry: descriptor.id,
+          env: envId,
+          ...(error instanceof SynaError ? { causeCode: error.code, causeDetails: error.details } : {}),
+        },
+        { cause: error },
+      )
+      try { await env.dispose() }
+      catch (cleanup) { throw addSuppressed(failure, cleanup) }
+      throw failure
+    }
+  }
+
+  createRefFor(slot: RuntimeSlot): DependencyRef<unknown> | InputRef<unknown> {
+    return slot.kind === 'input'
+      ? this.materializer.createInputRef(slot)
+      : this.materializer.createRef(slot)
+  }
+
+  private requireEnv(envId: string): EnvImpl<any> {
+    const env = this.envById.get(envId)
+    if (!env) {
+      throw new SynaError(
+        'INVALID_ENV_STATE',
+        `Env ${envId} is no longer live.`,
+        { env: envId },
       )
     }
-    finally {
-      if (activationRequester) {
-        this.materializer.removeWaitEdge(activationRequester.id, activationTaskId)
-      }
-    }
+    return env
   }
 
   private planEntry<E extends EntryDescriptor<any, any>>(
@@ -490,13 +538,7 @@ class RuntimeImpl implements SynaRuntime {
     readonly rootSiteByEntryKey: ReadonlyMap<string, string>
   } {
     this.assertEntryUsable(parent, descriptor, allowActivatingParent)
-    return this.planner.plan(
-      parent,
-      descriptor,
-      parameters,
-      checking,
-      realm,
-    )
+    return this.planner.plan(parent, descriptor, parameters, checking, realm)
   }
 
   private assertEntryUsable(
@@ -505,22 +547,27 @@ class RuntimeImpl implements SynaRuntime {
     allowActivatingParent: boolean,
   ): void {
     if (this.disposed) throw new SynaError('INVALID_ENV_STATE', 'The Syna Runtime is disposed.')
-    if (parent && parent.runtime !== this) {
-      throw new SynaError('RUNTIME_MISMATCH', 'An Entry anchor belongs to another Runtime.')
-    }
-    if (parent && parent.state !== 'ready' && !(allowActivatingParent && parent.state === 'activating')) {
-      throw new SynaError(
-        'INVALID_ENV_STATE',
-        `Cannot enter from Env ${parent.id} while it is ${parent.state}.`,
-      )
-    }
-    if (descriptor.kind !== 'entry') {
+    if (typeof descriptor !== 'object' || descriptor === null || descriptor.kind !== 'entry') {
       throw new SynaError('INVALID_DESCRIPTOR', 'Expected an Entry descriptor.')
     }
-  }
-
-  createDependencyRef<T>(slot: RuntimeSlot): DependencyRef<T> {
-    return this.materializer.createRef<T>(slot)
+    if (!parent) return
+    if (parent.runtime !== this) {
+      throw new SynaError('RUNTIME_MISMATCH', 'An Entry anchor belongs to another Runtime.')
+    }
+    if (parent.state === 'ready') return
+    if (parent.state === 'activating') {
+      if (allowActivatingParent) return
+      throw new SynaError(
+        'OWNER_NOT_READY',
+        `Cannot enter ${descriptor.id} from Env ${parent.id} while it is still activating. Finish setup first and start child worlds from a Ready owner (for example from a host-driven start() method).`,
+        { entry: descriptor.id, env: parent.id, state: parent.state },
+      )
+    }
+    throw new SynaError(
+      'INVALID_ENV_STATE',
+      `Cannot enter from Env ${parent.id} while it is ${parent.state}.`,
+      { entry: descriptor.id, env: parent.id, state: parent.state },
+    )
   }
 
   private async prepareSyntheticValues(env: EnvImpl<any>): Promise<void> {
@@ -529,159 +576,43 @@ class RuntimeImpl implements SynaRuntime {
       if (slot.ownerEnvId !== env.id || slot.kind === 'service' || slot.kind === 'input' || slot.value !== undefined) {
         continue
       }
-      if (node.kind === 'selector') slot.value = await this.createSelector(node, slot, env)
-      else if (node.kind === 'all') slot.value = this.createImplementationSet(node, slot, env)
+      if (node.kind === 'selector') {
+        slot.value = await createSelector(this, node, slot, this.anchorEnvId(node.anchorNodeId, env))
+      }
+      else if (node.kind === 'all') slot.value = createImplementationSet(this, node, slot, env.id)
       else if (node.kind === 'entry') {
-        const anchor = this.anchorForSyntheticNode(node.anchorNodeId, env.plan, env)
-        slot.value = this.createBoundEntry(node.entry, anchor, node.realm, true)
+        slot.value = this.createBoundEntry(node.entry, this.anchorEnvId(node.anchorNodeId, env), node.realm)
       }
       Object.freeze(slot.requires)
     }
   }
 
-  private anchorForSyntheticNode(
-    anchorNodeId: string | undefined,
-    plan: ResolvedPlan,
-    fallback: EnvImpl<any>,
-  ): EnvImpl<any> {
-    if (!anchorNodeId) return fallback
-    const anchorSlot = plan.slotsByNode.get(anchorNodeId)
-    if (!anchorSlot) throw new SynaError('INVALID_ENV_STATE', `Missing anchor node ${anchorNodeId}.`)
-    const anchor = this.envById.get(anchorSlot.ownerEnvId)
-    if (!anchor) throw new SynaError('INVALID_ENV_STATE', `Missing anchor Env ${anchorSlot.ownerEnvId}.`)
-    return anchor
+  private anchorEnvId(anchorNodeId: string | undefined, fallback: EnvImpl<any>): string {
+    if (!anchorNodeId) return fallback.id
+    const anchorSlot = fallback.plan.slotsByNode.get(anchorNodeId)
+    if (!anchorSlot) {
+      throw new SynaError('INVALID_ENV_STATE', `Missing anchor node ${anchorNodeId}.`, { node: anchorNodeId })
+    }
+    return anchorSlot.ownerEnvId
   }
 
-  private async createSelector(
-    node: SelectorPlanNode,
-    slot: SyntheticSlot,
-    env: EnvImpl<any>,
-  ): Promise<ImplementationSelector<any>> {
-    const anchor = this.anchorForSyntheticNode(node.anchorNodeId, env.plan, env)
-    const availabilityByRevision = new Map<string, CandidateAvailabilityInput>()
-    const boundEntryByRevision = new Map<
-      string,
-      BoundEntry<EntryDescriptor<{ implementation: ServiceRevision<any> }, {}>>
-    >()
-
-    for (const revision of node.candidates) {
-      const entry = this.candidateEntry(node.contract, revision)
-      const check = await this.checkFrom(anchor, entry, {}, PUBLIC_REALM, true, true)
-      boundEntryByRevision.set(
-        revision.key,
-        this.createBoundEntry(entry, anchor, PUBLIC_REALM, true),
-      )
-      availabilityByRevision.set(
-        revision.key,
-        check.ok
-          ? Object.freeze({ status: 'available' as const })
-          : Object.freeze({
-              status: 'unavailable' as const,
-              code: check.error.code,
-              message: check.error.message,
-              details: check.error.details,
-            }),
-      )
-    }
-
-    const index = this.implementationDirectory.createIndex({
-      contract: node.contract,
-      sourceSlotId: slot.id,
-      revisions: node.candidates,
-      availabilityByRevision,
-      sitePrefix: node.dependencySite,
-      parentActiveRevisionKeys: this.planner.activeRevisionKeys(anchor.plan),
-    })
-
-    const openCandidate = async (
-      input: ImplementationCandidate<any> | CandidateRef<any> | PersistentImplementationRef<any>,
-    ): Promise<ImplementationLease<any>> => {
-      const candidate = index.requireAvailable(input)
-      const boundEntry = boundEntryByRevision.get(index.revisionKey(candidate))!
-      const candidateEnv = await boundEntry.enter()
-      return Object.freeze({
-        env: candidateEnv,
-        implementation: candidateEnv.deps.implementation,
-        dispose: () => candidateEnv.dispose(),
-        [Symbol.asyncDispose]: () => candidateEnv.dispose(),
-      })
-    }
-
-    const selector: ImplementationSelector<any> = {
-      contract: node.contract,
-      candidates: index.candidates,
-      *[Symbol.iterator]() { yield* index.candidates },
-      resolve: ref => index.resolve(ref),
-      open: openCandidate,
-      run: async (input, callback) => {
-        const lease = await openCandidate(input)
-        return this.executeStructured(
-          lease.env as EnvImpl<any>,
-          () => callback(lease.implementation, lease.env),
-        )
-      },
-    }
-    return Object.freeze(selector)
+  /** Ready means every eager slot owned by this Env is Ready; inherited eager slots are already Ready in their owner. */
+  private async activateEnv(env: EnvImpl<any>): Promise<void> {
+    const eager = [...new Set(env.plan.slotsByNode.values())]
+      .filter((slot): slot is ServiceSlot =>
+        slot.kind === 'service' && slot.ownerEnvId === env.id && slot.service.eager)
+    await this.materializer.startEagerSlots(eager)
   }
 
-  private createImplementationSet(
-    node: AllPlanNode,
-    slot: SyntheticSlot,
-    env: EnvImpl<any>,
-  ): ImplementationSet<any> {
-    const slotByRevision = new Map<string, RuntimeSlot>()
-    for (const revision of node.candidates) {
-      slotByRevision.set(revision.key, slot.requires.get(revision.key)!)
-    }
-    const index = this.implementationDirectory.createIndex({
-      contract: node.contract,
-      sourceSlotId: slot.id,
-      revisions: node.candidates,
-      sitePrefix: `all:${node.contract.id}`,
-      parentActiveRevisionKeys: this.planner.activeRevisionKeys(env.plan),
-    })
-    const implementationSet: ImplementationSet<any> = {
-      contract: node.contract,
-      candidates: index.candidates,
-      *[Symbol.iterator]() { yield* index.candidates },
-      resolve: ref => index.resolve(ref),
-      load: async input => {
-        const candidate = index.requireAvailable(input)
-        return this.materializer.load(
-          slotByRevision.get(index.revisionKey(candidate))!,
-        )
-      },
-    }
-    return Object.freeze(implementationSet)
-  }
-
-  private candidateEntry(
-    contract: Contract,
-    revision: ServiceRevision,
-  ): EntryDescriptor<{ implementation: ServiceRevision<any> }, {}> {
-    return Object.freeze({
-      kind: 'entry',
-      package: internalPackage,
-      id: `@syna/core/entry/candidate/${contract.id}/${revision.key}/v1`,
-      apiVersion: 1,
-      requires: Object.freeze({ implementation: revision }),
-      parameters: Object.freeze({}),
-      scope: Object.freeze({ fresh: Object.freeze([]), share: Object.freeze([]) }),
-      metadata: Object.freeze({}),
-    })
-  }
-
-  private async activateEnv(env: EnvImpl<any>, activationTaskId: string): Promise<void> {
-    await this.materializer.activateOwnedEagerSlots(
-      env,
-      env.plan.slotsByNode.values(),
-      activationTaskId,
-    )
-  }
-
+  /**
+   * Closing order: refuse new work and broadcast cancellation, wait for
+   * descendants, wait for registered attempts, then dispose owned Ready slots
+   * dependant-first over the SCC condensation.
+   */
   async disposeEnv(env: EnvImpl<any>): Promise<void> {
     if (env.state === 'disposed' || env.state === 'disposing') return
     env.state = 'disposing'
+    env.abortController.abort()
     const errors: unknown[] = []
 
     for (const child of [...env.children]) {
@@ -689,11 +620,10 @@ class RuntimeImpl implements SynaRuntime {
       catch (error) { errors.push(error) }
     }
 
-    env.abortController.abort()
     const ownedServiceSlots = [...new Set(env.plan.slotsByNode.values())]
       .filter((slot): slot is ServiceSlot => slot.kind === 'service' && slot.ownerEnvId === env.id)
 
-    await this.materializer.settleStartingSlots(ownedServiceSlots)
+    const abandoned = await this.materializer.settleSlots(ownedServiceSlots)
     errors.push(...await this.materializer.disposeServiceSlots(ownedServiceSlots))
 
     for (const slot of ownedServiceSlots) {
@@ -705,11 +635,20 @@ class RuntimeImpl implements SynaRuntime {
     this.roots.delete(env)
     this.envById.delete(env.id)
 
+    if (abandoned.length > 0) {
+      errors.push(new SynaError(
+        'UNSETTLED_ATTEMPT',
+        `Env ${env.id} closed while ${abandoned.length} setup attempt(s) were still running; their resources are not under Syna control.`,
+        {
+          env: env.id,
+          slots: abandoned.map(slot => ({ slot: slot.id, revision: slot.service.key })),
+        },
+      ))
+    }
     if (errors.length > 0) {
       throw new AggregateError(errors, `Env ${env.id} failed to dispose cleanly.`)
     }
   }
-
 }
 
 export function createRuntime(options: CreateRuntimeOptions): SynaRuntime {

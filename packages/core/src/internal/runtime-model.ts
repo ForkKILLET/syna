@@ -4,13 +4,18 @@ import type {
   CandidateRef,
   Contract,
   Dependency,
+  DescriptorMetadata,
   EntryDescriptor,
+  ForkCause,
   Input,
+  NormalizedServiceFailurePolicy,
+  ServiceFamily,
   ServiceRevision,
 } from '../descriptors.js'
 import type { LabeledGraphNode } from '../graph.js'
 
 export type EnvState = 'activating' | 'ready' | 'disposing' | 'disposed'
+
 export type ServiceSlotState =
   | 'dormant'
   | 'starting'
@@ -18,12 +23,44 @@ export type ServiceSlotState =
   | 'failed'
   | 'disposing'
   | 'disposed'
+  /** A timed-out setup attempt never settled before disposal finished. */
+  | 'abandoned'
 
 export type NodeKind = 'service' | 'input' | 'binding' | 'selector' | 'all' | 'entry'
 
+/**
+ * Internal executable record for one nominal Service revision. Public code
+ * only ever sees the `source` descriptor; an override replaces the executable
+ * half without creating a second public identity.
+ */
+export interface CompiledService {
+  readonly key: string
+  readonly family: ServiceFamily
+  readonly version: string
+  readonly source: ServiceRevision
+  readonly provides: readonly Contract[]
+  readonly eager: boolean
+  readonly requires: DependencyMap
+  readonly setup: ServiceRevision['setup']
+  readonly failure: NormalizedServiceFailurePolicy
+  readonly setupDeadlineMs: number | undefined
+  readonly metadata: Readonly<DescriptorMetadata>
+  readonly overriddenBy: ServiceRevision | undefined
+  readonly admitted: boolean
+}
+
+type DependencyMap = Readonly<Record<string, Dependency>>
+
+/** Authority under which an Entry's roots are resolved. */
 export type ResolutionRealm =
   | { readonly kind: 'public'; readonly id: 'public' }
-  | { readonly kind: 'private-entry'; readonly id: string }
+  | {
+      readonly kind: 'private-entry'
+      readonly id: string
+      readonly ownerKey: string
+      /** Exact revision keys visible to this realm in addition to public admission. */
+      readonly closureKeys: ReadonlySet<string>
+    }
 
 export interface RootSite {
   readonly id: string
@@ -53,7 +90,7 @@ export interface BindingChoiceSlot {
   readonly id: string
   readonly ownerEnvId: string
   readonly binding: Binding
-  readonly revision: ServiceRevision
+  readonly revision: CompiledService
 }
 
 export interface SyntheticSlot {
@@ -65,23 +102,47 @@ export interface SyntheticSlot {
   value?: unknown
 }
 
+export interface PendingLoad {
+  readonly target: ServiceSlot
+  readonly since: number
+}
+
+/** One actual execution of `setup()` for a slot. Waiters join it; it never runs concurrently with another attempt of the same slot. */
+export interface SetupAttempt {
+  readonly id: number
+  readonly slot: ServiceSlot
+  readonly startedAt: number
+  state: 'running' | 'succeeded' | 'failed' | 'timed-out'
+  readonly cleanups: Array<() => Awaitable<void>>
+  readonly pendingLoads: Map<number, PendingLoad>
+  /** True once the user's setup Promise settled (resolved or rejected), however late. */
+  rawSettled: boolean
+  /** Resolves once the raw setup Promise settled and any orphaned resources were cleaned. */
+  readonly settled: Promise<void>
+  resolveSettled: () => void
+}
+
 export interface ServiceSlot {
   readonly kind: 'service'
   readonly id: string
   readonly ownerEnvId: string
-  readonly revision: ServiceRevision
+  readonly service: CompiledService
   readonly requires: Map<string, RuntimeSlot>
   ownerEnv?: SlotOwnerEnv
   state: ServiceSlotState
   instance?: unknown
   error?: unknown
-  starting?: Promise<unknown>
+  failedAt?: number
+  /** The attempt currently running, if any. */
+  attempt?: SetupAttempt
+  /** Result promise of the current or last setup sequence; waiters join it. */
+  sequence?: Promise<unknown>
+  /** A timed-out attempt whose raw Promise has not settled yet. Blocks new attempts. */
+  unsettledAttempt?: SetupAttempt
+  recovery?: Promise<unknown>
   cleanups: Array<() => Awaitable<void>>
   completionOrder?: number
-  attempts: number
-  failedAt?: number
-  recovery?: Promise<unknown>
-  generation: number
+  attemptCount: number
 }
 
 export type RuntimeSlot = InputSlot | SyntheticSlot | ServiceSlot
@@ -93,7 +154,7 @@ export interface BasePlanNode extends LabeledGraphNode {
 
 export interface ServicePlanNode extends BasePlanNode {
   readonly kind: 'service'
-  readonly revision: ServiceRevision
+  readonly revision: CompiledService
 }
 
 export interface InputPlanNode extends BasePlanNode {
@@ -104,14 +165,14 @@ export interface InputPlanNode extends BasePlanNode {
 export interface BindingPlanNode extends BasePlanNode {
   readonly kind: 'binding'
   readonly binding: Binding
-  readonly revision: ServiceRevision
+  readonly revision: CompiledService
 }
 
 /** Candidate worlds are not inserted into the current Env. */
 export interface SelectorPlanNode extends BasePlanNode {
   readonly kind: 'selector'
   readonly contract: Contract
-  readonly candidates: readonly ServiceRevision[]
+  readonly candidates: readonly CompiledService[]
   readonly dependencySite: string
   readonly anchorNodeId?: string
 }
@@ -120,7 +181,7 @@ export interface SelectorPlanNode extends BasePlanNode {
 export interface AllPlanNode extends BasePlanNode {
   readonly kind: 'all'
   readonly contract: Contract
-  readonly candidates: readonly ServiceRevision[]
+  readonly candidates: readonly CompiledService[]
 }
 
 export interface BoundEntryPlanNode extends BasePlanNode {
@@ -139,6 +200,11 @@ export type PlanNode =
   | AllPlanNode
   | BoundEntryPlanNode
 
+export interface NodeExplanation {
+  readonly disposition: 'inherited' | 'new' | 'forked'
+  readonly cause: ForkCause | undefined
+}
+
 export interface ResolvedPlan {
   readonly nodes: Map<string, PlanNode>
   readonly rootNodeBySite: Map<string, string>
@@ -147,7 +213,9 @@ export interface ResolvedPlan {
   readonly inputSlots: ReadonlyMap<string, InputSlot>
   readonly bindingChoices: ReadonlyMap<string, BindingChoiceSlot>
   readonly choices: ReadonlyMap<string, string>
+  /** Lineage-unique family → anchored slot (persists through Envs that do not use the family). */
   readonly anchors: ReadonlyMap<string, ServiceSlot>
+  readonly explanations: ReadonlyMap<string, NodeExplanation>
   readonly signature: string
   readonly lineageKey: string
   readonly envId: string
@@ -161,7 +229,7 @@ export interface EnvPlanView {
 
 export interface NeedChoiceData {
   readonly site: string
-  readonly candidates: readonly ServiceRevision[]
+  readonly candidates: readonly CompiledService[]
   readonly description: string
 }
 
@@ -192,7 +260,9 @@ export interface PlanEntryParameters {
   readonly parent?: EnvPlanView
   readonly rootSites: readonly RootSite[]
   readonly inputSlots: ReadonlyMap<string, InputSlot>
+  readonly providedInputIds: ReadonlySet<string>
   readonly bindingChoices: ReadonlyMap<string, BindingChoiceSlot>
+  readonly changedBindingIds: ReadonlySet<string>
   readonly inheritedChoices: ReadonlyMap<string, string>
   readonly fresh: ScopeTargetSet
   readonly share: ScopeTargetSet
@@ -201,13 +271,6 @@ export interface PlanEntryParameters {
 export interface InternalCandidateRef extends CandidateRef<any> {
   readonly sourceSlotId: string
   readonly revisionKey: string
-}
-
-
-export interface MaterializationFrame {
-  readonly slot: ServiceSlot
-  readonly strongLoads: Set<Promise<unknown>>
-  active: boolean
 }
 
 export interface DisposableError {

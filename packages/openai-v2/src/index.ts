@@ -19,7 +19,7 @@ export const OpenAI = define.service({
     tags: ['recommended'],
   },
   async setup({ call, logger }): Promise<OpenAI> {
-    const context = await call.load()
+    const context = call.read()
     const log = await logger.load()
     let completions = 0
 

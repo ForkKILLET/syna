@@ -15,49 +15,51 @@ import type {
   BindingChoiceSlot,
   BindingPlanNode,
   BoundEntryPlanNode,
+  CompiledService,
   EnvPlanView,
   GraphBuildResult,
   InputSlot,
   PlanNode,
+  ResolutionRealm,
   RootSite,
   SelectorPlanNode,
   ServicePlanNode,
 } from './runtime-model.js'
 import { NeedChoice } from './runtime-model.js'
-import {
-  compareRevisionIdentity,
-  providesContract,
-  unwrapDependency,
-} from './runtime-utils.js'
+import { compareRevisionIdentity, providesContract, unwrapDependency } from './identity.js'
+import { realmAllows } from './resolution-realm.js'
 
 export interface GraphBuilderHost {
-  readonly admittedRevisions: readonly ServiceRevision[]
+  readonly admitted: readonly CompiledService[]
   readonly policy: RuntimePolicy
 
-  canonicalRevision(revision: ServiceRevision, publicOnly: boolean): ServiceRevision
+  compiledExact(revision: ServiceRevision): CompiledService
+  familyRevisions(familyId: string): readonly CompiledService[]
+  serviceRealm(owner: CompiledService): ResolutionRealm
   registerFamily(family: ServiceFamily): void
   registerContract(contract: Contract): void
   registerInput(input: Input): void
   registerBinding(binding: Binding): void
-  entryRealm(
-    owner: ServiceRevision,
-    dependencySite: string,
-    entry: EntryDescriptor,
-  ): import('./runtime-model.js').ResolutionRealm
-  validateCandidateOrder(
-    original: readonly ServiceRevision[],
-    ordered: readonly ServiceRevision[],
+  registerEntry(entry: EntryDescriptor): void
+  orderCandidates(
+    candidates: readonly CompiledService[],
+    order: (revisions: readonly ServiceRevision[]) => readonly ServiceRevision[],
     site: string,
-  ): readonly ServiceRevision[]
+  ): readonly CompiledService[]
 }
 
+/**
+ * Lowers Entry roots and Service manifests into an exact nominal node graph.
+ * Node ids are stable across Envs (they never contain Env or slot ids), which
+ * is what makes parent-visible reuse and plan-template caching possible.
+ */
 export class GraphBuilder {
   private readonly nodes = new Map<string, PlanNode>()
   private readonly rootNodeBySite = new Map<string, string>()
   private readonly parentActiveRevisionKeys: ReadonlySet<string>
 
   constructor(
-    private readonly runtime: GraphBuilderHost,
+    private readonly host: GraphBuilderHost,
     private readonly rootSites: readonly RootSite[],
     private readonly inputSlots: ReadonlyMap<string, InputSlot>,
     private readonly bindingChoices: ReadonlyMap<string, BindingChoiceSlot>,
@@ -75,11 +77,7 @@ export class GraphBuilder {
 
   build(): GraphBuildResult {
     for (const root of this.rootSites) {
-      const nodeId = this.resolveDependency(
-        root.dependency,
-        root.id,
-        root.realm.kind === 'public',
-      )
+      const nodeId = this.resolveDependency(root.dependency, root.id, root.realm)
       this.rootNodeBySite.set(root.id, nodeId)
     }
     return { nodes: this.nodes, rootNodeBySite: this.rootNodeBySite }
@@ -89,41 +87,49 @@ export class GraphBuilder {
     return { site, parentActiveRevisionKeys: this.parentActiveRevisionKeys }
   }
 
-  private implementationCandidates(contract: Contract): readonly ServiceRevision[] {
-    this.runtime.registerContract(contract)
-    return this.runtime.admittedRevisions
-      .filter(revision => providesContract(revision, contract))
+  private implementationCandidates(contract: Contract): readonly CompiledService[] {
+    this.host.registerContract(contract)
+    return this.host.admitted.filter(revision => providesContract(revision, contract))
   }
 
   private resolveDependency(
     dependencyInput: RootSite['dependency'],
     site: string,
-    publicOnly: boolean,
+    realm: ResolutionRealm,
     ownerNodeId?: string,
   ): string {
     const dependency = unwrapDependency(dependencyInput)
 
     switch (dependency.kind) {
-      case 'service-revision':
-        return this.resolveService(this.runtime.canonicalRevision(dependency, publicOnly))
+      case 'service-revision': {
+        const compiled = this.host.compiledExact(dependency)
+        if (!realmAllows(realm, compiled.key, compiled.admitted)) {
+          throw new SynaError(
+            'MISSING_SERVICE',
+            `${compiled.key} is not admitted by this Runtime and ${realm.kind === 'public' ? 'public Entries have no private authority' : `is outside the private realm of ${realm.ownerKey}`} (${site}).`,
+            { revision: compiled.key, site, realm: realm.id },
+          )
+        }
+        return this.resolveService(compiled)
+      }
 
       case 'service-range': {
-        this.runtime.registerFamily(dependency.family)
-        const candidates = this.runtime.admittedRevisions
-          .filter(revision => revision.family.id === dependency.family.id)
+        this.host.registerFamily(dependency.family)
+        const candidates = this.host.familyRevisions(dependency.family.id)
+          .filter(revision => realmAllows(realm, revision.key, revision.admitted))
           .filter(revision => satisfiesVersion(revision.version, dependency.range))
         if (candidates.length === 0) {
           throw new SynaError(
             'MISSING_SERVICE',
-            `No admitted revision of ${dependency.family.id} satisfies ${dependency.range}.`,
-            { family: dependency.family.id, range: dependency.range, site },
+            `No revision of ${dependency.family.id} visible at ${site} satisfies ${dependency.range}.`,
+            { family: dependency.family.id, range: dependency.range, site, realm: realm.id },
           )
         }
-        const ordered = this.runtime.validateCandidateOrder(
+        const ordered = this.host.orderCandidates(
           candidates,
-          this.runtime.policy.orderVersionCandidates(
+          revisions => this.host.policy.orderVersionCandidates(
             dependency.family,
-            candidates,
+            revisions,
             this.resolutionContext(site),
           ),
           site,
@@ -132,12 +138,12 @@ export class GraphBuilder {
       }
 
       case 'input': {
-        this.runtime.registerInput(dependency)
+        this.host.registerInput(dependency)
         if (!this.inputSlots.has(dependency.id)) {
           throw new SynaError(
             'MISSING_INPUT',
             `Input ${dependency.id} is required at ${site} but is not provided by this Env lineage.`,
-            { input: dependency.id, site },
+            { input: dependency.id, site, missing: [dependency.id] },
           )
         }
         const nodeId = `input:${dependency.id}`
@@ -154,13 +160,13 @@ export class GraphBuilder {
       }
 
       case 'binding': {
-        this.runtime.registerBinding(dependency)
+        this.host.registerBinding(dependency)
         const choice = this.bindingChoices.get(dependency.id)
         if (!choice) {
           throw new SynaError(
             'MISSING_BINDING',
             `Binding ${dependency.id} is required at ${site} but has no choice in this Env lineage.`,
-            { binding: dependency.id, site },
+            { binding: dependency.id, site, missing: [dependency.id] },
           )
         }
         const nodeId = `binding:${dependency.id}`
@@ -180,13 +186,14 @@ export class GraphBuilder {
       }
 
       case 'entry': {
+        this.host.registerEntry(dependency)
         const nodeId = `entry:${site}:${dependency.id}`
         const existing = this.nodes.get(nodeId)
         if (existing) return existing.id
         const owner = ownerNodeId ? this.nodes.get(ownerNodeId) : undefined
-        const realm = owner?.kind === 'service'
-          ? this.runtime.entryRealm(owner.revision, site, dependency)
-          : { kind: 'public' as const, id: 'public' as const }
+        const entryRealm = owner?.kind === 'service'
+          ? this.host.serviceRealm(owner.revision)
+          : realm
         const node: BoundEntryPlanNode = {
           id: nodeId,
           kind: 'entry',
@@ -194,7 +201,7 @@ export class GraphBuilder {
           edges: new Map(),
           entry: dependency,
           dependencySite: site,
-          realm,
+          realm: entryRealm,
           ...(ownerNodeId ? { anchorNodeId: ownerNodeId } : {}),
         }
         if (ownerNodeId) node.edges.set('anchor', ownerNodeId)
@@ -220,11 +227,11 @@ export class GraphBuilder {
           )
         }
         const family = candidates[0]!.family
-        const ordered = this.runtime.validateCandidateOrder(
+        const ordered = this.host.orderCandidates(
           candidates,
-          this.runtime.policy.orderVersionCandidates(
+          revisions => this.host.policy.orderVersionCandidates(
             family,
-            candidates,
+            revisions,
             this.resolutionContext(site),
           ),
           site,
@@ -241,11 +248,11 @@ export class GraphBuilder {
             { contract: dependency.contract.id, site },
           )
         }
-        const ordered = this.runtime.validateCandidateOrder(
+        const ordered = this.host.orderCandidates(
           candidates,
-          this.runtime.policy.orderAutoCandidates(
+          revisions => this.host.policy.orderAutoCandidates(
             dependency.contract,
-            candidates,
+            revisions,
             this.resolutionContext(site),
           ),
           site,
@@ -294,12 +301,19 @@ export class GraphBuilder {
         }
         return nodeId
       }
+
+      default:
+        throw new SynaError(
+          'INVALID_DESCRIPTOR',
+          `Unknown dependency descriptor at ${site}.`,
+          { site },
+        )
     }
   }
 
   private resolveChosenRevision(
     site: string,
-    candidates: readonly ServiceRevision[],
+    candidates: readonly CompiledService[],
     description: string,
   ): string {
     const selectedKey = this.choices.get(site)
@@ -317,8 +331,7 @@ export class GraphBuilder {
     throw new NeedChoice({ site, candidates, description })
   }
 
-  private resolveService(inputRevision: ServiceRevision): string {
-    const revision = this.runtime.canonicalRevision(inputRevision, false)
+  private resolveService(revision: CompiledService): string {
     const nodeId = `service:${revision.key}`
     const existing = this.nodes.get(nodeId)
     if (existing) return existing.id
@@ -332,9 +345,10 @@ export class GraphBuilder {
     }
     this.nodes.set(nodeId, node)
 
+    const realm = this.host.serviceRealm(revision)
     for (const [key, dependency] of Object.entries(revision.requires)) {
       const site = `service:${revision.key}/dependency:${key}`
-      node.edges.set(key, this.resolveDependency(dependency, site, false, nodeId))
+      node.edges.set(key, this.resolveDependency(dependency, site, realm, nodeId))
     }
     return nodeId
   }
