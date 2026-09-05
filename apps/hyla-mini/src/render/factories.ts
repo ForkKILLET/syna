@@ -117,12 +117,15 @@ function sanitizeSchema(options: Readonly<Record<string, unknown>>): Schema {
 }
 
 /**
- * A second identity of the sanitize plugin. unified merges repeated uses of one
- * plugin function into the first, so a sanitizer appended after a recipe's own
- * sanitize stage would only re-configure that earlier pass; this identity is a
- * pass of its own, run where the builder puts it (last among the rehype stages).
+ * A fresh identity of the sanitize plugin for one configuration. unified merges
+ * repeated uses of one plugin function into the first, so a sanitizer appended
+ * after a recipe's own sanitize stage would only re-configure that earlier pass;
+ * a plugin function created per configuration is a pass of its own, run where
+ * the builder puts it (last among the rehype stages). One shared "final pass"
+ * identity would not do: a recipe that itself uses `finalPass: true` would
+ * absorb the builder's appended pass the same way (audit 3, F-AP3-01).
  */
-const rehypeSanitizeFinalPass: Plugin<[Schema], HastRoot> = schema => rehypeSanitize(schema) as never
+const rehypeSanitizeOwnPass = (): Plugin<[Schema], HastRoot> => schema => rehypeSanitize(schema) as never
 
 export const RehypeSanitizeFactory = define.service('rehype-sanitize-factory', {
   provides: [MarkdownStageFactoryContract],
@@ -148,7 +151,8 @@ export const RehypeSanitizeFactory = define.service('rehype-sanitize-factory', {
       },
       options => processor => {
         const schema = sanitizeSchema(options)
-        return options.finalPass ? processor.use(rehypeSanitizeFinalPass, schema) : processor.use(rehypeSanitize, schema)
+        const plugin = options.finalPass ? rehypeSanitizeOwnPass() : rehypeSanitize
+        return processor.use(plugin, schema)
       },
     )
   },

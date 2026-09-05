@@ -238,6 +238,7 @@ class RuntimeImpl implements SynaRuntime, ImplementationViewHost {
 
   private readonly compiler: DefinitionCompiler
   private readonly materializer: Materializer
+  private readonly disposalGraceMs: number
   private readonly envById = new Map<string, EnvImpl<any>>()
   private readonly planner: EntryPlanner
   private readonly onEvent: (event: RuntimeEvent) => void
@@ -276,9 +277,10 @@ class RuntimeImpl implements SynaRuntime, ImplementationViewHost {
       options.planCache?.maxEntries ?? DEFAULT_PLAN_CACHE_ENTRIES,
       options.planning?.searchBudget ?? DEFAULT_SEARCH_BUDGET,
     )
+    this.disposalGraceMs = positiveNumber(options.disposal?.graceMs, DEFAULT_DISPOSAL_GRACE_MS, 'disposal.graceMs')
     this.materializer = new Materializer({
       deadlineMs: positiveNumber(options.initialization?.deadlineMs, DEFAULT_DEADLINE_MS, 'initialization.deadlineMs'),
-      disposalGraceMs: positiveNumber(options.disposal?.graceMs, DEFAULT_DISPOSAL_GRACE_MS, 'disposal.graceMs'),
+      disposalGraceMs: this.disposalGraceMs,
       onEvent: this.onEvent,
     })
 
@@ -348,13 +350,15 @@ class RuntimeImpl implements SynaRuntime, ImplementationViewHost {
         .flatMap(result => (result.status === 'rejected' ? [result.reason] : []))
       this.planner.clearCache()
       // Envs that completed their bounded close earlier are no longer roots, but an
-      // attempt they abandoned may still be pending: report it again instead of
-      // fulfilling as if everything had settled.
+      // attempt they abandoned may still be pending, or its late close (cleanups)
+      // may be running: give the latter the grace, then report whatever is still
+      // outstanding instead of fulfilling as if everything had settled.
+      await this.materializer.awaitSettling(this.disposalGraceMs)
       const outstanding = this.materializer.unsettledAttempts()
       if (outstanding.length > 0) {
         errors.push(new SynaError(
           'UNSETTLED_ATTEMPT',
-          `The Runtime closed while ${outstanding.length} setup attempt(s) were still running; their resources are not under Syna control.`,
+          `The Runtime closed while ${outstanding.length} setup attempt(s) were still running, rolling back or being cleaned up; their resources are not under Syna control.`,
           { attempts: outstanding },
         ))
       }
@@ -397,7 +401,16 @@ class RuntimeImpl implements SynaRuntime, ImplementationViewHost {
       catch (cleanup) { throw addSuppressed(primary, cleanup) }
       throw primary
     }
-    await env.dispose()
+    try {
+      await env.dispose()
+    }
+    catch (closeError) {
+      // The callback succeeded and only the close reports: its result travels with the error.
+      if (typeof closeError === 'object' && closeError !== null) {
+        Object.defineProperty(closeError, 'result', { value: result, enumerable: false, configurable: true, writable: true })
+      }
+      throw closeError
+    }
     return result
   }
 
@@ -688,9 +701,11 @@ class RuntimeImpl implements SynaRuntime, ImplementationViewHost {
     }
 
     if (abandoned.length > 0) {
+      const phases = new Set(abandoned.map(item => (item.attempt.rawSettled ? 'rollback' : 'setup')))
+      const activity = phases.size === 2 ? 'still running or rolling back' : phases.has('rollback') ? 'still rolling back' : 'still running'
       errors.push(new SynaError(
         'UNSETTLED_ATTEMPT',
-        `Env ${env.id} closed while ${abandoned.length} setup attempt(s) were still running; their resources are not under Syna control. The Env stays disposing until they settle.`,
+        `Env ${env.id} closed while ${abandoned.length} setup attempt(s) were ${activity}; their resources are not under Syna control. The Env stays disposing until they settle.`,
         {
           env: env.id,
           state: env.state,
@@ -698,6 +713,8 @@ class RuntimeImpl implements SynaRuntime, ImplementationViewHost {
             slot: item.slot.id,
             revision: item.slot.service.key,
             attempt: item.attempt.id,
+            // `rollback`: the setup already settled; its cleanups are what outlived the grace.
+            phase: item.attempt.rawSettled ? 'rollback' : 'setup',
             // The attempt ignored the stop signal past the grace period; the slots it
             // depends on were closed in the normal order regardless (the Runtime cannot
             // revoke an instance it already handed out), which is acknowledged here.

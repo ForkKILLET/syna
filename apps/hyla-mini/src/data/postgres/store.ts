@@ -18,9 +18,16 @@ import type {
   Tag,
 } from '../../domain/model.js'
 import { parseSiteConfig } from '../../domain/site-config.js'
-import { DomainConflictError, SlugConflictError, assertName, normalizeTimestamp } from '../common.js'
+import {
+  DomainConflictError,
+  SlugConflictError,
+  assertName,
+  assertOutsideUnitOfWork,
+  normalizeTimestamp,
+  runUnitOfWork,
+} from '../common.js'
 import { applyMigrations } from './migrations.js'
-import { DatabasePool, executorOf } from './pool.js'
+import { DatabasePool, executorOf, serialExecutorOf } from './pool.js'
 import type { SqlExecutor } from './pool.js'
 
 interface PostRow {
@@ -73,6 +80,18 @@ function rowToPost(row: PostRow): Post {
 
 function isUniqueViolation(error: unknown): error is DatabaseError {
   return error instanceof DatabaseError && error.code === '23505'
+}
+
+/**
+ * Every unit of work on a tenant (a public-path mutation, a `transaction()`)
+ * starts by taking the tenant's transaction-scoped advisory lock: mutations of
+ * one tenant are serialized, as they are on the filesystem backend, so two
+ * overlapping saves cannot interleave (F-BD3-03) and two units of work cannot
+ * deadlock on the rows they touch in a different order (F-BD3-07). Lock order:
+ * tenant, then the claimed hosts (sorted).
+ */
+export async function lockTenant(tx: SqlExecutor, tenantId: string): Promise<void> {
+  await tx.query('select pg_advisory_xact_lock(hashtext($1))', [`hyla-mini:tenant:${tenantId}`])
 }
 
 /**
@@ -191,14 +210,18 @@ export function repositoryOn(tenantId: string, sql: SqlExecutor, runMutation: Mu
     for (const host of claimed) {
       await tx.query('select pg_advisory_xact_lock(hashtext($1))', [`hyla-mini:domain:${host}`])
     }
-    await tx.query('delete from domains where tenant_id = $1', [tenantId])
+    // The conflict is decided before this tenant's own rows are touched: a unit of
+    // work that handles the DomainConflictError keeps the rows it had (F-BD3-02).
     if (claimed.length > 0) {
       const conflict = await tx.query<{ normalized_host: string; tenant_id: string }>(
-        'select normalized_host, tenant_id from domains where normalized_host = any($1::text[]) order by normalized_host limit 1',
-        [claimed],
+        'select normalized_host, tenant_id from domains where normalized_host = any($1::text[]) and tenant_id <> $2 order by normalized_host limit 1',
+        [claimed, tenantId],
       )
       const owner = conflict.rows[0]
       if (owner !== undefined) throw new DomainConflictError(tenantId, owner.normalized_host, owner.tenant_id)
+    }
+    await tx.query('delete from domains where tenant_id = $1', [tenantId])
+    if (claimed.length > 0) {
       try {
         await tx.query('insert into domains (normalized_host, tenant_id) select unnest($1::text[]), $2', [claimed, tenantId])
       }
@@ -302,28 +325,51 @@ export function repositoryOn(tenantId: string, sql: SqlExecutor, runMutation: Mu
   }
 }
 
+const TENANT_TABLES = ['posts', 'categories', 'tags', 'domains', 'sites', 'content_versions'] as const
+
 export function createPostgresContentStore(pool: DatabasePool): ContentStore {
   const shared: SqlExecutor = pool
-  /** A public-path mutation is a transaction of its own: the write and the version bump commit together or not at all. */
-  const inOwnTransaction: MutationRunner = work => pool.withTransaction(client => work(executorOf(client)))
+  /**
+   * A public-path mutation is a transaction of its own, serialized with the
+   * tenant's other units of work: the write and the version bump commit
+   * together or not at all. Issued inside `transaction()` of the same tenant it
+   * would wait for that unit of work forever, so it is refused instead.
+   */
+  const inOwnTransaction = (tenantId: string): MutationRunner => async work => {
+    assertOutsideUnitOfWork(tenantId, 'A public-repository mutation')
+    return pool.withTransaction(async client => {
+      const tx = executorOf(client)
+      await lockTenant(tx, tenantId)
+      return work(tx)
+    })
+  }
   return {
     backend: 'postgres',
-    forTenant: tenantId => repositoryOn(tenantId, shared, inOwnTransaction),
+    forTenant: tenantId => repositoryOn(tenantId, shared, inOwnTransaction(tenantId)),
     async listTenants() {
+      // A tenant is whoever left a row in any table, as a directory is on the filesystem backend.
       const result = await pool.query<{ tenant_id: string }>(
-        'select tenant_id from sites union select tenant_id from posts order by 1',
+        `${TENANT_TABLES.map(table => `select tenant_id from ${table}`).join(' union ')} order by 1`,
       )
       return result.rows.map(row => row.tenant_id)
     },
     async transaction(tenantId, work) {
       assertSafeSegment(tenantId, 'tenantId')
-      return pool.withTransaction(client => work(repositoryOn(tenantId, executorOf(client))))
+      return runUnitOfWork(tenantId, () => pool.withTransaction(async client => {
+        // One client, statements one after another even when the work issues them at once.
+        const tx = serialExecutorOf(client)
+        await lockTenant(tx, tenantId)
+        return work(repositoryOn(tenantId, tx))
+      }))
     },
     async deleteTenant(tenantId) {
       assertSafeSegment(tenantId, 'tenantId')
+      assertOutsideUnitOfWork(tenantId, 'deleteTenant()')
       await pool.withTransaction(async client => {
-        for (const table of ['posts', 'categories', 'tags', 'domains', 'sites', 'content_versions']) {
-          await client.query(`delete from ${table} where tenant_id = $1`, [tenantId])
+        const tx = executorOf(client)
+        await lockTenant(tx, tenantId)
+        for (const table of TENANT_TABLES) {
+          await tx.query(`delete from ${table} where tenant_id = $1`, [tenantId])
         }
       })
     },

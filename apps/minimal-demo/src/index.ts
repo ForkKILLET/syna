@@ -1,3 +1,4 @@
+import assert from 'node:assert/strict'
 import packageJson from '#syna/package' with { type: 'json' }
 import { createRuntime, definePackage } from '@syna/core'
 
@@ -27,6 +28,12 @@ const Main = define.entry({
 
 const runtime = createRuntime({ services: [Greeter] })
 
-await runtime.run(Main, { name: 'Syna' }, async ({ greeter }) => {
-  console.log(await (await greeter.load()).greet())
-})
+const greeting = await runtime.run(Main, { name: 'Syna' }, async ({ greeter }) => (await greeter.load()).greet())
+console.log(greeting)
+const liveEnvs = runtime.inspect().liveEnvCount
+await runtime.dispose()
+
+// The demo checks its own result (I-112): exit 0 alone proves only the absence of a crash.
+assert.equal(greeting, 'Hello, Syna!')
+assert.equal(liveEnvs, 0)
+console.log('demo: OK')

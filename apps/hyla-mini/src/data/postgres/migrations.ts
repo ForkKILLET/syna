@@ -76,22 +76,32 @@ export function migrationStatements(schema: string): readonly string[] {
        tenant_id text primary key,
        version bigint not null
      )`,
-    `create table if not exists ${s}.domains (
-       normalized_host text primary key,
-       tenant_id text not null
-     )`,
+    // The domains table is created once, together with its back-fill from the
+    // configurations stored before it existed: lower-case, trimmed, without a
+    // port or a trailing dot (the SQL approximation of normalizeDomain; a
+    // tenant's next save rewrites its rows with the real one). A stored document
+    // whose `domains` is not a list of strings (a raw update) contributes nothing
+    // and is that tenant's SiteConfigError on read, not a failed start (F-BD3-06).
+    `do $$
+     begin
+       if to_regclass(${escapeLiteral(`${schema}.domains`)}) is null then
+         create table ${s}.domains (
+           normalized_host text primary key,
+           tenant_id text not null
+         );
+         insert into ${s}.domains (normalized_host, tenant_id)
+         select distinct on (host) host, tenant_id from (
+           select regexp_replace(lower(trim(d.value #>> '{}')), '(:[0-9]+)?\\.?$', '') as host, s.tenant_id
+             from ${s}.sites s,
+                  jsonb_array_elements(case when jsonb_typeof(s.config->'domains') = 'array' then s.config->'domains' else '[]'::jsonb end) as d
+            where jsonb_typeof(d.value) = 'string'
+         ) claims
+         where host <> ''
+         order by host, tenant_id
+         on conflict (normalized_host) do nothing;
+       end if;
+     end $$`,
     `create index if not exists domains_tenant_idx on ${s}.domains (tenant_id)`,
-    // Back-fill from configurations stored before the table existed: lower-case,
-    // trimmed, without a port or a trailing dot (the SQL approximation of
-    // normalizeDomain; a tenant's next save rewrites its rows with the real one).
-    `insert into ${s}.domains (normalized_host, tenant_id)
-     select distinct on (host) host, tenant_id from (
-       select regexp_replace(lower(trim(d.value)), '(:[0-9]+)?\\.?$', '') as host, s.tenant_id
-         from ${s}.sites s, jsonb_array_elements_text(s.config->'domains') as d
-     ) claims
-     where host <> ''
-     order by host, tenant_id
-     on conflict (normalized_host) do nothing`,
   ]
 }
 

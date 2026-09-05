@@ -12,6 +12,8 @@ Commit hashes: the git history was rewritten on 2026-09-05 to correct the author
 
 Reviewers modified nothing under `packages/`, `apps/`, `docs/`, `scripts/`, `benchmarks/`; they ran alone against their own PostgreSQL data directories. Their timing numbers were recorded while other audits were running (stated in the reports).
 
+Paths under `work/v05/` cited in this document (the ISSUES/DECISIONS/STATE ledgers, a round's probes before they are archived) are repository-only: the source archive built by `scripts/verify-v05.mjs --release` never contains `work/`. Every reviewer's probes and report are archived under `docs/audit/`, which the archive does contain.
+
 ## Findings and their resolution
 
 Severity is the reviewer's. Status is after the fixes in this workspace. Regression tests: `packages/core/tests/v05-audit-lifecycle.test.mjs` (lifecycle, 14 tests), `packages/core/tests/v05-audit-planning.test.mjs` (planning, 4 tests), `apps/hyla-mini/tests/audit-app.test.mjs` (application, 12 tests) and two new repository-conformance cases run against both backends. Issue numbers refer to `work/v05/ISSUES.md`.
@@ -75,7 +77,7 @@ Severity is the reviewer's. Status is after the fixes in this workspace. Regress
 - Runtime cannot verify behavioural compatibility of `override()`; only TypeScript checks instance types. Hyla-mini checks the authenticator shape at site creation.
 - Hyla-mini request latency including PostgreSQL round trips is reported end to end by `benchmarks/hyla-request-latency.mjs` (gate step `hyla-request-latency`, VALIDATION section) but is not a budget.
 - The CI `release-gate` job (`.github/workflows/ci.yml`) has not run in the cloud: the repository had not been pushed when it was written; only its syntax and the scripts it calls are verified locally.
-- Filesystem publishing (content store and static builder) is per-file atomic, never multi-file ACID (H03); a crash between a content write and its version bump is repaired by the pending-version marker at the next read, not prevented.
+- Filesystem publishing (content store and static builder) is per-file atomic, never multi-file ACID (H03); a process crash between a content write and its version bump is repaired at the next read, not prevented: the pending-version marker bumps the version, and two files left with one post id by a crash inside a rename are read as one post (the copy at the layout path, else the highest revision) with the surplus copy removed by the next save or delete of that post. Durability is a process-crash guarantee: nothing is fsync'ed, so after a power loss a rename may be durable while its data is not (D65).
 - Content-version invalidation covers writers that go through the repositories; a foreign process writing the filesystem store without touching `content.version` is not detected.
 - A `setup()` that ignores its stop signal past `disposal.graceMs` keeps running with dependencies that were closed in the normal order (second review round, item 4c). The report names those dependencies; the model cannot prevent the situation (see below).
 
@@ -140,3 +142,54 @@ Three design questions were decided with the user: `Family.range()` types as the
 | thenable Service instances only diagnosed at runtime | kept as a limit | `foreign-thenable-setup` (D17); no type-level guard | — |
 
 Verification of this round: every new regression was run against the pre-fix sources first (stash of the group's source files, rebuild, run) and shown to fail there while everything else stayed green, then on the fix; the full suites, the archived probes of earlier rounds (updated where the intended behaviour changed: factory-sharing counts the appended sanitizer pass, static-export expects the D28 refusal, tenant-isolation expects the trailing-dot host to be served as its normalized spelling (I-71) and a claim on another tenant's domain to be refused by the store (I-47, normalized since I-71), postgres-backend expects the same post id in two tenants to be two posts (I-78) instead of the old refusal; the two lifecycle "observation" lines of the first round (F-PL-06, F-PL-07) still print FAIL because the observed defect is gone) and the development gate pass on the fixed source. The release runs and the independent re-audit of this round are recorded in `work/v05/STATE.md`.
+
+## Independent re-audit of the third round
+
+After the third round's fixes were committed (32d212a), three fresh-context reviewers examined the candidate without access to the implementer's conversation, one per line, writing only under `work/v05/audit-3/` (archived under `docs/audit/audit-3-core-lifecycle-planning/`, `docs/audit/audit-3-app-permissions-resources/`, `docs/audit/audit-3-backends-delivery/`, each with its report, probes, the reviewer's logs and the re-run logs against the fixed build).
+
+| line | reviewer input | probes | findings |
+|---|---|---|---|
+| Core lifecycle and planning | selector expansion across Runtimes, drift on plan-template hits, the unreachable-attempt path when the Env handle is dropped, `requires` order, the ledger during rollbacks and late cleanups, tree close bound, range origin in the public realm, `run()` results, planning ids | 11 probes (`run-all.sh`, `RUN-LOG.txt`) | F-CL3-01…09: 3 major, 2 minor, 4 docs |
+| Application permissions and resources | untrusted recipe policy, `isSafeHref`, capacity eviction, shutdown during creation, acquire deadline, foreign build manifests, closing records, static build cost | 10 probes (`p01`…`p09`, logs next to them) | F-AP3-01…08: 2 major, 5 minor, 1 docs/minor |
+| Backends and delivery | silent ROLLBACK, domain rows under conflicts and overlapping saves, re-entrancy, transaction repository serialization, migration back-fill, deadlocks, pool disposal, rename crashes, cluster script signals, demo assertions, records | 12 probes (`p1`…`p12`) | F-BD3-01…18: 6 major, 6 minor, 6 docs |
+
+| finding | verdict | fix | regression |
+|---|---|---|---|
+| F-CL3-01 selector candidate Entries cached per Contract across Runtimes; a second Runtime holding another physical copy failed or inherited a warning | holds (major) | cache keyed by the physical descriptor (I-85, D55) | F-CL3-01 |
+| F-CL3-02 the D40 drift check ran on cold plans only; a template hit ran the canonical setup for a drifted copy; `check()` warmed the bypass | holds (major) | root-site descriptors registered and checked on a hit; `check()`/`explain()` raise like `enter()` (I-86, D56, M-32) | F-CL3-02 |
+| F-CL3-03 the weak ledger let an attempt die with the user's Promise: no cleanups, no event, when nobody held the Env | holds (major) | strong ledger; retention bounded by the raw Promise (I-87, D54) | F-CL3-03 (child process); R-3 tightened but not discriminating on its own |
+| F-CL3-04 plans depended on `requires` insertion order and admission order | holds (minor) | sites resolved in key order (I-88, D57, M-32) | F-CL3-04 |
+| F-CL3-05 a slow rollback reported as "still running", never ledgered; the ledger emptied before a late cleanup ran | holds (minor) | `rolling-back` / `settling` states, `runtime.dispose()` grace, phase in reports (I-89, D58, M-31) | F-CL3-05a/b/c |
+| F-CL3-06 "one grace regardless of `setupDeadlineMs`" is per Env; a tree closes in one grace per level | holds (docs) | documented as the bound; the order is kept (I-90, D59) | probe `04` keeps its FAIL line by design |
+| F-CL3-07 the origin of a range promised as a candidate in the public realm | holds (docs) | wording: private realm only (I-91) | probe `03` (as coded) |
+| F-CL3-08 `run()` discarded a successful result when the close reported | holds (docs) | `error.result` (I-92, D59, M-31) | F-CL3-08; probe `09` M1 asserts the old behaviour |
+| F-CL3-09 `check()`/`explain()` consumed slot ids | holds (docs) | `check-slot-N` (I-93, D59, M-32) | F-CL3-09 |
+| F-AP3-01 a recipe's `finalPass: true` merged the appended untrusted sanitizer away | holds (major) | per-configuration plugin identity; the builder verifies the appended pass (I-94, D61, M-33) | render F-AP3-01 |
+| F-AP3-02 `isSafeHref` accepted backslash protocol-relative spellings | holds (minor) | backslashes refused (I-95, D61, M-33) | render R4 |
+| F-AP3-03 an unservable build acquirer evicted idle Envs for nothing | holds (minor) | evict only what makes the acquirer servable (I-96, D60) | site-manager F-AP3-03 |
+| F-AP3-04 a creation cut short by `shutdown()` counted as a tenant failure with backoff | holds (minor) | `SiteManagerClosedError({ cause })`, no count, no backoff (I-97, D60, M-33) | site-manager F-AP3-04 |
+| F-AP3-05 an acquire could take nearly 2 × `acquireTimeoutMs` | holds (docs/minor) | one deadline for the whole acquire, paced re-reads (I-98, D60) | site-manager F-AP3-05 |
+| F-AP3-06 any JSON with `files` was a previous build; foreign files deleted | holds (minor) | manifest provenance checked (I-99, D61, M-33) | audit-app F-AP3-06 |
+| F-AP3-07 a closing record kept its key: configuration-read spin, `SITE_CAPACITY` with capacity free | holds (major) | closing records leave their key at once (I-100, D60) | site-manager F-AP3-07 |
+| F-AP3-08 static builds O(N²) on the filesystem backend | holds (reasoning) | `SiteContext.renderPostPage` from the listing (I-101, D61, M-33) | audit-app F-AP3-08 |
+| F-BD3-01 `transaction()` resolved after a silent ROLLBACK | holds (major) | `TransactionAbortedError` (I-102, D62, M-34) | postgres F-BD3-01 |
+| F-BD3-02 a handled `DomainConflictError` committed the deletion of the tenant's own domain rows | holds (major) | conflicts checked before the delete (I-103, D62) | conformance F-BD3-02 |
+| F-BD3-03 overlapping saves of one tenant's configuration orphaned domain rows | holds (major) | per-tenant advisory lock at the start of every unit of work (I-104, D62, M-34) | conformance F-BD3-03 |
+| F-BD3-04 a public mutation inside the tenant's own unit of work waited forever; `app.close()` hung | holds (major) | `TransactionReentrancyError`, `lock_timeout` (I-105, D62, M-34) | conformance F-BD3-04, postgres F-BD3-04 |
+| F-BD3-05 the transaction repository serialized nothing among its own calls | holds (major) | inner mutex / statement chaining (I-106, D62) | conformance F-BD3-05 |
+| F-BD3-06 the domains back-fill ran on every start and failed on a malformed row | holds (major) | one-time guarded back-fill (I-107, D63) | postgres F-BD3-06 |
+| F-BD3-07 same-tenant units of work deadlocked | holds (minor) | serialized by the tenant lock (I-108, D62) | postgres F-BD3-07 |
+| F-BD3-08 a queued lease never settled after the pool was disposed | holds (minor) | bounded disposal (I-109, D62, M-34) | postgres F-BD3-08 |
+| F-BD3-09 a crash inside a rename left two files with one id | holds (minor) | one file per id on scan; surplus removed (I-110, D63) | filesystem F-BD3-09 ×2 |
+| F-BD3-10 the cluster wrapper ignored signals; a step's timeout could not end the step | holds (minor) | signal forwarding; process-group step runner (I-111, D64, M-35) | `scripts/tests` (10) |
+| F-BD3-11 the `demos` step passed on exit code alone | holds (minor) | self-asserting demos, `expectStdout` (I-112, D64) | gate step `demos` |
+| F-BD3-12 NUL accepted by one backend; `listTenants()` missed category-only tenants | holds (minor) | NUL refused on both; union over all tables (I-113, D63, M-34) | conformance F-BD3-12 ×2; probe `p1` keeps two FAIL lines that asserted the old divergence |
+| F-BD3-13 I-83 said FIXED while the page was pending regeneration | holds (docs) | I-83 reworded; page regenerated by this round's release run (I-114) | — |
+| F-BD3-14 the PostgreSQL server version was hand-typed | holds (docs) | recorded in the manifest from the step log (I-115, D64, M-35) | `pg-test-cluster.test.mjs` |
+| F-BD3-15 "the gate fails on any deviation" | holds (docs) | `previousRun` recorded, never enforced; wording (I-116, D64, M-35) | — |
+| F-BD3-16 "four-cell demo" | holds (docs) | three cells, named (I-117) | — |
+| F-BD3-17 archived documents cite repository-only `work/v05/` paths | holds (docs) | stated in README and here (I-118, D64) | — |
+| F-BD3-18 no fsync: the marker's guarantee is a process-crash guarantee | holds (reasoning) | documented boundary (I-119, D65) | — |
+
+Verification of this round: every new regression was run against the pre-fix sources first (stash of the source files, rebuild with three stub error classes so the test files link, run) and shown to fail there, then on the fix. Pre-fix: core 9 of 16 failed (exactly the nine new cases; R-3 tightened passes there too, see I-87); site manager 4 of 14 (exactly the four new cases); filesystem/render/audit-app 13 of 99 — the new cases plus three collateral ones (F-AP-08c patches `renderPostPage`, which did not exist; the FS conformance `deleteTenant` case waits behind the re-entrancy deadlock the pre-fix F-BD3-04 case leaves behind, on both layouts); PostgreSQL: the new conformance and audit-3 cases fail and the pre-fix F-BD3-04 case deadlocks a connection and the tenant's version row, so the later transaction/pool cases of that file fail by timeout as collateral and the file was ended by the harness after 300 s; the cluster-script test fails by timeout (the pre-fix wrapper neither forwards the signal nor stops the cluster). On the fix everything is green; the full suites, the auditors' own probes (re-run logs archived as `*.rerun.log` / `RUN-LOG.txt`; the remaining FAIL lines are the documented bound of F-CL3-06 and checks that asserted the old behaviour: core `05` (a) "still running", `09` M1, backends `p1` NUL divergence; `p8-records` re-checked after the release run) and the earlier rounds' archived probes were re-run on the final candidate before the release runs recorded in `docs/VALIDATION.md`.
+

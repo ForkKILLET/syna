@@ -561,6 +561,8 @@ export type RuntimeEvent =
     }
   | {
       readonly type: 'attempt-abandoned'
+      /** `setup`: the raw Promise is still pending. `rollback`: the setup settled but its cleanups outlived the grace. */
+      readonly phase: 'setup' | 'rollback'
       readonly slot: string
       readonly revision: string
       readonly env: string
@@ -607,7 +609,14 @@ export interface UnsettledAttemptInspection {
   readonly slot: string
   readonly revision: string
   readonly env: string
-  readonly state: 'timed-out' | 'abandoned'
+  /**
+   * `timed-out`: the deadline passed, the raw Promise is pending. `abandoned`:
+   * the owner's close stopped waiting for the pending Promise. `rolling-back`:
+   * the setup settled (failed, or its result was discarded) but its cleanups
+   * outlived the close. `settling`: the Promise settled late or was found
+   * unreachable and the late cleanups are running.
+   */
+  readonly state: 'timed-out' | 'abandoned' | 'rolling-back' | 'settling'
   readonly runningForMs: number
 }
 

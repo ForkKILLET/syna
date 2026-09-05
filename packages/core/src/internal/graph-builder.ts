@@ -365,7 +365,9 @@ export class GraphBuilder {
     this.nodes.set(nodeId, node)
 
     const realm = this.host.serviceRealm(revision)
-    for (const [key, dependency] of Object.entries(revision.requires)) {
+    // Sites are resolved in key order, not insertion order: the plan of a closed
+    // definition set must not depend on how a `requires` literal was written.
+    for (const [key, dependency] of Object.entries(revision.requires).sort(([a], [b]) => a.localeCompare(b))) {
       const site = `service:${revision.key}/dependency:${key}`
       node.edges.set(key, this.resolveDependency(dependency, site, realm, nodeId))
     }

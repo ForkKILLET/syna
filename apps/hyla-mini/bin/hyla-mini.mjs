@@ -86,7 +86,7 @@ async function main() {
   serve [--port N]          preflight, seed if empty, start the HTTP server
   build --tenant <id> --out <dir>   static build of one tenant
   explain --tenant <id>     explain a request world and print the fork budget report
-  demo                      four-cell demo on a temporary filesystem root (or --backend postgres)`)
+  demo                      three-cell demo (HTTP alpha, HTTP beta, static alpha) on a temporary filesystem root (or --backend postgres)`)
     return
   }
   const app = await createHylaApp({ backend: backendFrom(options) })

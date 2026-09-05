@@ -58,20 +58,33 @@ export interface AbandonedAttempt {
 }
 
 /**
- * Ledger entry for an attempt whose raw Promise is still pending after its
- * deadline or its owner's close. It holds the attempt weakly on purpose: the
- * only strong path to an unsettled attempt is the user's own pending Promise
- * (its reaction holds the attempt, which holds its slot and owner Env), so
- * retention ends exactly when that Promise settles or becomes unreachable.
+ * Ledger entry for an attempt the Runtime is still waiting on: its raw Promise
+ * is pending after its deadline or its owner's close (`timed-out`, `abandoned`),
+ * its setup ended but its rollback outlived the close (`rolling-back`), or its
+ * late result is being cleaned up (`settling`). The record holds the attempt
+ * strongly, and that retains nothing beyond the documented bound: the attempt
+ * does not reference the user's raw Promise, whose reachability alone decides
+ * how long the record lives — when the Promise is collected the attempt is
+ * closed as unreachable and the record dropped. (A weak reference here let the
+ * attempt die in the same collection as the Promise, so nothing was left to
+ * run its cleanups when the unreachable path fired.)
  */
 interface UnsettledRecord {
   readonly id: number
-  readonly attempt: WeakRef<SetupAttempt>
+  readonly attempt: SetupAttempt
   readonly slot: string
   readonly revision: string
   readonly env: string
   readonly startedAt: number
-  state: 'timed-out' | 'abandoned'
+  state: UnsettledAttemptInspection['state']
+  /** The close in progress once the attempt settled late or was found unreachable. */
+  closing?: Promise<void>
+}
+
+/** What the finalization registry hands back: the attempt itself, so the unreachable close can run its cleanups. */
+interface UnreachableToken {
+  readonly id: number
+  readonly attempt: SetupAttempt
 }
 
 function isForeignThenable(value: unknown): boolean {
@@ -127,20 +140,15 @@ export class Materializer {
    * collected: nothing can settle it any more, so the attempt is closed as
    * failed (its registered cleanups run) instead of staying pending forever.
    */
-  private readonly unreachable = new FinalizationRegistry<number>(id => this.attemptUnreachable(id))
+  private readonly unreachable = new FinalizationRegistry<UnreachableToken>(token => this.attemptUnreachable(token))
 
   constructor(private readonly options: MaterializerOptions) {}
 
-  /** Every attempt the Runtime is still waiting on, oldest first. Entries whose attempt was collected are dropped. */
+  /** Every attempt the Runtime is still waiting on, oldest first. */
   unsettledAttempts(): readonly UnsettledAttemptInspection[] {
     const now = Date.now()
     const views: UnsettledAttemptInspection[] = []
     for (const record of this.unsettled.values()) {
-      const attempt = record.attempt.deref()
-      if (!attempt || attempt.rawSettled) {
-        this.unsettled.delete(record.id)
-        continue
-      }
       views.push(Object.freeze({
         attempt: record.id,
         slot: record.slot,
@@ -151,6 +159,16 @@ export class Materializer {
       }))
     }
     return Object.freeze(views)
+  }
+
+  /**
+   * Waits, up to `graceMs`, for the attempts whose late close (the cleanups
+   * after a late result or an unreachable Promise) is in progress; whatever is
+   * still outstanding afterwards stays in the ledger for the caller to report.
+   */
+  async awaitSettling(graceMs: number): Promise<void> {
+    const closing = [...this.unsettled.values()].flatMap(record => (record.closing ? [record.closing] : []))
+    if (closing.length > 0) await settlesWithin(Promise.all(closing), graceMs)
   }
 
   createRef<T>(slot: RuntimeSlot, requester?: SetupAttempt): DependencyRef<T> {
@@ -208,10 +226,17 @@ export class Materializer {
       if (!(await settlesWithin(slot.sequence, graceMs))) {
         const running = slot.attempt
         slot.state = 'abandoned'
-        if (running && running.state === 'running') {
+        if (running && running.state === 'running' && !running.rawSettled) {
           running.state = 'abandoned'
           slot.unsettledAttempt = running
           running.abandon()
+        }
+        else if (running && running.rawSettled && !slot.unsettledAttempt) {
+          // The setup itself has settled; what outlives the grace is its rollback
+          // (the cleanups of a failed attempt, or of a result the closing owner
+          // discards). It is on the ledger as `rolling-back` until it ends, and
+          // the slot is released then.
+          this.registerRollingBack(running, slot)
         }
         const attempt = slot.unsettledAttempt ?? running
         if (!attempt) return undefined
@@ -233,9 +258,10 @@ export class Materializer {
 
   private reportAbandoned(slot: ServiceSlot, attempt: SetupAttempt): void {
     const record = this.unsettled.get(attempt.id)
-    if (record) record.state = 'abandoned'
+    if (record && record.state === 'timed-out') record.state = 'abandoned'
     this.options.onEvent({
       type: 'attempt-abandoned',
+      phase: attempt.rawSettled ? 'rollback' : 'setup',
       slot: slot.id,
       revision: slot.service.key,
       env: slot.ownerEnvId,
@@ -567,23 +593,58 @@ export class Materializer {
   ): void {
     this.unsettled.set(attempt.id, {
       id: attempt.id,
-      attempt: new WeakRef(attempt),
+      attempt,
       slot: attempt.slot.id,
       revision: attempt.slot.service.key,
       env: owner.id,
       startedAt: attempt.startedAt,
       state,
     })
-    this.unreachable.register(rawPromise, attempt.id, attempt)
+    // The held value keeps the attempt reachable until the raw Promise is
+    // collected; the attempt holds no reference to that Promise, so this never
+    // delays its collection.
+    this.unreachable.register(rawPromise, { id: attempt.id, attempt }, attempt)
   }
 
-  private attemptUnreachable(id: number): void {
+  /** A failed or discarded attempt whose rollback outlived the disposal grace: listed until the rollback ends. */
+  private registerRollingBack(attempt: SetupAttempt, slot: ServiceSlot): void {
+    const record: UnsettledRecord = {
+      id: attempt.id,
+      attempt,
+      slot: slot.id,
+      revision: slot.service.key,
+      env: slot.ownerEnvId,
+      startedAt: attempt.startedAt,
+      state: 'rolling-back',
+    }
+    this.unsettled.set(attempt.id, record)
+    void attempt.settled.then(() => {
+      if (this.unsettled.get(attempt.id) === record) this.unsettled.delete(attempt.id)
+      if (slot.state === 'abandoned') slot.state = 'disposed'
+    })
+  }
+
+  /** Runs the late close of a ledgered attempt; the record stays listed (as `settling`) until the cleanups are done. */
+  private settleRecord(
+    record: UnsettledRecord,
+    failure: { readonly error: unknown } | undefined,
+    how: 'settled' | 'unreachable',
+  ): Promise<void> {
+    record.state = 'settling'
+    record.closing = this.closeUnsettled(record.attempt, record.env, failure, how).finally(() => {
+      if (this.unsettled.get(record.id) === record) this.unsettled.delete(record.id)
+    })
+    return record.closing
+  }
+
+  private attemptUnreachable({ id, attempt }: UnreachableToken): void {
     const record = this.unsettled.get(id)
-    if (!record) return
-    this.unsettled.delete(id)
-    const attempt = record.attempt.deref()
-    if (!attempt || attempt.rawSettled) return
-    void this.closeUnsettled(attempt, record.env, undefined, 'unreachable')
+    if (!record || record.attempt !== attempt) return
+    if (attempt.rawSettled) {
+      this.unsettled.delete(id)
+      return
+    }
+    void this.settleRecord(record, undefined, 'unreachable')
   }
 
   private async handleLateSettlement(
@@ -591,8 +652,12 @@ export class Materializer {
     owner: SlotOwnerEnv,
     failure: { readonly error: unknown } | undefined,
   ): Promise<void> {
-    this.unsettled.delete(attempt.id)
     this.unreachable.unregister(attempt)
+    const record = this.unsettled.get(attempt.id)
+    if (record && record.attempt === attempt && record.closing === undefined) {
+      await this.settleRecord(record, failure, 'settled')
+      return
+    }
     await this.closeUnsettled(attempt, owner.id, failure, 'settled')
   }
 

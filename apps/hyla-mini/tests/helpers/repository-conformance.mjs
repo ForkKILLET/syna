@@ -4,6 +4,7 @@ import {
   DomainConflictError,
   SiteConfigError,
   SlugConflictError,
+  TransactionReentrancyError,
   comparePosts,
   loadContentFixture,
   seedAllTenants,
@@ -408,6 +409,118 @@ export function repositoryConformance(name, makeStore) {
         await alpha.deletePost('shared-id')
         await beta.deletePost('shared-id')
       }
+    })
+
+    it('a public-repository mutation of the same tenant inside transaction() is refused at once instead of waiting for the unit of work forever (F-BD3-04)', async () => {
+      const tenant = 'reentrant'
+      const outcome = await store.transaction(tenant, async repository => {
+        await repository.saveCategory({ slug: 'inside', name: 'Inside' })
+        const nestedMutation = await store.forTenant(tenant).saveTag({ slug: 'nested', name: 'Nested' }).then(() => 'saved', error => error)
+        const nestedTransaction = await store.transaction(tenant, async () => 'ran').then(value => value, error => error)
+        const nestedDelete = await store.deleteTenant(tenant).then(() => 'deleted', error => error)
+        // Another tenant is not inside this unit of work; reads of this tenant are allowed.
+        const otherTenant = await store.forTenant('elsewhere').saveTag({ slug: 'elsewhere', name: 'Elsewhere' }).then(() => 'saved', error => error)
+        const read = await store.forTenant(tenant).contentVersion()
+        return { nestedMutation, nestedTransaction, nestedDelete, otherTenant, read }
+      })
+      for (const refused of [outcome.nestedMutation, outcome.nestedTransaction, outcome.nestedDelete]) {
+        assert.ok(refused instanceof TransactionReentrancyError, String(refused))
+        assert.equal(refused.code, 'TRANSACTION_REENTRANCY')
+        assert.equal(refused.tenantId, tenant)
+      }
+      assert.equal(outcome.otherTenant, 'saved')
+      assert.equal(typeof outcome.read, 'string')
+      assert.deepEqual((await store.forTenant(tenant).listCategories()).map(item => item.slug), ['inside'])
+      assert.deepEqual((await store.forTenant(tenant).listTags()).map(item => item.slug), [], 'the refused mutation wrote nothing')
+      // Outside the unit of work the same calls work.
+      await store.forTenant(tenant).saveTag({ slug: 'nested', name: 'Nested' })
+      assert.equal(await store.transaction(tenant, async () => 'ran'), 'ran')
+      await store.deleteTenant(tenant)
+      await store.deleteTenant('elsewhere')
+    })
+
+    it('mutations a unit of work issues at once all land, one after another, and the content version advances once per mutation (F-BD3-05)', async () => {
+      const tenant = 'burst'
+      const before = Number(await store.forTenant(tenant).contentVersion())
+      const count = 10
+      const saved = await store.transaction(tenant, repository =>
+        Promise.all(Array.from({ length: count }, (_, index) => repository.saveCategory({ slug: `c-${index}`, name: `C${index}` }))))
+      assert.equal(saved.length, count)
+      assert.deepEqual((await store.forTenant(tenant).listCategories()).map(item => item.slug), Array.from({ length: count }, (_, index) => `c-${index}`))
+      assert.equal(Number(await store.forTenant(tenant).contentVersion()) - before, count)
+      await store.deleteTenant(tenant)
+    })
+
+    it('a domain conflict inside transaction() leaves the tenant\'s own domain ownership untouched, whether or not the work handles it (F-BD3-02)', async () => {
+      const own = store.forTenant('own')
+      const ownConfig = { ...siteConfigInputFromFixture('own', fixture.tenants.alpha, sampleExtras), domains: ['own.test'] }
+      await own.saveSiteConfig(ownConfig)
+      const alphaHost = (await alpha.getSiteConfig()).domains[0]
+      const handled = await store.transaction('own', async repository =>
+        repository.saveSiteConfig({ ...ownConfig, domains: ['own.test', alphaHost] }).then(() => 'saved', error => error))
+      assert.ok(handled instanceof DomainConflictError, String(handled))
+      assert.equal(handled.ownerTenantId, 'alpha')
+      await assert.rejects(store.transaction('own', async repository => repository.saveSiteConfig({ ...ownConfig, domains: [alphaHost] })), DomainConflictError)
+      // own.test still belongs to own: a third tenant cannot take it, and own's configuration still lists it.
+      const third = store.forTenant('third')
+      await assert.rejects(
+        third.saveSiteConfig({ ...siteConfigInputFromFixture('third', fixture.tenants.alpha, sampleExtras), domains: ['own.test'] }),
+        error => error instanceof DomainConflictError && error.ownerTenantId === 'own',
+      )
+      assert.deepEqual((await own.getSiteConfig()).domains, ['own.test'])
+      await store.deleteTenant('own')
+      await store.deleteTenant('third')
+    })
+
+    it('overlapping saves of one tenant\'s configuration leave its domain ownership equal to the configuration that won (F-BD3-03)', async () => {
+      const same = store.forTenant('same')
+      const base = siteConfigInputFromFixture('same', fixture.tenants.alpha, sampleExtras)
+      const taker = store.forTenant('taker')
+      for (let round = 0; round < 8; round += 1) {
+        await Promise.all([
+          same.saveSiteConfig({ ...base, domains: [`x${round}.test`] }),
+          same.saveSiteConfig({ ...base, domains: [`y${round}.test`] }),
+        ])
+        const stored = (await same.getSiteConfig()).domains
+        assert.equal(stored.length, 1)
+        const lost = stored[0] === `x${round}.test` ? `y${round}.test` : `x${round}.test`
+        // The host of the save that lost is nobody's: another tenant may take it; the winner's host is still refused.
+        await taker.saveSiteConfig({ ...siteConfigInputFromFixture('taker', fixture.tenants.alpha, sampleExtras), domains: [lost] })
+        await assert.rejects(
+          taker.saveSiteConfig({ ...siteConfigInputFromFixture('taker', fixture.tenants.alpha, sampleExtras), domains: stored }),
+          error => error instanceof DomainConflictError && error.ownerTenantId === 'same',
+        )
+      }
+      await store.deleteTenant('same')
+      await store.deleteTenant('taker')
+    })
+
+    it('a NUL character in a post, a name or a configuration is refused by both backends before anything is written (F-BD3-12)', async () => {
+      const nul = ['a', 'b'].join(String.fromCharCode(0))
+      const base = { id: 'nul-post', slug: 'nul-post', locale: 'en', title: 't', body: 'b', status: 'draft', categories: [], tags: [] }
+      await assert.rejects(alpha.savePost({ ...base, body: nul }), TypeError)
+      await assert.rejects(alpha.savePost({ ...base, title: nul }), TypeError)
+      await assert.rejects(alpha.savePost({ ...base, id: nul }), TypeError)
+      await assert.rejects(alpha.saveCategory({ slug: 'nul', name: nul }), TypeError)
+      await assert.rejects(alpha.saveTag({ slug: 'nul', name: nul }), TypeError)
+      await assert.rejects(
+        alpha.saveSiteConfig({ ...siteConfigInputFromFixture('alpha', fixture.tenants.alpha, sampleExtras), title: nul }),
+        error => error instanceof SiteConfigError && error.mode === 'input',
+      )
+      assert.equal(await alpha.getPostById('nul-post'), undefined)
+      assert.ok(!(await alpha.listCategories()).some(item => item.slug === 'nul'))
+      assert.ok(!(await alpha.listTags()).some(item => item.slug === 'nul'))
+    })
+
+    it('listTenants() lists a tenant that only has a category or a tag (F-BD3-12)', async () => {
+      await store.forTenant('cat-only').saveCategory({ slug: 'c', name: 'C' })
+      await store.forTenant('tag-only').saveTag({ slug: 't', name: 'T' })
+      const tenants = await store.listTenants()
+      assert.ok(tenants.includes('cat-only') && tenants.includes('tag-only'), `tenants: ${tenants}`)
+      await store.deleteTenant('cat-only')
+      await store.deleteTenant('tag-only')
+      const after = await store.listTenants()
+      assert.ok(!after.includes('cat-only') && !after.includes('tag-only'), `tenants: ${after}`)
     })
 
     it('deleteTenant removes only that tenant', async () => {

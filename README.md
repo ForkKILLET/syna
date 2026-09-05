@@ -98,7 +98,7 @@ Key rules: `serviceRef.load()` is an ordinary Promise (catch, race and backgroun
 - `docs/ARCHITECTURE.md` — module boundaries as implemented
 - `docs/HYLA_MINI.md`, `docs/PLUGIN_AUTHORING.md` — the application and its plugin protocol
 - `docs/AUDIT.md`, `docs/VALIDATION.md` — independent audit findings and the recorded validation run
-- `work/v05/` — execution ledgers (STATE, DECISIONS, ACCEPTANCE, ISSUES)
+- `work/v05/` — execution ledgers (STATE, DECISIONS, ACCEPTANCE, ISSUES) and the review rounds' probes before archiving. Repository-only: the source archive produced by `scripts/verify-v05.mjs --release` contains `packages/`, `apps/`, `benchmarks/`, `docs/`, `scripts/` and the root files, never `work/`; documents in the archive that cite `work/v05/…` refer to this repository, and the archived audit probes live under `docs/audit/`.
 
 ## Status
 

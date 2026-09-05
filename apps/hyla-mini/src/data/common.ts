@@ -1,3 +1,5 @@
+import { AsyncLocalStorage } from 'node:async_hooks'
+import { assertNoNul } from '../domain/model.js'
 import type { Post, PostInput } from '../domain/model.js'
 
 /** Thrown when a slug is already used by a different post id inside the same tenant. */
@@ -27,6 +29,60 @@ export class DomainConflictError extends Error {
   ) {
     super(`Domain ${JSON.stringify(domain)} is already claimed by tenant ${ownerTenantId}; tenant ${tenantId} cannot take it.`)
   }
+}
+
+/**
+ * Thrown by the PostgreSQL backend when a unit of work reaches its COMMIT after
+ * a statement inside it failed: the server had already rolled the transaction
+ * back and answers the COMMIT with a ROLLBACK tag instead of an error. A unit
+ * of work that catches a failed statement and continues ends here, never with
+ * a silently discarded result (audit 3, F-BD3-01).
+ */
+export class TransactionAbortedError extends Error {
+  override readonly name = 'TransactionAbortedError'
+  readonly code = 'TRANSACTION_ABORTED'
+  constructor() {
+    super(
+      'The unit of work did not commit: a statement inside it failed earlier and PostgreSQL rolled the whole '
+      + 'transaction back. A unit of work must not continue past a failed statement.',
+    )
+  }
+}
+
+/**
+ * Thrown when a public-repository mutation of tenant T, or another
+ * `transaction(T)`, is issued from inside the unit of work of `transaction(T)`:
+ * both would wait for the lock that unit of work holds, forever (audit 3,
+ * F-BD3-04). The repository handed to the unit of work is the one to use.
+ */
+export class TransactionReentrancyError extends Error {
+  override readonly name = 'TransactionReentrancyError'
+  readonly code = 'TRANSACTION_REENTRANCY'
+  constructor(readonly tenantId: string, operation: string) {
+    super(
+      `${operation} of tenant ${tenantId} was issued inside transaction(${JSON.stringify(tenantId)}) and would wait `
+      + 'for that unit of work forever; use the repository handed to the unit of work.',
+    )
+  }
+}
+
+/** The tenants whose unit of work the current asynchronous context runs inside. */
+const unitsOfWork = new AsyncLocalStorage<ReadonlySet<string>>()
+
+/** Whether the current asynchronous context is inside `transaction(tenantId)`. */
+export function insideUnitOfWork(tenantId: string): boolean {
+  return unitsOfWork.getStore()?.has(tenantId) ?? false
+}
+
+/** Refuses `operation` when it runs inside `transaction(tenantId)` (it would deadlock on that unit of work's lock). */
+export function assertOutsideUnitOfWork(tenantId: string, operation: string): void {
+  if (insideUnitOfWork(tenantId)) throw new TransactionReentrancyError(tenantId, operation)
+}
+
+/** Runs `work` as the unit of work of `tenantId`; nested public mutations of that tenant are then refused instead of hanging. */
+export function runUnitOfWork<T>(tenantId: string, work: () => Promise<T>): Promise<T> {
+  assertOutsideUnitOfWork(tenantId, 'transaction()')
+  return unitsOfWork.run(new Set([...(unitsOfWork.getStore() ?? []), tenantId]), work)
 }
 
 /** Parses a caller-supplied timestamp and returns it as a canonical ISO-8601 string. */
@@ -90,5 +146,5 @@ export function assertName(value: unknown, what: string): string {
   if (typeof value !== 'string' || value.trim().length === 0) {
     throw new TypeError(`${what} must be a non-empty string.`)
   }
-  return value
+  return assertNoNul(value, what)
 }

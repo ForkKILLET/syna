@@ -1,3 +1,4 @@
+import assert from 'node:assert/strict'
 import packageJson from '#syna/package' with { type: 'json' }
 import {
   createRuntime,
@@ -7,6 +8,9 @@ import {
 } from '@syna/core'
 
 const define = definePackage(packageJson)
+const codeOf = (error: unknown): string | undefined =>
+  (typeof error === 'object' && error !== null && 'code' in error ? String((error as { code: unknown }).code) : undefined)
+const messageOf = (error: unknown): string => (error instanceof Error ? error.message : String(error))
 
 console.log('\n=== Core semantics demo ===')
 
@@ -67,17 +71,18 @@ const Child = define.entry('child', {
 
 const runtime = createRuntime({ services: [Consumer, Counter, Eager, A, B] })
 const root = await runtime.enter(Root, { epoch: Symbol('root') })
-console.log('Eager service started during Entry activation:', eagerStarts)
+const eagerStartsAfterEnter = eagerStarts
+console.log('Eager service started during Entry activation:', eagerStartsAfterEnter)
 
 const { consumer: consumerRef } = root.deps
-console.log('Destructuring a dependency ref is still lazy:', counterStarts === 0)
+const counterStartsBeforeLoad = counterStarts
+console.log('Destructuring a dependency ref is still lazy:', counterStartsBeforeLoad === 0)
 const rootConsumer = await consumerRef.load()
 const rootCounter = await rootConsumer.counter()
 console.log('Counter materialized after await:', rootCounter.id)
-console.log('Structural cycle works after setup:',
-  await (await root.deps.a.load()).callB(),
-  await (await root.deps.b.load()).callA(),
-)
+const aSeesB = await (await root.deps.a.load()).callB()
+const bSeesA = await (await root.deps.b.load()).callA()
+console.log('Structural cycle works after setup:', aSeesB, bSeesA)
 
 const child = await root.enter(Child, { epoch: Symbol('child') })
 const childCounter = await (await child.deps.consumer.load()).counter()
@@ -86,8 +91,11 @@ console.log('Re-providing an Input forks its reverse closure:',
 )
 await child.dispose()
 await root.dispose()
+const liveEnvs = runtime.inspect().liveEnvCount
+await runtime.dispose()
 
-// A setup-time wait cycle is rejected.
+// A setup-time wait cycle is rejected: the setup deadline fires and the diagnosis names the
+// observed load() cycle. The deadline is short here only to keep the demo quick (default 30 s).
 let C!: ServiceRevision<object>
 let D!: ServiceRevision<object>
 C = define.service('setup-cycle-c', {
@@ -105,16 +113,18 @@ D = define.service('setup-cycle-d', {
   },
 })
 const BadEntry = define.entry('bad-cycle', { requires: { c: C } })
-const badRuntime = createRuntime({ services: [C, D] })
+const badRuntime = createRuntime({ services: [C, D], initialization: { deadlineMs: 1_000 } })
 const badEnv = await badRuntime.enter(BadEntry)
+let waitCycleError: unknown
 try {
   await badEnv.deps.c.load()
 }
 catch (error) {
-  console.log('Setup wait cycle rejected:',
-    error instanceof Error ? error.message : String(error))
+  waitCycleError = error
+  console.log('Setup wait cycle rejected:', messageOf(error))
 }
 await badEnv.dispose()
+await badRuntime.dispose()
 
 // Lineage-fixed families reject descendant divergence across versions.
 const fixedV1 = definePackage({
@@ -134,11 +144,25 @@ const FixedRoot = fixedEntries.entry('root', { requires: { fixed: fixedV1 } })
 const FixedChild = fixedEntries.entry('child', { requires: { fixed: fixedV2 } })
 const fixedRuntime = createRuntime({ services: [fixedV1, fixedV2] })
 const fixedRoot = await fixedRuntime.enter(FixedRoot)
+let lineageError: unknown
 try {
   await fixedRoot.enter(FixedChild)
 }
 catch (error) {
-  console.log('Lineage-fixed conflict rejected:',
-    error instanceof Error ? error.message : String(error))
+  lineageError = error
+  console.log('Lineage-fixed conflict rejected:', messageOf(error))
 }
 await fixedRoot.dispose()
+await fixedRuntime.dispose()
+
+// The demo checks what it printed (I-112).
+assert.equal(eagerStartsAfterEnter, 1)
+assert.equal(counterStartsBeforeLoad, 0)
+assert.equal(rootCounter.id, 1)
+assert.deepEqual([aSeesB, bSeesA], ['b', 'a'])
+assert.notEqual(childCounter.id, rootCounter.id)
+assert.equal(liveEnvs, 0)
+assert.equal(codeOf(waitCycleError), 'INITIALIZATION_TIMEOUT')
+assert.match(messageOf(waitCycleError), /form a cycle/)
+assert.equal(codeOf(lineageError), 'LINEAGE_UNIQUENESS_CONFLICT')
+console.log('demo: OK')

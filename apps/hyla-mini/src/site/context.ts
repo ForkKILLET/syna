@@ -35,6 +35,14 @@ export interface SiteContext {
   getPost(slug: string, principal: Principal): Promise<Post | undefined>
   renderIndex(principal: Principal, category?: string): Promise<RenderedPage>
   renderPost(slug: string, principal: Principal): Promise<RenderedPage | undefined>
+  /**
+   * Renders a post the caller already holds — a static build lists the posts
+   * once instead of fetching each one again. `version` must be the content
+   * version read before the post was listed: the page is cached under it, as
+   * `renderPost` would, and is only kept while the cache is at that version. A
+   * post of another tenant or one the principal may not see is refused.
+   */
+  renderPostPage(post: Post, principal: Principal, version: string): Promise<RenderedPage | undefined>
   renderNotFound(path: string): RenderedPage
   renderComment(markdown: string): Promise<string>
   readonly cacheStats: PageCacheStats
@@ -149,6 +157,10 @@ export const SiteContext = define.service('site-context', {
         const post = await repository.getPost(slug, { visibility: 'all' })
         if (!post || !canViewPost(principal, tenantId, post)) return undefined
         return cached(version, principal, `/posts/${slug}`, () => render.renderPostPage(site, post))
+      },
+      async renderPostPage(post, principal, version) {
+        if (post.tenantId !== tenantId || !canViewPost(principal, tenantId, post)) return undefined
+        return cached(version, principal, `/posts/${post.slug}`, () => render.renderPostPage(site, post))
       },
       renderNotFound: path => render.renderNotFound(site, path),
       renderComment: markdown => render.renderComment(site, markdown),

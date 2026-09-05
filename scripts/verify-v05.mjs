@@ -11,10 +11,11 @@ import { spawn } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync, rmSync } from 'node:fs'
 import { mkdtemp } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
+import { constants, tmpdir } from 'node:os'
 import path from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
+import { createStepRunner } from './lib/step-runner.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const args = new Set(process.argv.slice(2))
@@ -24,6 +25,10 @@ const insideArchive = args.has('--inside-archive') // set by the release step wh
 const validationDir = path.join(root, 'validation', release ? 'v0.5-release' : 'v0.5-dev')
 const logsDir = path.join(validationDir, 'logs')
 mkdirSync(logsDir, { recursive: true })
+// The manifest this run replaces (if any) is read for comparison only; it never fails a run (I-116).
+const manifestPath = path.join(validationDir, 'manifest.json')
+const previousManifest = existsSync(manifestPath) ? JSON.parse(readFileSync(manifestPath, 'utf8')) : null
+let postgresInfo = null
 
 const startedAt = new Date()
 const steps = []
@@ -33,71 +38,15 @@ function log(message) {
   process.stdout.write(`${message}\n`)
 }
 
-function run(name, command, commandArgs, options = {}) {
-  const logPath = path.join(logsDir, `${name}.log`)
-  const started = new Date()
-  return new Promise(resolve => {
-    const child = spawn(command, commandArgs, {
-      cwd: options.cwd ?? root,
-      env: { ...process.env, ...(options.env ?? {}) },
-      stdio: ['ignore', 'pipe', 'pipe'],
-    })
-    const chunks = []
-    child.stdout.on('data', chunk => chunks.push(chunk))
-    child.stderr.on('data', chunk => chunks.push(chunk))
-    // Timeout: ask politely first so wrappers (the PostgreSQL cluster script) can
-    // stop what they started, then kill.
-    let timedOut = false
-    const timer = setTimeout(() => {
-      timedOut = true
-      child.kill('SIGTERM')
-      setTimeout(() => child.kill('SIGKILL'), 15_000).unref()
-    }, options.timeoutMs ?? 20 * 60_000)
-    // 'close' (not 'exit') guarantees stdout/stderr are fully drained before the
-    // TAP summary is parsed.
-    child.on('close', (code, signal) => {
-      clearTimeout(timer)
-      const output = Buffer.concat(chunks).toString('utf8')
-      writeFileSync(logPath, output)
-      const counts = parseTap(output)
-      const notRun = counts ? counts.skipped + counts.todo + counts.cancelled : 0
-      const step = {
-        name,
-        command: portable([command, ...commandArgs].join(' ')),
-        ...(options.env ? { env: Object.fromEntries(Object.entries(options.env).map(([key, value]) => [key, portable(String(value))])) } : {}),
-        cwd: path.relative(root, options.cwd ?? root) || '.',
-        startedAt: started.toISOString(),
-        endedAt: new Date().toISOString(),
-        durationMs: Date.now() - started.getTime(),
-        exitCode: code,
-        signal,
-        ...(timedOut ? { timedOut: true } : {}),
-        ...(counts ? { tests: counts } : {}),
-        mustRun: options.mustRun ?? true,
-        log: path.relative(root, logPath),
-        // skipped, todo and cancelled tests all count as "not run" for a no-skip step.
-        ok: code === 0 && !timedOut && (counts ? counts.fail === 0 && counts.cancelled === 0 && (!options.noSkip || notRun === 0) : true),
-      }
-      // A step may also have to say something: an exit code alone does not prove a demo served its pages.
-      if (step.ok && options.expectStdout && !options.expectStdout(output)) {
-        step.ok = false
-        step.note = 'exit 0, but the expected output lines are missing (expectStdout)'
-      }
-      steps.push(step)
-      log(`${step.ok ? 'ok  ' : 'FAIL'} ${name} (exit ${code}${signal ? `/${signal}` : ''}, ${step.durationMs} ms${counts ? `, tests ${counts.pass}/${counts.tests} pass, ${counts.fail} fail, ${notRun} not run` : ''}${step.note ? `; ${step.note}` : ''})`)
-      resolve(step)
-    })
+// Steps run in their own process groups under a bounded timeout policy: scripts/lib/step-runner.mjs (I-111).
+const runner = createStepRunner({ root, logsDir, log, portable })
+const run = runner.run
+// A signal to the gate ends the running step's whole process tree before the gate exits.
+for (const signal of ['SIGINT', 'SIGTERM']) {
+  process.once(signal, () => {
+    log(`${signal}: ending the running step`)
+    void runner.abort('SIGTERM').then(() => process.exit(128 + constants.signals[signal]))
   })
-}
-
-function parseTap(output) {
-  const get = key => {
-    const match = output.match(new RegExp(`^# ${key} (\\d+)$`, 'm'))
-    return match ? Number(match[1]) : undefined
-  }
-  const tests = get('tests')
-  if (tests === undefined) return undefined
-  return { tests, pass: get('pass') ?? 0, fail: get('fail') ?? 0, skipped: get('skipped') ?? 0, todo: get('todo') ?? 0, cancelled: get('cancelled') ?? 0 }
 }
 
 /** The Hyla-mini demo must have served all three cells (two HTTP tenants, one static build) with 200 and said so. */
@@ -106,6 +55,41 @@ function demoServedAllCells(output) {
     && /^demo: .* → HTTP beta \/posts\/shared-slug: 200 /m.test(output)
     && /^demo: .* → static alpha \/posts\/shared-slug\/ \(\d+ files\): 200 /m.test(output)
     && /^demo: OK$/m.test(output)
+}
+
+/** The cluster script prints the server the step ran against; the manifest records it instead of a hand-typed version (I-115). */
+function describePostgres(step) {
+  const match = readFileSync(path.join(root, step.log), 'utf8').match(/^pg-test-cluster: server (.+?) at (postgres:\/\/\S+) \((.+?)\)$/m)
+  return match ? { server: match[1], url: match[2], origin: match[3] } : null
+}
+
+/**
+ * How this run relates to the manifest it replaces: same step list, same per-step test counts, or which
+ * differences. Recorded, never used to fail the run — a new test is a legitimate difference (I-116).
+ */
+function compareWithPrevious(previous) {
+  if (!previous || !Array.isArray(previous.steps)) return null
+  const names = list => list.map(step => step.name)
+  const before = new Map(previous.steps.map(step => [step.name, step]))
+  const after = new Map(steps.map(step => [step.name, step]))
+  const differences = []
+  for (const name of before.keys()) if (!after.has(name)) differences.push(`step ${name} no longer runs`)
+  for (const name of after.keys()) if (!before.has(name)) differences.push(`step ${name} is new`)
+  const countChanges = []
+  for (const [name, step] of after) {
+    const old = before.get(name)
+    if (!old?.tests || !step.tests) continue
+    if (step.tests.tests !== old.tests.tests || step.tests.pass !== old.tests.pass) countChanges.push(`${name}: ${old.tests.pass}/${old.tests.tests} → ${step.tests.pass}/${step.tests.tests}`)
+  }
+  return {
+    generatedAt: previous.generatedAt ?? null,
+    commit: previous.environment?.gitProvenance?.commit ?? null,
+    sourceDigest: previous.source?.digest ?? null,
+    status: previous.status ?? null,
+    sameStepList: JSON.stringify(names(previous.steps)) === JSON.stringify(names(steps)),
+    sameTestCounts: countChanges.length === 0,
+    differences: [...differences, ...countChanges],
+  }
 }
 
 /** Manifests must not leak the host's directory layout: the workspace root becomes `<root>`. */
@@ -184,7 +168,11 @@ async function developmentGate() {
   if (!pgStep.ok && !pgStep.tests) {
     blocked.push({ step: pgStep.name, reason: 'PostgreSQL could not be started or reached (see log). Provide SYNA_TEST_PG_URL or install postgresql@17 binaries.' })
   }
-  await run('demos', 'npm', ['run', 'demo'])
+  postgresInfo = describePostgres(pgStep)
+  // The gate's own tooling: step-runner process groups and the cluster script's signal forwarding (I-111, I-115).
+  await run('gate-self-tests', 'node', ['--test', '--test-reporter=tap', ...glob('scripts/tests', '.test.mjs')], { noSkip: true })
+  // The four core demos check their own results and each prints `demo: OK` (I-112).
+  await run('demos', 'npm', ['run', 'demo'], { expectStdout: output => (output.match(/^demo: OK$/gm) ?? []).length === 4 })
   await run('hyla-demo-filesystem', 'node', ['apps/hyla-mini/bin/hyla-mini.mjs', 'demo', '--root', path.join(root, 'work', 'demo-content')], { expectStdout: demoServedAllCells })
   rmSync(path.join(root, 'work', 'demo-content'), { recursive: true, force: true })
   await run('benchmarks', 'node', ['--expose-gc', 'benchmarks/v0.5-planning.mjs', path.join(validationDir, 'benchmark-v0.5.json')])
@@ -248,6 +236,7 @@ async function releaseGate(sourceFingerprint) {
   await run('rebuild-core-tests', 'node', ['--test', '--test-reporter=tap', ...readdirSync(path.join(unpacked, 'packages/core/tests')).filter(f => f.endsWith('.test.mjs')).sort().map(f => `packages/core/tests/${f}`)], { ...rebuildLogs, noSkip: true })
   await run('rebuild-app-tests', 'node', ['--test', '--test-reporter=tap', '--expose-gc', 'apps/hyla-mini/tests/filesystem.test.mjs', 'apps/hyla-mini/tests/render.test.mjs', 'apps/hyla-mini/tests/tenants-auth.test.mjs', 'apps/hyla-mini/tests/preflight.test.mjs', 'apps/hyla-mini/tests/audit-app.test.mjs', 'apps/hyla-mini/tests/review-app.test.mjs', 'apps/hyla-mini/tests/site-manager.test.mjs'], { ...rebuildLogs, noSkip: true })
   await run('rebuild-postgres-matrix-tests', 'node', ['scripts/pg-test-cluster.mjs', 'with', '--', 'node', '--test', '--test-reporter=tap', 'apps/hyla-mini/tests/postgres.test.mjs', 'apps/hyla-mini/tests/matrix.test.mjs'], { ...rebuildLogs, noSkip: true, env: { SYNA_PG_CLUSTER_DIR: path.join(rebuildDir, 'pg') } })
+  await run('rebuild-gate-self-tests', 'node', ['--test', '--test-reporter=tap', ...readdirSync(path.join(unpacked, 'scripts/tests')).filter(f => f.endsWith('.test.mjs')).sort().map(f => `scripts/tests/${f}`)], { ...rebuildLogs, noSkip: true })
   await run('rebuild-demo', 'node', ['apps/hyla-mini/bin/hyla-mini.mjs', 'demo', '--root', path.join(rebuildDir, 'demo-content')], { ...rebuildLogs, expectStdout: demoServedAllCells })
 
   // Package tarball + independent consumer project.
@@ -327,7 +316,7 @@ const manifest = {
   mode: release ? 'release' : 'dev',
   generatedAt: new Date().toISOString(),
   startedAt: startedAt.toISOString(),
-  environment: { node: process.version, platform: process.platform, arch: process.arch, cwd: '.', gitProvenance },
+  environment: { node: process.version, platform: process.platform, arch: process.arch, cwd: '.', gitProvenance, postgres: postgresInfo },
   source: sourceFingerprint,
   steps,
   totals: {
@@ -343,6 +332,7 @@ const manifest = {
     rebuildTests: sumTests(isRebuild, 'tests'),
   },
   blocked,
+  previousRun: compareWithPrevious(previousManifest),
   ...(releaseResult ? { release: releaseResult } : {}),
 }
 writeFileSync(path.join(validationDir, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`)
@@ -356,6 +346,7 @@ if (release && releaseResult) {
 log('')
 log(`== ${status} == ${manifest.totals.tests} test executions (${manifest.totals.distinctTests} distinct cases, ${manifest.totals.rebuildTests} re-run in the rebuilt copy), ${manifest.totals.passed} passed, ${failed.length} failed steps, ${skipped} skipped tests`)
 log(`source fingerprint: ${sourceFingerprint.digest} (${sourceFingerprint.files} files)`)
+if (manifest.previousRun) log(`previous run ${manifest.previousRun.generatedAt} (commit ${manifest.previousRun.commit?.slice(0, 7) ?? 'unknown'}, ${manifest.previousRun.status}): same step list ${manifest.previousRun.sameStepList}, same test counts ${manifest.previousRun.sameTestCounts}${manifest.previousRun.differences.length > 0 ? `; ${manifest.previousRun.differences.join('; ')}` : ''}`)
 for (const step of steps) log(`  ${step.ok ? 'ok  ' : 'FAIL'} ${step.name.padEnd(40)} exit=${step.exitCode}${step.tests ? ` pass=${step.tests.pass} fail=${step.tests.fail} skip=${step.tests.skipped}` : ''} log=${step.log}`)
 if (releaseResult) {
   for (const item of [...releaseResult.archives, ...releaseResult.packed]) log(`  archive ${item.path} ${item.bytes} bytes sha256 ${item.sha256}`)

@@ -32,12 +32,13 @@ const out = (...text) => lines.push(...text)
 
 out('# Validation (VALIDATION)', '')
 out(`Every number below is copied by a script (\`scripts/validation-doc.mjs\`) from machine-readable results of the transparent orchestrator; nothing is hand-typed. Source of this page: the ${manifest.mode} run \`node scripts/verify-v05.mjs --${manifest.mode}\` recorded in \`${runDir}/manifest.json\` — status **${manifest.status}**, generated ${manifest.generatedAt}, source fingerprint \`${manifest.source.digest}\` (${manifest.source.files} files), git commit \`${short(git.commit)}\` (dirty: ${git.dirty ?? 'unknown'}).`, '')
-out('The shipped source additionally contains this document, so the release run recorded in `RELEASE_MANIFEST.json` / `validation/v0.5-release/` was executed once more on that final source; it is the record of reference for the archive hashes and fingerprint. Its step list and test counts are the same by construction (the gate fails on any deviation); its timings are its own and may differ within noise from the ones quoted here.', '')
+out('The shipped source additionally contains this document, so the release run recorded in `RELEASE_MANIFEST.json` / `validation/v0.5-release/` was executed once more on that final source; it is the record of reference for the archive hashes and fingerprint. The gate does not compare runs with each other and fails none for differing from another: the same steps run, and each manifest records under `previousRun` whether its step list and per-step test counts equal those of the run it replaced (for the final run, the run quoted here); its timings are its own and may differ within noise.', '')
 
 out('## Environment', '')
 out(`- Host: ${env.platform} ${env.release} ${env.arch}, ${env.cpu} × ${env.cpuCount}, ${Math.round(env.totalMemoryBytes / (1024 ** 3))} GiB`)
 out(`- Node ${env.node} (V8 ${env.v8}), \`--expose-gc\` for benchmarks and working-set tests`)
-out('- PostgreSQL: temporary cluster created by `scripts/pg-test-cluster.mjs` (`postgres://syna@127.0.0.1:54329`, `fsync=off`), removed after each step; server binaries Homebrew `postgresql@17` 17.10 as recorded in `work/v05/STATE.md`')
+const pg = manifest.environment.postgres
+out(`- PostgreSQL: ${pg ? `${pg.server} at \`${pg.url}\` (${pg.origin})` : 'server and URL not recorded by this run'}, as printed by \`scripts/pg-test-cluster.mjs\` in the step log and copied into the manifest; the temporary cluster runs with \`fsync=off\` and is created before and removed after each PostgreSQL step`)
 out('- Package manager: npm workspaces (`npm ci` in the rebuild); TypeScript 5.9.x from the lockfile', '')
 
 out(`## Release gate steps (\`${runDir}/manifest.json\`)`, '')
@@ -54,6 +55,10 @@ const totals = manifest.totals
 const distinct = totals.distinctTests ?? manifest.steps.filter(step => !step.name.startsWith('rebuild-')).reduce((sum, step) => sum + (step.tests?.tests ?? 0), 0)
 const rerun = totals.rebuildTests ?? totals.tests - distinct
 out(`Totals: ${totals.steps} steps, ${totals.failed} failed steps; ${totals.tests} test executions: ${distinct} distinct cases, ${rerun} of them executed a second time in the rebuilt copy (the \`rebuild-*\` steps); ${totals.passed} passed, ${totals.skippedTests} skipped/not run. Blocked steps: ${manifest.blocked.length}.`, '')
+if (manifest.previousRun) {
+  const prev = manifest.previousRun
+  out(`Compared with the run this one replaced (generated ${prev.generatedAt}, commit \`${short(prev.commit)}\`, ${prev.status}): step list ${prev.sameStepList ? 'identical' : 'different'}, per-step test counts ${prev.sameTestCounts ? 'identical' : 'different'}${prev.differences.length > 0 ? ` — ${prev.differences.join('; ')}` : ''}.`, '')
+}
 out('The `rebuild-*` steps ran inside a fresh directory created with `mkdtemp` in the OS temp dir: the source tarball was unpacked there, `npm ci` installed from the lockfile, the workspace was built and type-tested, and the core, application and PostgreSQL/matrix suites plus the filesystem demo ran against that copy. `pack-*` produced the npm tarballs from the rebuilt copy; `consumer-*` installed them into an independent TypeScript project, compiled it and ran it.', '')
 
 if (manifest.release) {
@@ -128,7 +133,7 @@ if (existsSync(latencyFile)) {
 }
 
 out('## Audit and review fixes covered by this run', '')
-out('The suites above include the regressions written for the independent audits and for the second and third review rounds (`docs/AUDIT.md`): `packages/core/tests/v05-audit-lifecycle.test.mjs`, `v05-audit-planning.test.mjs` and `v05-review-lifecycle.test.mjs` inside `core-tests` (the third round\'s core cases live in the `v05-*` files named in `work/v05/ISSUES.md` I-58…I-65), `apps/hyla-mini/tests/audit-app.test.mjs` and `apps/hyla-mini/tests/review-app.test.mjs` as their own steps, the site-manager, render and preflight cases of the third round inside their steps, and the repository-conformance cases (content version, domain claims and concurrent claims, tenant-scoped post identity, configuration validation) inside the filesystem and PostgreSQL suites. The demo steps are self-asserting (`demo: OK` and three `: 200` cells are required, not just exit 0).', '')
+out('The suites above include the regressions written for the independent audits and for the second and third review rounds (`docs/AUDIT.md`): `packages/core/tests/v05-audit-lifecycle.test.mjs`, `v05-audit-planning.test.mjs` and `v05-review-lifecycle.test.mjs` inside `core-tests` (the third round\'s core cases live in the `v05-*` files named in `work/v05/ISSUES.md` I-58…I-65), `apps/hyla-mini/tests/audit-app.test.mjs` and `apps/hyla-mini/tests/review-app.test.mjs` as their own steps, the site-manager, render and preflight cases of the third round inside their steps, and the repository-conformance cases (content version, domain claims and concurrent claims, tenant-scoped post identity, configuration validation) inside the filesystem and PostgreSQL suites. The demo steps are self-asserting: the Hyla-mini demo must print `demo: OK` and three `: 200` cells, and the `demos` step must print `demo: OK` once per core demo (each checks its own results); exit 0 alone is not enough. The `gate-self-tests` step covers the gate\'s own tooling (step process groups, cluster script signal forwarding).', '')
 
 out('## What is not covered', '')
 out('- Coverage percentages are not a gate in v0.5; the adversarial and application suites are.')

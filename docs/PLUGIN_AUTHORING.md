@@ -40,7 +40,7 @@ export const MyStageFactory = define.service('my-stage-factory', {
 
 ## 可信 / 不可信输入
 
-评论等不可信内容由 `PipelineBuilder.build(document, { trust: 'untrusted' })` 构建（`Renderer.renderComment` 就是这样做的）。构建器在配方之上施加平台策略：`bridge`/`compile` 阶段的 `allowDangerousHtml` 强制为 `false`；最后一个 `rehype` 阶段必须是声明了 `sanitizer` 角色的 Factory（`createFactory({ …, sanitizer: { options } })`），否则构建器把平台的 `rehype-sanitize` 追加为最后一个 rehype 阶段（`BuiltPipeline.stages[].appended`）。所以一个注册在 sanitize 之后的第三方 rehype 阶段不能把脚本或事件处理器带回评论输出；配方作者仍应把 `rehype-sanitize` 放在会添加属性的插件之前，以表达意图。没有任何已接纳的 sanitizer Factory 时，`untrusted` 构建以 `RecipeError` 拒绝。声明 `sanitizer` 角色的 Factory 必须让 `options` 产生一遍独立的处理（unified 会把同一插件身份的重复 `use()` 并入第一次）：平台的实现用 `finalPass: true` 换一个插件身份。这是 Hyla 的业务安全策略，Syna core 不理解它。
+评论等不可信内容由 `PipelineBuilder.build(document, { trust: 'untrusted' })` 构建（`Renderer.renderComment` 就是这样做的）。构建器在配方之上施加平台策略：`bridge`/`compile` 阶段的 `allowDangerousHtml` 强制为 `false`；最后一个 `rehype` 阶段必须是声明了 `sanitizer` 角色的 Factory（`createFactory({ …, sanitizer: { options } })`），否则构建器把平台的 `rehype-sanitize` 追加为最后一个 rehype 阶段（`BuiltPipeline.stages[].appended`）。所以一个注册在 sanitize 之后的第三方 rehype 阶段不能把脚本或事件处理器带回评论输出；配方作者仍应把 `rehype-sanitize` 放在会添加属性的插件之前，以表达意图。没有任何已接纳的 sanitizer Factory 时，`untrusted` 构建以 `RecipeError` 拒绝。声明 `sanitizer` 角色的 Factory 必须让 `options` 产生一遍独立的处理（unified 会把同一插件身份的重复 `use()` 并入第一次）：平台的实现为每个配置创建一个新的插件函数（`rehypeSanitizeOwnPass()`），而不是共用一个「最后一遍」身份——共用身份会被同样声明 `finalPass` 的配方阶段吸收；构建器在追加之后核对 `processor.attachers` 确实多了一项，否则以 `RecipeError` 拒绝该配方的不可信构建（第三轮复审 F-AP3-01）。这是 Hyla 的业务安全策略，Syna core 不理解它。
 
 ## 启动预检（check / explain）
 

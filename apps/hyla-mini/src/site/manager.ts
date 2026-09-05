@@ -23,7 +23,7 @@ export interface SiteRecordView {
   readonly key: string
   readonly tenantId: string
   readonly configRevision: number
-  /** `disposing`: the Env is being closed; it still occupies its unit of capacity until the close settles. */
+  /** `disposing`: the Env is being closed; its key is already free for a successor, but it occupies its unit of capacity until the close settles. */
   readonly state: 'creating' | 'active' | 'draining' | 'disposing' | 'disposed'
   readonly leases: number
   readonly idleForMs: number | undefined
@@ -62,8 +62,8 @@ export class SiteCapacityError extends Error {
 
 export class SiteManagerClosedError extends Error {
   readonly code = 'SITE_MANAGER_CLOSED'
-  constructor() {
-    super('The site environment manager is shutting down; no new site environments are acquired.')
+  constructor(options?: { readonly cause?: unknown }) {
+    super('The site environment manager is shutting down; no new site environments are acquired.', options)
     this.name = 'SiteManagerClosedError'
   }
 }
@@ -121,6 +121,8 @@ interface SiteRecord {
   context?: SiteContext
   creation?: Promise<void>
   disposal?: Promise<void>
+  /** Set by the close that took `env`; a creator whose Env was attached after that close ran closes it itself. */
+  envClosed?: boolean
 }
 
 interface Waiter {
@@ -133,6 +135,9 @@ interface Waiter {
 function runtimeIdentity(): string {
   return `${process.pid}:${Math.random().toString(36).slice(2, 10)}`
 }
+
+/** An acquirer that must read the configuration again waits this long first: a store that answered a moment ago answers the same now. */
+const RETRY_PACE_MS = 5
 
 /**
  * SiteEnvs are a bounded working set, not tenant existence. Business facts
@@ -202,7 +207,9 @@ export const SiteEnvironmentManager = define.service('site-environment-manager',
       return pending
     }
 
-    const liveRecords = (): SiteRecord[] => [...records.values()].filter(record => record.state !== 'disposed')
+    /** Records whose Env is being closed: no longer under their key (a successor may be created at once) but still occupying their unit until the close settles. */
+    const closing = new Set<SiteRecord>()
+    const liveRecords = (): SiteRecord[] => [...records.values(), ...closing].filter(record => record.state !== 'disposed')
     const capacityUsed = (): number => liveRecords().length + reservations
 
     /** Whether `free` units of capacity would let the next eligible waiter proceed. */
@@ -258,40 +265,48 @@ export const SiteEnvironmentManager = define.service('site-environment-manager',
     }
 
     /**
-     * Closes a record's Env. The record keeps its unit of capacity until the
-     * close has settled (state `disposing`); only then is it dropped and the
-     * unit handed to the longest waiter, in the same tick, so nobody can slip a
-     * new Env in ahead of the queue. Never rejects: a failed close is reported
-     * and counted, and the Runtime keeps its own ledger of unsettled attempts.
+     * Closes a record's Env. The record leaves its key at once, so an acquirer of
+     * that world creates its successor instead of waiting for the close, but it
+     * keeps its unit of capacity until the close has settled (state `disposing`);
+     * only then is the unit handed to the longest waiter, in the same tick, so
+     * nobody can slip a new Env in ahead of the queue. Never rejects: a failed
+     * close is reported and counted, and the Runtime keeps its own ledger of
+     * unsettled attempts.
      */
     const disposeRecord = (record: SiteRecord): Promise<void> => {
       if (record.disposal) return record.disposal
       record.state = 'disposing'
+      if (records.get(record.key) === record) records.delete(record.key)
+      closing.add(record)
+      const env = record.env
+      if (env) record.envClosed = true
       record.disposal = (async () => {
-        try { await record.env?.dispose() }
+        try { await env?.dispose() }
         catch (error) { reportDisposalFailure(error, record) }
         finally {
           record.state = 'disposed'
-          records.delete(record.key)
+          closing.delete(record)
           grantWaiter()
         }
       })()
       return record.disposal
     }
 
+    /** Active records without leases, longest idle first. */
+    const idleRecords = (): SiteRecord[] => liveRecords()
+      .filter(record => record.state === 'active' && record.leases === 0)
+      .sort((left, right) => left.lastReleasedAt - right.lastReleasedAt)
+
     /** Starts closing the longest-idle active record without leases. Never evicts a leased record. */
     const evictIdle = (): boolean => {
-      const candidates = liveRecords()
-        .filter(record => record.state === 'active' && record.leases === 0)
-        .sort((left, right) => left.lastReleasedAt - right.lastReleasedAt)
-      const victim = candidates[0]
+      const victim = idleRecords()[0]
       if (!victim) return false
       evictions += 1
       void disposeRecord(victim)
       return true
     }
 
-    const waitForCapacity = (purpose: LeasePurpose): Promise<void> => {
+    const waitForCapacity = (purpose: LeasePurpose, deadline: number): Promise<void> => {
       if (waiters.length >= settings.maxPendingAcquires) {
         rejectedForCapacity += 1
         return Promise.reject(new SiteCapacityError(
@@ -308,7 +323,7 @@ export const SiteEnvironmentManager = define.service('site-environment-manager',
             if (index >= 0) waiters.splice(index, 1)
             rejectedForCapacity += 1
             reject(new SiteCapacityError(`Timed out after ${settings.acquireTimeoutMs} ms waiting for a site environment.`))
-          }, settings.acquireTimeoutMs),
+          }, Math.max(0, Math.min(settings.acquireTimeoutMs, deadline - Date.now()))), // one deadline for the whole acquire, however often it waits
         }
         waiters.push(waiter)
       })
@@ -317,12 +332,15 @@ export const SiteEnvironmentManager = define.service('site-environment-manager',
     /**
      * Returns holding one reservation. When the working set is full for this
      * purpose (requests may use every unit; builds and background work leave
-     * `reservedForRequests` units alone), the acquirer starts closing the
-     * longest-idle Env (if any) and joins the queue: the unit is granted, in
-     * arrival order and requests first, only once a close settles, so the
-     * working set never exceeds `capacity` even while Envs are closing.
+     * `reservedForRequests` units alone), the acquirer starts closing as many
+     * idle Envs as would let it proceed (a request needs one; none at all when
+     * the idle Envs would not suffice, since closing warm Envs for a build that
+     * is refused anyway only thrashes the working set) and joins the queue: the
+     * unit is granted, in arrival order and requests first, only once a close
+     * settles, so the working set never exceeds `capacity` even while Envs are
+     * closing.
      */
-    const reserveCapacity = async (purpose: LeasePurpose): Promise<void> => {
+    const reserveCapacity = async (purpose: LeasePurpose, deadline: number): Promise<void> => {
       const limit = purpose === 'request' ? settings.capacity : settings.capacity - settings.reservedForRequests
       if (capacityUsed() < limit) {
         reservations += 1
@@ -334,8 +352,11 @@ export const SiteEnvironmentManager = define.service('site-environment-manager',
           `All ${settings.capacity} site environments are leased and ${waiters.length} acquirers are already waiting.`,
         )
       }
-      evictIdle()
-      await waitForCapacity(purpose) // resolved with a reservation already granted to this acquirer
+      const needed = purpose === 'request' ? 1 : settings.reservedForRequests + 1 - (settings.capacity - capacityUsed())
+      if (idleRecords().length >= needed) {
+        for (let count = 0; count < needed; count += 1) evictIdle()
+      }
+      await waitForCapacity(purpose, deadline) // resolved with a reservation already granted to this acquirer
       if (closed) { releaseReservation(); throw new SiteManagerClosedError() }
     }
 
@@ -364,9 +385,15 @@ export const SiteEnvironmentManager = define.service('site-environment-manager',
           creations += 1
           failureBackoff.delete(record.tenantId)
         }
-        catch (error) {
-          creationFailures += 1
+        catch (caught) {
+          // A shutdown that took the record while its site was still starting is not a
+          // failure of the tenant, whatever the Runtime reported when the Env was closed
+          // under its setup: the acquirer is refused as closed, nothing is counted
+          // against the tenant and no backoff is armed.
+          const takenAway = closed || record.disposal !== undefined
+          const error = takenAway && !(caught instanceof SiteManagerClosedError) ? new SiteManagerClosedError({ cause: caught }) : caught
           if (!(error instanceof SiteManagerClosedError)) {
+            creationFailures += 1
             // Never leave a poisoned single-flight promise behind; back off future attempts.
             const previous = failureBackoff.get(record.tenantId)
             const count = (previous?.count ?? 0) + 1
@@ -374,19 +401,19 @@ export const SiteEnvironmentManager = define.service('site-environment-manager',
             failureBackoff.set(record.tenantId, { count, until: Date.now() + delay, error })
           }
           if (record.disposal) {
-            // A shutdown or rotation already took the record; it closes the Env.
+            // A shutdown already took the record and closes the Env — unless it ran before
+            // the Env was attached (enter() still pending): then it closed nothing, and the
+            // Env is closed here rather than left to the Runtime's final disposal.
             await record.disposal
+            if (env && !record.envClosed) {
+              record.envClosed = true
+              try { await env.dispose() }
+              catch (disposalError) { reportDisposalFailure(disposalError, record) }
+            }
           }
           else {
             // A half-configured site is closed, never dropped: the Env was entered.
-            record.state = 'disposing'
-            try { await env?.dispose() }
-            catch (disposalError) { reportDisposalFailure(disposalError, record) }
-            finally {
-              record.state = 'disposed'
-              records.delete(record.key)
-              grantWaiter()
-            }
+            await disposeRecord(record)
           }
           throw error
         }
@@ -402,6 +429,12 @@ export const SiteEnvironmentManager = define.service('site-environment-manager',
       const stillRetrying = (): boolean => Date.now() < deadline
       const keptChanging = (attempt: number, what: string): SiteCapacityError =>
         new SiteCapacityError(`Site ${tenantId} ${what} for ${settings.acquireTimeoutMs} ms while acquiring (${attempt} attempts).`)
+      // Reading again at once is never useful (a store that answered a moment ago answers
+      // the same now): a retry that must re-read is paced, within the deadline.
+      const pace = async (): Promise<void> => {
+        const remaining = deadline - Date.now()
+        if (remaining > 0) await new Promise<void>(resolve => setTimeout(resolve, Math.min(RETRY_PACE_MS, remaining)))
+      }
       for (let attempt = 1; ; attempt += 1) {
         if (closed) throw new SiteManagerClosedError()
         assertNotBackingOff(tenantId)
@@ -433,11 +466,11 @@ export const SiteEnvironmentManager = define.service('site-environment-manager',
 
         if (record?.state === 'draining') {
           // This acquirer read an older configuration than a concurrent one: re-read and join the newer world.
-          if (stillRetrying()) continue
+          if (stillRetrying()) { await pace(); continue }
           throw keptChanging(attempt, 'configuration kept changing')
         }
         if (!record || record.state === 'disposed') {
-          await reserveCapacity(purpose)
+          await reserveCapacity(purpose, deadline)
           if (closed) { releaseReservation(); throw new SiteManagerClosedError() }
           // The wait may have outlived the read: an invalidate() moved the generation,
           // or another acquirer created this world or a newer one meanwhile. A record
@@ -478,9 +511,10 @@ export const SiteEnvironmentManager = define.service('site-environment-manager',
         const context = record.context
         if (record.state !== 'active' || !env || !context) {
           // The world this acquirer waited for was rotated away (configuration bump or
-          // invalidate() while it was being created): read the current configuration
-          // and join the current world instead of failing the caller.
-          if ((record.state === 'draining' || record.state === 'disposing' || record.state === 'disposed') && stillRetrying()) continue
+          // invalidate() while it was being created) or is closing (its key is free
+          // again): read the current configuration and join or create the current
+          // world instead of failing the caller.
+          if ((record.state === 'draining' || record.state === 'disposing' || record.state === 'disposed') && stillRetrying()) { await pace(); continue }
           throw keptChanging(attempt, `environment ${record.key} is ${record.state} and the configuration kept changing`)
         }
         record.leases += 1
@@ -565,7 +599,7 @@ export const SiteEnvironmentManager = define.service('site-environment-manager',
       invalidate(tenantId) {
         generations.set(tenantId, (generations.get(tenantId) ?? 0) + 1)
         for (const record of liveRecords()) {
-          if (record.tenantId !== tenantId || record.state === 'draining') continue
+          if (record.tenantId !== tenantId || record.state === 'draining' || record.state === 'disposing') continue
           record.state = 'draining'
           settle(record)
         }

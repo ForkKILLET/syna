@@ -14,6 +14,7 @@ import { override } from '@syna/core'
 import {
   AuthOptions,
   AuthenticatorContract,
+  BUILD_MANIFEST_FILE,
   BuildEntry,
   MarkdownStageFactoryContract,
   SessionAuth,
@@ -407,18 +408,18 @@ test('F-AP-08c a build is one content snapshot published file by file: a failed 
 
     // (1) A render that fails midway: nothing of the previous build changes, no lock stays behind.
     const context = lease.context
-    const realRenderPost = context.renderPost
+    const realRenderPostPage = context.renderPostPage
     let renders = 0
-    context.renderPost = async (...args) => {
+    context.renderPostPage = async (...args) => {
       renders += 1
       if (renders === 2) throw new Error('render exploded')
-      return realRenderPost.apply(context, args)
+      return realRenderPostPage.apply(context, args)
     }
     try {
       await assert.rejects(build(), /render exploded/)
     }
     finally {
-      context.renderPost = realRenderPost
+      context.renderPostPage = realRenderPostPage
     }
     assert.deepEqual(await snapshot(), before)
     assert.ok(!(await hasLock()))
@@ -756,6 +757,90 @@ test('control: the fixture tenants still round-trip through the two-tenant HTTP 
   }
   finally {
     await server?.close()
+    await harness.close()
+  }
+})
+
+test('F-AP3-06 a build manifest this builder did not write, or one of another tenant, is BAD_MANIFEST and nothing it lists is deleted', async () => {
+  const harness = await createFilesystemApp()
+  const outputDir = await mkdtemp(path.join(tmpdir(), 'hyla-audit-manifest-'))
+  try {
+    const manager = await harness.app.app.deps.sites.load()
+    const build = async (tenantId = 'alpha') => {
+      const lease = await manager.acquire(tenantId, 'build')
+      try {
+        return await lease.env.run(BuildEntry, { build: { outputDir } }, async ({ builder }) => (await builder.load()).build())
+      }
+      finally {
+        lease.release()
+      }
+    }
+    // A manifest nobody from Hyla wrote: a file list only.
+    await writeFile(path.join(outputDir, 'precious.txt'), 'not written by hyla\n')
+    await writeFile(path.join(outputDir, BUILD_MANIFEST_FILE), JSON.stringify({ generator: 'some-other-tool', files: ['precious.txt'] }))
+    await assert.rejects(build(), error => error.name === 'StaticBuildError' && error.code === 'BAD_MANIFEST' && /not a manifest this builder wrote/.test(error.message))
+    assert.equal(await readFile(path.join(outputDir, 'precious.txt'), 'utf8'), 'not written by hyla\n', 'the listed file is untouched')
+    // A manifest with the right shape but a foreign builder name is no better.
+    await writeFile(path.join(outputDir, BUILD_MANIFEST_FILE), JSON.stringify({ builder: 'other-tool', tenantId: 'alpha', configRevision: 1, contentVersion: '0', files: ['precious.txt'] }))
+    await assert.rejects(build(), error => error.code === 'BAD_MANIFEST')
+    assert.equal(await readFile(path.join(outputDir, 'precious.txt'), 'utf8'), 'not written by hyla\n')
+
+    // A real manifest of another tenant: refused, and that tenant's pages stay.
+    await rm(outputDir, { recursive: true, force: true })
+    await mkdir(outputDir)
+    const alphaBuild = await build('alpha')
+    const indexBefore = await readFile(path.join(outputDir, 'index.html'), 'utf8')
+    await assert.rejects(build('beta'), error => error.code === 'BAD_MANIFEST' && /belongs to a build of tenant alpha, not beta/.test(error.message))
+    assert.equal(await readFile(path.join(outputDir, 'index.html'), 'utf8'), indexBefore)
+    for (const file of alphaBuild.files) await readFile(path.join(outputDir, file))
+    assert.ok(!(await readdir(outputDir)).includes('.hyla-build.lock'), 'no lock is left behind')
+    // Control: the owning tenant builds again.
+    assert.deepEqual((await build('alpha')).files, alphaBuild.files)
+  }
+  finally {
+    await rm(outputDir, { recursive: true, force: true })
+    await harness.close()
+  }
+})
+
+test('F-AP3-08 a static build renders from the listing it already holds: no repository read per post', async () => {
+  const harness = await createFilesystemApp()
+  const outputDir = await mkdtemp(path.join(tmpdir(), 'hyla-audit-scan-'))
+  try {
+    const store = await harness.app.app.deps.store.load()
+    const calls = { getPost: 0, listPosts: 0 }
+    const realForTenant = store.forTenant.bind(store)
+    store.forTenant = tenantId => {
+      const real = realForTenant(tenantId)
+      return {
+        ...real,
+        async getPost(...args) { calls.getPost += 1; return real.getPost(...args) },
+        async listPosts(...args) { calls.listPosts += 1; return real.listPosts(...args) },
+      }
+    }
+    try {
+      const manager = await harness.app.app.deps.sites.load()
+      const lease = await manager.acquire('alpha', 'build')
+      try {
+        const result = await lease.env.run(BuildEntry, { build: { outputDir } }, async ({ builder }) => (await builder.load()).build())
+        assert.ok(result.files.filter(file => file.startsWith('posts')).length >= 2)
+        assert.equal(calls.getPost, 0, 'no per-post read (a full scan each on the filesystem backend)')
+        const indexPages = 1 + result.files.filter(file => file.startsWith('category')).length
+        assert.ok(calls.listPosts >= 1 && calls.listPosts <= 1 + indexPages, `one listing for the snapshot plus one per index page, not one per post: ${calls.listPosts}`)
+        // Control: the request path still reads the post it renders.
+        assert.ok(await lease.context.renderPost('hello-world', { kind: 'anonymous' }))
+        assert.equal(calls.getPost, 1)
+      }
+      finally {
+        lease.release()
+      }
+    }
+    finally {
+      store.forTenant = realForTenant
+    }
+  }
+  finally {
+    await rm(outputDir, { recursive: true, force: true })
     await harness.close()
   }
 })

@@ -83,6 +83,12 @@ export async function readTextIfExists(filePath: string): Promise<string | undef
  * Writes `content` to a temporary file in the same directory and renames it
  * over `filePath`, so readers see either the old or the new content, never a
  * partial file. The parent directory is created if missing.
+ *
+ * Durability boundary (D65): this is a process-crash guarantee. Neither the
+ * temporary file nor the directory is fsync'ed, so after a power loss or an
+ * OS crash the rename may be durable while the data is not (an empty or
+ * partial target), and a file written earlier (the content-version marker)
+ * may be lost while a later write survives.
  */
 export async function writeFileAtomic(filePath: string, content: string): Promise<void> {
   const directory = path.dirname(filePath)

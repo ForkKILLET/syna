@@ -22,7 +22,17 @@ import type {
   Tag,
 } from '../../domain/model.js'
 import { parseSiteConfig } from '../../domain/site-config.js'
-import { DomainConflictError, SlugConflictError, assertName, buildPost, normalizeTimestamp, resolveRevision } from '../common.js'
+import {
+  DomainConflictError,
+  SlugConflictError,
+  assertName,
+  assertOutsideUnitOfWork,
+  buildPost,
+  insideUnitOfWork,
+  normalizeTimestamp,
+  resolveRevision,
+  runUnitOfWork,
+} from '../common.js'
 import { ContentRoot } from './config.js'
 import {
   KeyedMutex,
@@ -57,6 +67,12 @@ interface PostFile {
   readonly post: Post
   /** POSIX path relative to the tenant directory. */
   readonly relativePath: string
+  /**
+   * Other files carrying the same id (relative paths): what a crash between the
+   * write of a renamed post and the removal of its old file leaves behind. They
+   * are never read as posts and go away with the next save or delete of the id.
+   */
+  readonly duplicates: readonly string[]
 }
 
 interface NamedEntry {
@@ -144,10 +160,33 @@ export function createFilesystemContentStore(rootDir: string, layout: ContentLay
     return target
   }
 
+  /**
+   * One post per id. Several files with one id (a crash inside a rename) are
+   * resolved to the file at the layout's own path, else the highest revision
+   * (then the first path); the others are listed as duplicates (F-BD3-09).
+   */
+  function onePostPerId(found: readonly Omit<PostFile, 'duplicates'>[]): PostFile[] {
+    const byId = new Map<string, Omit<PostFile, 'duplicates'>[]>()
+    for (const file of found) {
+      const copies = byId.get(file.post.id)
+      if (copies) copies.push(file)
+      else byId.set(file.post.id, [file])
+    }
+    const result: PostFile[] = []
+    for (const copies of byId.values()) {
+      const preferred = copies.length === 1
+        ? copies[0]!
+        : copies.find(copy => copy.relativePath === layout.postPath(copy.post))
+          ?? [...copies].sort((left, right) => right.post.revision - left.post.revision || left.relativePath.localeCompare(right.relativePath))[0]!
+      result.push({ ...preferred, duplicates: copies.filter(copy => copy !== preferred).map(copy => copy.relativePath) })
+    }
+    return result
+  }
+
   async function scanPosts(tenantId: string): Promise<PostFile[]> {
     const directory = tenantDir(tenantId)
     await assertNoSymlink(root, directory)
-    const found: PostFile[] = []
+    const found: Omit<PostFile, 'duplicates'>[] = []
     const visit = async (absoluteDir: string): Promise<void> => {
       let entries
       try {
@@ -177,7 +216,7 @@ export function createFilesystemContentStore(rootDir: string, layout: ContentLay
     for (const postRoot of layout.postRoots) {
       await visit(safeJoin(directory, postRoot))
     }
-    return found
+    return onePostPerId(found)
   }
 
   async function readJson<T>(tenantId: string, file: string, guard: (value: unknown) => value is T): Promise<T | undefined> {
@@ -259,9 +298,10 @@ export function createFilesystemContentStore(rootDir: string, layout: ContentLay
       await markPending()
       await writeFileAtomic(target, serializePost(post))
       // Identity is the front-matter id: a slug or primary-category rename moves
-      // the file. The new file is on disk before the old one goes away.
-      if (previous !== undefined && previous.relativePath !== relativePath) {
-        await rm(await resolveTenantFile(tenantId, previous.relativePath), { force: true })
+      // the file. The new file is on disk before the old one goes away; so do
+      // the leftovers of a rename a crash cut short earlier.
+      for (const stale of previous === undefined ? [] : [previous.relativePath, ...previous.duplicates]) {
+        if (stale !== relativePath) await rm(await resolveTenantFile(tenantId, stale), { force: true })
       }
       return post
     }
@@ -292,7 +332,9 @@ export function createFilesystemContentStore(rootDir: string, layout: ContentLay
         const existing = files.find(file => file.post.id === id)
         if (existing === undefined) return false
         await markPending()
-        await rm(await resolveTenantFile(tenantId, existing.relativePath), { force: true })
+        for (const file of [existing.relativePath, ...existing.duplicates]) {
+          await rm(await resolveTenantFile(tenantId, file), { force: true })
+        }
         await bump()
         return true
       }),
@@ -354,7 +396,9 @@ export function createFilesystemContentStore(rootDir: string, layout: ContentLay
         })
       }),
       contentVersion: async () => {
-        if (recover && await hasPendingMarker()) {
+        // Inside the tenant's own unit of work the marker belongs to the running
+        // work, and the serialized section could not be entered anyway.
+        if (recover && !insideUnitOfWork(tenantId) && await hasPendingMarker()) {
           // Outside the serialized section a marker can only be left over from a
           // crashed mutation (a running one clears it before leaving the section).
           await serialize(async () => {
@@ -366,41 +410,56 @@ export function createFilesystemContentStore(rootDir: string, layout: ContentLay
     }
   }
 
+  /** A public-path mutation issued inside the tenant's own unit of work would wait for its lock forever: refused (rejected) instead. */
+  const publicMutation = (tenantId: string) => async <T>(fn: () => Promise<T>): Promise<T> => {
+    assertOutsideUnitOfWork(tenantId, 'A public-repository mutation')
+    return locks.withLock(tenantId, fn)
+  }
+
   return {
     backend: 'filesystem',
-    forTenant: tenantId => repository(tenantId, fn => locks.withLock(tenantId, fn), true),
+    forTenant: tenantId => repository(tenantId, publicMutation(tenantId), true),
     listTenants: listTenantIds,
     /**
      * Unit of work on the filesystem backend: `work` runs while holding the
      * tenant's in-process lock, so mutations of one tenant are serialized within
      * this process and each file is replaced atomically (temp file + rename).
-     * This is NOT multi-file ACID: a throw half-way leaves the files already
-     * written, and other processes are not excluded.
+     * Mutations the work itself issues at once run one after another too. This
+     * is NOT multi-file ACID: a throw half-way leaves the files already written,
+     * and other processes are not excluded.
      */
     async transaction(tenantId, work) {
       assertSafeSegment(tenantId, 'tenantId')
-      return locks.withLock(tenantId, () => work(repository(tenantId, fn => fn())))
+      return runUnitOfWork(tenantId, () => locks.withLock(tenantId, () => {
+        const own = new KeyedMutex()
+        return work(repository(tenantId, fn => own.withLock('work', fn)))
+      }))
     },
-    deleteTenant: tenantId => locks.withLock(tenantId, async () => {
-      const directory = tenantDir(tenantId)
-      // Re-validate: exactly one safe segment below the root, and not a symlink.
-      const relative = path.relative(root, directory)
-      if (relative !== tenantId || !isSafeSegment(relative) || path.dirname(directory) !== root) {
-        throw new UnsafePathError(`Refusing to delete ${JSON.stringify(directory)}: not a tenant directory of ${root}.`)
-      }
-      let stats
-      try {
-        stats = await lstat(directory)
-      }
-      catch (error) {
-        if ((error as NodeJS.ErrnoException).code === 'ENOENT') return
-        throw error
-      }
-      if (stats.isSymbolicLink() || !stats.isDirectory()) {
-        throw new UnsafePathError(`Refusing to delete ${JSON.stringify(directory)}: it is not a real directory.`)
-      }
-      await rm(directory, { recursive: true, force: true })
-    }),
+    deleteTenant: async tenantId => {
+      assertOutsideUnitOfWork(tenantId, 'deleteTenant()')
+      return locks.withLock(tenantId, () => deleteTenantDirectory(tenantId))
+    },
+  }
+
+  async function deleteTenantDirectory(tenantId: string): Promise<void> {
+    const directory = tenantDir(tenantId)
+    // Re-validate: exactly one safe segment below the root, and not a symlink.
+    const relative = path.relative(root, directory)
+    if (relative !== tenantId || !isSafeSegment(relative) || path.dirname(directory) !== root) {
+      throw new UnsafePathError(`Refusing to delete ${JSON.stringify(directory)}: not a tenant directory of ${root}.`)
+    }
+    let stats
+    try {
+      stats = await lstat(directory)
+    }
+    catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return
+      throw error
+    }
+    if (stats.isSymbolicLink() || !stats.isDirectory()) {
+      throw new UnsafePathError(`Refusing to delete ${JSON.stringify(directory)}: it is not a real directory.`)
+    }
+    await rm(directory, { recursive: true, force: true })
   }
 }
 

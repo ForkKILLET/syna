@@ -43,19 +43,26 @@ export interface ImplementationViewHost {
   loadSlot(slot: RuntimeSlot, options?: LoadOptions): Promise<unknown>
 }
 
-const candidateEntryCache = new WeakMap<Contract, Map<string, EntryDescriptor<{ implementation: ServiceRevision<any> }, {}>>>()
+/**
+ * Synthetic candidate Entries, one per (physical revision descriptor, Contract).
+ * The Entry references the very descriptor it was made from, so the cache is
+ * keyed by that object: a Runtime holding another physical copy of the same
+ * revision key must never be handed an Entry pointing at the copy an earlier
+ * Runtime in this process canonicalized (Runtime isolation, K01).
+ */
+const candidateEntryCache = new WeakMap<ServiceRevision<any>, Map<string, EntryDescriptor<{ implementation: ServiceRevision<any> }, {}>>>()
 
 export function candidateEntry(
   host: ImplementationViewHost,
   contract: Contract,
   revision: CompiledService,
 ): EntryDescriptor<{ implementation: ServiceRevision<any> }, {}> {
-  let byRevision = candidateEntryCache.get(contract)
-  if (!byRevision) {
-    byRevision = new Map()
-    candidateEntryCache.set(contract, byRevision)
+  let byContract = candidateEntryCache.get(revision.source)
+  if (!byContract) {
+    byContract = new Map()
+    candidateEntryCache.set(revision.source, byContract)
   }
-  const existing = byRevision.get(revision.key)
+  const existing = byContract.get(contract.id)
   if (existing) return existing
   const entry = Object.freeze({
     kind: 'entry' as const,
@@ -67,7 +74,7 @@ export function candidateEntry(
     scope: Object.freeze({ fresh: Object.freeze([]), share: Object.freeze([]) }),
     metadata: Object.freeze({}),
   })
-  byRevision.set(revision.key, entry)
+  byContract.set(contract.id, entry)
   return entry
 }
 

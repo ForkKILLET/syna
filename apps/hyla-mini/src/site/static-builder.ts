@@ -29,7 +29,7 @@ export type StaticBuildErrorCode =
   | 'UNSAFE_OUTPUT_DIR'
   /** A non-empty directory without a previous build of this builder. */
   | 'OUTPUT_DIR_NOT_EMPTY'
-  /** The on-disk build manifest is not one this builder wrote. */
+  /** The on-disk build manifest is not one this builder wrote for this tenant (`builder`, `tenantId`, file list). */
   | 'BAD_MANIFEST'
   /** Another build of the same directory is running (`.hyla-build.lock` held by a live process). */
   | 'BUILD_LOCKED'
@@ -63,7 +63,14 @@ interface PreviousBuild {
   readonly files: readonly string[]
 }
 
-async function readPreviousBuild(outputDir: string): Promise<PreviousBuild | undefined> {
+/**
+ * The previous build's manifest, if the directory holds one. Only a manifest
+ * this builder wrote for this tenant counts: the files it lists are the ones the
+ * next build may remove, so a file list written by anything else — another
+ * tool, a hand-made file, a build of another tenant sharing the directory — is
+ * refused rather than trusted.
+ */
+async function readPreviousBuild(outputDir: string, tenantId: string): Promise<PreviousBuild | undefined> {
   let text: string
   try {
     text = await readFile(path.join(outputDir, BUILD_MANIFEST_FILE), 'utf8')
@@ -79,10 +86,14 @@ async function readPreviousBuild(outputDir: string): Promise<PreviousBuild | und
   catch (error) {
     throw new StaticBuildError('BAD_MANIFEST', `${BUILD_MANIFEST_FILE} in ${outputDir} is not a Hyla build manifest.`, { cause: error })
   }
-  if (typeof parsed !== 'object' || parsed === null || !Array.isArray((parsed as { files?: unknown }).files)) {
-    throw new StaticBuildError('BAD_MANIFEST', `${BUILD_MANIFEST_FILE} in ${outputDir} is not a Hyla build manifest.`)
+  const record = (typeof parsed === 'object' && parsed !== null ? parsed : {}) as { readonly builder?: unknown; readonly tenantId?: unknown; readonly files?: unknown }
+  if (record.builder !== 'hyla-mini' || typeof record.tenantId !== 'string' || !Array.isArray(record.files)) {
+    throw new StaticBuildError('BAD_MANIFEST', `${BUILD_MANIFEST_FILE} in ${outputDir} is not a manifest this builder wrote (builder "hyla-mini", a tenant id and a file list); refusing to treat the directory as a previous build.`)
   }
-  const files = (parsed as { files: unknown[] }).files.filter((item): item is string => typeof item === 'string')
+  if (record.tenantId !== tenantId) {
+    throw new StaticBuildError('BAD_MANIFEST', `${BUILD_MANIFEST_FILE} in ${outputDir} belongs to a build of tenant ${record.tenantId}, not ${tenantId}; refusing to remove another tenant's files.`)
+  }
+  const files = record.files.filter((item): item is string => typeof item === 'string')
   return { files }
 }
 
@@ -206,7 +217,10 @@ async function renderSnapshot(site: SiteContext): Promise<Snapshot> {
     const index = await site.renderIndex(ANONYMOUS)
     put('index.html', index.html, { kind: index.meta.kind, postIds: index.meta.postIds })
     for (const post of posts) {
-      const page = await site.renderPost(post.slug, ANONYMOUS)
+      // The posts were listed once, after `before` was read: render them as listed
+      // (cached under `before`, as the request path would) instead of fetching each
+      // one again — on the filesystem backend a lookup is a scan of the tenant's files.
+      const page = await site.renderPostPage(post, ANONYMOUS, before)
       if (!page) continue
       put(path.join('posts', post.slug, 'index.html'), page.html, { kind: page.meta.kind, postIds: page.meta.postIds })
     }
@@ -285,7 +299,7 @@ export const StaticBuilder = define.service('static-builder', {
             // The directory must be empty or hold a previous build of this builder.
             // Only files listed in that build's manifest are removed — never anything
             // else that happens to live there — and only directories they left empty.
-            const previous = await readPreviousBuild(root)
+            const previous = await readPreviousBuild(root, site.tenantId)
             const foreign = (await readdir(root)).filter(entry => !BUILD_OWN_FILES.has(entry))
             if (previous === undefined && foreign.length > 0) {
               throw new StaticBuildError('OUTPUT_DIR_NOT_EMPTY', `Static build outputDir ${root} is not empty and holds no previous Hyla build (${BUILD_MANIFEST_FILE}); refusing to write into it.`)

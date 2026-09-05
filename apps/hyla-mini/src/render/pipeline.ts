@@ -183,7 +183,18 @@ export const PipelineBuilder = define.service('pipeline-builder', {
         if (trust === 'untrusted' && (factory.kind === 'bridge' || factory.kind === 'compile') && options['allowDangerousHtml'] === true) {
           options = Object.freeze({ ...options, allowDangerousHtml: false })
         }
+        const attachersBefore = processor.attachers.length
         processor = factory.configure(options).apply(processor)
+        if (appended && processor.attachers.length <= attachersBefore) {
+          // unified merges a repeated use of one plugin function into the earlier one: a
+          // sanitizer whose plugin identity a recipe stage already used would run there,
+          // before the stages it is meant to guard. The guarantee is checked, not assumed.
+          throw new RecipeError(
+            `Recipe ${document.name} cannot be built for untrusted input`,
+            [`the sanitizer ${factory.pluginId} appended as the last rehype stage did not add a pass of its own: unified merged it into an earlier use of the same plugin function; a sanitizer factory must give every configuration its own plugin identity`],
+            document.name,
+          )
+        }
         stages.push(Object.freeze({ occurrence, pluginId: factory.pluginId, kind: factory.kind, resolvedVersion: version, ...(appended ? { appended: true } : {}) }))
       }
       processor.freeze()

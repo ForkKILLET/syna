@@ -46,6 +46,7 @@ import {
   isServiceRevision,
   providesContract,
   stableJson,
+  unwrapDependency,
 } from './identity.js'
 import { isBacktrackableTopologyError } from './solve-errors.js'
 
@@ -155,6 +156,8 @@ export class EntryPlanner implements GraphBuilderHost {
   /** check()/explain() number their plans separately: planning consumes no Env id. */
   private nextCheckNumber = 1
   private nextSlotNumber = 1
+  /** Slots of check()/explain() plans are numbered separately as well: planning leaves no trace in the ids of real Envs. */
+  private nextCheckSlotNumber = 1
 
   constructor(
     private readonly compiler: DefinitionCompiler,
@@ -214,8 +217,11 @@ export class EntryPlanner implements GraphBuilderHost {
     const lineageKey = `${parent?.plan.lineageKey ?? 'root'}>${descriptor.id}`
     const rootSiteByEntryKey = new Map<string, string>()
     const rootSites = [...(parent?.plan.rootSites ?? [])]
+    const ownRootSites: RootSite[] = []
 
-    for (const [key, dependency] of Object.entries(descriptor.requires) as [string, Dependency][]) {
+    // Key order, not insertion order: two copies of one Entry that differ only in
+    // the order of their `requires` literal plan the same topology.
+    for (const [key, dependency] of (Object.entries(descriptor.requires) as [string, Dependency][]).sort(([a], [b]) => a.localeCompare(b))) {
       const rootSite: RootSite = {
         id: `${lineageKey}/require:${key}`,
         entryId: descriptor.id,
@@ -224,6 +230,7 @@ export class EntryPlanner implements GraphBuilderHost {
         realm,
       }
       rootSites.push(rootSite)
+      ownRootSites.push(rootSite)
       rootSiteByEntryKey.set(key, rootSite.id)
     }
 
@@ -248,6 +255,11 @@ export class EntryPlanner implements GraphBuilderHost {
     const templateKey = this.planTemplateKey(parent, descriptor, inputs.slots, bindings.choices, fresh, share, realm)
     const cached = this.planTemplates.get(templateKey)
     if (cached && cached.parentSignature === parent?.plan.signature) {
+      // The template was solved for a copy of this Entry referencing the same
+      // revision keys; this copy may hold other physical descriptors. A cold plan
+      // registers and checks them while it builds the graph; a hit does it here,
+      // so a drifted copy is DUPLICATE_DEFINITION whatever the cache holds (R17, D40).
+      this.registerRootSiteDescriptors(ownRootSites)
       try {
         return {
           envId,
@@ -691,7 +703,7 @@ export class EntryPlanner implements GraphBuilderHost {
       if (node.kind === 'service') {
         const slot: ServiceSlot = {
           kind: 'service',
-          id: this.allocateSlotId(),
+          id: this.allocateSlotId(input.envId),
           ownerEnvId: input.envId,
           service: node.revision,
           requires: new Map(),
@@ -704,7 +716,7 @@ export class EntryPlanner implements GraphBuilderHost {
       else {
         const slot: SyntheticSlot = {
           kind: node.kind,
-          id: this.allocateSlotId(),
+          id: this.allocateSlotId(input.envId),
           ownerEnvId: input.envId,
           state: 'ready',
           requires: new Map(),
@@ -861,7 +873,7 @@ export class EntryPlanner implements GraphBuilderHost {
       }
       const slot: InputSlot = Object.freeze({
         kind: 'input',
-        id: this.allocateSlotId(),
+        id: this.allocateSlotId(envId),
         ownerEnvId: envId,
         descriptor: parameter,
         payload: provided[key],
@@ -906,7 +918,7 @@ export class EntryPlanner implements GraphBuilderHost {
       if (inherited?.revision.key === revision.key) continue
       changedIds.add(parameter.id)
       result.set(parameter.id, Object.freeze({
-        id: this.allocateChoiceId(),
+        id: this.allocateChoiceId(envId),
         ownerEnvId: envId,
         binding: parameter,
         revision,
@@ -983,11 +995,41 @@ export class EntryPlanner implements GraphBuilderHost {
     return revision
   }
 
-  private allocateSlotId(): string {
-    return `slot-${this.nextSlotNumber++}`
+  /** What a cold plan registers first for each root site of the Entry (the graph builder's first step per dependency kind). */
+  private registerRootSiteDescriptors(rootSites: readonly RootSite[]): void {
+    for (const root of rootSites) {
+      const dependency = unwrapDependency(root.dependency)
+      switch (dependency.kind) {
+        case 'service-revision':
+          this.compiledExact(dependency)
+          break
+        case 'service-range':
+          this.registerFamily(dependency.family)
+          break
+        case 'contract':
+          this.registerContract(dependency)
+          break
+        case 'auto-implementation':
+        case 'implementation-selector':
+        case 'all-implementations':
+          this.registerContract(dependency.contract)
+          break
+        case 'entry':
+          this.registerEntry(dependency)
+          break
+        default:
+          break // inputs and bindings were prepared before the cache lookup
+      }
+    }
   }
 
-  private allocateChoiceId(): string {
-    return `choice-${this.nextSlotNumber++}`
+  private allocateSlotId(envId: string): string {
+    return isCheckEnvId(envId) ? `check-slot-${this.nextCheckSlotNumber++}` : `slot-${this.nextSlotNumber++}`
+  }
+
+  private allocateChoiceId(envId: string): string {
+    return isCheckEnvId(envId) ? `check-choice-${this.nextCheckSlotNumber++}` : `choice-${this.nextSlotNumber++}`
   }
 }
+
+const isCheckEnvId = (envId: string): boolean => envId.startsWith('check-')

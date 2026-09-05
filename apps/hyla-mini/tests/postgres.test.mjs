@@ -6,8 +6,10 @@ import { createRuntime } from '@syna/core'
 import {
   DatabaseConfig,
   DatabasePool,
+  PoolClosedError,
   PostgresContentStore,
   SiteConfigError,
+  TransactionAbortedError,
   applyMigrations,
   define,
   siteConfigInputFromFixture,
@@ -301,5 +303,177 @@ describe('postgres: transactions, pool sharing and disposal', () => {
     await assert.rejects(pool.query('select 1'), /after calling end|ended|closed/i)
     await assert.rejects(store.forTenant('alpha').listPosts({ visibility: 'all' }))
     assert.equal(pool.stats().total, 0)
+  })
+})
+
+// Regressions for the third re-audit's backend findings (F-BD3-01, 04, 06, 07, 08); the
+// cases both backends share live in the conformance suite.
+describe('postgres: audit-3 regressions', () => {
+  const auditSchema = `${schema}_a3`
+  const auditConfig = { connectionString, schema: auditSchema, max: 4, lockTimeoutMs: 500 }
+  const PoolEntry = define.entry('test-postgres-pool-only', { requires: { pool: DatabasePool }, parameters: { config: DatabaseConfig } })
+  const auditRuntime = createRuntime({ services: [DatabasePool, PostgresContentStore] })
+  const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
+  const codesOf = error => (error instanceof AggregateError ? error.errors.flatMap(codesOf) : [error?.code])
+  const extraSchemas = []
+  let env
+  let store
+  let pool
+
+  before(async () => {
+    env = await auditRuntime.enter(StoreEntry, { config: auditConfig })
+    store = await env.deps.store.load()
+    pool = await env.deps.pool.load()
+  })
+
+  after(async () => {
+    await auditRuntime.dispose().catch(() => undefined)
+    const client = new pg.Client({ connectionString })
+    await client.connect()
+    try {
+      for (const name of [auditSchema, ...extraSchemas]) await client.query(`drop schema if exists ${pg.escapeIdentifier(name)} cascade`)
+    }
+    finally {
+      await client.end()
+    }
+  })
+
+  it('a unit of work that continues past a failed statement is TransactionAbortedError, and nothing of it is written (F-BD3-01)', async () => {
+    await assert.rejects(
+      pool.withTransaction(async client => { await client.query('select 1/0').catch(() => undefined); return 'resolved' }),
+      error => error instanceof TransactionAbortedError && error.code === 'TRANSACTION_ABORTED',
+    )
+    assert.equal(pool.stats().removed, 0, 'the connection is healthy after the rollback')
+    // Through the store: a trigger makes one statement of the unit of work fail; the work handles it and goes on.
+    await pool.query(`create or replace function boom_category() returns trigger language plpgsql as $$ begin if new.slug = 'boom' then raise exception 'boom'; end if; return new; end $$`)
+    await pool.query('create trigger boom before insert on categories for each row execute function boom_category()')
+    const tenant = 'aborted'
+    const repository = store.forTenant(tenant)
+    await repository.saveCategory({ slug: 'existing', name: 'Existing' })
+    const before = await repository.contentVersion()
+    try {
+      await assert.rejects(store.transaction(tenant, async work => {
+        await work.saveCategory({ slug: 'kept', name: 'Kept' })
+        const failed = await work.saveCategory({ slug: 'boom', name: 'Boom' }).then(() => 'saved', error => error)
+        assert.equal(failed.message, 'boom')
+        return 'resolved anyway'
+      }), error => error instanceof TransactionAbortedError)
+      assert.deepEqual((await repository.listCategories()).map(item => item.slug), ['existing'], 'the earlier write of the unit of work was rolled back with it')
+      assert.equal(await repository.contentVersion(), before, 'and so was its version bump')
+      assert.equal(pool.stats().removed, 0)
+    }
+    finally {
+      await pool.query('drop trigger boom on categories')
+      await store.deleteTenant(tenant)
+    }
+  })
+
+  it('a mutation that waits for a lock another session holds fails with SQLSTATE 55P03 after lockTimeoutMs, keeping the connection (F-BD3-04)', async () => {
+    assert.equal((await pool.query("select current_setting('lock_timeout') as value")).rows[0].value, '500ms')
+    const tenant = 'locked'
+    let release
+    const held = new Promise(resolve => { release = resolve })
+    const holder = store.transaction(tenant, async repository => {
+      await repository.saveCategory({ slug: 'held', name: 'Held' })
+      await held
+      return 'done'
+    })
+    await sleep(50)
+    const started = Date.now()
+    await assert.rejects(store.forTenant(tenant).saveTag({ slug: 'waiting', name: 'Waiting' }), error => error.code === '55P03')
+    const elapsed = Date.now() - started
+    assert.ok(elapsed >= 400 && elapsed < 3_000, `waited ${elapsed} ms for the lock`)
+    release()
+    assert.equal(await holder, 'done')
+    assert.equal(pool.stats().removed, 0, 'a lock timeout is a business error: the connection is kept')
+    // Once the unit of work ended, the same write goes through.
+    await store.forTenant(tenant).saveTag({ slug: 'waiting', name: 'Waiting' })
+    await store.deleteTenant(tenant)
+  })
+
+  it('two units of work on one tenant that touch the same posts in a different order serialize on the tenant lock: no deadlock (F-BD3-07)', async () => {
+    const tenant = 'order'
+    const repository = store.forTenant(tenant)
+    await repository.savePost(draft('a'))
+    await repository.savePost(draft('b'))
+    const first = store.transaction(tenant, async work => {
+      await work.savePost(draft('a', { title: 'a1' }))
+      await sleep(100)
+      await work.savePost(draft('b', { title: 'b1' }))
+      return 'first'
+    })
+    await sleep(20)
+    const second = store.transaction(tenant, async work => {
+      await work.savePost(draft('b', { title: 'b2' }))
+      await work.savePost(draft('a', { title: 'a2' }))
+      return 'second'
+    })
+    assert.deepEqual(await Promise.all([first, second]), ['first', 'second'])
+    assert.deepEqual([(await repository.getPostById('a')).title, (await repository.getPostById('b')).title], ['a2', 'b2'], 'the second unit of work ran after the first')
+    assert.equal(pool.stats().removed, 0)
+    await store.deleteTenant(tenant)
+  })
+
+  it('starting on a schema whose stored configuration has a malformed domains value succeeds, and the back-fill runs once (F-BD3-06)', async () => {
+    const legacy = `${auditSchema}_legacy`
+    extraSchemas.push(legacy)
+    await pool.query(`create schema ${legacy}`)
+    await pool.query(`create table ${legacy}.sites (tenant_id text primary key, config jsonb not null, config_revision integer not null)`)
+    await pool.query(`insert into ${legacy}.sites (tenant_id, config, config_revision) values
+      ('good', '{"domains": ["Good.test"]}', 1),
+      ('scalar', '{"domains": "not-a-list"}', 1),
+      ('object', '{"domains": {"a": 1}}', 1),
+      ('mixed', '{"domains": ["Mixed.test:8080", 5, null, {"x": 1}]}', 1)`)
+    const legacyRuntime = createRuntime({ services: [DatabasePool, PostgresContentStore] })
+    try {
+      const legacyEnv = await legacyRuntime.enter(StoreEntry, { config: { ...auditConfig, schema: legacy } })
+      const legacyStore = await legacyEnv.deps.store.load()
+      const rows = await pool.query(`select normalized_host, tenant_id from ${legacy}.domains order by 1`)
+      assert.deepEqual(rows.rows, [{ normalized_host: 'good.test', tenant_id: 'good' }, { normalized_host: 'mixed.test', tenant_id: 'mixed' }])
+      await assert.rejects(legacyStore.forTenant('scalar').getSiteConfig(), SiteConfigError)
+      await assert.rejects(legacyStore.forTenant('object').getSiteConfig(), SiteConfigError)
+      // The back-fill belongs to the creation of the table: a later start does not re-fill it.
+      await pool.query(`insert into ${legacy}.sites (tenant_id, config, config_revision) values ('later', '{"domains": ["later.test"]}', 1)`)
+      await pool.query(`delete from ${legacy}.domains where tenant_id = 'good'`)
+      await applyMigrations(await legacyEnv.deps.pool.load())
+      assert.deepEqual((await pool.query(`select normalized_host from ${legacy}.domains order by 1`)).rows.map(row => row.normalized_host), ['mixed.test'])
+    }
+    finally {
+      await legacyRuntime.dispose()
+    }
+  })
+
+  it('closing the pool rejects queued leases at once, waits closeTimeoutMs for leased connections, and terminates and reports one that never comes back (F-BD3-08)', async () => {
+    const small = createRuntime({ services: [DatabasePool] })
+    const smallEnv = await small.enter(PoolEntry, { config: { ...auditConfig, max: 1, closeTimeoutMs: 300 } })
+    const smallPool = await smallEnv.deps.pool.load()
+    let releaseHold
+    const hold = new Promise(resolve => { releaseHold = resolve })
+    const holder = smallPool.withClient(async () => { await hold; return 'held' })
+    await sleep(50)
+    const waiter = smallPool.withClient(async () => 'served').then(value => value, error => error)
+    await sleep(50)
+    assert.deepEqual([smallPool.stats().waiting, smallPool.stats().leased], [1, 1])
+    const disposing = small.dispose()
+    const refused = await waiter
+    assert.ok(refused instanceof PoolClosedError, `queued lease: ${refused}`)
+    assert.equal(smallPool.stats().waiting, 0)
+    await sleep(100)
+    releaseHold() // the holder comes back inside closeTimeoutMs
+    assert.equal(await holder, 'held')
+    await disposing
+    await assert.rejects(smallPool.withClient(async () => 'late'), PoolClosedError)
+
+    const stuck = createRuntime({ services: [DatabasePool] })
+    const stuckEnv = await stuck.enter(PoolEntry, { config: { ...auditConfig, max: 1, closeTimeoutMs: 100 } })
+    const stuckPool = await stuckEnv.deps.pool.load()
+    const never = stuckPool.withClient(client => client.query('select pg_sleep(30)')).then(() => 'finished', error => error)
+    await sleep(50)
+    const started = Date.now()
+    await assert.rejects(stuck.dispose(), error => codesOf(error).includes('POOL_CLOSE_TIMEOUT'))
+    assert.ok(Date.now() - started < 2_000, 'the disposal is bounded by closeTimeoutMs')
+    const outcome = await never
+    assert.ok(outcome instanceof Error, 'the terminated lease fails instead of running on')
+    assert.deepEqual([stuckPool.stats().leased, stuckPool.stats().removed, stuckPool.stats().total], [0, 1, 0])
   })
 })

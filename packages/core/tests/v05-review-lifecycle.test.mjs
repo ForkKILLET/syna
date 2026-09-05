@@ -360,10 +360,11 @@ test('R-3 retention is bounded by the user\'s own Promise: a setup that can neve
     const Stuck = define.service('stuck', { async setup(_deps, { onDispose }) { onDispose(() => { cleanups += 1 }); await gate; return {} } })
     const Root = define.entry('root', {})
     const Child = define.entry('child', { requires: { stuck: Stuck } })
-    const runtime = createRuntime({ services: [Stuck], disposal: { graceMs: 10 }, diagnostics: { onEvent: event => events.push(event.type) } })
+    const runtime = createRuntime({ services: [Stuck], disposal: { graceMs: 10 }, diagnostics: { onEvent: event => events.push(event.type + ':' + event.env) } })
     const root = await runtime.enter(Root)
     // Env 1: the handle is dropped; its whole graph must become collectable.
     let dropped = await root.enter(Child)
+    const droppedId = dropped.id
     void dropped.deps.stuck.load().catch(() => undefined)
     await sleep(2)
     await dropped.dispose().catch(() => undefined)
@@ -392,7 +393,8 @@ test('R-3 retention is bounded by the user\'s own Promise: a setup that can neve
       keptSlot: kept.inspect().nodes.find(node => node.kind === 'service').state,
       cleanups,
       ledger: runtime.inspect().unsettledAttempts.length,
-      unreachableEvents: events.filter(event => event === 'attempt-unreachable').length,
+      unreachableEvents: events.filter(event => event.startsWith('attempt-unreachable:')).length,
+      droppedEnvClosed: events.includes('attempt-unreachable:' + droppedId),
     }))
     await runtime.dispose().catch(() => undefined)
   `
@@ -403,7 +405,11 @@ test('R-3 retention is bounded by the user\'s own Promise: a setup that can neve
   assert.equal(outcome.droppedCollected, true, 'nothing in the Runtime keeps a closed Env alive')
   assert.equal(outcome.keptState, 'disposed', 'a dead attempt is closed, so the Env no longer stays disposing forever')
   assert.equal(outcome.keptSlot, 'disposed')
-  assert.ok(outcome.cleanups >= 1, 'cleanups the dead attempt registered were run')
+  // Both attempts, the dropped Env's included: the ledger holds the attempt itself, so
+  // the unreachable path can still run its cleanups after the Env graph is gone (audit 3, F-CL3-03).
+  assert.equal(outcome.cleanups, 2, 'cleanups of both dead attempts were run')
+  assert.equal(outcome.unreachableEvents, 2)
+  assert.equal(outcome.droppedEnvClosed, true, 'the dropped Env\'s attempt was closed as unreachable, not silently forgotten')
   assert.equal(outcome.ledger, 0)
   assert.ok(outcome.unreachableEvents >= 1)
 })

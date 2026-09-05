@@ -24,8 +24,13 @@ jobs:
       - run: node scripts/pg-test-cluster.mjs with -- node --test apps/hyla-mini/tests/postgres.test.mjs apps/hyla-mini/tests/matrix.test.mjs
         env:
           SYNA_PG_BIN: /usr/lib/postgresql/16/bin
+      # The gate's own tooling (step runner process groups, cluster script signal forwarding).
+      - run: npm run test:scripts
+        env:
+          SYNA_PG_BIN: /usr/lib/postgresql/16/bin
+      # The four core demos check their own results and print `demo: OK`.
       - run: npm run demo
-      # Self-asserting four-cell demo (exit 1 unless every cell answers 200 with the tenant's page).
+      # Self-asserting three-cell demo (exit 1 unless every cell — HTTP alpha, HTTP beta, static alpha — answers 200 with the tenant's page).
       - run: npm run demo:hyla-mini
 
   # The release gate (G0 + G1: archive, rebuild from the archive, pack, consumer smoke, manifest) with

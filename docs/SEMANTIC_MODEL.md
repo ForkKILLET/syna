@@ -17,7 +17,7 @@ Every Env is created by exactly one Entry invocation. A parentless invocation cr
 
 Entry planning is atomic. Failure before commit creates no Env. A committed Env has immutable topology.
 
-`check()` and `explain()` plan without committing: no setup runs, no Env or anchor is published, no Env id is consumed. Planning is not side-effect free in the strict sense: it registers every descriptor it meets and may fill the plan cache. Both are bounded by the static definition set of §1 (`inspect().definitions` exposes the counts), so repeated planning cannot grow the Runtime beyond that set.
+`check()` and `explain()` plan without committing: no setup runs, no Env or anchor is published, no Env id and no slot id is consumed (planning ids are numbered apart). Planning is not side-effect free in the strict sense: it registers every descriptor it meets — and diagnoses a drifted copy of a definition exactly as `enter()` would, whether the plan is solved or taken from the cache — and may fill the plan cache. Both are bounded by the static definition set of §1 (`inspect().definitions` exposes the counts), so repeated planning cannot grow the Runtime beyond that set.
 
 ## 3. Nodes and slots
 
@@ -54,7 +54,7 @@ Service Family and exact Service Revision are distinct identities. Multiple revi
 
 A normal static dependency choice site has one deterministic result in a lineage. A new Entry root site may select another compatible revision without rewriting an existing Service dependency edge.
 
-A range reference is taken from one revision, its origin. It resolves among the revisions of that Family the Runtime knows at the site (the admitted ones, the consumer's private closure, and the origin itself) that satisfy the range and provide every Contract the origin provides. A range therefore loads the origin's Contract view, never a revision-private shape.
+A range reference is taken from one revision, its origin. It resolves among the revisions of that Family the Runtime knows at the site — the admitted ones and, in a private realm, the consumer's private closure and the origin itself; in the public realm an origin that was never admitted is not a candidate — that satisfy the range and provide every Contract the origin provides. A range therefore loads the origin's Contract view, never a revision-private shape.
 
 ## 7. Lineage uniqueness
 
@@ -110,9 +110,9 @@ A cycle of setup waits cannot be proven from Promises. The Runtime records which
 
 ## 13. Disposal
 
-A parent cannot dispose before its descendants. Closing first refuses new work and aborts the owner signal of the whole subtree, then waits for descendants, then gives each owned in-flight attempt the disposal grace, then disposes owned slots. Each Env disposes only Service slots it owns; attempts that did not settle within the grace are abandoned and reported (`UNSETTLED_ATTEMPT`, naming the dependency slots the attempt may still use) rather than claimed closed.
+A parent cannot dispose before its descendants. Closing first refuses new work and aborts the owner signal of the whole subtree, then waits for descendants, then gives each owned in-flight attempt the disposal grace, then disposes owned slots. Each Env disposes only Service slots it owns; attempts that did not settle within the grace — a setup still pending, or one that settled but whose rollback is still running — are abandoned and reported (`UNSETTLED_ATTEMPT`, naming the dependency slots the attempt may still use and the phase it is in) rather than claimed closed. The bound is per Env: descendants close first, so a tree closes in at most one grace per level.
 
-The close is bounded. When it ends, the Env leaves the tree and the Runtime's registries whether or not attempts are outstanding: its parent no longer waits for it and nothing in the Runtime retains its graph. Its state stays `disposing` while an attempt abandoned by that close (its own, or one of a descendant closed by the same call) is outstanding, and becomes `disposed` when the last of them settles late or is closed as unreachable (§11). The Runtime keeps only a weak ledger of outstanding attempts (`inspect().unsettledAttempts`), which `runtime.dispose()` reports again.
+The close is bounded. When it ends, the Env leaves the tree and the Runtime's registries whether or not attempts are outstanding: its parent no longer waits for it and nothing in the Runtime retains its graph. Its state stays `disposing` while an attempt abandoned by that close (its own, or one of a descendant closed by the same call) is outstanding, and becomes `disposed` when the last of them settles late or is closed as unreachable (§11). The Runtime keeps a ledger of outstanding attempts (`inspect().unsettledAttempts`: timed out, abandoned, rolling back, settling) that holds each attempt until it settles; retention is bounded by the user's own setup Promise, whose collection closes the attempt as unreachable (§11). `runtime.dispose()` waits up to the grace for attempts that are settling and reports the rest.
 
 Dependencies of an abandoned attempt are disposed in the normal order after the grace. The model has no revocation and no forced termination (§14), so a setup that keeps running past the grace may observe closed dependencies; this is the acknowledged consequence of a bounded close, reported with the attempt, not a state the model can prevent.
 

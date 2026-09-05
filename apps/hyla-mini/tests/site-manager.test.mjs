@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { mkdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
-import { SessionAuth, SiteAuth, defaultRecipes } from '../dist/index.js'
+import { AuthOptions, AuthenticatorContract, SessionAuth, SiteAuth, defaultRecipes, define, siteConfigInputFromFixture } from '../dist/index.js'
 import { createFilesystemApp, fixture } from './helpers/app-harness.mjs'
 
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
@@ -484,6 +484,172 @@ test('S6 reservedForRequests is validated at startup and 0 for a capacity of 1',
     assert.equal(manager.settings.reservedForRequests, 0)
     const build = await manager.acquire('alpha', 'build') // with nothing reserved a build may take the only unit
     build.release()
+  }
+  finally {
+    await harness.close()
+  }
+})
+
+// Fixtures for the third re-audit's site-manager findings (F-AP3-03/04/05/07).
+/** An authenticator whose cleanup takes a while (a connection drain): its SiteEnv closes slowly. */
+const SlowCloseAuth = define.service('test-slow-close-auth', {
+  provides: [AuthenticatorContract],
+  requires: { options: AuthOptions },
+  setup({ options }, { onDispose }) {
+    onDispose(() => sleep(Number(options.read().closeMs ?? 600)))
+    return { scheme: 'slow-close', async authenticate() { return { kind: 'anonymous' } } }
+  },
+})
+/** An authenticator whose setup takes a while, widening the creation window deterministically. */
+const SlowSetupAuth = define.service('test-slow-setup-auth', {
+  provides: [AuthenticatorContract],
+  requires: { options: AuthOptions },
+  async setup({ options }) {
+    await sleep(Number(options.read().delayMs ?? 300))
+    return { scheme: 'slow-setup', async authenticate() { return { kind: 'anonymous' } } }
+  },
+})
+const sessionAuth = { implementation: SiteAuth.to(SessionAuth), options: { sessions: {} } }
+const addTenant = (store, tenantId, auth = sessionAuth) => store.forTenant(tenantId).saveSiteConfig({
+  ...siteConfigInputFromFixture(tenantId, fixture.tenants.alpha, { recipes: defaultRecipes(), auth }),
+  domains: [`${tenantId}.test`],
+})
+
+test('F-AP3-07 a closing SiteEnv frees its key at once: an acquirer of the same tenant gets a new SiteEnv without spinning on configuration reads or waiting for the close', async () => {
+  const harness = await createFilesystemApp({ app: { extraServices: [SlowCloseAuth], siteManager: { capacity: 4, idleTtlMs: 0, sweepIntervalMs: 60_000, acquireTimeoutMs: 300 } } })
+  try {
+    const store = await harness.app.app.deps.store.load()
+    await addTenant(store, 'slow', { implementation: SiteAuth.to(SlowCloseAuth), options: { closeMs: 600 } })
+    const manager = await harness.app.app.deps.sites.load()
+    let reads = 0
+    const realForTenant = store.forTenant.bind(store)
+    store.forTenant = tenantId => {
+      const real = realForTenant(tenantId)
+      return { ...real, async getSiteConfig() { if (tenantId === 'slow') reads += 1; return real.getSiteConfig() } }
+    }
+    try {
+      const first = await manager.acquire('slow', 'request')
+      const firstEnv = first.env
+      first.release()
+      const sweeping = manager.sweep() // idleTtlMs 0: the idle SiteEnv starts its 600 ms close now
+      await sleep(5)
+      assert.equal(manager.records().find(record => record.tenantId === 'slow')?.state, 'disposing', 'the closing SiteEnv stays visible (it still holds a unit)')
+      reads = 0
+      const started = Date.now()
+      const second = await manager.acquire('slow', 'request')
+      const elapsed = Date.now() - started
+      assert.notEqual(second.env, firstEnv, 'a new SiteEnv; the closing one is neither joined nor waited for')
+      assert.ok(elapsed < 250, `served at once with three units free, not after the close (${elapsed} ms)`)
+      assert.ok(reads <= 5, `no read storm while the close was in flight: ${reads} configuration reads`)
+      assert.equal(manager.records().filter(record => record.tenantId === 'slow').length, 2, 'closing and new records coexist; the closing one counts toward capacity until its close ends')
+      second.release()
+      await sweeping
+      await waitUntil(() => manager.records().filter(record => record.tenantId === 'slow').length === 1)
+      assert.equal(manager.stats().evictions, 1)
+    }
+    finally {
+      store.forTenant = realForTenant
+    }
+  }
+  finally {
+    await harness.close()
+  }
+})
+
+test('F-AP3-03 a build acquirer closes idle SiteEnvs only when that makes it servable: none for a unit it can never take, as many as it needs otherwise', async () => {
+  // capacity 2, reserve 1: while a request holds one unit a build can never be served; beta's idle SiteEnv must survive the refused attempts.
+  const narrow = await createFilesystemApp({ app: { siteManager: { capacity: 2, idleTtlMs: 60_000, sweepIntervalMs: 60_000, acquireTimeoutMs: 150 } } })
+  try {
+    const store = await narrow.app.app.deps.store.load()
+    await addTenant(store, 'gamma')
+    const manager = await narrow.app.app.deps.sites.load()
+    const held = await manager.acquire('alpha', 'request')
+    const beta = await manager.acquire('beta', 'request')
+    beta.release()
+    const before = manager.stats()
+    assert.deepEqual([before.records, before.idle], [2, 1])
+    for (let round = 1; round <= 3; round += 1) {
+      await assert.rejects(manager.acquire('gamma', 'build'), error => error.code === 'SITE_CAPACITY')
+      const again = await manager.acquire('beta', 'request') // live traffic between the attempts
+      again.release()
+    }
+    const after = manager.stats()
+    assert.equal(after.evictions, before.evictions, 'no idle SiteEnv was closed for a build that could not be served')
+    assert.equal(after.creations, before.creations, 'beta was never re-created')
+    held.release()
+  }
+  finally {
+    await narrow.close()
+  }
+  // capacity 3, reserve 1, three idle SiteEnvs: a build needs two free units and gets them by closing two.
+  const wide = await createFilesystemApp({ app: { siteManager: { capacity: 3, idleTtlMs: 60_000, sweepIntervalMs: 60_000, acquireTimeoutMs: 500 } } })
+  try {
+    const store = await wide.app.app.deps.store.load()
+    await addTenant(store, 'gamma')
+    await addTenant(store, 'delta')
+    const manager = await wide.app.app.deps.sites.load()
+    for (const tenantId of ['alpha', 'beta', 'gamma']) (await manager.acquire(tenantId, 'request')).release()
+    assert.equal(manager.stats().records, 3)
+    const build = await manager.acquire('delta', 'build')
+    assert.equal(manager.stats().evictions, 2, 'one unit for the build, one to keep the request reserve')
+    await waitUntil(() => manager.stats().records === 2)
+    build.release()
+  }
+  finally {
+    await wide.close()
+  }
+})
+
+test('F-AP3-04 a creation cut short by shutdown() fails with SITE_MANAGER_CLOSED, counts as no creation failure and leaks no SiteEnv', async () => {
+  const harness = await createFilesystemApp({ app: { extraServices: [SlowSetupAuth], siteManager: { capacity: 4, shutdownTimeoutMs: 20, sweepIntervalMs: 60_000 } } })
+  try {
+    const store = await harness.app.app.deps.store.load()
+    await addTenant(store, 'slow', { implementation: SiteAuth.to(SlowSetupAuth), options: { delayMs: 300 } })
+    const manager = await harness.app.app.deps.sites.load()
+    const runtime = harness.app.runtime
+    const liveBefore = runtime.inspect().liveEnvCount
+    const acquiring = manager.acquire('slow', 'request').then(lease => { lease.release(); return 'lease' }, error => error)
+    await sleep(60) // inside enter(): the authenticator's setup is running
+    assert.equal(manager.records().find(record => record.tenantId === 'slow')?.state, 'creating')
+    const started = Date.now()
+    const report = await manager.shutdown()
+    assert.ok(Date.now() - started < 1_000, 'shutdown() is bounded by its timeout plus the SiteEnv close, not by the creation')
+    const outcome = await acquiring
+    assert.equal(outcome.code, 'SITE_MANAGER_CLOSED', `the acquirer is refused as closed, not with the Runtime's state error: ${outcome.message ?? outcome}`)
+    assert.equal(outcome.cause?.code, 'INVALID_ENV_STATE', 'the underlying error travels as the cause')
+    assert.equal(manager.stats().creationFailures, 0, 'a shutdown is not a creation failure and starts no backoff')
+    assert.equal(report.unreleasedLeases.length, 1, 'the creator\'s hold on the creating record is reported, as documented (R-2/R-3)')
+    await waitUntil(() => runtime.inspect().liveEnvCount === liveBefore)
+    assert.equal(runtime.inspect().liveEnvCount, liveBefore, 'the SiteEnv entered meanwhile is closed by the manager')
+    const closeReport = await harness.app.close()
+    assert.deepEqual(closeReport.errors, [])
+  }
+  finally {
+    await harness.close()
+  }
+})
+
+test('F-AP3-05 one deadline bounds the whole acquire: a waiter granted late whose generation moved is refused within acquireTimeoutMs', async () => {
+  const TIMEOUT = 400
+  const harness = await createFilesystemApp({ app: { siteManager: { capacity: 1, idleTtlMs: 60_000, sweepIntervalMs: 60_000, acquireTimeoutMs: TIMEOUT } } })
+  try {
+    const store = await harness.app.app.deps.store.load()
+    await addTenant(store, 'gamma')
+    const manager = await harness.app.app.deps.sites.load()
+    const holder = await manager.acquire('alpha', 'request') // the only unit
+    const started = Date.now()
+    const waiting = manager.acquire('beta', 'request').then(lease => { lease.release(); return 'lease' }, error => error.code)
+    await waitUntil(() => manager.stats().pendingAcquires === 1)
+    const other = manager.acquire('gamma', 'request') // queued behind beta; keeps its lease until beta's acquire has ended
+    await waitUntil(() => manager.stats().pendingAcquires === 2)
+    await sleep(TIMEOUT * 0.8)
+    manager.invalidate('beta') // beta's generation moves while its acquirer waits
+    holder.release() // beta is granted, sees the moved generation, hands the unit on (gamma takes it) and queues again
+    const outcome = await waiting
+    const elapsed = Date.now() - started
+    assert.equal(outcome, 'SITE_CAPACITY')
+    assert.ok(elapsed <= TIMEOUT * 1.25, `the whole acquire took ${elapsed} ms for an acquireTimeoutMs of ${TIMEOUT}`)
+    ;(await other).release()
   }
   finally {
     await harness.close()

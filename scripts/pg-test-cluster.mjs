@@ -12,6 +12,7 @@
 import { spawn, spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, rmSync, readFileSync } from 'node:fs'
 import { createServer } from 'node:net'
+import { constants } from 'node:os'
 import path from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
@@ -126,6 +127,15 @@ function status() {
   return 1
 }
 
+/** The version of the server binaries the cluster runs on (`postgres --version` → "PostgreSQL 17.10"). */
+function serverVersion() {
+  const binary = findBinary('postgres') ?? findBinary('pg_ctl')
+  if (!binary) return 'unknown'
+  const output = spawnSync(binary, ['--version'], { encoding: 'utf8' }).stdout.trim()
+  const match = output.match(/\(PostgreSQL\)\s+(\S+)/)
+  return match ? `PostgreSQL ${match[1]}` : output
+}
+
 async function withCommand(argv) {
   const separator = argv.indexOf('--')
   const command = separator >= 0 ? argv.slice(separator + 1) : argv
@@ -136,13 +146,30 @@ async function withCommand(argv) {
     connection = await start()
     managed = true
   }
+  // Recorded by the gate's manifest: which server the command really ran against (I-115).
+  console.log(`pg-test-cluster: server ${managed ? serverVersion() : 'external'} at ${connection} (${managed ? 'temporary cluster' : 'SYNA_TEST_PG_URL, not managed here'})`)
   const child = spawn(command[0], command.slice(1), {
     stdio: 'inherit',
     env: { ...process.env, SYNA_TEST_PG_URL: connection },
   })
-  const code = await new Promise(resolve => child.on('exit', resolve))
+  // A signal to this wrapper is forwarded to the command; the cluster is stopped once the command
+  // has ended, whatever ended it (I-111). Before, SIGTERM ended the wrapper alone and left both the
+  // command and the temporary cluster running.
+  let forwarded
+  const running = () => child.exitCode === null && child.signalCode === null
+  const forward = signal => {
+    if (forwarded) return
+    forwarded = signal
+    if (!running()) return
+    child.kill(signal)
+    setTimeout(() => { if (running()) child.kill('SIGKILL') }, 10_000).unref()
+  }
+  process.on('SIGTERM', () => forward('SIGTERM'))
+  process.on('SIGINT', () => forward('SIGINT'))
+  const [code, signal] = await new Promise(resolve => child.on('exit', (exitCode, exitSignal) => resolve([exitCode, exitSignal])))
   if (managed && process.env.SYNA_PG_KEEP !== '1') stop()
-  return code ?? 1
+  if (code !== null) return code
+  return 128 + (constants.signals[signal] ?? 0)
 }
 
 const [action = 'status', ...rest] = process.argv.slice(2)

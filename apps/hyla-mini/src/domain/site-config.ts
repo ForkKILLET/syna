@@ -121,12 +121,13 @@ export function isCssColor(value: unknown): value is string {
  * A navigation `href` that cannot run script or leave the site by surprise: a
  * same-site path (`/…`, `./…`, `posts/…`), a fragment, or an absolute `http`,
  * `https` or `mailto` URL. Anything with another scheme (`javascript:`, `data:`,
- * `vbscript:`), a protocol-relative `//host`, control characters or whitespace
- * is refused.
+ * `vbscript:`), a protocol-relative `//host` (or a backslash spelling of it:
+ * browsers parse `\` as `/` in these URLs, so `/\host` leaves the site too),
+ * control characters or whitespace is refused.
  */
 export function isSafeHref(value: unknown): value is string {
   if (typeof value !== 'string' || value.length === 0 || value.length > 2048) return false
-  if (/[\p{Cc}\s]/u.test(value)) return false
+  if (/[\p{Cc}\s\\]/u.test(value)) return false
   const scheme = /^([a-z][a-z0-9+.-]*):/i.exec(value)
   if (scheme) return ['http', 'https', 'mailto'].includes(scheme[1]!.toLowerCase())
   return !value.startsWith('//')
@@ -145,6 +146,8 @@ export function parseSiteConfig(value: unknown, mode: SiteConfigMode): SiteConfi
   }
   const config = value as SiteConfig
   if (!isSafeSegment(config.tenantId)) problems.push('/tenantId must be a lower-case path-safe segment')
+  // JSON.stringify writes U+0000 as the six-character escape: one pass over the whole document (F-BD3-12).
+  if (JSON.stringify(config).includes('\\u0000')) problems.push('/ must not contain a NUL character in any string')
   if (mode === 'stored' && !(Number.isSafeInteger(config.configRevision) && config.configRevision >= 1)) {
     problems.push('/configRevision must be a positive integer')
   }

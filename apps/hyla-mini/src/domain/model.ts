@@ -138,6 +138,16 @@ export function assertSafeSegment(value: unknown, what: string): string {
   return value
 }
 
+/**
+ * Free text every backend stores. PostgreSQL refuses a NUL character in a text
+ * column (SQLSTATE 22021) while a file would take it: the domain refuses it for
+ * both, so the two backends accept the same inputs (audit 3, F-BD3-12).
+ */
+export function assertNoNul(value: string, what: string): string {
+  if (value.includes('\0')) throw new TypeError(`${what} must not contain a NUL character.`)
+  return value
+}
+
 export function isLocale(value: unknown): value is Locale {
   return typeof value === 'string' && (LOCALES as readonly string[]).includes(value)
 }
@@ -154,8 +164,11 @@ export function normalizePostInput(tenantId: string, input: PostInput): PostInpu
   }
   assertSafeSegment(input.slug, 'Post slug')
   if (!isLocale(input.locale)) throw new TypeError(`Unsupported locale ${JSON.stringify(input.locale)}.`)
+  assertNoNul(input.id, 'Post id')
   if (typeof input.title !== 'string') throw new TypeError('Post title must be a string.')
   if (typeof input.body !== 'string') throw new TypeError('Post body must be a string.')
+  assertNoNul(input.title, 'Post title')
+  assertNoNul(input.body, 'Post body')
   if (!isPostStatus(input.status)) throw new TypeError(`Invalid post status ${JSON.stringify(input.status)}.`)
   const categories = [...new Set(input.categories.map(slug => assertSafeSegment(slug, 'Category slug')))]
   const tags = [...new Set(input.tags.map(slug => assertSafeSegment(slug, 'Tag slug')))]

@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { createRuntime, definePackage } from '@syna/core'
+import rehypeSanitize, { defaultSchema } from 'rehype-sanitize'
 import {
   DEFAULT_ACCENT,
   MarkdownStageFactoryContract,
@@ -248,6 +249,7 @@ test('R4 the renderer never emits an unsafe navigation href or a non-color accen
       { label: 'ext', href: 'https://example.test/' },
       { label: 'proto', href: '//evil.test/' },
       { label: 'data', href: 'data:text/html,x' },
+      { label: 'backslash', href: '/\\evil.test/' },
     ],
   }
   const page = renderer.renderNotFound(site, '/x')
@@ -258,12 +260,14 @@ test('R4 the renderer never emits an unsafe navigation href or a non-color accen
   assert.match(page.html, /<a href="https:\/\/example.test\/">ext<\/a>/)
   assert.match(page.html, /<a href="#">proto<\/a>/)
   assert.match(page.html, /<a href="#">data<\/a>/)
+  assert.match(page.html, /<a href="#">backslash<\/a>/, 'a backslash spelling of a protocol-relative URL is not a site-relative href')
   const good = renderer.renderNotFound(siteConfig('alpha'), '/x')
   assert.match(good.html, /--accent:#3366cc/)
   for (const color of ['#3366cc', '#000', '#abcd', '#aabbccdd', 'rgb(1, 2, 3)', 'rgba(1,2,3,0.5)', 'hsl(120 50% 50%)', 'RebeccaPurple', 'transparent']) assert.equal(isCssColor(color), true, color)
   for (const bad of ['red;', 'url(x)', 'rgb(a)', 'expression(1)', '#12', '', 'red }']) assert.equal(isCssColor(bad), false, bad)
   for (const href of ['/', '/a/b?c=1#x', './x', '../x', 'posts/x', '#top', 'https://a.test/', 'HTTP://a.test', 'mailto:a@b.test']) assert.equal(isSafeHref(href), true, href)
-  for (const href of ['javascript:alert(1)', 'JAVASCRIPT:x', 'data:text/html,x', 'vbscript:x', '//evil.test', 'a b', '', 'ftp://x']) assert.equal(isSafeHref(href), false, href)
+  // Browsers resolve `/\host`, `\\host` and `\/host` as `//host` (WHATWG URL): every backslash is refused (audit 3, F-AP3-02).
+  for (const href of ['javascript:alert(1)', 'JAVASCRIPT:x', 'data:text/html,x', 'vbscript:x', '//evil.test', 'a b', '', 'ftp://x', '/\\evil.test/', '\\\\evil.test', '\\/evil.test', '/a\\b']) assert.equal(isSafeHref(href), false, href)
   await runtime.dispose()
 })
 
@@ -300,4 +304,45 @@ test('H07 recipes round-trip through JSON, resolve inside the saved version inte
   assert.throws(() => StageFactoryRef.to(PipelineBuilder), /does not explicitly provide/)
   void RemarkRehypeFactory
   void RehypeStringifyFactory
+})
+
+test('F-AP3-01 the appended untrusted sanitizer is a pass of its own even when the recipe\'s sanitizer says finalPass; a sanitizer factory that merges is refused, not trusted', async () => {
+  const runtime = createRuntime({ services: [PipelineBuilder, Renderer, ...STAGE_FACTORIES, EvilRehypeFactory] })
+  const env = await runtime.enter(RenderInfrastructureEntry)
+  const builder = await env.deps.pipelines.load()
+  const recipeWith = finalPass => {
+    const base = withEvilStage(commentRecipe())
+    return { ...base, stages: base.stages.map(stage => (stage.occurrence === 'sanitize' ? { ...stage, options: { ...stage.options, finalPass } } : stage)) }
+  }
+  for (const finalPass of [false, true]) {
+    const pipeline = await builder.build(recipeWith(finalPass), { trust: 'untrusted' })
+    const html = await pipeline.process('hi [x](https://ext.test/)')
+    assert.doesNotMatch(html, /<script|onerror/i, `recipe sanitizer finalPass=${finalPass}: the appended pass runs last and strips what the late stage injected`)
+    assert.match(html, /rel="nofollow noopener ugc" target="_blank"/)
+    assert.equal(pipeline.stages.at(-2).occurrence, UNTRUSTED_SANITIZE_OCCURRENCE)
+    assert.equal(pipeline.stages.at(-2).appended, true)
+  }
+  await runtime.dispose()
+
+  // A sanitizer factory that hands unified one plugin identity for every configuration cannot
+  // put the appended pass last (unified merges the repeated use into the recipe's own stage):
+  // the builder checks that the appended stage added a pass and refuses the build.
+  const MergingSanitizeFactory = define.service('merging-sanitize-factory', {
+    provides: [MarkdownStageFactoryContract],
+    setup() {
+      return createFactory(
+        { pluginId: 'merging-sanitize', kind: 'rehype', optionsVersion: 1, optionsSchema: { type: 'object', additionalProperties: false, properties: {} }, repeatable: false, sanitizer: { options: {} } },
+        () => processor => processor.use(rehypeSanitize, defaultSchema),
+      )
+    },
+  })
+  const merging = createRuntime({ services: [PipelineBuilder, ...STAGE_FACTORIES.filter(factory => factory !== RehypeSanitizeFactory), MergingSanitizeFactory, EvilRehypeFactory] })
+  const mergingEnv = await merging.enter(define.entry('builder-only-merging', { requires: { pipelines: PipelineBuilder } }))
+  const mergingBuilder = await mergingEnv.deps.pipelines.load()
+  const base = commentRecipe()
+  const recipe = withEvilStage({ ...base, stages: base.stages.map(stage => (stage.occurrence === 'sanitize' ? { ...stage, ref: stageRef(MergingSanitizeFactory), options: {} } : stage)) })
+  await assert.rejects(mergingBuilder.build(recipe, { trust: 'untrusted' }), error => error instanceof RecipeError && /did not add a pass of its own/.test(error.message))
+  const trusted = await mergingBuilder.build(recipe)
+  assert.match(await trusted.process('hi'), /<script>alert\(1\)<\/script>/, 'as written (trusted) the recipe runs; only the untrusted guarantee is refused')
+  await merging.dispose()
 })

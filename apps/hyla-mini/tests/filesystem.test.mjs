@@ -17,6 +17,7 @@ import {
   readFrontMatter,
   safeJoin,
   seedTenantContent,
+  serializePost,
   siteConfigInputFromFixture,
   writeFileAtomic,
   writeFrontMatter,
@@ -369,6 +370,65 @@ describe('filesystem: atomic writes and per-tenant serialization', () => {
       await outside
       assert.deepEqual(order, ['transaction-done', 'outside-done'])
       assert.equal((await store.forTenant('tx').listPosts({ visibility: 'all' })).length, 2)
+    }
+    finally {
+      await handle.dispose()
+    }
+  })
+})
+
+describe('filesystem: audit-3 regressions', () => {
+  const draft = (id, extra = {}) => ({ id, slug: id, locale: 'en', title: id, body: `${id}\n`, status: 'published', categories: [], tags: [], ...extra })
+
+  it('two files carrying one id (a crash inside a rename) are one post: the copy at the layout path wins, reads ignore the other, the next save or delete removes it (F-BD3-09)', async () => {
+    const handle = await makeStore(DefaultLayout)
+    try {
+      const repository = handle.store.forTenant('crash')
+      await repository.savePost(draft('dup', { slug: 'z-old', body: 'old body\n' }))
+      const before = Number(await repository.contentVersion())
+      // The crash window of a rename z-old → a-new: marker set, new file written, old file not yet removed.
+      const renamed = { ...(await repository.getPostById('dup')), slug: 'a-new', body: 'new body\n', revision: 2 }
+      await writeFile(path.join(handle.rootDir, 'crash', 'posts', 'a-new.md'), serializePost(renamed))
+      await writeFile(path.join(handle.rootDir, 'crash', 'content.version.pending'), `${new Date().toISOString()}\n`)
+      assert.equal(Number(await repository.contentVersion()), before + 1, 'the leftover marker bumps the version once')
+      const listed = await repository.listPosts({ visibility: 'public' })
+      assert.deepEqual(listed.map(post => `${post.id}@${post.slug}`), ['dup@a-new'], 'one post; the copy at the layout path wins')
+      assert.equal(await repository.getPost('z-old', { visibility: 'public' }), undefined, 'the stale copy is not readable')
+      assert.equal((await repository.getPost('a-new', { visibility: 'public' })).body, 'new body\n')
+      // A new post may take the stale copy's slug.
+      await repository.savePost(draft('other', { slug: 'z-old', body: 'other\n' }))
+      assert.equal((await repository.getPost('z-old', { visibility: 'public' })).id, 'other')
+      await repository.deletePost('other')
+      // Re-saving the post removes the stale copy.
+      const saved = await repository.savePost(draft('dup', { slug: 'a-new', body: 'new body 2\n' }))
+      assert.equal(saved.revision, 3)
+      assert.deepEqual((await readdir(path.join(handle.rootDir, 'crash', 'posts'))).sort(), ['a-new.md'])
+      // A second stale copy, then deletePost removes every file of the id.
+      await writeFile(path.join(handle.rootDir, 'crash', 'posts', 'b-stale.md'), serializePost({ ...saved, slug: 'b-stale', revision: 1 }))
+      assert.equal((await repository.listPosts({ visibility: 'all' })).length, 1)
+      assert.equal(await repository.deletePost('dup'), true)
+      assert.equal(await repository.getPostById('dup'), undefined)
+      assert.deepEqual(await readdir(path.join(handle.rootDir, 'crash', 'posts')), [])
+    }
+    finally {
+      await handle.dispose()
+    }
+  })
+
+  it('when no copy sits at the layout path the highest revision wins, then the first path (F-BD3-09)', async () => {
+    const handle = await makeStore(BlogLayout)
+    try {
+      const repository = handle.store.forTenant('crash2')
+      const base = await repository.savePost(draft('dup', { slug: 'first', categories: ['news'], body: 'r1\n' }))
+      await rm(path.join(handle.rootDir, 'crash2', 'posts', 'news', 'first.md'))
+      await mkdir(path.join(handle.rootDir, 'crash2', 'posts', 'misc'), { recursive: true })
+      const copy = (slug, revision, body) => serializePost({ ...base, slug, primaryCategory: 'misc', categories: ['misc'], revision, body })
+      await writeFile(path.join(handle.rootDir, 'crash2', 'posts', 'misc', 'b.md'), copy('b', 3, 'r3\n'))
+      await writeFile(path.join(handle.rootDir, 'crash2', 'posts', 'misc', 'a.md'), copy('a', 3, 'r3a\n'))
+      await writeFile(path.join(handle.rootDir, 'crash2', 'posts', 'misc', 'c.md'), copy('c', 2, 'r2\n'))
+      const post = await repository.getPostById('dup')
+      assert.deepEqual([post.slug, post.revision], ['a', 3], 'highest revision, first path')
+      assert.equal((await repository.listPosts({ visibility: 'all' })).length, 1)
     }
     finally {
       await handle.dispose()
