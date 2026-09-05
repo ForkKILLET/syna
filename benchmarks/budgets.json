@@ -6,6 +6,7 @@
     "warm-enter-dispose-300-depth-2": { "metric": "p95Ms", "max": 2 },
     "warm-enter-dispose-300-depth-6": { "metric": "p95Ms", "max": 2 },
     "warm-enter-dispose-100-depth-2": { "metric": "p95Ms", "max": 1 },
+    "bound-entry-private-range-request-enter-dispose-100": { "metric": "p95Ms", "max": 1 },
     "churn-10000-requests": { "metric": "planCacheEntriesMax", "max": 8 },
     "churn-10000-requests-liveEnvs": { "metric": "liveEnvCountAfter", "max": 2 },
     "lru-churn-500-shapes": { "metric": "planCacheEntries", "max": 16 }

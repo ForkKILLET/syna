@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { after, before, describe, it } from 'node:test'
 import {
+  DomainConflictError,
   SlugConflictError,
   comparePosts,
   loadContentFixture,
@@ -272,6 +273,52 @@ export function repositoryConformance(name, makeStore) {
         assert.deepEqual({ ...post, revision: 0 }, { ...previous, revision: 0 })
       }
       assert.deepEqual((await alpha.listCategories()).map(item => item.name), ['Engineering', 'Notes'], 'fixture names win again')
+    })
+
+    it('contentVersion changes on every mutation of the tenant and never for another tenant', async () => {
+      // Mutations run on beta (deleted by the last test); alpha must stay untouched.
+      const alphaBefore = await alpha.contentVersion()
+      const before = await beta.contentVersion()
+      assert.equal(typeof before, 'string')
+      assert.equal(await beta.contentVersion(), before, 'reads do not move the version')
+      const seen = [before]
+      const post = await beta.getPostById('beta-p1')
+      await beta.savePost({ ...post, body: `${post.body}\n\nedited` })
+      seen.push(await beta.contentVersion())
+      await beta.saveTag({ slug: 'versioned', name: 'Versioned' })
+      seen.push(await beta.contentVersion())
+      await beta.saveCategory({ slug: 'versioned', name: 'Versioned' })
+      seen.push(await beta.contentVersion())
+      await beta.saveSiteConfig(siteConfigInputFromFixture('beta', fixture.tenants.beta, sampleExtras))
+      seen.push(await beta.contentVersion())
+      assert.equal(await beta.deletePost('no-such-post'), false)
+      assert.equal(await beta.contentVersion(), seen.at(-1), 'a no-op delete does not move the version')
+      await store.transaction('beta', async repository => {
+        await repository.saveTag({ slug: 'in-tx', name: 'In transaction' })
+      })
+      seen.push(await beta.contentVersion())
+      assert.equal(new Set(seen).size, seen.length, `every mutation produced a new version: ${seen}`)
+      assert.equal(await alpha.contentVersion(), alphaBefore, 'the other tenant is untouched')
+    })
+
+    it('saveSiteConfig refuses a domain another tenant already claims (DomainConflictError), also when spelled differently', async () => {
+      const betaConfig = siteConfigInputFromFixture('beta', fixture.tenants.beta, sampleExtras)
+      await beta.saveSiteConfig(betaConfig) // baseline: beta owns its own domains
+      const alphaDomain = fixture.tenants.alpha.site.domains[0]
+      await assert.rejects(
+        beta.saveSiteConfig({ ...betaConfig, domains: [...betaConfig.domains, alphaDomain.toUpperCase()] }),
+        error => error instanceof DomainConflictError && error.code === 'DOMAIN_CONFLICT' && error.ownerTenantId === 'alpha' && error.tenantId === 'beta',
+      )
+      await assert.rejects(
+        beta.saveSiteConfig({ ...betaConfig, domains: [`${alphaDomain}:8080`] }),
+        DomainConflictError,
+      )
+      const revisionBefore = (await beta.getSiteConfig()).configRevision
+      assert.equal((await beta.getSiteConfig()).configRevision, revisionBefore, 'a refused save changes nothing')
+      // Control: a tenant may keep (re-save) its own domains and add new ones.
+      const saved = await beta.saveSiteConfig({ ...betaConfig, domains: [...betaConfig.domains, 'beta-extra.test'] })
+      assert.equal(saved.configRevision, revisionBefore + 1)
+      assert.ok((await beta.getSiteConfig()).domains.includes('beta-extra.test'))
     })
 
     it('deleteTenant removes only that tenant', async () => {

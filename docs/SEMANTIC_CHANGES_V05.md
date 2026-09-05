@@ -38,8 +38,9 @@
 ## 4. 普通 Promise 与 Attempt/Waiter
 
 - 一个逻辑 slot 同时最多一个未结束且未清理的 attempt。并发 waiters join 同一 attempt。`load({ signal })` 只结束自己的等待（`LOAD_CANCELLED`），attempt 继续。
-- attempt 超时后 raw setup Promise 仍在运行：slot 标记 `failed`，`unsettledAttempt` 阻止重叠的新 attempt（`UNSETTLED_ATTEMPT`）；迟到结果被丢弃、其 `onDispose` 清理被执行、通过 `diagnostics.onEvent` 报告（`late-setup-result` / `late-setup-failure`）。
-- 关闭：先置 `disposing` 并 abort signal（拒绝新工作、广播取消），再等 descendants，再等已登记 attempt（最多 `disposal.graceMs`），然后 dependant-first 清理。仍未结束的 attempt 标记 `abandoned`，dispose() 以 `UNSETTLED_ATTEMPT` 报告——不宣称完全 Disposed。
+- attempt 超时后 raw setup Promise 仍在运行：slot 标记 `failed`，`unsettledAttempt` 阻止重叠的新 attempt（`UNSETTLED_ATTEMPT`）；迟到结果被丢弃、其 `onDispose` 清理被执行、通过 `diagnostics.onEvent` 报告（`late-setup-result` / `late-setup-failure`）。setup 在超时（或 owner 关闭）之后才调用的 `onDispose()` 仍被接受并在迟到结算时执行——迟到获得的资源正是必须释放的资源；只有 raw Promise 已结算后的过期 lifecycle 才被拒绝（`INVALID_ENV_STATE`）。
+- 每次 `load()` 返回调用者自己的 Promise（共享同一 attempt）：忘记处理的失败在任何 slot 状态下都是普通的 unhandled rejection；已 abort 的 `signal` 直接得到 `LOAD_CANCELLED`，不会启动休眠 slot。
+- 关闭：先把**整棵子树**（自身与所有后代）同步置为 `disposing` 并 abort 各自 signal（拒绝新工作、广播取消），再并发等待各子树关闭，再给本 Env 拥有的每个在途 attempt（正在运行的和已超时的）最多 `disposal.graceMs` 的结算时间（各 slot 并发计时，所以整体上界是一个 grace，与 `setupDeadlineMs`——包括 `Infinity`——无关），然后 dependant-first 清理（顺序也穿越从未启动的中间 slot）。仍未结束的 attempt 标记 `abandoned`，`dispose()` 以 `UNSETTLED_ATTEMPT` 报告；此时 Env **保持 `disposing`**、继续被 `inspect()` 计数、后续 `runtime.dispose()` 再次报告它，直到迟到结果到达并清理完毕才成为 `disposed`——不宣称完全 Disposed。
 - 运行时 `Ready` = 该 Env 拥有的全部 eager slots Ready；继承 eager 不重启；未声明等待关系的 eager 无顺序保证。
 
 ## 5. Contract、C.all、refs
@@ -68,7 +69,9 @@ exact/range/裸 Contract/auto/all/Binding/refs/fresh/share/check 全部使用同
 
 ## 8. check() / explain()
 
-只规划，不执行 setup、不发布 Env、不留下 anchor。`explain()` 输出 inherited/new/forked 的 Service 数、Input/synthetic 数、待启动 eager 数、候选选择、每个非继承节点的 cause 与 path；参数缺失时给出 `missingInputs`/`missingBindings`。搜索预算耗尽 → `PLANNING_BUDGET_EXCEEDED`（budget error，不是无解证明）。
+只规划，不执行 setup、不发布 Env、不留下 anchor。`explain()` 输出 inherited/new/forked 的 Service 数、Input/synthetic 数、待启动 eager 数、候选选择、每个非继承节点的 cause 与 path；参数缺失时给出 `missingInputs`/`missingBindings`——无论缺失的是 Entry 声明的参数，还是图深处某个 Service 需要而 lineage 未提供的 Input/Binding，也包括 `UNSATISFIABLE_TOPOLOGY` 各候选失败中的缺失。搜索预算耗尽 → `PLANNING_BUDGET_EXCEEDED`（budget error，不是无解证明）。
+
+候选回溯只归因于与选择相关的失败：若某 choice site 的**每个**候选都以完全相同的错误（同 code、同 site、同 details）失败，该失败与选择无关（例如更深处缺失的 Input、别处的 share 违约），按其自身 code 抛出/解释，而不是包装成 `UNSATISFIABLE_TOPOLOGY`；诊断结果因此不依赖 `requires` 键的声明顺序。候选之间失败不同才是 UNSAT，`details.failures` 保留逐候选原因。
 
 ## 9. 明确不做（本轮）
 

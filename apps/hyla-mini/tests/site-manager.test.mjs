@@ -215,9 +215,11 @@ test('H11 / P05 working set stays bounded under hot-spot, rotating and long-tail
       heapSamples,
       gcExposed: typeof globalThis.gc === 'function',
     }
-    const outDir = path.resolve('validation')
-    await mkdir(outDir, { recursive: true })
-    await writeFile(path.join(outDir, 'working-set.json'), `${JSON.stringify(report, null, 2)}\n`)
+    // The orchestrator points this at validation/v0.5-<mode>/working-set.json; a
+    // plain test run writes under work/ so it never dirties tracked files.
+    const outFile = path.resolve(process.env.SYNA_WORKING_SET_OUT ?? path.join('work', 'v05', 'working-set.json'))
+    await mkdir(path.dirname(outFile), { recursive: true })
+    await writeFile(outFile, `${JSON.stringify(report, null, 2)}\n`)
   }
   finally {
     await harness.close()

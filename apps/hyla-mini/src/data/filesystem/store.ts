@@ -10,6 +10,7 @@ import {
   isPostStatus,
   isSafeSegment,
   matchesFilter,
+  normalizeDomain,
   normalizePostInput,
 } from '../../domain/model.js'
 import type {
@@ -21,7 +22,7 @@ import type {
   SiteConfigInput,
   Tag,
 } from '../../domain/model.js'
-import { SlugConflictError, assertName, buildPost, normalizeTimestamp, resolveRevision } from '../common.js'
+import { DomainConflictError, SlugConflictError, assertName, buildPost, normalizeTimestamp, resolveRevision } from '../common.js'
 import { ContentRoot } from './config.js'
 import {
   KeyedMutex,
@@ -40,6 +41,8 @@ import type { ContentLayout } from './layout.js'
 const CATEGORIES_FILE = 'categories.json'
 const TAGS_FILE = 'tags.json'
 const SITE_FILE = 'site.json'
+/** Per-tenant monotonic counter advanced by every mutation; read by page caches. */
+const VERSION_FILE = 'content.version'
 
 interface PostFile {
   readonly post: Post
@@ -200,8 +203,27 @@ export function createFilesystemContentStore(rootDir: string, layout: ContentLay
    * tenant lock for the public repository; the repository handed to
    * `transaction()` already runs inside that lock and passes the identity.
    */
+  async function listTenantIds(): Promise<readonly string[]> {
+    const entries = await readdir(root, { withFileTypes: true })
+    return entries
+      .filter(entry => entry.isDirectory() && !entry.isSymbolicLink() && isSafeSegment(entry.name))
+      .map(entry => entry.name)
+      .sort()
+  }
+
   function repository(tenantId: string, serialize: <T>(fn: () => Promise<T>) => Promise<T>): ContentRepository {
     assertSafeSegment(tenantId, 'tenantId')
+
+    const readVersion = async (): Promise<number> => {
+      const text = await readTextIfExists(await resolveTenantFile(tenantId, VERSION_FILE))
+      const parsed = text === undefined ? 0 : Number.parseInt(text, 10)
+      return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : 0
+    }
+    /** Called inside the tenant's serialized mutation section. */
+    const bump = async (): Promise<void> => {
+      const next = (await readVersion()) + 1
+      await writeFileAtomic(await resolveTenantFile(tenantId, VERSION_FILE), `${next}\n`)
+    }
 
     async function savePost(input: PostInput): Promise<Post> {
       const normalized = normalizePostInput(tenantId, input)
@@ -238,12 +260,17 @@ export function createFilesystemContentStore(rootDir: string, layout: ContentLay
         const files = await scanPosts(tenantId)
         return files.find(file => file.post.id === id)?.post
       },
-      savePost: input => serialize(() => savePost(input)),
+      savePost: input => serialize(async () => {
+        const post = await savePost(input)
+        await bump()
+        return post
+      }),
       deletePost: id => serialize(async () => {
         const files = await scanPosts(tenantId)
         const existing = files.find(file => file.post.id === id)
         if (existing === undefined) return false
         await rm(await resolveTenantFile(tenantId, existing.relativePath), { force: true })
+        await bump()
         return true
       }),
       async listCategories() {
@@ -253,6 +280,7 @@ export function createFilesystemContentStore(rootDir: string, layout: ContentLay
       saveCategory: category => serialize(async () => {
         const entry = { slug: assertSafeSegment(category.slug, 'Category slug'), name: assertName(category.name, 'Category name') }
         await upsertNamed(tenantId, CATEGORIES_FILE, entry)
+        await bump()
         return { tenantId, ...entry }
       }),
       async listTags() {
@@ -262,6 +290,7 @@ export function createFilesystemContentStore(rootDir: string, layout: ContentLay
       saveTag: tag => serialize(async () => {
         const entry = { slug: assertSafeSegment(tag.slug, 'Tag slug'), name: assertName(tag.name, 'Tag name') }
         await upsertNamed(tenantId, TAGS_FILE, entry)
+        await bump()
         return { tenantId, ...entry }
       }),
       async getSiteConfig() {
@@ -273,24 +302,32 @@ export function createFilesystemContentStore(rootDir: string, layout: ContentLay
         if (config.tenantId !== tenantId) {
           throw new TypeError(`SiteConfig.tenantId ${JSON.stringify(config.tenantId)} does not match repository tenant ${tenantId}.`)
         }
+        const claimed = new Set((Array.isArray(config.domains) ? config.domains : []).map(normalizeDomain).filter((host): host is string => host !== undefined))
+        if (claimed.size > 0) {
+          for (const other of await listTenantIds()) {
+            if (other === tenantId) continue
+            const theirs = await readJson(other, SITE_FILE, isStoredSiteConfig).catch(() => undefined)
+            const taken = (Array.isArray(theirs?.domains) ? theirs.domains : []).find(domain => {
+              const host = normalizeDomain(domain)
+              return host !== undefined && claimed.has(host)
+            })
+            if (taken !== undefined) throw new DomainConflictError(tenantId, taken, other)
+          }
+        }
         const previous = await readJson(tenantId, SITE_FILE, isStoredSiteConfig)
         const next: StoredSiteConfig = { ...config, configRevision: (previous?.configRevision ?? 0) + 1 }
         await writeJson(tenantId, SITE_FILE, next)
+        await bump()
         return next
       }),
+      contentVersion: async () => String(await readVersion()),
     }
   }
 
   return {
     backend: 'filesystem',
     forTenant: tenantId => repository(tenantId, fn => locks.withLock(tenantId, fn)),
-    async listTenants() {
-      const entries = await readdir(root, { withFileTypes: true })
-      return entries
-        .filter(entry => entry.isDirectory() && !entry.isSymbolicLink() && isSafeSegment(entry.name))
-        .map(entry => entry.name)
-        .sort()
-    },
+    listTenants: listTenantIds,
     /**
      * Unit of work on the filesystem backend: `work` runs while holding the
      * tenant's in-process lock, so mutations of one tenant are serialized within

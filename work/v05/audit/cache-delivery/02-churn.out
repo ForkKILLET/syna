@@ -1,0 +1,14 @@
+churn samples: [{"i":2000,"heapUsed":6891904,"liveEnvCount":2,"planCacheEntries":7,"planCacheMisses":7,"planCacheEvictions":0,"internalServices":129,"admittedServices":128,"abortListeners":0},{"i":4000,"heapUsed":7101216,"liveEnvCount":2,"planCacheEntries":7,"planCacheMisses":7,"planCacheEvictions":0,"internalServices":129,"admittedServices":128,"abortListeners":0},{"i":6000,"heapUsed":7046432,"liveEnvCount":2,"planCacheEntries":7,"planCacheMisses":7,"planCacheEvictions":0,"internalServices":129,"admittedServices":128,"abortListeners":0},{"i":8000,"heapUsed":7099608,"liveEnvCount":2,"planCacheEntries":7,"planCacheMisses":7,"planCacheEvictions":0,"internalServices":129,"admittedServices":128,"abortListeners":0},{"i":10000,"heapUsed":7119040,"liveEnvCount":2,"planCacheEntries":7,"planCacheMisses":7,"planCacheEvictions":0,"internalServices":129,"admittedServices":128,"abortListeners":0},{"i":12000,"heapUsed":7117144,"liveEnvCount":2,"planCacheEntries":7,"planCacheMisses":7,"planCacheEvictions":0,"internalServices":129,"admittedServices":128,"abortListeners":0}]
+churn planCache after: {"hits":41995,"misses":7,"entries":7,"evictions":0,"maxEntries":64} planCacheMax=7 selectorOpens=3000 allLoads=3000
+PASS R18 liveEnvCount unchanged after 12,000 mixed operations
+PASS R18 rootEnvCount stays 1
+PASS R18 plan-cache entries bounded and not growing after the first sample
+PASS R18 internal/admitted service registries unchanged
+PASS R18 shared AbortSignal accumulates no listeners across 6,000 load({signal}) calls
+PASS R18 heap after gc() is flat over the last 4 samples (< 256 KiB drift)
+PASS R18 runtime.dispose() empties live Envs
+lru: entries 22->512->512, evictions=590, heap before=12851440 atCapacity=115594656 afterEviction=115922032, ~209680 bytes per template (includes compiler entry-registry growth)
+PASS P04 LRU: entries capped at maxEntries=512 while 1,100 shapes were planned
+PASS P04 LRU: heap does not keep growing once the cache is full (< 1.5 MiB over 588 evicting shapes)
+NOTE retained per template ≈ 205 KiB under a 300-service parent (key embeds the full parent graph signature)
+ALL PASS

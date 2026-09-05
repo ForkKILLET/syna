@@ -1,9 +1,9 @@
 # Syna v0.5 + Hyla-mini — STATE
 
 ## Current phase
-Phase D: independent audits running (3 fresh-context subagents: promise-lifecycle, app-permissions, cache-delivery).
-G0 dev gate: COMPLETE (validation/v0.5-dev/manifest.json — 217 tests, 0 failed, 0 skipped, benchmarks within budgets).
-Next: apply audit findings with regressions → `node scripts/verify-v05.mjs --release` → docs/AUDIT.md + docs/VALIDATION.md → final report.
+Phase E: audit findings applied (I-17…I-48, all confirmed defects fixed with regression tests; see ISSUES.md), docs and ledgers updated, audit reports/probes archived to docs/audit/.
+G0 dev gate: COMPLETE earlier (pre-audit source); must be re-run as part of G1 on the final source.
+Next: commit → `node scripts/verify-v05.mjs --release` (nothing else running) → refresh docs/VALIDATION.md from RELEASE_MANIFEST.json → final commit → session report with the real command summary and archive list.
 
 ## Environment (recorded 2026-09-04, local machine)
 - Host: Darwin 25.2.0 arm64, Apple M4 Pro (14 cores), 48 GiB RAM
@@ -23,7 +23,8 @@ Next: apply audit findings with regressions → `node scripts/verify-v05.mjs --r
 - Baseline has no lockfile; committed `dist/` outputs; hand-written semver.
 
 ## Actual failures / open items
-None open in the dev gate. Audit findings pending (see work/v05/audit/*/REPORT.md when written).
+None open. Local verification after the audit fixes (2026-09-05): core 144/144, type-tests pass, app 73/73 + site-manager 5/5, PostgreSQL + matrix 27/27 on the temporary cluster, quick benchmarks within budgets. Auditors' probes re-run; remaining FAIL lines are intended-behaviour changes listed at the end of ISSUES.md.
+Documented-only items: F-PL-08 (D22), F-CD-04 residual template size, F-CD-07 backend request timing not benchmarked, F-AP-10 core cannot check interface compatibility of overrides at runtime.
 
 ## Modified files
 - (Phase A) work/v05/*.md, .gitignore, package-lock.json

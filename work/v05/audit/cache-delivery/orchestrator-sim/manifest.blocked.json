@@ -1,0 +1,230 @@
+{
+  "name": "Syna v0.5.0 + Hyla-mini",
+  "version": "0.5.0",
+  "status": "BLOCKED",
+  "mode": "dev",
+  "generatedAt": "2026-09-05T03:45:56.306Z",
+  "startedAt": "2026-09-05T03:45:09.323Z",
+  "environment": {
+    "node": "v26.0.0",
+    "platform": "darwin",
+    "arch": "arm64",
+    "cwd": ".",
+    "gitProvenance": {
+      "commit": null,
+      "dirty": null,
+      "note": "not a git repository or git unavailable"
+    }
+  },
+  "source": {
+    "algorithm": "sha256(path\\nsha256(content)\\n...)",
+    "files": 179,
+    "digest": "5c63c72de04a3752dfbbf3597e3c95b0fe0988e25922db25415e6117b980685b"
+  },
+  "steps": [
+    {
+      "name": "clean",
+      "command": "npm run clean",
+      "cwd": ".",
+      "startedAt": "2026-09-05T03:45:09.340Z",
+      "endedAt": "2026-09-05T03:45:09.474Z",
+      "durationMs": 134,
+      "exitCode": 0,
+      "signal": null,
+      "mustRun": true,
+      "log": "validation/v0.5-dev/logs/clean.log",
+      "ok": true
+    },
+    {
+      "name": "build",
+      "command": "npm run build",
+      "cwd": ".",
+      "startedAt": "2026-09-05T03:45:09.474Z",
+      "endedAt": "2026-09-05T03:45:11.208Z",
+      "durationMs": 1734,
+      "exitCode": 0,
+      "signal": null,
+      "mustRun": true,
+      "log": "validation/v0.5-dev/logs/build.log",
+      "ok": true
+    },
+    {
+      "name": "type-tests",
+      "command": "npm run type-tests",
+      "cwd": ".",
+      "startedAt": "2026-09-05T03:45:11.208Z",
+      "endedAt": "2026-09-05T03:45:11.753Z",
+      "durationMs": 545,
+      "exitCode": 0,
+      "signal": null,
+      "mustRun": true,
+      "log": "validation/v0.5-dev/logs/type-tests.log",
+      "ok": true
+    },
+    {
+      "name": "core-tests",
+      "command": "node --test --test-reporter=tap packages/core/tests/contracts.test.mjs packages/core/tests/core.test.mjs packages/core/tests/hardening.test.mjs packages/core/tests/lifecycle.test.mjs packages/core/tests/reference-planner.test.mjs packages/core/tests/semver.test.mjs packages/core/tests/v04-adversarial.test.mjs packages/core/tests/v04-corrections.test.mjs packages/core/tests/v04-finalization.test.mjs packages/core/tests/v04-regressions.test.mjs packages/core/tests/v05-attempts.test.mjs packages/core/tests/v05-cache-cleanup.test.mjs packages/core/tests/v05-definitions.test.mjs packages/core/tests/v05-explain.test.mjs packages/core/tests/v05-planner.test.mjs packages/core/tests/v05-promises.test.mjs packages/core/tests/v05-realms-override.test.mjs",
+      "cwd": ".",
+      "startedAt": "2026-09-05T03:45:11.753Z",
+      "endedAt": "2026-09-05T03:45:12.284Z",
+      "durationMs": 531,
+      "exitCode": 0,
+      "signal": null,
+      "tests": {
+        "tests": 130,
+        "pass": 130,
+        "fail": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "mustRun": true,
+      "log": "validation/v0.5-dev/logs/core-tests.log",
+      "ok": true
+    },
+    {
+      "name": "hyla-filesystem-tests",
+      "command": "node --test --test-reporter=tap apps/hyla-mini/tests/filesystem.test.mjs",
+      "cwd": ".",
+      "startedAt": "2026-09-05T03:45:12.284Z",
+      "endedAt": "2026-09-05T03:45:12.915Z",
+      "durationMs": 631,
+      "exitCode": 0,
+      "signal": null,
+      "tests": {
+        "tests": 43,
+        "pass": 43,
+        "fail": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "mustRun": true,
+      "log": "validation/v0.5-dev/logs/hyla-filesystem-tests.log",
+      "ok": true
+    },
+    {
+      "name": "hyla-render-tests",
+      "command": "node --test --test-reporter=tap apps/hyla-mini/tests/render.test.mjs",
+      "cwd": ".",
+      "startedAt": "2026-09-05T03:45:12.915Z",
+      "endedAt": "2026-09-05T03:45:13.160Z",
+      "durationMs": 245,
+      "exitCode": 0,
+      "signal": null,
+      "tests": {
+        "tests": 4,
+        "pass": 4,
+        "fail": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "mustRun": true,
+      "log": "validation/v0.5-dev/logs/hyla-render-tests.log",
+      "ok": true
+    },
+    {
+      "name": "hyla-tenants-auth-preflight-tests",
+      "command": "node --test --test-reporter=tap apps/hyla-mini/tests/tenants-auth.test.mjs apps/hyla-mini/tests/preflight.test.mjs",
+      "cwd": ".",
+      "startedAt": "2026-09-05T03:45:13.160Z",
+      "endedAt": "2026-09-05T03:45:13.502Z",
+      "durationMs": 342,
+      "exitCode": 0,
+      "signal": null,
+      "tests": {
+        "tests": 10,
+        "pass": 10,
+        "fail": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "mustRun": true,
+      "log": "validation/v0.5-dev/logs/hyla-tenants-auth-preflight-tests.log",
+      "ok": true
+    },
+    {
+      "name": "hyla-site-manager-working-set-tests",
+      "command": "node --test --test-reporter=tap --expose-gc apps/hyla-mini/tests/site-manager.test.mjs",
+      "cwd": ".",
+      "startedAt": "2026-09-05T03:45:13.502Z",
+      "endedAt": "2026-09-05T03:45:15.827Z",
+      "durationMs": 2325,
+      "exitCode": 0,
+      "signal": null,
+      "tests": {
+        "tests": 5,
+        "pass": 5,
+        "fail": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "mustRun": true,
+      "log": "validation/v0.5-dev/logs/hyla-site-manager-working-set-tests.log",
+      "ok": true
+    },
+    {
+      "name": "hyla-postgres-and-matrix-tests",
+      "command": "node scripts/pg-test-cluster.mjs with -- node --test --test-reporter=tap apps/hyla-mini/tests/postgres.test.mjs apps/hyla-mini/tests/matrix.test.mjs",
+      "cwd": ".",
+      "startedAt": "2026-09-05T03:45:15.827Z",
+      "endedAt": "2026-09-05T03:45:15.888Z",
+      "durationMs": 61,
+      "exitCode": 1,
+      "signal": null,
+      "mustRun": true,
+      "log": "validation/v0.5-dev/logs/hyla-postgres-and-matrix-tests.log",
+      "ok": false
+    },
+    {
+      "name": "demos",
+      "command": "npm run demo",
+      "cwd": ".",
+      "startedAt": "2026-09-05T03:45:15.888Z",
+      "endedAt": "2026-09-05T03:45:53.299Z",
+      "durationMs": 37411,
+      "exitCode": 0,
+      "signal": null,
+      "mustRun": true,
+      "log": "validation/v0.5-dev/logs/demos.log",
+      "ok": true
+    },
+    {
+      "name": "hyla-demo-filesystem",
+      "command": "node apps/hyla-mini/bin/hyla-mini.mjs demo --root /private/tmp/syna-cd-audit-fyfgV8/src/work/demo-content",
+      "cwd": ".",
+      "startedAt": "2026-09-05T03:45:53.299Z",
+      "endedAt": "2026-09-05T03:45:53.554Z",
+      "durationMs": 255,
+      "exitCode": 0,
+      "signal": null,
+      "mustRun": true,
+      "log": "validation/v0.5-dev/logs/hyla-demo-filesystem.log",
+      "ok": true
+    },
+    {
+      "name": "benchmarks",
+      "command": "node --expose-gc benchmarks/v0.5-planning.mjs /private/tmp/syna-cd-audit-fyfgV8/src/validation/v0.5-dev/benchmark-v0.5.json",
+      "cwd": ".",
+      "startedAt": "2026-09-05T03:45:53.555Z",
+      "endedAt": "2026-09-05T03:45:56.305Z",
+      "durationMs": 2750,
+      "exitCode": 0,
+      "signal": null,
+      "mustRun": true,
+      "log": "validation/v0.5-dev/logs/benchmarks.log",
+      "ok": true
+    }
+  ],
+  "totals": {
+    "steps": 12,
+    "failed": 1,
+    "skippedTests": 0,
+    "tests": 192,
+    "passed": 192
+  },
+  "blocked": [
+    {
+      "step": "hyla-postgres-and-matrix-tests",
+      "reason": "PostgreSQL could not be started or reached (see log). Provide SYNA_TEST_PG_URL or install postgresql@17 binaries."
+    }
+  ]
+}

@@ -1,0 +1,30 @@
+Syna v0.5 verify (dev) — 179 source files, fingerprint 5c63c72de04a3752dfbbf3597e3c95b0fe0988e25922db25415e6117b980685b
+ok   clean (exit 0, 134 ms)
+ok   build (exit 0, 1734 ms)
+ok   type-tests (exit 0, 545 ms)
+ok   core-tests (exit 0, 531 ms, tests 130/130 pass, 0 fail, 0 skipped)
+ok   hyla-filesystem-tests (exit 0, 631 ms, tests 43/43 pass, 0 fail, 0 skipped)
+ok   hyla-render-tests (exit 0, 245 ms, tests 4/4 pass, 0 fail, 0 skipped)
+ok   hyla-tenants-auth-preflight-tests (exit 0, 342 ms, tests 10/10 pass, 0 fail, 0 skipped)
+ok   hyla-site-manager-working-set-tests (exit 0, 2325 ms, tests 5/5 pass, 0 fail, 0 skipped)
+FAIL hyla-postgres-and-matrix-tests (exit 1, 61 ms)
+ok   demos (exit 0, 37411 ms)
+ok   hyla-demo-filesystem (exit 0, 255 ms)
+ok   benchmarks (exit 0, 2750 ms)
+
+== BLOCKED == 192 tests, 192 passed, 1 failed steps, 0 skipped tests
+source fingerprint: 5c63c72de04a3752dfbbf3597e3c95b0fe0988e25922db25415e6117b980685b (179 files)
+  ok   clean                                    exit=0 log=validation/v0.5-dev/logs/clean.log
+  ok   build                                    exit=0 log=validation/v0.5-dev/logs/build.log
+  ok   type-tests                               exit=0 log=validation/v0.5-dev/logs/type-tests.log
+  ok   core-tests                               exit=0 pass=130 fail=0 skip=0 log=validation/v0.5-dev/logs/core-tests.log
+  ok   hyla-filesystem-tests                    exit=0 pass=43 fail=0 skip=0 log=validation/v0.5-dev/logs/hyla-filesystem-tests.log
+  ok   hyla-render-tests                        exit=0 pass=4 fail=0 skip=0 log=validation/v0.5-dev/logs/hyla-render-tests.log
+  ok   hyla-tenants-auth-preflight-tests        exit=0 pass=10 fail=0 skip=0 log=validation/v0.5-dev/logs/hyla-tenants-auth-preflight-tests.log
+  ok   hyla-site-manager-working-set-tests      exit=0 pass=5 fail=0 skip=0 log=validation/v0.5-dev/logs/hyla-site-manager-working-set-tests.log
+  FAIL hyla-postgres-and-matrix-tests           exit=1 log=validation/v0.5-dev/logs/hyla-postgres-and-matrix-tests.log
+  ok   demos                                    exit=0 log=validation/v0.5-dev/logs/demos.log
+  ok   hyla-demo-filesystem                     exit=0 log=validation/v0.5-dev/logs/hyla-demo-filesystem.log
+  ok   benchmarks                               exit=0 log=validation/v0.5-dev/logs/benchmarks.log
+manifest: validation/v0.5-dev/manifest.json
+verify exit=3

@@ -193,3 +193,14 @@ export function matchesFilter(post: Post, filter: PostFilter): boolean {
   if (filter.tag !== undefined && !post.tags.includes(filter.tag)) return false
   return true
 }
+
+/**
+ * Canonical form of a host name for the domain table and for domain-claim
+ * checks: trimmed, lower-cased, port removed. Returns undefined for anything
+ * that is not a plain DNS-style name.
+ */
+export function normalizeDomain(value: string | undefined): string | undefined {
+  if (!value) return undefined
+  const host = value.trim().toLowerCase().replace(/:\d+$/, '')
+  return /^[a-z0-9.-]+$/.test(host) ? host : undefined
+}

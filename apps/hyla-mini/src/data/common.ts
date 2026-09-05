@@ -16,6 +16,19 @@ export class SlugConflictError extends Error {
   }
 }
 
+/** Thrown when a site configuration claims a domain another tenant already owns. */
+export class DomainConflictError extends Error {
+  override readonly name = 'DomainConflictError'
+  readonly code = 'DOMAIN_CONFLICT'
+  constructor(
+    readonly tenantId: string,
+    readonly domain: string,
+    readonly ownerTenantId: string,
+  ) {
+    super(`Domain ${JSON.stringify(domain)} is already claimed by tenant ${ownerTenantId}; tenant ${tenantId} cannot take it.`)
+  }
+}
+
 /** Parses a caller-supplied timestamp and returns it as a canonical ISO-8601 string. */
 export function normalizeTimestamp(value: string, what: string): string {
   if (typeof value !== 'string' || Number.isNaN(Date.parse(value))) {

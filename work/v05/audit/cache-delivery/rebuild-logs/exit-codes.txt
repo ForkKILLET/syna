@@ -1,0 +1,6 @@
+npm-ci 0 0s
+npm-run-build 0 2s
+npm-run-type-tests 0 1s
+core-tests 0 0s
+hyla-fs-render-tests 0 1s
+hyla-postgres-tests 0 1s

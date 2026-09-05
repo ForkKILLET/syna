@@ -37,13 +37,19 @@ export interface HylaAppOptions {
   readonly runtime?: Omit<CreateRuntimeOptions, 'services'>
 }
 
+export interface HylaShutdownReport {
+  /** `key#count` of site leases still held when the shutdown timeout expired. Empty on a clean close. */
+  readonly unreleasedLeases: readonly string[]
+}
+
 export interface HylaApp {
   readonly runtime: SynaRuntime
   readonly infrastructure: EnvHandle<any>
   readonly app: EnvHandle<typeof AppEntry['requires']>
   readonly preflight: readonly BudgetReport[]
   domains(): Promise<DomainTable>
-  close(): Promise<void>
+  /** Shuts the site manager down first (reporting unreleased leases), then disposes the Runtime. */
+  close(): Promise<HylaShutdownReport>
 }
 
 /** Default budget for one request: only the request handler may be local; shared infrastructure must be inherited. */
@@ -136,7 +142,17 @@ export async function createHylaApp(options: HylaAppOptions): Promise<HylaApp> {
     await runtime.dispose()
     throw new Error(`App entry does not plan: ${appCheck.error.code} ${appCheck.error.message}`)
   }
-  const app = await infrastructure.enter(AppEntry, appParameters)
+  let app: EnvHandle<typeof AppEntry['requires']>
+  try {
+    app = await infrastructure.enter(AppEntry, appParameters)
+    // Touch the backend now: an unreachable database or a bad schema fails startup,
+    // not the first request.
+    await app.deps.store.load()
+  }
+  catch (error) {
+    await runtime.dispose().catch(() => undefined)
+    throw error
+  }
   const probeSite = {
     tenantId: 'preflight',
     title: 'preflight',
@@ -164,7 +180,16 @@ export async function createHylaApp(options: HylaAppOptions): Promise<HylaApp> {
     preflight: reports,
     domains: async () => loadDomainTable(await app.deps.store.load()),
     async close() {
+      let report: HylaShutdownReport = { unreleasedLeases: [] }
+      try {
+        const manager = await app.deps.sites.load()
+        report = await manager.shutdown()
+      }
+      catch {
+        // The manager never came up (or the app is already closing): nothing to report.
+      }
       await runtime.dispose()
+      return report
     },
   }
 }

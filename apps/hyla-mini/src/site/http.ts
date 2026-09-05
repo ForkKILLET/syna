@@ -16,6 +16,48 @@ export interface HttpServerOptions {
   readonly domains: DomainTable
   /** Honour X-Forwarded-Host. Only enable behind a proxy you control. */
   readonly trustProxy?: boolean
+  /**
+   * Receives every error the server turned into a 5xx. Clients only ever see a
+   * status and a short generic phrase (plus an error code); details stay here.
+   * Defaults to `console.error`.
+   */
+  readonly onError?: (error: unknown, context: HttpErrorContext) => void
+}
+
+export interface HttpErrorContext {
+  readonly status: number
+  readonly tenantId?: string
+  readonly host?: string
+  readonly path?: string
+}
+
+const TEXT = { 'content-type': 'text/plain; charset=utf-8' }
+
+function statusForAcquireError(code: string | undefined): number {
+  switch (code) {
+    case 'SITE_CAPACITY':
+    case 'SITE_MANAGER_CLOSED':
+    case 'SITE_CREATION_BACKOFF':
+      return 503
+    case 'UNKNOWN_TENANT':
+      return 404
+    default:
+      return 500
+  }
+}
+
+/** Runs an async request handler so that no rejection can escape: the client always gets an answer. */
+function guarded(
+  handler: (request: IncomingMessage, response: ServerResponse) => Promise<void>,
+  report: (error: unknown, context: HttpErrorContext) => void,
+): (request: IncomingMessage, response: ServerResponse) => void {
+  return (request, response) => {
+    handler(request, response).catch((error: unknown) => {
+      report(error, { status: 500, ...(request.url !== undefined ? { path: request.url } : {}) })
+      if (!response.headersSent) response.writeHead(500, TEXT)
+      response.end('Internal error')
+    })
+  }
 }
 
 export interface RunningServer {
@@ -59,26 +101,38 @@ async function listen(server: Server, port: number): Promise<RunningServer> {
 export async function startHttpServer(options: HttpServerOptions, port = 0): Promise<RunningServer> {
   const manager: SiteEnvironmentManager = await options.app.deps.sites.load()
   const trustProxy = options.trustProxy ?? false
+  const report = options.onError ?? ((error, context) => { console.error(`[hyla-mini http] ${context.status} ${context.tenantId ?? '-'} ${context.path ?? '-'}:`, error) })
 
   const handle = async (request: IncomingMessage, response: ServerResponse): Promise<void> => {
     const headers = lowerHeaders(request)
     const host = requestHost(headers, trustProxy)
     const tenantId = host ? options.domains.resolve(host) : undefined
     if (!host || !tenantId) {
-      response.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' })
+      response.writeHead(404, TEXT)
       response.end(`Unknown host ${host ?? '(missing)'}`)
       return
     }
-    const url = new URL(request.url ?? '/', `http://${host}`)
+    // Node accepts request targets the WHATWG parser rejects (absolute-form with a
+    // bad authority, invalid percent-encoding): they are the client's problem.
+    let url: URL
+    try {
+      url = new URL(request.url ?? '/', `http://${host}`)
+    }
+    catch {
+      response.writeHead(400, TEXT)
+      response.end('Bad request')
+      return
+    }
     let lease
     try {
       lease = await manager.acquire(tenantId, 'request')
     }
     catch (error) {
       const code = (error as { code?: string }).code
-      const status = code === 'SITE_CAPACITY' ? 503 : code === 'SITE_MANAGER_CLOSED' ? 503 : code === 'UNKNOWN_TENANT' ? 404 : 500
-      response.writeHead(status, { 'content-type': 'text/plain; charset=utf-8', 'retry-after': '1' })
-      response.end(`${code ?? 'ERROR'}: ${error instanceof Error ? error.message : String(error)}`)
+      const status = statusForAcquireError(code)
+      if (status >= 500) report(error, { status, tenantId, host, path: url.pathname })
+      response.writeHead(status, { ...TEXT, 'retry-after': '1' })
+      response.end(status === 503 ? `Service unavailable (${code})` : status === 404 ? 'Unknown tenant' : 'Internal error')
       return
     }
     try {
@@ -102,15 +156,16 @@ export async function startHttpServer(options: HttpServerOptions, port = 0): Pro
       response.end(request.method === 'HEAD' ? undefined : result.body)
     }
     catch (error) {
-      response.writeHead(500, { 'content-type': 'text/plain; charset=utf-8' })
-      response.end(`Internal error: ${error instanceof Error ? error.message : String(error)}`)
+      report(error, { status: 500, tenantId, host, path: url.pathname })
+      if (!response.headersSent) response.writeHead(500, TEXT)
+      response.end('Internal error')
     }
     finally {
       lease.release()
     }
   }
 
-  const server = createServer((request, response) => { void handle(request, response) })
+  const server = createServer(guarded(handle, report))
   return listen(server, port)
 }
 
@@ -123,11 +178,25 @@ const MIME: Record<string, string> = {
 /** Serves a static build directory so the static side of the matrix can be read back over HTTP. */
 export async function startStaticServer(rootDir: string, port = 0): Promise<RunningServer> {
   const root = path.resolve(rootDir)
-  const server = createServer((request, response) => {
-    void (async () => {
-      const url = new URL(request.url ?? '/', 'http://static')
-      let relative = decodeURIComponent(url.pathname)
+  const report = (error: unknown, context: HttpErrorContext): void => { console.error(`[hyla-mini static] ${context.status} ${context.path ?? '-'}:`, error) }
+  const server = createServer(guarded(async (request, response) => {
+      let relative: string
+      try {
+        const url = new URL(request.url ?? '/', 'http://static')
+        relative = decodeURIComponent(url.pathname)
+      }
+      catch {
+        response.writeHead(400, TEXT)
+        response.end('Bad request')
+        return
+      }
       if (relative.endsWith('/')) relative += 'index.html'
+      // Dot-files (the build manifest among them) are never published.
+      if (relative.split('/').some(segment => segment.startsWith('.') && segment !== '.' && segment !== '..')) {
+        response.writeHead(404, TEXT)
+        response.end('Not found')
+        return
+      }
       const target = path.resolve(root, `.${relative}`)
       if (!target.startsWith(root + path.sep) && target !== root) {
         response.writeHead(403)
@@ -143,10 +212,9 @@ export async function startStaticServer(rootDir: string, port = 0): Promise<Runn
         response.end(content)
       }
       catch {
-        response.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' })
+        response.writeHead(404, TEXT)
         response.end('Not found')
       }
-    })()
-  })
+  }, report))
   return listen(server, port)
 }

@@ -1,0 +1,9 @@
+declared-but-not-provided Binding: MISSING_BINDING missingInputs=[] missingBindings=["audit.mb/binding/choice/v1"] details.missing=["audit.mb/binding/choice/v1"]
+declared-but-not-provided Input:   MISSING_INPUT missingInputs=["audit.mb/input/tenant/v1"] missingBindings=[] details.missing=["audit.mb/input/tenant/v1"]
+deep (undeclared) Binding:         MISSING_BINDING missingInputs=[] missingBindings=[] details.missing=["audit.mb/binding/choice/v1"]
+deep (undeclared) Input:           MISSING_INPUT missingInputs=[] missingBindings=[] details.missing=["audit.mb/input/tenant/v1"]
+PASS K12 declared-but-unprovided Binding: explain lists it in missingBindings
+PASS K12 declared-but-unprovided Input: explain lists it in missingInputs
+FAIL K12 deep undeclared Binding: code MISSING_BINDING and explain lists it in missingBindings — Expected values to be strictly deep-equal: / + actual - expected / 
+FAIL K12 deep undeclared Input: code MISSING_INPUT and explain lists it in missingInputs — Expected values to be strictly deep-equal: / + actual - expected / 
+2 FAILURE(S)

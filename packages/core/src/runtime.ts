@@ -127,6 +127,9 @@ class EnvImpl<Requires extends DependencyMap> implements EnvHandle<Requires> {
   readonly deps: DependencyRefs<Requires>
   readonly abortController = new AbortController()
   state: EnvState = 'activating'
+  /** Resolves when the Env reaches `disposed`: every owned attempt settled and every descendant finalized. */
+  readonly finalized: Promise<void>
+  markFinalized: () => void = () => undefined
   private disposePromise?: Promise<void>
 
   constructor(
@@ -136,6 +139,7 @@ class EnvImpl<Requires extends DependencyMap> implements EnvHandle<Requires> {
     readonly plan: ResolvedPlan,
     rootSiteByEntryKey: ReadonlyMap<string, string>,
   ) {
+    this.finalized = new Promise<void>(resolve => { this.markFinalized = resolve })
     const refs: Record<string, DependencyRef<unknown> | InputRef<unknown>> = {}
     for (const [key, rootSiteId] of rootSiteByEntryKey) {
       const nodeId = plan.rootNodeBySite.get(rootSiteId)!
@@ -332,11 +336,10 @@ class RuntimeImpl implements SynaRuntime, ImplementationViewHost {
   dispose(): Promise<void> {
     this.disposePromise ??= (async () => {
       this.disposed = true
-      const errors: unknown[] = []
-      for (const root of [...this.roots]) {
-        try { await root.dispose() }
-        catch (error) { errors.push(error) }
-      }
+      const roots = [...this.roots]
+      for (const root of roots) this.broadcastClosing(root)
+      const errors = (await Promise.allSettled(roots.map(root => root.dispose())))
+        .flatMap(result => (result.status === 'rejected' ? [result.reason] : []))
       this.planner.clearCache()
       if (errors.length > 0) {
         throw new AggregateError(errors, 'One or more Syna root Envs failed to dispose.')
@@ -444,15 +447,14 @@ class RuntimeImpl implements SynaRuntime, ImplementationViewHost {
     }
     catch (error) {
       if (!isBacktrackableTopologyError(error)) throw error
-      const missingInputs = Array.isArray(error.details.missingInputs) ? error.details.missingInputs as string[] : []
-      const missingBindings = Array.isArray(error.details.missingBindings) ? error.details.missingBindings as string[] : []
+      const missing = collectMissingParameters(error.code, error.details)
       return Object.freeze({
         ok: false,
         entry: descriptor.id,
         ...(parent ? { parent: parent.id } : {}),
         error: diagnosticFromError(error),
-        missingInputs: Object.freeze([...missingInputs]),
-        missingBindings: Object.freeze([...missingBindings]),
+        missingInputs: Object.freeze([...missing.inputs]),
+        missingBindings: Object.freeze([...missing.bindings]),
       })
     }
   }
@@ -605,20 +607,37 @@ class RuntimeImpl implements SynaRuntime, ImplementationViewHost {
   }
 
   /**
-   * Closing order: refuse new work and broadcast cancellation, wait for
-   * descendants, wait for registered attempts, then dispose owned Ready slots
-   * dependant-first over the SCC condensation.
+   * Synchronously moves an Env and all of its descendants to `disposing` and
+   * aborts their signals. From this point no Env in the subtree accepts new
+   * work (enter/derive/load/recover) and every cooperative setup, worker or
+   * cleanup in the subtree has seen the stop signal, before anything is waited
+   * for. Idempotent.
    */
-  async disposeEnv(env: EnvImpl<any>): Promise<void> {
-    if (env.state === 'disposed' || env.state === 'disposing') return
+  private broadcastClosing(env: EnvImpl<any>): void {
+    if (env.state === 'disposed') return
     env.state = 'disposing'
     env.abortController.abort()
-    const errors: unknown[] = []
+    for (const child of env.children) this.broadcastClosing(child)
+  }
 
-    for (const child of [...env.children]) {
-      try { await child.dispose() }
-      catch (error) { errors.push(error) }
-    }
+  /**
+   * Closing order: refuse new work and broadcast cancellation to the whole
+   * subtree, wait for descendants (concurrently: sibling subtrees are
+   * independent), give owned attempts the disposal grace period, then dispose
+   * owned Ready slots dependant-first over the SCC condensation.
+   *
+   * The Env reaches `disposed` only once everything it owns has settled. When an
+   * attempt or a descendant is still pending, dispose() reports it
+   * (`UNSETTLED_ATTEMPT`) and the Env stays `disposing` — still registered and
+   * counted by inspect() — until the late result arrives and is cleaned up.
+   */
+  async disposeEnv(env: EnvImpl<any>): Promise<void> {
+    if (env.state === 'disposed') return
+    this.broadcastClosing(env)
+
+    const children = [...env.children]
+    const errors: unknown[] = (await Promise.allSettled(children.map(child => child.dispose())))
+      .flatMap(result => (result.status === 'rejected' ? [result.reason] : []))
 
     const ownedServiceSlots = [...new Set(env.plan.slotsByNode.values())]
       .filter((slot): slot is ServiceSlot => slot.kind === 'service' && slot.ownerEnvId === env.id)
@@ -630,18 +649,29 @@ class RuntimeImpl implements SynaRuntime, ImplementationViewHost {
       if (slot.state === 'dormant' || slot.state === 'failed') slot.state = 'disposed'
     }
 
-    env.state = 'disposed'
-    env.parent?.children.delete(env)
-    this.roots.delete(env)
-    this.envById.delete(env.id)
+    const pending: Promise<unknown>[] = [
+      ...abandoned.map(item => item.attempt.settled),
+      ...children.filter(child => child.state !== 'disposed').map(child => child.finalized),
+    ]
+    if (pending.length === 0) {
+      this.finalizeEnv(env)
+    }
+    else {
+      void Promise.all(pending).then(() => this.finalizeEnv(env))
+    }
 
     if (abandoned.length > 0) {
       errors.push(new SynaError(
         'UNSETTLED_ATTEMPT',
-        `Env ${env.id} closed while ${abandoned.length} setup attempt(s) were still running; their resources are not under Syna control.`,
+        `Env ${env.id} closed while ${abandoned.length} setup attempt(s) were still running; their resources are not under Syna control. The Env stays disposing until they settle.`,
         {
           env: env.id,
-          slots: abandoned.map(slot => ({ slot: slot.id, revision: slot.service.key })),
+          state: env.state,
+          slots: abandoned.map(item => ({
+            slot: item.slot.id,
+            revision: item.slot.service.key,
+            attempt: item.attempt.id,
+          })),
         },
       ))
     }
@@ -649,6 +679,48 @@ class RuntimeImpl implements SynaRuntime, ImplementationViewHost {
       throw new AggregateError(errors, `Env ${env.id} failed to dispose cleanly.`)
     }
   }
+
+  private finalizeEnv(env: EnvImpl<any>): void {
+    if (env.state === 'disposed') return
+    env.state = 'disposed'
+    env.parent?.children.delete(env)
+    this.roots.delete(env)
+    this.envById.delete(env.id)
+    env.markFinalized()
+  }
+}
+
+/**
+ * Missing parameters reported by a planning failure, wherever they occur: the
+ * Entry's own declared-but-unprovided parameters (`details.missingInputs` /
+ * `missingBindings`), a requirement deep inside the graph (`MISSING_INPUT` /
+ * `MISSING_BINDING` with `details.missing`), or the same inside the per-candidate
+ * failures of an `UNSATISFIABLE_TOPOLOGY` report.
+ */
+function collectMissingParameters(
+  code: string,
+  details: Readonly<Record<string, unknown>>,
+): { readonly inputs: readonly string[]; readonly bindings: readonly string[] } {
+  const inputs = new Set<string>()
+  const bindings = new Set<string>()
+  const strings = (value: unknown): string[] =>
+    Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : []
+  const visit = (nodeCode: string, nodeDetails: Readonly<Record<string, unknown>>): void => {
+    const declared = Array.isArray(nodeDetails.missingInputs) || Array.isArray(nodeDetails.missingBindings)
+    for (const id of strings(nodeDetails.missingInputs)) inputs.add(id)
+    for (const id of strings(nodeDetails.missingBindings)) bindings.add(id)
+    // Deep requirements (raised by the graph builder) carry the id under `missing` only.
+    if (!declared && nodeCode === 'MISSING_INPUT') for (const id of strings(nodeDetails.missing)) inputs.add(id)
+    if (!declared && nodeCode === 'MISSING_BINDING') for (const id of strings(nodeDetails.missing)) bindings.add(id)
+    for (const failure of Array.isArray(nodeDetails.failures) ? nodeDetails.failures : []) {
+      if (typeof failure !== 'object' || failure === null) continue
+      const nested = failure as { code?: unknown; details?: unknown }
+      if (typeof nested.code !== 'string') continue
+      visit(nested.code, (typeof nested.details === 'object' && nested.details !== null ? nested.details : {}) as Readonly<Record<string, unknown>>)
+    }
+  }
+  visit(code, details)
+  return { inputs: [...inputs].sort(), bindings: [...bindings].sort() }
 }
 
 export function createRuntime(options: CreateRuntimeOptions): SynaRuntime {

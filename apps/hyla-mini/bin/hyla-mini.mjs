@@ -82,6 +82,7 @@ async function main() {
       const reports = await preflightRequests(app)
       console.log(`preflight ok: ${reports.map(report => `${report.entry}: ${report.localServices} local services, cost ${report.cost}`).join('; ')}`)
       const domains = await app.domains()
+      for (const conflict of domains.conflicts) console.warn(`domain ${conflict.host} is claimed by ${conflict.tenants.join(' and ')}; it is served to nobody until the configurations are fixed`)
       const server = await startHttpServer({ app: app.app, domains, trustProxy: options['trust-proxy'] === 'true' }, Number(options.port ?? 0))
       const worker = await app.app.deps.worker.load()
       await worker.start({ intervalMs: 5_000 })

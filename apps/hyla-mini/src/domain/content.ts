@@ -26,8 +26,17 @@ export interface ContentRepository {
   listTags(): Promise<readonly Tag[]>
   saveTag(tag: Omit<Tag, 'tenantId'>): Promise<Tag>
   getSiteConfig(): Promise<SiteConfig | undefined>
-  /** Increments `configRevision`. */
+  /**
+   * Increments `configRevision`. Rejects (`DomainConflictError`) a configuration
+   * that claims a domain another tenant of this store already owns.
+   */
   saveSiteConfig(config: SiteConfigInput): Promise<SiteConfig>
+  /**
+   * Opaque token that changes whenever this tenant's posts, categories, tags or
+   * configuration change through this store. Cheap to read; page caches key on
+   * it so edits and visibility changes are never served stale.
+   */
+  contentVersion(): Promise<string>
 }
 
 /**

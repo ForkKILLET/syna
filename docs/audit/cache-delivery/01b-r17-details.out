@@ -1,0 +1,50 @@
+=== (1) Layer re-providing Region with the same payload ===
+explain:
+  all:audit.cd2/capability/v1: inherited path=["all:audit.cd2/capability/v1"]
+  input:audit.cd2/input/region/v1: new cause={"kind":"input-provided","input":"audit.cd2/input/region/v1"} path=["input:audit.cd2/input/region/v1"]
+  input:audit.cd2/input/tenant/v1: inherited path=["input:audit.cd2/input/tenant/v1"]
+  service:audit.cd2.a@1.0.0: inherited path=["service:audit.cd2.a@1.0.0"]
+  service:audit.cd2/cache@1.0.0: inherited path=["service:audit.cd2/cache@1.0.0"]
+  service:audit.cd2/logger@1.0.0: inherited path=["service:audit.cd2/logger@1.0.0"]
+  service:audit.cd2/panel@1.0.0: forked cause={"kind":"dependency-forked","via":"region","dependency":"input:audit.cd2/input/region/v1"} path=["service:audit.cd2/panel@1.0.0","input:audit.cd2/input/region/v1"]
+  service:audit.cd2/pool@1.0.0: inherited path=["service:audit.cd2/pool@1.0.0"]
+inspect:
+  all:audit.cd2/capability/v1 -> site
+  input:audit.cd2/input/region/v1 -> SELF
+  input:audit.cd2/input/tenant/v1 -> site
+  service:audit.cd2.a@1.0.0 -> site
+  service:audit.cd2/cache@1.0.0 -> site
+  service:audit.cd2/logger@1.0.0 -> app
+  service:audit.cd2/panel@1.0.0 -> SELF
+  service:audit.cd2/pool@1.0.0 -> app
+spec K03/R16: explicit Input re-provision is a new slot even with the same payload; Panel depends on Region so Panel must fork; Cache does not depend on Region and must be inherited.
+
+=== (2) share:[Cache] while the Entry re-provides Tenant (Cache depends on Tenant) ===
+explain:
+  NOT OK code=SHARE_CONSTRAINT_FAILED message=audit.cd2/cache@1.0.0 cannot reuse its parent-visible slot in Env check-5. details={"revision":"audit.cd2/cache@1.0.0","env":"check-5","cause":{"kind":"dependency-forked","via":"tenant","dependency":"input:audit.cd2/input/tenant/v1"},"path":["service:audit.cd2/cache@1.0.0","input:audit.cd2/input/tenant/v1"]}
+enter: threw code=SHARE_CONSTRAINT_FAILED message=audit.cd2/cache@1.0.0 cannot reuse its parent-visible slot in Env env-6.
+  details={"revision":"audit.cd2/cache@1.0.0","env":"env-6","cause":{"kind":"dependency-forked","via":"tenant","dependency":"input:audit.cd2/input/tenant/v1"},"path":["service:audit.cd2/cache@1.0.0","input:audit.cd2/input/tenant/v1"]}
+
+=== (2b) control: share:[Cache] without re-providing Tenant ===
+explain:
+  all:audit.cd2/capability/v1: inherited path=["all:audit.cd2/capability/v1"]
+  input:audit.cd2/input/region/v1: inherited path=["input:audit.cd2/input/region/v1"]
+  input:audit.cd2/input/request/v1: new cause={"kind":"input-provided","input":"audit.cd2/input/request/v1"} path=["input:audit.cd2/input/request/v1"]
+  input:audit.cd2/input/tenant/v1: inherited path=["input:audit.cd2/input/tenant/v1"]
+  service:audit.cd2.a@1.0.0: inherited path=["service:audit.cd2.a@1.0.0"]
+  service:audit.cd2/cache@1.0.0: inherited path=["service:audit.cd2/cache@1.0.0"]
+  service:audit.cd2/logger@1.0.0: inherited path=["service:audit.cd2/logger@1.0.0"]
+  service:audit.cd2/panel@1.0.0: inherited path=["service:audit.cd2/panel@1.0.0"]
+  service:audit.cd2/pool@1.0.0: inherited path=["service:audit.cd2/pool@1.0.0"]
+  service:audit.cd2/request-aware@1.0.0: new cause={"kind":"not-in-parent"} path=["service:audit.cd2/request-aware@1.0.0"]
+inspect:
+  all:audit.cd2/capability/v1 -> site
+  input:audit.cd2/input/region/v1 -> site
+  input:audit.cd2/input/request/v1 -> SELF
+  input:audit.cd2/input/tenant/v1 -> site
+  service:audit.cd2.a@1.0.0 -> site
+  service:audit.cd2/cache@1.0.0 -> site
+  service:audit.cd2/logger@1.0.0 -> app
+  service:audit.cd2/panel@1.0.0 -> site
+  service:audit.cd2/pool@1.0.0 -> app
+  service:audit.cd2/request-aware@1.0.0 -> SELF

@@ -1,0 +1,16 @@
+stats large={"hits":187,"misses":65,"entries":11,"evictions":0,"maxEntries":512}
+stats tiny={"hits":109,"misses":143,"entries":1,"evictions":88,"maxEntries":1}
+stats evicting={"hits":109,"misses":428,"entries":4,"evictions":364,"maxEntries":4}
+PASS R17 large cache actually hit templates
+PASS R17 tiny cache actually evicted
+PASS R17 evicting cache with filler shapes evicted heavily
+PASS R17 maxEntries=1 sequence identical to maxEntries=512 (278 records)
+PASS R17 constantly-evicting + filler sequence identical to maxEntries=512
+PASS R17 same Entry shape under siteA/siteB uses each site's own Cache instance
+PASS R17 request nodes: Cache owned by the site, Pool by app, request-aware by self
+PASS R17 fresh:[Pool] forks Pool and its dependants (Cache, all providers) into the request
+PASS R17 layer re-providing Region forks Panel but not Cache
+FAIL K12 share:[Cache] with re-provided Tenant reports SHARE_CONSTRAINT_FAILED (spec: constraint failures are not UNSAT) — enter and explain — enter() threw UNSATISFIABLE_TOPOLOGY; explain() code UNSATISFIABLE_TOPOLOGY / + actual - expected / 
+PASS R17 private realm never serves a public caller (enter and bind both MISSING_SERVICE) and owner path keeps working
+PASS R17 check()/explain() leave no live Env and no check-owned slots
+1 FAILURE(S)

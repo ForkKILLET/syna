@@ -1,0 +1,1 @@
+{ "extends": "@syna/tsconfig/node-app.json", "compilerOptions": { "noEmit": true, "composite": false, "rootDir": "." }, "include": ["neg/**/*.ts"] }

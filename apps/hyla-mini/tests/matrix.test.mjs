@@ -69,7 +69,7 @@ async function staticPages(harness) {
     }
     assert.equal(served.shared.status, 200)
     assert.equal(served.missingDraft.status, 404)
-    assert.equal((await readdir(outputDir)).sort().join(','), 'category,index.html,posts,site.json')
+    assert.equal((await readdir(outputDir)).sort().join(','), '.hyla-build.json,category,index.html,posts,site.json')
     return { served, manifest, outputDir }
   }
   finally {

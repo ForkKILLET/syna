@@ -35,7 +35,7 @@ Acceptance orchestrator (transparent runner; every sub-command is spawned and re
 
 ```sh
 node scripts/verify-v05.mjs --dev       # G0: build, type tests, core, real PostgreSQL/FS, app matrix, demos, benchmarks
-node scripts/verify-v05.mjs --release   # G0 + G1: source archive, rebuild from the archive in an empty directory, pack + consumer smoke, manifest + SHA256SUMS
+node scripts/verify-v05.mjs --release   # G0 + G1: source archive, rebuild from the archive in an empty directory, pack + consumer smoke, RELEASE_MANIFEST.json + validation/v0.5-release/SHA256SUMS.txt
 ```
 
 `--release` prints `COMPLETE`, `PARTIAL` or `BLOCKED` and exits 0 only on `COMPLETE`. A missing PostgreSQL never becomes a skip; it is `BLOCKED`.
@@ -102,4 +102,4 @@ Key rules: `serviceRef.load()` is an ordinary Promise (catch, race and backgroun
 
 ## Status
 
-This workspace does not publish to npm and does not push to any remote. Release artifacts (source archives, package tarballs, `RELEASE_MANIFEST.json`, `SHA256SUMS.txt`) are produced locally by `node scripts/verify-v05.mjs --release`.
+This workspace does not publish to npm and does not push to any remote. Release artifacts (source archives and package tarballs under `work/release/`, `RELEASE_MANIFEST.json`, `validation/v0.5-release/SHA256SUMS.txt`) are produced locally by `node scripts/verify-v05.mjs --release`. The root `SHA256SUMS.txt` belongs to the task documents that ship with the workspace and is not touched by the tooling.

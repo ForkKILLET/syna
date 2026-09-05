@@ -73,13 +73,13 @@ describe('postgres: transactions, pool sharing and disposal', () => {
       'select table_name from information_schema.tables where table_schema = $1 order by table_name',
       [schema],
     )
-    assert.deepEqual(tables.rows.map(row => row.table_name), ['categories', 'posts', 'sites', 'tags'])
+    assert.deepEqual(tables.rows.map(row => row.table_name), ['categories', 'content_versions', 'posts', 'sites', 'tags'])
     const searchPath = await pool.withClient(client => client.query('show search_path'))
     assert.equal(searchPath.rows[0].search_path, schema)
     const inTransaction = await pool.withTransaction(client => client.query('show search_path'))
     assert.equal(inTransaction.rows[0].search_path, schema)
     const publicTables = await pool.query(
-      "select table_name from information_schema.tables where table_schema = 'public' and table_name in ('posts', 'sites', 'categories', 'tags')",
+      "select table_name from information_schema.tables where table_schema = 'public' and table_name in ('posts', 'sites', 'categories', 'tags', 'content_versions')",
     )
     assert.deepEqual(publicTables.rows, [], 'nothing leaked into public')
   })

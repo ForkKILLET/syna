@@ -1,0 +1,1 @@
+{ "extends": "@syna/tsconfig/node-app.json", "compilerOptions": { "rootDir": "src", "outDir": "dist", "composite": false, "sourceMap": false }, "include": ["src/**/*.ts"] }

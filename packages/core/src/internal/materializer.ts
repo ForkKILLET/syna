@@ -39,7 +39,8 @@ type AttemptOutcome =
   | {
       readonly ok: false
       readonly error: unknown
-      readonly timedOut: boolean
+      /** The raw setup Promise is still pending (deadline or disposal ended the wait); never retried. */
+      readonly unsettled: boolean
       readonly cleanupErrors: readonly unknown[]
     }
 
@@ -47,6 +48,13 @@ type RaceResult =
   | { readonly kind: 'resolved'; readonly value: unknown }
   | { readonly kind: 'rejected'; readonly error: unknown }
   | { readonly kind: 'timeout' }
+  | { readonly kind: 'abandoned' }
+
+/** A slot whose setup attempt was still pending when its owner Env closed. */
+export interface AbandonedAttempt {
+  readonly slot: ServiceSlot
+  readonly attempt: SetupAttempt
+}
 
 function isForeignThenable(value: unknown): boolean {
   if (value instanceof Promise) return false
@@ -55,15 +63,30 @@ function isForeignThenable(value: unknown): boolean {
   return typeof (value as { then?: unknown }).then === 'function'
 }
 
-function raceDeadline(promise: Promise<unknown>, deadlineMs: number): Promise<RaceResult> {
+/**
+ * Settles with the raw result, with `timeout` when the deadline passes first,
+ * or with `abandoned` when disposal stops waiting first. Whichever comes first
+ * wins; the raw Promise itself is never cancelled.
+ */
+function raceDeadline(
+  promise: Promise<unknown>,
+  deadlineMs: number,
+  abandoned: Promise<void>,
+): Promise<RaceResult> {
   const settled = promise.then(
     (value): RaceResult => ({ kind: 'resolved', value }),
     (error): RaceResult => ({ kind: 'rejected', error }),
   )
-  if (!Number.isFinite(deadlineMs)) return settled
   return new Promise<RaceResult>(resolve => {
-    const timer = setTimeout(() => resolve({ kind: 'timeout' }), Math.max(0, deadlineMs))
-    void settled.then(result => { clearTimeout(timer); resolve(result) })
+    const timer = Number.isFinite(deadlineMs)
+      ? setTimeout(() => resolve({ kind: 'timeout' }), Math.max(0, deadlineMs))
+      : undefined
+    const finish = (result: RaceResult): void => {
+      if (timer !== undefined) clearTimeout(timer)
+      resolve(result)
+    }
+    void settled.then(finish)
+    void abandoned.then(() => finish({ kind: 'abandoned' }))
   })
 }
 
@@ -117,33 +140,52 @@ export class Materializer {
   }
 
   /**
-   * Waits for running sequences to end, then gives timed-out attempts the
-   * disposal grace period to settle. Returns the slots whose attempt never did.
+   * Gives every in-flight attempt of the given slots at most `disposal.graceMs`
+   * to settle after the owner's stop signal: running sequences as well as
+   * attempts whose deadline already passed. Slots are waited for concurrently,
+   * so the whole step is bounded by one grace period regardless of the
+   * per-service `setupDeadlineMs` (even `Infinity`). Attempts that do not
+   * settle in time are abandoned: their slot is marked `abandoned`, the attempt
+   * stays registered as `unsettledAttempt`, and its late result is still
+   * discarded, cleaned up and reported when it eventually arrives.
    */
-  async settleSlots(slots: readonly ServiceSlot[]): Promise<readonly ServiceSlot[]> {
-    for (const slot of slots) {
-      if (slot.sequence && slot.state === 'starting') {
-        try { await slot.sequence }
-        catch { /* failure already recorded on the slot */ }
-      }
-    }
-    const abandoned: ServiceSlot[] = []
-    for (const slot of slots) {
-      const attempt = slot.unsettledAttempt
-      if (!attempt) continue
-      const settled = await settlesWithin(attempt.settled, this.options.disposalGraceMs)
-      if (settled) continue
+  async settleSlots(slots: readonly ServiceSlot[]): Promise<readonly AbandonedAttempt[]> {
+    const outcomes = await Promise.all(slots.map(slot => this.settleSlot(slot)))
+    return outcomes.filter((item): item is AbandonedAttempt => item !== undefined)
+  }
+
+  private async settleSlot(slot: ServiceSlot): Promise<AbandonedAttempt | undefined> {
+    const graceMs = this.options.disposalGraceMs
+    if (slot.state === 'starting' && slot.sequence) {
+      if (await settlesWithin(slot.sequence, graceMs)) return undefined
+      const running = slot.attempt
       slot.state = 'abandoned'
-      abandoned.push(slot)
-      this.options.onEvent({
-        type: 'attempt-abandoned',
-        slot: slot.id,
-        revision: slot.service.key,
-        env: slot.ownerEnvId,
-        elapsedMs: Date.now() - attempt.startedAt,
-      })
+      if (running && running.state === 'running') {
+        running.state = 'abandoned'
+        slot.unsettledAttempt = running
+        running.abandon()
+      }
+      const attempt = slot.unsettledAttempt ?? running
+      if (!attempt) return undefined
+      this.reportAbandoned(slot, attempt)
+      return { slot, attempt }
     }
-    return abandoned
+    const attempt = slot.unsettledAttempt
+    if (!attempt) return undefined
+    if (await settlesWithin(attempt.settled, graceMs)) return undefined
+    slot.state = 'abandoned'
+    this.reportAbandoned(slot, attempt)
+    return { slot, attempt }
+  }
+
+  private reportAbandoned(slot: ServiceSlot, attempt: SetupAttempt): void {
+    this.options.onEvent({
+      type: 'attempt-abandoned',
+      slot: slot.id,
+      revision: slot.service.key,
+      env: slot.ownerEnvId,
+      elapsedMs: Date.now() - attempt.startedAt,
+    })
   }
 
   /** Dependant-first disposal over the SCC condensation of Ready owned slots. */
@@ -175,6 +217,13 @@ export class Materializer {
     options: LoadOptions | undefined,
     requester: SetupAttempt | undefined,
   ): Promise<unknown> {
+    if (options?.signal?.aborted) {
+      // Nothing is started for a caller that already gave up.
+      return Promise.reject(new SynaError('LOAD_CANCELLED', 'The caller cancelled its wait.', {
+        slot: slot.id,
+        revision: slot.service.key,
+      }))
+    }
     let value: Promise<unknown>
     try {
       value = this.serviceValue(slot)
@@ -190,7 +239,12 @@ export class Materializer {
         () => requester.pendingLoads.delete(loadId),
       )
     }
-    return waitWithSignal(value, options?.signal, () => ({
+    // Every caller gets its own Promise. The shared sequence carries an internal
+    // rejection handler so the runtime never produces unhandled rejections on
+    // its own; a caller that ignores its Promise sees ordinary JavaScript
+    // behaviour (an unhandled rejection) whichever slot state it hit.
+    const own = value.then(instance => instance)
+    return waitWithSignal(own, options?.signal, () => ({
       slot: slot.id,
       revision: slot.service.key,
     }))
@@ -273,7 +327,7 @@ export class Materializer {
         if (outcome.ok) {
           return outcome.instance
         }
-        if (outcome.timedOut) throw outcome.error
+        if (outcome.unsettled) throw outcome.error
         if (outcome.cleanupErrors.length > 0) {
           // A failed rollback ends the sequence: retrying on top of leaked resources is not safe.
           throw new AggregateError(
@@ -322,11 +376,15 @@ export class Materializer {
         if (typeof cleanup !== 'function') {
           throw new TypeError('onDispose() expects a cleanup function.')
         }
-        if (slot.attempt !== attempt || attempt.state !== 'running') {
+        // Accepted for as long as this attempt's setup is still executing, which
+        // includes the time after its deadline passed or its owner closed: the
+        // resource acquired late is exactly the one the late-settlement cleanup
+        // must release. Refused once the raw Promise settled (stale lifecycle).
+        if (attempt.rawSettled || attempt.state === 'succeeded' || attempt.state === 'failed') {
           throw new SynaError(
             'INVALID_ENV_STATE',
-            `onDispose() for ${slot.service.key} may only be called during its active setup attempt.`,
-            { slot: slot.id, revision: slot.service.key },
+            `onDispose() for ${slot.service.key} may only be called while its setup attempt is still executing.`,
+            { slot: slot.id, revision: slot.service.key, attempt: attempt.id, state: attempt.state },
           )
         }
         attempt.cleanups.push(cleanup)
@@ -352,17 +410,22 @@ export class Materializer {
     void rawPromise.catch(() => undefined)
 
     const deadlineMs = slot.service.setupDeadlineMs ?? this.options.deadlineMs
-    const raced = await raceDeadline(rawPromise, deadlineMs)
+    const raced = await raceDeadline(rawPromise, deadlineMs, attempt.abandoned)
 
-    if (raced.kind === 'timeout') {
-      attempt.state = 'timed-out'
+    if (raced.kind === 'timeout' || raced.kind === 'abandoned') {
+      if (raced.kind === 'timeout') attempt.state = 'timed-out'
       slot.unsettledAttempt = attempt
-      const error = this.timeoutError(attempt, owner, deadlineMs)
+      const error = raced.kind === 'timeout'
+        ? this.timeoutError(attempt, owner, deadlineMs)
+        : abortError(
+          `Setup of ${slot.service.key} was still pending when owner Env ${owner.id} closed; its eventual result will be discarded.`,
+          { slot: slot.id, revision: slot.service.key, env: owner.id, attempt: attempt.id },
+        )
       rawPromise.then(
         () => this.handleLateSettlement(attempt, owner, undefined),
         lateError => this.handleLateSettlement(attempt, owner, { error: lateError }),
       )
-      return { ok: false, error, timedOut: true, cleanupErrors: [] }
+      return { ok: false, error, unsettled: true, cleanupErrors: [] }
     }
 
     attempt.rawSettled = true
@@ -370,7 +433,7 @@ export class Materializer {
       const cleanupErrors = (await this.runCleanups(attempt.cleanups, slot)).map(item => item.error)
       attempt.state = 'failed'
       attempt.resolveSettled()
-      return { ok: false, error: raced.error, timedOut: false, cleanupErrors }
+      return { ok: false, error: raced.error, unsettled: false, cleanupErrors }
     }
 
     const ownerClosed = owner.abortController.signal.aborted
@@ -385,7 +448,7 @@ export class Materializer {
           `Setup of ${slot.service.key} completed after owner Env ${owner.id} began closing; the instance was discarded.`,
           { slot: slot.id, revision: slot.service.key, env: owner.id },
         ),
-        timedOut: false,
+        unsettled: false,
         cleanupErrors,
       }
     }
@@ -405,6 +468,8 @@ export class Materializer {
   private createAttempt(slot: ServiceSlot): SetupAttempt {
     let resolveSettled: () => void = () => undefined
     const settled = new Promise<void>(resolve => { resolveSettled = resolve })
+    let abandon: () => void = () => undefined
+    const abandoned = new Promise<void>(resolve => { abandon = resolve })
     return {
       id: this.nextAttemptId++,
       slot,
@@ -415,6 +480,8 @@ export class Materializer {
       rawSettled: false,
       settled,
       resolveSettled,
+      abandoned,
+      abandon,
     }
   }
 
@@ -427,6 +494,8 @@ export class Materializer {
     const slot = attempt.slot
     const cleanupErrors = (await this.runCleanups(attempt.cleanups, slot)).map(item => item.error)
     if (slot.unsettledAttempt === attempt) delete slot.unsettledAttempt
+    // An abandoned slot has now released everything its attempt acquired.
+    if (slot.state === 'abandoned' && slot.unsettledAttempt === undefined) slot.state = 'disposed'
     attempt.resolveSettled()
     if (failure) {
       this.options.onEvent({
@@ -564,6 +633,9 @@ export class Materializer {
   ): ReadonlyMap<string, ReadonlySet<string>> {
     const included = new Set(slots.map(slot => slot.id))
     const adjacency = new Map<string, Set<string>>()
+    // A dependency that passes through a Service slot outside the disposable set
+    // (dormant, failed, owned elsewhere) still orders the slots on either side:
+    // A -> B -> C with B never started must dispose A before C.
     const collect = (
       slot: RuntimeSlot,
       visited: Set<string>,
@@ -571,8 +643,8 @@ export class Materializer {
     ): void => {
       if (visited.has(slot.id)) return
       visited.add(slot.id)
-      if (slot.kind === 'service') {
-        if (included.has(slot.id)) output.add(slot.id)
+      if (slot.kind === 'service' && included.has(slot.id)) {
+        output.add(slot.id)
         return
       }
       for (const dependency of slot.requires.values()) collect(dependency, visited, output)

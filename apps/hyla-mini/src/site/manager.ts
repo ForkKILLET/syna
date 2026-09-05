@@ -60,6 +60,19 @@ export class SiteManagerClosedError extends Error {
   }
 }
 
+export class SiteCreationBackoffError extends Error {
+  readonly code = 'SITE_CREATION_BACKOFF'
+  constructor(
+    readonly tenantId: string,
+    readonly failures: number,
+    readonly until: Date,
+    cause: unknown,
+  ) {
+    super(`Site ${tenantId} creation is backing off after ${failures} failure(s) until ${until.toISOString()}.`, { cause })
+    this.name = 'SiteCreationBackoffError'
+  }
+}
+
 export class UnknownTenantError extends Error {
   readonly code = 'UNKNOWN_TENANT'
   constructor(tenantId: string) {
@@ -71,7 +84,12 @@ export class UnknownTenantError extends Error {
 export interface SiteEnvironmentManager {
   /** Loads the tenant's current configuration and returns a lease on the matching SiteEnv (single-flight per key). */
   acquire(tenantId: string, purpose: LeasePurpose): Promise<SiteLease>
-  /** Marks every environment of a tenant as stale; new acquires read the store again. Draining envs close when their leases end. */
+  /**
+   * Marks every environment of a tenant as stale: the next acquire reads the
+   * store again and creates a fresh SiteEnv even when `configRevision` did not
+   * change (a per-tenant generation is part of the key). Draining envs close
+   * as soon as their last lease ends.
+   */
   invalidate(tenantId: string): void
   /** Forces the idle sweep now (tests). */
   sweep(): Promise<number>
@@ -124,6 +142,8 @@ export const SiteEnvironmentManager = define.service('site-environment-manager',
     const waiters: Waiter[] = []
     /** Capacity granted to acquirers that have not inserted their record yet. */
     let reservations = 0
+    /** Bumped by invalidate(): part of the key, so a stale env is replaced even at the same configRevision. */
+    const generations = new Map<string, number>()
     const failureBackoff = new Map<string, { count: number; until: number; error: unknown }>()
     let closed = false
     let evictions = 0
@@ -131,7 +151,15 @@ export const SiteEnvironmentManager = define.service('site-environment-manager',
     let creationFailures = 0
     let rejectedForCapacity = 0
 
-    const keyFor = (tenantId: string, configRevision: number): string => `${runtimeId}|${tenantId}|${configRevision}`
+    const keyFor = (tenantId: string, configRevision: number): string =>
+      `${runtimeId}|${tenantId}|${configRevision}|g${generations.get(tenantId) ?? 0}`
+
+    const assertNotBackingOff = (tenantId: string): void => {
+      const backoff = failureBackoff.get(tenantId)
+      if (backoff && Date.now() < backoff.until) {
+        throw new SiteCreationBackoffError(tenantId, backoff.count, new Date(backoff.until), backoff.error)
+      }
+    }
 
     const readConfig = async (tenantId: string): Promise<SiteConfig> => {
       const config = await contentStore.forTenant(tenantId).getSiteConfig()
@@ -149,6 +177,13 @@ export const SiteEnvironmentManager = define.service('site-environment-manager',
       clearTimeout(waiter.timer)
       reservations += 1
       waiter.resolve()
+    }
+
+    /** A record nobody leases must not outlive its usefulness: draining (or closing) → dispose. */
+    const settle = (record: SiteRecord): void => {
+      if (record.leases === 0 && record.state !== 'disposed' && (record.state === 'draining' || closed)) {
+        void disposeRecord(record)
+      }
     }
 
     const disposeRecord = (record: SiteRecord): Promise<void> => {
@@ -225,8 +260,12 @@ export const SiteEnvironmentManager = define.service('site-environment-manager',
           }
           record.env = env
           record.context = await env.deps.context.load()
-          // Every request needs the authenticator; loading it here surfaces configuration errors at creation.
-          await env.deps.auth.load()
+          // Every request needs the authenticator; loading it here surfaces configuration
+          // errors at creation, including an override whose instance lacks the interface.
+          const authenticator = await env.deps.auth.load()
+          if (typeof authenticator !== 'object' || authenticator === null || typeof authenticator.authenticate !== 'function' || typeof authenticator.scheme !== 'string') {
+            throw new TypeError(`Site ${record.tenantId}: the configured authenticator does not implement the Authenticator interface (scheme + authenticate()).`)
+          }
           record.state = record.state === 'creating' ? 'active' : record.state
           creations += 1
           failureBackoff.delete(record.tenantId)
@@ -249,28 +288,34 @@ export const SiteEnvironmentManager = define.service('site-environment-manager',
 
     const acquire = async (tenantId: string, purpose: LeasePurpose): Promise<SiteLease> => {
       void purpose
+      // A configuration that keeps changing while we acquire makes us re-read and
+      // join the newest world; that is bounded by the acquire timeout, not by a
+      // fixed number of attempts, so a burst of saves cannot fail live requests.
+      const deadline = Date.now() + settings.acquireTimeoutMs
+      const stillRetrying = (): boolean => Date.now() < deadline
       for (let attempt = 1; ; attempt += 1) {
         if (closed) throw new SiteManagerClosedError()
-        const backoff = failureBackoff.get(tenantId)
-        if (backoff && Date.now() < backoff.until) {
-          throw new Error(`Site ${tenantId} creation is backing off after ${backoff.count} failure(s) until ${new Date(backoff.until).toISOString()}: ${backoff.error instanceof Error ? backoff.error.message : String(backoff.error)}`)
-        }
+        assertNotBackingOff(tenantId)
         const config = await readConfig(tenantId)
+        // Re-checked after the store round-trip: a burst of acquirers arriving while
+        // the first one fails must join the backoff, not each start its own attempt.
+        assertNotBackingOff(tenantId)
         const key = keyFor(tenantId, config.configRevision)
 
-        // Rotate older revisions of this tenant to draining: no new leases, close when idle.
+        // Rotate every other world of this tenant (older revision or invalidated
+        // generation) to draining: no new leases, close as soon as it is idle.
         for (const record of liveRecords()) {
-          if (record.tenantId === tenantId && record.configRevision < config.configRevision && record.state !== 'draining') {
+          if (record.tenantId === tenantId && record.key !== key && record.state !== 'draining') {
             record.state = 'draining'
-            if (record.leases === 0) void disposeRecord(record)
+            settle(record)
           }
         }
 
         let record = records.get(key)
         if (record?.state === 'draining') {
           // This acquirer read an older configuration than a concurrent one: re-read and join the newer world.
-          if (attempt < 5) continue
-          throw new Error(`Site ${tenantId} configuration changed repeatedly while acquiring; giving up after ${attempt} attempts.`)
+          if (stillRetrying()) continue
+          throw new SiteCapacityError(`Site ${tenantId} configuration kept changing for ${settings.acquireTimeoutMs} ms while acquiring (${attempt} attempts).`)
         }
         if (!record || record.state === 'disposed') {
           await reserveCapacity()
@@ -286,6 +331,7 @@ export const SiteEnvironmentManager = define.service('site-environment-manager',
             }
             finally {
               record.leases -= 1
+              settle(record) // rotated to draining while it was being created → close it now
             }
           }
           else {
@@ -295,13 +341,19 @@ export const SiteEnvironmentManager = define.service('site-environment-manager',
         if (record.state === 'creating' && record.creation) {
           record.leases += 1
           try { await record.creation }
-          finally { record.leases -= 1 }
+          finally {
+            record.leases -= 1
+            settle(record)
+          }
         }
         const env = record.env
         const context = record.context
         if (record.state !== 'active' || !env || !context) {
-          if (record.state === 'draining' && attempt < 5) continue
-          throw new Error(`Site environment ${key} is ${record.state}.`)
+          // The world this acquirer waited for was rotated away (configuration bump or
+          // invalidate() while it was being created): read the current configuration
+          // and join the current world instead of failing the caller.
+          if ((record.state === 'draining' || record.state === 'disposed') && stillRetrying()) continue
+          throw new SiteCapacityError(`Site environment ${key} is ${record.state} and the configuration kept changing for ${settings.acquireTimeoutMs} ms (${attempt} attempts).`)
         }
         record.leases += 1
         let released = false
@@ -332,7 +384,13 @@ export const SiteEnvironmentManager = define.service('site-environment-manager',
       const now = Date.now()
       let evicted = 0
       for (const record of liveRecords()) {
-        if (record.state !== 'active' || record.leases !== 0) continue
+        if (record.leases !== 0) continue
+        if (record.state === 'draining') {
+          // Defensive: a draining record with no lease is closed regardless of age.
+          await disposeRecord(record)
+          continue
+        }
+        if (record.state !== 'active') continue
         if (now - record.lastReleasedAt >= settings.idleTtlMs) {
           evictions += 1
           evicted += 1
@@ -370,10 +428,11 @@ export const SiteEnvironmentManager = define.service('site-environment-manager',
       settings,
       acquire,
       invalidate(tenantId) {
+        generations.set(tenantId, (generations.get(tenantId) ?? 0) + 1)
         for (const record of liveRecords()) {
           if (record.tenantId !== tenantId || record.state === 'draining') continue
           record.state = 'draining'
-          if (record.leases === 0) void disposeRecord(record)
+          settle(record)
         }
       },
       sweep,

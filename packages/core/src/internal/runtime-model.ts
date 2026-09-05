@@ -112,7 +112,12 @@ export interface SetupAttempt {
   readonly id: number
   readonly slot: ServiceSlot
   readonly startedAt: number
-  state: 'running' | 'succeeded' | 'failed' | 'timed-out'
+  /**
+   * `timed-out`: the deadline passed while the raw setup Promise was pending.
+   * `abandoned`: the owner Env closed while it was pending. Both keep the
+   * attempt alive as `slot.unsettledAttempt` until the raw Promise settles.
+   */
+  state: 'running' | 'succeeded' | 'failed' | 'timed-out' | 'abandoned'
   readonly cleanups: Array<() => Awaitable<void>>
   readonly pendingLoads: Map<number, PendingLoad>
   /** True once the user's setup Promise settled (resolved or rejected), however late. */
@@ -120,6 +125,9 @@ export interface SetupAttempt {
   /** Resolves once the raw setup Promise settled and any orphaned resources were cleaned. */
   readonly settled: Promise<void>
   resolveSettled: () => void
+  /** Resolves when disposal gives up waiting for the raw Promise; ends the attempt's race early. */
+  readonly abandoned: Promise<void>
+  abandon: () => void
 }
 
 export interface ServiceSlot {
@@ -137,7 +145,7 @@ export interface ServiceSlot {
   attempt?: SetupAttempt
   /** Result promise of the current or last setup sequence; waiters join it. */
   sequence?: Promise<unknown>
-  /** A timed-out attempt whose raw Promise has not settled yet. Blocks new attempts. */
+  /** A timed-out or abandoned attempt whose raw Promise has not settled yet. Blocks new attempts. */
   unsettledAttempt?: SetupAttempt
   recovery?: Promise<unknown>
   cleanups: Array<() => Awaitable<void>>

@@ -53,4 +53,8 @@ R01 v05-definitions · R02/R03/R04/R05 v05-promises · R06/R07/R08 v05-realms-ov
 | Gate | Command | Status |
 |------|---------|--------|
 | G0 | `node scripts/verify-v05.mjs --dev` → validation/v0.5-dev/manifest.json (COMPLETE, 217 tests, 0 skipped) | DONE |
-| G1 | `node scripts/verify-v05.mjs --release` → RELEASE_MANIFEST.json, SHA256SUMS.txt, work/release/*.tar.gz|zip | PENDING (run after audits) |
+| A1 | Independent audit — Promise/lifecycle (fresh-context subagent; `docs/audit/promise-lifecycle/`) | DONE — 8 findings, 7 fixed + 1 documented; regressions `v05-audit-lifecycle.test.mjs` (14) |
+| A2 | Independent audit — application/permissions/resources (`docs/audit/app-permissions/`) | DONE — 13 findings (+1 found on re-probe), all fixed or documented; regressions `audit-app.test.mjs` (12) + conformance (2 × 2 backends) |
+| A3 | Independent audit — cache/delivery/DX (`docs/audit/cache-delivery/`) | DONE — 10 findings fixed/mitigated; regressions `v05-audit-planning.test.mjs`; F-CD-03 closed by the release run |
+| A4 | Fix verification: auditors' probes re-run against the fixed build; remaining FAIL lines explained in ISSUES.md | DONE (not an independent re-audit — the implementer verified the fixes) |
+| G1 | `node scripts/verify-v05.mjs --release` → RELEASE_MANIFEST.json, validation/v0.5-release/SHA256SUMS.txt, work/release/*.tar.gz|zip | PENDING (run after audit fixes are committed) |

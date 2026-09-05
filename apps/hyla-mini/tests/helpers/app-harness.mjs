@@ -59,6 +59,7 @@ export async function createFilesystemApp(options = {}) {
   if (options.seed !== false) await seedApp(app, options.auth)
   return {
     kind: 'filesystem',
+    rootDir,
     app,
     async close() {
       await app.close()

@@ -1,0 +1,94 @@
+{
+  "budgets": [
+    {
+      "budget": "warm-enter-dispose-300-depth-2",
+      "metric": "p95Ms",
+      "max": 2,
+      "value": 0.3008749999999907,
+      "ok": true
+    },
+    {
+      "budget": "warm-enter-dispose-300-depth-6",
+      "metric": "p95Ms",
+      "max": 2,
+      "value": 0.28820899999999483,
+      "ok": true
+    },
+    {
+      "budget": "warm-enter-dispose-100-depth-2",
+      "metric": "p95Ms",
+      "max": 1,
+      "value": 0.1651250000000033,
+      "ok": true
+    },
+    {
+      "budget": "churn-10000-requests",
+      "metric": "planCacheEntriesMax",
+      "max": 8,
+      "value": 4,
+      "ok": true
+    },
+    {
+      "budget": "churn-10000-requests-liveEnvs",
+      "metric": "liveEnvCountAfter",
+      "max": 2,
+      "value": 2,
+      "ok": true
+    },
+    {
+      "budget": "lru-churn-500-shapes",
+      "metric": "planCacheEntries",
+      "max": 16,
+      "value": 16,
+      "ok": true
+    }
+  ],
+  "budgetsOk": true,
+  "cases": [
+    {
+      "name": "warm-enter-dispose-100-depth-2",
+      "p95Ms": 0.1651250000000033,
+      "planCache": 4
+    },
+    {
+      "name": "warm-enter-dispose-100-depth-6",
+      "p95Ms": 0.14145800000000008,
+      "planCache": 8
+    },
+    {
+      "name": "warm-enter-dispose-300-depth-2",
+      "p95Ms": 0.3008749999999907,
+      "planCache": 4
+    },
+    {
+      "name": "warm-enter-dispose-300-depth-6",
+      "p95Ms": 0.28820899999999483,
+      "planCache": 8
+    },
+    {
+      "name": "phase-breakdown-300"
+    },
+    {
+      "name": "site-enter-tenant-input-reverse-closure-200",
+      "p95Ms": 0.24362500000006548,
+      "planCache": 2
+    },
+    {
+      "name": "bound-entry-private-range-enter-dispose",
+      "p95Ms": 0.0204999999998563,
+      "planCache": 2
+    },
+    {
+      "name": "override-and-all-request-enter-dispose-100",
+      "p95Ms": 0.13454200000001038
+    },
+    {
+      "name": "churn-10000-requests",
+      "planCache": 4
+    },
+    {
+      "name": "lru-churn-500-shapes",
+      "planCache": 16
+    }
+  ]
+}

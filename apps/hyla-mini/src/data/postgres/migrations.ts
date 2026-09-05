@@ -49,6 +49,10 @@ export function migrationStatements(schema: string): readonly string[] {
        name text not null,
        primary key (tenant_id, slug)
      )`,
+    `create table if not exists ${s}.content_versions (
+       tenant_id text primary key,
+       version bigint not null
+     )`,
   ]
 }
 

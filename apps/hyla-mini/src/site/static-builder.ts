@@ -1,4 +1,4 @@
-import { mkdir, readdir, rm, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, readdir, rm, rmdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { define } from '../syna.js'
 import { ANONYMOUS } from '../auth/principal.js'
@@ -20,6 +20,30 @@ export interface StaticBuilder {
 
 const isSafeOutputDir = (dir: string): boolean => path.isAbsolute(dir) && dir.split(path.sep).filter(Boolean).length >= 2
 
+/** Records what a build wrote so the next build removes exactly that and nothing else. */
+export const BUILD_MANIFEST_FILE = '.hyla-build.json'
+
+interface PreviousBuild {
+  readonly files: readonly string[]
+}
+
+async function readPreviousBuild(outputDir: string): Promise<PreviousBuild | undefined> {
+  let text: string
+  try {
+    text = await readFile(path.join(outputDir, BUILD_MANIFEST_FILE), 'utf8')
+  }
+  catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return undefined
+    throw error
+  }
+  const parsed: unknown = JSON.parse(text)
+  if (typeof parsed !== 'object' || parsed === null || !Array.isArray((parsed as { files?: unknown }).files)) {
+    throw new TypeError(`${BUILD_MANIFEST_FILE} in ${outputDir} is not a Hyla build manifest.`)
+  }
+  const files = (parsed as { files: unknown[] }).files.filter((item): item is string => typeof item === 'string')
+  return { files }
+}
+
 /**
  * Renders the public site to files with the same renderer and pipelines the
  * HTTP path uses. Only what an anonymous visitor may see is written; drafts,
@@ -37,17 +61,38 @@ export const StaticBuilder = define.service('static-builder', {
       async build() {
         const outputDir = settings.outputDir
         await mkdir(outputDir, { recursive: true })
-        // Only remove what a previous build of this builder wrote.
-        for (const entry of await readdir(outputDir)) {
-          if (['index.html', 'posts', 'category', 'site.json'].includes(entry)) {
-            await rm(path.join(outputDir, entry), { recursive: true, force: true })
+        const inside = (relative: string): string => {
+          const target = path.resolve(outputDir, relative)
+          if (!target.startsWith(outputDir + path.sep)) throw new Error(`Refusing to touch a path outside ${outputDir}: ${relative}`)
+          return target
+        }
+        // The directory must be empty or hold a previous build of this builder.
+        // Only files listed in that build's manifest are removed — never anything
+        // else that happens to live there — and only directories they left empty.
+        const previous = await readPreviousBuild(outputDir)
+        const foreign = (await readdir(outputDir)).filter(entry => entry !== BUILD_MANIFEST_FILE)
+        if (previous === undefined && foreign.length > 0) {
+          throw new Error(`Static build outputDir ${outputDir} is not empty and holds no previous Hyla build (${BUILD_MANIFEST_FILE}); refusing to write into it.`)
+        }
+        if (previous !== undefined) {
+          const directories = new Set<string>()
+          for (const relative of previous.files) {
+            const target = inside(relative)
+            await rm(target, { force: true })
+            let directory = path.dirname(target)
+            while (directory.startsWith(outputDir + path.sep)) {
+              directories.add(directory)
+              directory = path.dirname(directory)
+            }
+          }
+          for (const directory of [...directories].sort((left, right) => right.length - left.length)) {
+            await rmdir(directory).catch(() => undefined) // only succeeds when the directory is empty
           }
         }
         const files: string[] = []
         const pages: { path: string; kind: string; postIds: readonly string[] }[] = []
         const write = async (relative: string, content: string, meta?: { kind: string; postIds: readonly string[] }) => {
-          const target = path.join(outputDir, relative)
-          if (!target.startsWith(outputDir + path.sep)) throw new Error(`Refusing to write outside ${outputDir}: ${relative}`)
+          const target = inside(relative)
           await mkdir(path.dirname(target), { recursive: true })
           await writeFile(target, content, 'utf8')
           files.push(relative)
@@ -75,6 +120,13 @@ export const StaticBuilder = define.service('static-builder', {
           posts: posts.map(post => ({ id: post.id, slug: post.slug, title: post.title, locale: post.locale, categories: post.categories, tags: post.tags })),
         }, null, 2))
         files.sort()
+        await writeFile(path.join(outputDir, BUILD_MANIFEST_FILE), `${JSON.stringify({
+          builder: 'hyla-mini',
+          tenantId: site.tenantId,
+          configRevision: site.site.configRevision,
+          generatedAt: new Date().toISOString(),
+          files,
+        }, null, 2)}\n`, 'utf8')
         return { tenantId: site.tenantId, configRevision: site.site.configRevision, outputDir, files, pages }
       },
     }

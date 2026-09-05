@@ -13,9 +13,12 @@ export interface PageCacheStats {
 
 /**
  * One site's working context: tenantised repository, configuration snapshot
- * and a page cache whose key includes tenant, configuration revision, locale,
- * visibility class and path. It never caches authorization decisions or the
- * Syna plan; Syna's plan cache never caches pages.
+ * and a page cache whose key includes tenant, configuration revision, content
+ * version, locale, visibility class and path. The content version comes from
+ * the store on every lookup, so an edit or a visibility change is never served
+ * stale; when it moves, the whole page cache of this site is dropped. It never
+ * caches authorization decisions or the Syna plan; Syna's plan cache never
+ * caches pages.
  */
 export interface SiteContext {
   readonly tenantId: string
@@ -48,9 +51,15 @@ export const SiteContext = define.service('site-context', {
     const pages = new Map<string, RenderedPage>()
     let hits = 0
     let misses = 0
+    let cachedVersion: string | undefined
 
     const cached = async (principal: Principal, path: string, produce: () => Promise<RenderedPage>): Promise<RenderedPage> => {
-      const key = `${tenantId}|${site.configRevision}|${site.defaultLocale}|${visibilityClass(principal, tenantId)}|${path}`
+      const version = await repository.contentVersion()
+      if (version !== cachedVersion) {
+        pages.clear()
+        cachedVersion = version
+      }
+      const key = `${tenantId}|${site.configRevision}|${version}|${site.defaultLocale}|${visibilityClass(principal, tenantId)}|${path}`
       const existing = pages.get(key)
       if (existing) {
         hits += 1

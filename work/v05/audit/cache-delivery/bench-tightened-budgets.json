@@ -1,0 +1,1 @@
+{ "description": "audit: deliberately unattainable budget", "lockedAt": "audit", "cases": { "warm-enter-dispose-300-depth-2": { "metric": "p95Ms", "max": 0.000001 }, "churn-10000-requests-liveEnvs": { "metric": "liveEnvCountAfter", "max": 2 }, "no-such-case": { "metric": "p95Ms", "max": 1 } } }

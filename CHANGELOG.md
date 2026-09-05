@@ -15,6 +15,13 @@ Semantics (see docs/SEMANTIC_CHANGES_V05.md and docs/MIGRATION_V04_TO_V05.md):
 - `C.all` is the recommended same-Env collection; `C.selector` is a deprecated minimal compatibility surface.
 - npm `semver` replaces the hand-written parser; ranges are validated at definition time; admitted prereleases participate in ranges.
 
+Fixes from the independent audits (docs/AUDIT.md; regression tests `packages/core/tests/v05-audit-lifecycle.test.mjs`, `v05-audit-planning.test.mjs`, `apps/hyla-mini/tests/audit-app.test.mjs`):
+
+- Core lifecycle: disposal is bounded by `disposal.graceMs` for running attempts too (no more waiting out a 30 s or infinite deadline); the stop signal is broadcast to the whole subtree before anything is awaited and sibling subtrees close concurrently; an Env with an abandoned attempt stays `disposing` until the late result is cleaned up; `onDispose()` registered after a deadline is honoured; disposal order follows dependencies through never-started slots; every `load()` caller gets its own Promise; an already-aborted `signal` starts nothing.
+- Core planning: `explain()` lists missing Inputs/Bindings required deep in the graph; candidate-independent failures keep their own code instead of `UNSATISFIABLE_TOPOLOGY`; plan-template keys carry a digest of the parent signature (verified on hit) instead of the whole signature.
+- Hyla-mini: SiteEnvs rotated during creation are closed, `invalidate()` uses a per-tenant generation, acquire retries are time-bounded; page cache keyed by a store content version; HTTP handlers answer 400 to unparsable targets and never echo internal errors (`onError` hook); fast-failing creations share one attempt (`SITE_CREATION_BACKOFF`); pool ended once on failed setup; static builder only removes files from its own manifest and refuses foreign directories; worker `stop()` during `start()`; authenticator interface checked at site creation; startup touches the backend; `close()` returns the unreleased-lease report; domain claims validated at save time, conflicts disable only the host.
+- Orchestrator: `close` event, SIGTERM before SIGKILL, `todo`/`cancelled` count as not run, `<root>`-relative commands, provenance captured first, working-set written into the run directory, release hashes in `validation/v0.5-release/SHA256SUMS.txt`.
+
 Tooling and delivery:
 
 - `scripts/verify-v05.mjs --dev|--release` acceptance orchestrator with source fingerprint, per-step logs, TAP counts, zero-skip enforcement, archive + clean-directory rebuild + consumer smoke.

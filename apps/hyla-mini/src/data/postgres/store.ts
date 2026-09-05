@@ -6,6 +6,7 @@ import {
   assertSafeSegment,
   comparePosts,
   matchesFilter,
+  normalizeDomain,
   normalizePostInput,
 } from '../../domain/model.js'
 import type {
@@ -17,7 +18,7 @@ import type {
   SiteConfigInput,
   Tag,
 } from '../../domain/model.js'
-import { SlugConflictError, assertName, normalizeTimestamp } from '../common.js'
+import { DomainConflictError, SlugConflictError, assertName, normalizeTimestamp } from '../common.js'
 import { applyMigrations } from './migrations.js'
 import { DatabasePool, executorOf } from './pool.js'
 import type { SqlExecutor } from './pool.js'
@@ -81,6 +82,15 @@ function isUniqueViolation(error: unknown): error is DatabaseError {
  */
 export function repositoryOn(tenantId: string, sql: SqlExecutor): ContentRepository {
   assertSafeSegment(tenantId, 'tenantId')
+
+  /** Every mutation advances the tenant's content version in the same unit of work. */
+  const bump = async (): Promise<void> => {
+    await sql.query(
+      `insert into content_versions (tenant_id, version) values ($1, 1)
+       on conflict (tenant_id) do update set version = content_versions.version + 1`,
+      [tenantId],
+    )
+  }
 
   async function listPosts(filter: PostFilter): Promise<readonly Post[]> {
     const conditions = ['tenant_id = $1']
@@ -158,6 +168,7 @@ export function repositoryOn(tenantId: string, sql: SqlExecutor): ContentReposit
     if (row === undefined) {
       throw new Error(`Post id ${JSON.stringify(post.id)} already belongs to another tenant.`)
     }
+    await bump()
     return rowToPost(row)
   }
 
@@ -178,7 +189,9 @@ export function repositoryOn(tenantId: string, sql: SqlExecutor): ContentReposit
     savePost,
     async deletePost(id) {
       const result = await sql.query('delete from posts where tenant_id = $1 and id = $2', [tenantId, id])
-      return (result.rowCount ?? 0) > 0
+      const deleted = (result.rowCount ?? 0) > 0
+      if (deleted) await bump()
+      return deleted
     },
     async listCategories() {
       const result = await sql.query<NameRow>(
@@ -195,6 +208,7 @@ export function repositoryOn(tenantId: string, sql: SqlExecutor): ContentReposit
          on conflict (tenant_id, slug) do update set name = excluded.name`,
         [tenantId, slug, name],
       )
+      await bump()
       return { tenantId, slug, name }
     },
     async listTags() {
@@ -212,6 +226,7 @@ export function repositoryOn(tenantId: string, sql: SqlExecutor): ContentReposit
          on conflict (tenant_id, slug) do update set name = excluded.name`,
         [tenantId, slug, name],
       )
+      await bump()
       return { tenantId, slug, name }
     },
     async getSiteConfig() {
@@ -227,6 +242,18 @@ export function repositoryOn(tenantId: string, sql: SqlExecutor): ContentReposit
       if (config.tenantId !== tenantId) {
         throw new TypeError(`SiteConfig.tenantId ${JSON.stringify(config.tenantId)} does not match repository tenant ${tenantId}.`)
       }
+      const claimed = (Array.isArray(config.domains) ? config.domains : []).map(normalizeDomain).filter((host): host is string => host !== undefined)
+      if (claimed.length > 0) {
+        const conflict = await sql.query<{ tenant_id: string; domain: string }>(
+          `select s.tenant_id, d.value as domain
+           from sites s, jsonb_array_elements_text(s.config->'domains') as d
+           where s.tenant_id <> $1 and lower(trim(d.value)) = any($2::text[])
+           limit 1`,
+          [tenantId, claimed],
+        )
+        const owner = conflict.rows[0]
+        if (owner !== undefined) throw new DomainConflictError(tenantId, owner.domain, owner.tenant_id)
+      }
       const result = await sql.query<{ config_revision: number }>(
         `insert into sites (tenant_id, config, config_revision) values ($1, $2::jsonb, 1)
          on conflict (tenant_id) do update set
@@ -237,7 +264,15 @@ export function repositoryOn(tenantId: string, sql: SqlExecutor): ContentReposit
       )
       const row = result.rows[0]
       if (row === undefined) throw new Error('saveSiteConfig returned no row.')
+      await bump()
       return { ...config, configRevision: row.config_revision }
+    },
+    async contentVersion() {
+      const result = await sql.query<{ version: string | number }>(
+        'select version from content_versions where tenant_id = $1',
+        [tenantId],
+      )
+      return String(result.rows[0]?.version ?? 0)
     },
   }
 }
@@ -260,7 +295,7 @@ export function createPostgresContentStore(pool: DatabasePool): ContentStore {
     async deleteTenant(tenantId) {
       assertSafeSegment(tenantId, 'tenantId')
       await pool.withTransaction(async client => {
-        for (const table of ['posts', 'categories', 'tags', 'sites']) {
+        for (const table of ['posts', 'categories', 'tags', 'sites', 'content_versions']) {
           await client.query(`delete from ${table} where tenant_id = $1`, [tenantId])
         }
       })

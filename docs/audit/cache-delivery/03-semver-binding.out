@@ -1,0 +1,25 @@
+PASS R01 Binding.to(0.2.0) defaults to ^0.2.0
+PASS R01 Binding.to(0.0.5) defaults to ^0.0.5
+PASS R01 Binding.to(2.4.1) defaults to ^2.4.1
+PASS K06 Binding.to(1.0.0-beta.1) defaults to ^1.0.0-beta.1
+PASS R01 ^0.2.0 resolves among [0.1.9, 0.2.0, 0.2.5, 0.3.0] to 0.2.5 (never 0.1.x, never 0.3.0)
+PASS R01 ^0.2.0 with only lower published [0.1.9] is MISSING_IMPLEMENTATION, not relaxed downward
+PASS R01 ^0.0.5 resolves among [0.0.4, 0.0.5, 0.0.6] to exactly 0.0.5
+PASS R01 ^2.4.1 resolves among [2.0.0, 2.4.1, 2.9.0, 3.0.0] to 2.9.0 (never 2.0.0, never 3.0.0)
+PASS R01 ^2.4.1 with only [2.0.0, 3.0.0] admitted is MISSING_IMPLEMENTATION
+PASS K06 prerelease: ^1.0.0-beta.1 among [1.0.0-beta.1, 1.0.0-beta.2, 1.0.0, 1.5.0, 2.0.0] picks 1.5.0
+PASS K06 prerelease: ^1.0.0-beta.1 among [1.0.0-alpha.1, 1.0.0-beta.1] picks 1.0.0-beta.1 (alpha is below the floor)
+PASS K06 documented M-09: stable ^1.0.0 among [1.0.0, 1.1.0-rc.1] picks the admitted prerelease 1.1.0-rc.1 (includePrerelease)
+PASS K06 union: "1.x || 2.x" among [0.9.0, 1.2.0, 2.4.0, 3.0.0] picks 2.4.0
+PASS K06 comparator set: ">=1.2.0 <2.0.0 || >=3.0.0" among [1.9.0, 2.5.0, 3.1.0] picks 3.1.0
+PASS K06 exact revision assignment bypasses ranges
+PASS K06 exact revision not admitted is MISSING_SERVICE
+PASS K06 Binding.to(rev, invalid range) throws TypeError at definition time
+PASS K06 Binding.to(rev, "") throws at definition time
+PASS K06 Service.range(invalid) throws TypeError at definition time
+PASS K06 Binding.parse rejects invalid range
+PASS K06 Binding.parse rejects wrong contract
+PASS K06 Binding.to(service not providing the Contract) throws TypeError
+PASS K06 package version must be complete semver (definePackage("2.4") throws)
+PASS K06 catalog persistentRef uses caret of the exact version
+ALL PASS

@@ -189,7 +189,8 @@ test('K08 disposal reports an attempt that never settles as UNSETTLED_ATTEMPT an
     assert.equal(unsettled.details.slots.length, 1)
     return true
   })
-  assert.equal(env.state, 'disposed')
+  // Audit F-PL-04: the Env is not claimed fully disposed while an attempt it owns is outstanding.
+  assert.equal(env.state, 'disposing')
   assert.ok(events.includes('attempt-abandoned'))
   assert.equal(env.inspect().nodes[0].state, 'abandoned')
   await runtime.dispose().catch(() => undefined)

@@ -45,28 +45,41 @@ function run(name, command, commandArgs, options = {}) {
     const chunks = []
     child.stdout.on('data', chunk => chunks.push(chunk))
     child.stderr.on('data', chunk => chunks.push(chunk))
-    const timer = setTimeout(() => child.kill('SIGKILL'), options.timeoutMs ?? 20 * 60_000)
-    child.on('exit', (code, signal) => {
+    // Timeout: ask politely first so wrappers (the PostgreSQL cluster script) can
+    // stop what they started, then kill.
+    let timedOut = false
+    const timer = setTimeout(() => {
+      timedOut = true
+      child.kill('SIGTERM')
+      setTimeout(() => child.kill('SIGKILL'), 15_000).unref()
+    }, options.timeoutMs ?? 20 * 60_000)
+    // 'close' (not 'exit') guarantees stdout/stderr are fully drained before the
+    // TAP summary is parsed.
+    child.on('close', (code, signal) => {
       clearTimeout(timer)
       const output = Buffer.concat(chunks).toString('utf8')
       writeFileSync(logPath, output)
       const counts = parseTap(output)
+      const notRun = counts ? counts.skipped + counts.todo + counts.cancelled : 0
       const step = {
         name,
-        command: [command, ...commandArgs].join(' '),
+        command: portable([command, ...commandArgs].join(' ')),
+        ...(options.env ? { env: Object.fromEntries(Object.entries(options.env).map(([key, value]) => [key, portable(String(value))])) } : {}),
         cwd: path.relative(root, options.cwd ?? root) || '.',
         startedAt: started.toISOString(),
         endedAt: new Date().toISOString(),
         durationMs: Date.now() - started.getTime(),
         exitCode: code,
         signal,
+        ...(timedOut ? { timedOut: true } : {}),
         ...(counts ? { tests: counts } : {}),
         mustRun: options.mustRun ?? true,
         log: path.relative(root, logPath),
-        ok: code === 0 && (counts ? counts.fail === 0 && (!options.noSkip || counts.skipped === 0) : true),
+        // skipped, todo and cancelled tests all count as "not run" for a no-skip step.
+        ok: code === 0 && !timedOut && (counts ? counts.fail === 0 && counts.cancelled === 0 && (!options.noSkip || notRun === 0) : true),
       }
       steps.push(step)
-      log(`${step.ok ? 'ok  ' : 'FAIL'} ${name} (exit ${code}${signal ? `/${signal}` : ''}, ${step.durationMs} ms${counts ? `, tests ${counts.pass}/${counts.tests} pass, ${counts.fail} fail, ${counts.skipped} skipped` : ''})`)
+      log(`${step.ok ? 'ok  ' : 'FAIL'} ${name} (exit ${code}${signal ? `/${signal}` : ''}, ${step.durationMs} ms${counts ? `, tests ${counts.pass}/${counts.tests} pass, ${counts.fail} fail, ${notRun} not run` : ''})`)
       resolve(step)
     })
   })
@@ -79,7 +92,12 @@ function parseTap(output) {
   }
   const tests = get('tests')
   if (tests === undefined) return undefined
-  return { tests, pass: get('pass') ?? 0, fail: get('fail') ?? 0, skipped: get('skipped') ?? 0, todo: get('todo') ?? 0 }
+  return { tests, pass: get('pass') ?? 0, fail: get('fail') ?? 0, skipped: get('skipped') ?? 0, todo: get('todo') ?? 0, cancelled: get('cancelled') ?? 0 }
+}
+
+/** Manifests must not leak the host's directory layout: the workspace root becomes `<root>`. */
+function portable(text) {
+  return text.split(root).join('<root>')
 }
 
 function gitInfo() {
@@ -142,7 +160,8 @@ async function developmentGate() {
   await run('hyla-filesystem-tests', 'node', ['--test', '--test-reporter=tap', 'apps/hyla-mini/tests/filesystem.test.mjs'], { noSkip: true })
   await run('hyla-render-tests', 'node', ['--test', '--test-reporter=tap', 'apps/hyla-mini/tests/render.test.mjs'], { noSkip: true })
   await run('hyla-tenants-auth-preflight-tests', 'node', ['--test', '--test-reporter=tap', 'apps/hyla-mini/tests/tenants-auth.test.mjs', 'apps/hyla-mini/tests/preflight.test.mjs'], { noSkip: true })
-  await run('hyla-site-manager-working-set-tests', 'node', ['--test', '--test-reporter=tap', '--expose-gc', 'apps/hyla-mini/tests/site-manager.test.mjs'], { noSkip: true })
+  await run('hyla-audit-regression-tests', 'node', ['--test', '--test-reporter=tap', 'apps/hyla-mini/tests/audit-app.test.mjs'], { noSkip: true })
+  await run('hyla-site-manager-working-set-tests', 'node', ['--test', '--test-reporter=tap', '--expose-gc', 'apps/hyla-mini/tests/site-manager.test.mjs'], { noSkip: true, env: { SYNA_WORKING_SET_OUT: path.join(validationDir, 'working-set.json') } })
   // Real PostgreSQL: a temporary cluster (or SYNA_TEST_PG_URL). Never skipped; a missing server is BLOCKED.
   const pgStep = await run('hyla-postgres-and-matrix-tests', 'node', [
     'scripts/pg-test-cluster.mjs', 'with', '--',
@@ -155,8 +174,8 @@ async function developmentGate() {
   await run('hyla-demo-filesystem', 'node', ['apps/hyla-mini/bin/hyla-mini.mjs', 'demo', '--root', path.join(root, 'work', 'demo-content')])
   rmSync(path.join(root, 'work', 'demo-content'), { recursive: true, force: true })
   await run('benchmarks', 'node', ['--expose-gc', 'benchmarks/v0.5-planning.mjs', path.join(validationDir, 'benchmark-v0.5.json')])
-  if (existsSync(path.join(root, 'validation', 'working-set.json'))) {
-    writeFileSync(path.join(validationDir, 'working-set.json'), readFileSync(path.join(root, 'validation', 'working-set.json')))
+  if (!existsSync(path.join(validationDir, 'working-set.json'))) {
+    steps.push({ name: 'working-set-report', ok: false, exitCode: 1, mustRun: true, command: 'internal', log: path.relative(root, path.join(validationDir, 'working-set.json')), note: 'site-manager tests did not write the working-set report' })
   }
 }
 
@@ -208,7 +227,7 @@ async function releaseGate(sourceFingerprint) {
   await run('rebuild-build', 'npm', ['run', 'build'], rebuildLogs)
   await run('rebuild-type-tests', 'npm', ['run', 'type-tests'], rebuildLogs)
   await run('rebuild-core-tests', 'node', ['--test', '--test-reporter=tap', ...readdirSync(path.join(unpacked, 'packages/core/tests')).filter(f => f.endsWith('.test.mjs')).sort().map(f => `packages/core/tests/${f}`)], { ...rebuildLogs, noSkip: true })
-  await run('rebuild-app-tests', 'node', ['--test', '--test-reporter=tap', '--expose-gc', 'apps/hyla-mini/tests/filesystem.test.mjs', 'apps/hyla-mini/tests/render.test.mjs', 'apps/hyla-mini/tests/tenants-auth.test.mjs', 'apps/hyla-mini/tests/preflight.test.mjs', 'apps/hyla-mini/tests/site-manager.test.mjs'], { ...rebuildLogs, noSkip: true })
+  await run('rebuild-app-tests', 'node', ['--test', '--test-reporter=tap', '--expose-gc', 'apps/hyla-mini/tests/filesystem.test.mjs', 'apps/hyla-mini/tests/render.test.mjs', 'apps/hyla-mini/tests/tenants-auth.test.mjs', 'apps/hyla-mini/tests/preflight.test.mjs', 'apps/hyla-mini/tests/audit-app.test.mjs', 'apps/hyla-mini/tests/site-manager.test.mjs'], { ...rebuildLogs, noSkip: true })
   await run('rebuild-postgres-matrix-tests', 'node', ['scripts/pg-test-cluster.mjs', 'with', '--', 'node', '--test', '--test-reporter=tap', 'apps/hyla-mini/tests/postgres.test.mjs', 'apps/hyla-mini/tests/matrix.test.mjs'], { ...rebuildLogs, noSkip: true, env: { SYNA_PG_CLUSTER_DIR: path.join(rebuildDir, 'pg') } })
   await run('rebuild-demo', 'node', ['apps/hyla-mini/bin/hyla-mini.mjs', 'demo', '--root', path.join(rebuildDir, 'demo-content')], rebuildLogs)
 
@@ -264,6 +283,8 @@ await runtime.dispose()
   return { archives, packed, sourceFingerprint, rebuiltFrom: path.relative(root, tarPath) }
 }
 
+// Provenance is captured before any step runs, so files this run writes cannot make the checkout look dirty.
+const gitProvenance = gitInfo()
 const sourceFiles = listSourceFiles()
 const sourceFingerprint = fingerprint(sourceFiles)
 log(`Syna v0.5 verify (${release ? 'release' : 'dev'}) — ${sourceFingerprint.files} source files, fingerprint ${sourceFingerprint.digest}`)
@@ -283,7 +304,7 @@ const manifest = {
   mode: release ? 'release' : 'dev',
   generatedAt: new Date().toISOString(),
   startedAt: startedAt.toISOString(),
-  environment: { node: process.version, platform: process.platform, arch: process.arch, cwd: '.', gitProvenance: gitInfo() },
+  environment: { node: process.version, platform: process.platform, arch: process.arch, cwd: '.', gitProvenance },
   source: sourceFingerprint,
   steps,
   totals: {
@@ -299,8 +320,10 @@ const manifest = {
 writeFileSync(path.join(validationDir, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`)
 if (release && releaseResult) {
   writeFileSync(path.join(root, 'RELEASE_MANIFEST.json'), `${JSON.stringify(manifest, null, 2)}\n`)
+  // The root SHA256SUMS.txt belongs to the task documents shipped with the
+  // workspace and is left alone; release hashes live next to the release manifest.
   const sums = [...releaseResult.archives, ...releaseResult.packed].map(item => `${item.sha256}  ${item.path}`).join('\n')
-  writeFileSync(path.join(root, 'SHA256SUMS.txt'), `${sums}\n`)
+  writeFileSync(path.join(validationDir, 'SHA256SUMS.txt'), `${sums}\n`)
 }
 log('')
 log(`== ${status} == ${manifest.totals.tests} tests, ${manifest.totals.passed} passed, ${failed.length} failed steps, ${skipped} skipped tests`)

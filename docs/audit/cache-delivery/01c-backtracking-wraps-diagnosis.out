@@ -1,0 +1,12 @@
+share-only:      enter=SHARE_CONSTRAINT_FAILED explain=SHARE_CONSTRAINT_FAILED missingInputs=[] nested=[]
+share-with-auto: enter=UNSATISFIABLE_TOPOLOGY explain=UNSATISFIABLE_TOPOLOGY missingInputs=[] nested=["SHARE_CONSTRAINT_FAILED","SHARE_CONSTRAINT_FAILED"]
+missing-only:       enter=MISSING_INPUT explain=MISSING_INPUT missingInputs=[] nested=[]
+missing-auto-first: enter=UNSATISFIABLE_TOPOLOGY explain=UNSATISFIABLE_TOPOLOGY missingInputs=[] nested=["MISSING_INPUT","MISSING_INPUT"]
+missing-auto-last:  enter=MISSING_INPUT explain=MISSING_INPUT missingInputs=[] nested=[]
+PASS K12 control: share violation without a choice site is SHARE_CONSTRAINT_FAILED
+FAIL K12 share violation with an unrelated unresolved auto() site keeps its own code (not UNSATISFIABLE_TOPOLOGY) — got UNSATISFIABLE_TOPOLOGY: No candidate can satisfy auto(audit.wrap/capability/v1) at service:audit.wrap/auto-user@1.0.0/dependency:automatic. / + actual - expected / 
+FAIL K12 control: missing deep Input without a choice site is MISSING_INPUT and explain lists it — Expected values to be strictly deep-equal: / + actual - expected / 
+FAIL K12 missing deep Input with auto() declared first: explain() still reports the missing Input — got UNSATISFIABLE_TOPOLOGY / + actual - expected / 
+FAIL K12 missing deep Input with auto() declared last: explain() reports the missing Input — Expected values to be strictly deep-equal: / + actual - expected / 
+FAIL K12 the diagnosis does not depend on the declaration order of unrelated requires keys — Expected values to be strictly equal: / + actual - expected / 
+5 FAILURE(S)

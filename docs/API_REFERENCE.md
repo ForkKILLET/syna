@@ -131,7 +131,7 @@ const runtime = createRuntime({
 - `services`: the immutable public admission set. Exact transitive dependencies form private definition realms.
 - `override(source, fake)`: construction-time definition override. Source keeps nominal identity, Contract membership, eagerness and metadata; the fake supplies `requires`/`setup`/`failure`/`setupDeadlineMs`. All resolution paths use the compiled view. Duplicate source, self and cycles are errors.
 - `initialization.deadlineMs`: default per-attempt setup deadline → `INITIALIZATION_TIMEOUT` with `details.pendingLoads` and an optional `details.suspectedWaitCycle` (an observation, not a proof).
-- `disposal.graceMs`: how long disposal waits for a timed-out attempt to settle before reporting it as abandoned (`UNSETTLED_ATTEMPT`).
+- `disposal.graceMs`: how long disposal waits, after broadcasting the stop signal, for each in-flight setup attempt of the closing Env (running or already timed out) to settle before abandoning it. Slots wait concurrently, so a close is bounded by one grace period regardless of `setupDeadlineMs` (even `Infinity`). Abandoned attempts are reported as `UNSETTLED_ATTEMPT`; the Env then stays `disposing` (and counted by `inspect()`) until the late result arrives and is cleaned up.
 - `planning.searchBudget`: candidate expansions per plan before `PLANNING_BUDGET_EXCEEDED`.
 - `diagnostics.onEvent`: `late-setup-result`, `late-setup-failure`, `attempt-abandoned`, `foreign-thenable-setup`. Exceptions in the handler are ignored; diagnostics never change outcomes.
 
@@ -151,6 +151,7 @@ runtime.dispose(); await runtime[Symbol.asyncDispose]()
 
 ```ts
 env.id; env.deps; env.state            // 'activating' | 'ready' | 'disposing' | 'disposed'
+                                       // 'disposed' only once every owned attempt settled and every descendant finalized
 env.enter(entry, parameters?); env.run(...); env.check(...); env.explain(...)
 env.derive({ fresh, share })
 env.bind(entry)                        // BoundEntry anchored at this Env, public authority
@@ -177,6 +178,12 @@ const UnitOfWork = define.service('unit-of-work', {
 })
 ```
 
+## Lifecycle notes
+
+- `ref.load()` returns a Promise of its own for every caller (all callers share one attempt). A rejected Promise nobody handles is an ordinary unhandled rejection. `load({ signal })` with an already-aborted signal rejects with `LOAD_CANCELLED` and starts nothing.
+- `onDispose(cleanup)` is accepted for as long as the setup attempt is still executing, including after its deadline passed or its owner started closing; the late-settlement cleanup then runs it. A lifecycle whose setup Promise already settled is stale and refused (`INVALID_ENV_STATE`).
+- Closing an Env moves the whole subtree to `disposing` and aborts every descendant's `signal` first, then waits for descendants (sibling subtrees concurrently), then gives owned attempts `disposal.graceMs`, then disposes owned Ready slots dependant-first (through never-started intermediates as well). `DependencyRef`s are bound to slots: a ref obtained from a child Env keeps working after that child is disposed as long as the slot's owner Env is alive.
+
 ## explain()
 
 ```ts
@@ -189,6 +196,8 @@ if (explanation.ok) {
   explanation.forks      // every non-inherited node with { cause, path }
 } else {
   explanation.error, explanation.missingInputs, explanation.missingBindings
+  // missing ids are collected wherever they occur: declared Entry parameters, requirements deep
+  // inside the graph, and the per-candidate failures of an UNSATISFIABLE_TOPOLOGY report
 }
 ```
 

@@ -74,7 +74,6 @@ export const DatabasePool = define.service('database-pool', {
     // Idle clients that drop their connection emit here; without a listener the
     // process would crash. The next lease simply opens a fresh connection.
     pool.on('error', () => {})
-    onDispose(() => pool.end())
 
     try {
       const probe = await pool.query<{ ok: number; search_path: string }>(
@@ -86,9 +85,11 @@ export const DatabasePool = define.service('database-pool', {
       }
     }
     catch (error) {
+      // Not yet registered with onDispose: end it here exactly once.
       await pool.end()
       throw error
     }
+    onDispose(() => pool.end())
 
     const withClient = async <T>(fn: (client: PoolClient) => Promise<T>): Promise<T> => {
       const client = await pool.connect()

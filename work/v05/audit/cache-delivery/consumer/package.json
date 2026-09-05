@@ -1,0 +1,11 @@
+{
+  "name": "@audit/consumer",
+  "version": "3.2.1",
+  "private": true,
+  "type": "module",
+  "imports": { "#syna/package": "./package.json" },
+  "syna": { "id": "audit.consumer" },
+  "scripts": { "build": "tsc -p tsconfig.json", "start": "node dist/index.js", "neg": "tsc -p tsconfig.neg.json" },
+  "dependencies": { "@syna/core": "file:<scratch>/pack/syna-core-0.5.0.tgz" },
+  "devDependencies": { "@syna/tsconfig": "file:<scratch>/pack/syna-tsconfig-0.5.0.tgz", "typescript": "~5.9.3", "@types/node": "^22.19.7" }
+}

@@ -117,6 +117,26 @@ interface CachedGraphTemplate {
   readonly graph: GraphBuildResult
   readonly choices: ReadonlyMap<string, string>
   readonly signature: string
+  /** Full signature of the parent plan this template was solved under; verified on every hit. */
+  readonly parentSignature: string | undefined
+}
+
+/**
+ * Compact, deterministic digest used only to keep plan-template keys small: the
+ * parent's full graph signature is verified on a hit, so a digest collision can
+ * cost a cache miss but never a wrong template.
+ */
+function compactDigest(text: string): string {
+  let h1 = 0xdeadbeef
+  let h2 = 0x41c6ce57
+  for (let index = 0; index < text.length; index += 1) {
+    const code = text.charCodeAt(index)
+    h1 = Math.imul(h1 ^ code, 2654435761)
+    h2 = Math.imul(h2 ^ code, 1597334677)
+  }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909)
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909)
+  return `${(h2 >>> 0).toString(16).padStart(8, '0')}${(h1 >>> 0).toString(16).padStart(8, '0')}:${text.length}`
 }
 
 export interface PlanningParent extends EnvPlanView {
@@ -242,7 +262,7 @@ export class EntryPlanner implements GraphBuilderHost {
 
     const templateKey = this.planTemplateKey(parent, descriptor, inputs.slots, bindings.choices, fresh, share, realm)
     const cached = this.planTemplates.get(templateKey)
-    if (cached) {
+    if (cached && cached.parentSignature === parent?.plan.signature) {
       return {
         envId,
         plan: this.assignSlots(planInput, cached.graph, cached.choices, cached.signature),
@@ -437,7 +457,7 @@ export class EntryPlanner implements GraphBuilderHost {
       ...[...targets.familyIds].map(id => `family:${id}`),
     ].sort().join(',')
     return [
-      parent?.plan.signature ?? 'root',
+      parent ? compactDigest(parent.plan.signature) : 'root',
       `lineage=${parent?.plan.lineageKey ?? 'root'}`,
       `realm=${realm.id}`,
       entryDefinitionSignature(descriptor),
@@ -467,6 +487,7 @@ export class EntryPlanner implements GraphBuilderHost {
         graph,
         choices: new Map(choices),
         signature,
+        parentSignature: input.parent?.plan.signature,
       })
       return {
         template,
@@ -495,6 +516,13 @@ export class EntryPlanner implements GraphBuilderHost {
           failures.push(candidateError)
         }
       }
+      // Every candidate failed the same way at the same place: the failure does
+      // not depend on the choice at all (a missing Input deeper in the graph, a
+      // share violation elsewhere). Report it under its own code instead of
+      // blaming the choice site, so the diagnosis does not depend on whether an
+      // unresolved choice site happened to be reached first.
+      const distinct = new Set(failures.map(failure => stableJson({ code: failure.code, message: failure.message, details: failure.details })))
+      if (failures.length > 0 && distinct.size === 1) throw failures[0]!
       throw new SynaError(
         'UNSATISFIABLE_TOPOLOGY',
         `No candidate can satisfy ${error.data.description} at ${error.data.site}.`,

@@ -175,30 +175,37 @@ async function inputClosureCase() {
   return { name: 'site-enter-tenant-input-reverse-closure-200', forked: explanation.services.forked, inherited: explanation.services.inherited, ...result, planCache: inspection.planCache }
 }
 
+/**
+ * A Service-owned BoundEntry (the Hyla UnitOfWork / request-handler pattern): the
+ * private Entry selects a helper by range inside the owner's private realm and
+ * carries a full request chain, so every timed enter plans ~20 request-scoped
+ * services under ~80 inherited ones — not a one-node graph.
+ */
 async function privateRangeAndBoundEntryCase() {
   const world = representativeWorld(100, { tag: 'bound' })
-  const runtime = createRuntime({ services: world.services, planCache: { maxEntries: 64 }, policy: { orderAutoCandidates: (_c, candidates) => candidates } })
-  const app = await runtime.enter(world.App, { choice: Choice(world) })
-  const uow = await app.deps.uow.load()
-  void uow
   const define = world.define
   const Private = define.service('private-helper', { setup: () => ({}) })
-  const PrivateEntry = define.entry('private-entry', { requires: { helper: Private.range('^1') } })
+  const PrivateEntry = define.entry('private-entry', {
+    requires: { helper: Private.range('^1'), handler: world.requestScoped.at(-1) },
+    parameters: { request: world.CurrentRequest },
+  })
   // A range selects among revisions the Runtime knows (admitted or in the owner's exact closure).
   const Owner = define.service('owner', { requires: { entry: PrivateEntry, helper: Private }, setup: ({ entry }) => ({ entry }) })
-  const OwnerApp = define.entry('owner-app', { requires: { owner: Owner } })
-  const ownerRuntime = createRuntime({ services: [Owner] })
-  const ownerEnv = await ownerRuntime.enter(OwnerApp)
+  const OwnerLayer = define.entry('owner-layer', { requires: { owner: Owner } })
+  const runtime = createRuntime({ services: [...world.services, Owner], planCache: { maxEntries: 64 }, policy: { orderAutoCandidates: (_c, candidates) => candidates } })
+  const app = await runtime.enter(world.App, { choice: Choice(world) })
+  const site = await app.enter(world.Site, { tenant: 'bound' })
+  const ownerEnv = await site.enter(OwnerLayer)
   const owner = await ownerEnv.deps.owner.load()
   const bound = await owner.entry.load()
-  const result = await timed(iterations(500), 50, async () => {
-    const env = await bound.enter()
+  const explanation = await bound.explain({ request: { id: 'explain' } })
+  const result = await timed(iterations(500), 50, async id => {
+    const env = await bound.enter({ request: { id } })
     await env.dispose()
   })
-  const planCache = ownerRuntime.inspect().planCache
-  await ownerRuntime.dispose()
+  const planCache = runtime.inspect().planCache
   await runtime.dispose()
-  return { name: 'bound-entry-private-range-enter-dispose', ...result, planCache }
+  return { name: 'bound-entry-private-range-request-enter-dispose-100', inherited: explanation.services.inherited, newServices: explanation.services.new, ...result, planCache }
 }
 
 async function overrideAndAllCase() {

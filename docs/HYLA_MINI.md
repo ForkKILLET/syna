@@ -39,22 +39,25 @@ Post：stable `id`、`tenantId`、`slug`、`locale`（`zh-CN`/`en`，普通数�
 
 `SiteEnvironmentManager` 是普通 Hyla Service（Syna core 无 TenantScope/LRU）：
 
-- key = `runtimeId|tenantId|configRevision`；按需创建；同 key 并发首次获取 single-flight。
+- key = `runtimeId|tenantId|configRevision|g<generation>`；按需创建；同 key 并发首次获取 single-flight。`invalidate(tenantId)` 递增 generation：即使 `configRevision` 未变，下一次 acquire 也得到全新 Env，旧 Env 在最后一个 lease 释放时立即关闭。
+- 创建期间被轮换（配置保存或 invalidate）的 Env 一旦无人持有就关闭，不会以 draining 状态滞留占用容量；等它的 acquirer 重新读取配置加入当前世界，重试以 `acquireTimeoutMs` 为界而不是固定次数。
 - 请求/构建/后台使用者持 lease；`release()` 幂等，不负计数。
 - 容量与空闲 TTL 可配置；只驱逐无活跃 lease 的 Env；不关闭共享 pool。
 - 配置更新：新 acquire 读到新 `configRevision` → 旧 revision 置 draining，不再接受新 lease，在途请求完成后释放并关闭；旧配置不会无限积累。驱逐不是版本失效。
 - 全部在用时：有界等待队列（`maxPendingAcquires`、`acquireTimeoutMs`），超出即明确拒绝 `SITE_CAPACITY`，不强关活跃租户。
-- 冷创建失败不留 poison promise，按租户有界指数退避。
-- 关闭：拒绝新 acquire，等待 lease 到 `shutdownTimeoutMs`，报告未释放 lease，然后关闭 Env。
+- 冷创建失败不留 poison promise，按租户有界指数退避；读完配置后再次检查退避，所以同一突发中的其余 acquirer 得到 `SITE_CREATION_BACKOFF`（含 `cause`）而不是各自再试一次。创建时校验 Authenticator 实例形状（`scheme` + `authenticate()`），接口不兼容的 override 在站点创建时失败，而不是在租户的第一个请求。
+- 关闭：拒绝新 acquire，等待 lease 到 `shutdownTimeoutMs`，报告未释放 lease，然后关闭 Env。`HylaApp.close()` 先执行这一关闭并返回该报告（`unreleasedLeases`），再释放 Runtime。
 - Env 被驱逐不丢业务事实：数据、配方、配置版本都在后端。
 
 ## 权限边界
 
 - 认证：`Authenticator` Contract，两份本地测试实现（cookie 会话表 / HMAC 签名 token）。它们**不是**生产安全实现。
 - 授权：应用函数 `canViewPost(principal, tenantId, post)`；身份属于某租户，跨租户身份视为匿名。
-- 缓存：页面缓存键含 tenant、configRevision、locale、visibility class、path；Syna plan cache 不缓存页面或授权结果。
-- 域名：受控域名表 host → tenantId；未知 host 直接 404，不访问任何租户数据；只有 `trustProxy` 时才信任 `X-Forwarded-Host`。
-- 静态输出：只写匿名可见内容与公开元数据，不含凭据/内部引用（矩阵测试逐文件扫描）。
+- 缓存：页面缓存键含 tenant、configRevision、**content version**、locale、visibility class、path。content version 由后端在每次变更（post/category/tag/配置）时推进（PostgreSQL `content_versions` 表在同一事务内递增；文件系统每租户 `content.version` 文件），每次查缓存都读取一次；版本变化即丢弃该站点整个页面缓存，所以编辑与可见性变化不需要保存配置就生效，被撤回内容的摘要不会留在匿名索引页。Syna plan cache 不缓存页面或授权结果。
+- HTTP 错误：客户端只看到状态码与短短语（503 `Service unavailable (<code>)`、500 `Internal error`、400 `Bad request`），内部错误信息进入 `startHttpServer({ onError })`（默认 `console.error`）；请求目标无法解析（绝对形式的坏 authority、错误百分号编码）→ 400，处理函数的任何异常都被兜底，不会挂起连接或以 unhandled rejection 终止进程。
+- 域名：受控域名表 host → tenantId；未知 host 直接 404，不访问任何租户数据；只有 `trustProxy` 时才信任 `X-Forwarded-Host`。`saveSiteConfig` 拒绝声明其他租户已拥有的域名（`DomainConflictError`，大小写/端口归一后比较）；带外编辑造成的冲突 host 不分配给任何租户（`DomainTable.conflicts` 列出），其余租户不受影响，`serve` 启动时告警。
+- 静态输出：只写匿名可见内容与公开元数据，不含凭据/内部引用（矩阵测试逐文件扫描）。输出目录必须为空或是上一次构建：构建器只删除上次清单（`.hyla-build.json`）中列出的文件及由此变空的目录，从不触碰其他文件；有陌生内容且无清单的目录被拒绝。静态服务器不发布点文件。
+- 启动：`createHylaApp()` 在预检后实际加载内容后端（打开 PostgreSQL 连接池并探测 `search_path`），数据库不可达或 schema 非法在启动时失败并释放 Runtime，而不是在第一个请求。
 
 ## 运行
 
