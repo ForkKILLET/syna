@@ -73,7 +73,9 @@ Severity is the reviewer's. Status is after the fixes in this workspace. Regress
 - `DependencyRef`s obtained from a disposed child keep working while the owner Env lives (D22). Callers that want child-scoped validity must hold refs from the child's own slots.
 - Plan-cache templates still retain the graph plus their own signature; memory is bounded by `planCache.maxEntries`, not by template size.
 - Runtime cannot verify behavioural compatibility of `override()`; only TypeScript checks instance types. Hyla-mini checks the authenticator shape at site creation.
-- Hyla-mini request latency including PostgreSQL round trips is not benchmarked.
+- Hyla-mini request latency including PostgreSQL round trips is reported end to end by `benchmarks/hyla-request-latency.mjs` (gate step `hyla-request-latency`, VALIDATION section) but is not a budget.
+- The CI `release-gate` job (`.github/workflows/ci.yml`) has not run in the cloud: the repository had not been pushed when it was written; only its syntax and the scripts it calls are verified locally.
+- Filesystem publishing (content store and static builder) is per-file atomic, never multi-file ACID (H03); a crash between a content write and its version bump is repaired by the pending-version marker at the next read, not prevented.
 - Content-version invalidation covers writers that go through the repositories; a foreign process writing the filesystem store without touching `content.version` is not detected.
 - A `setup()` that ignores its stop signal past `disposal.graceMs` keeps running with dependencies that were closed in the normal order (second review round, item 4c). The report names those dependencies; the model cannot prevent the situation (see below).
 
@@ -93,3 +95,48 @@ After the audit fixes above, four items were reported by different reviewers. Ea
 | 4 | the dependencies of an abandoned attempt are disposed while that attempt may still be running | inherent (I-57, D34) | the report names the dependency slots and their states (`details.slots[].dependencies`); nothing else can be done inside the model (argument below) | R-4 |
 
 Why item 4c cannot be solved under the model. The close of an Env must be bounded (K08/K09, audit F-PL-01: an `Infinity` deadline must not hang `dispose()`), and an attempt is user code that may ignore its signal. There are only three ways to treat such an attempt's dependencies: wait for the attempt before closing them, which is unbounded and contradicts the bounded close; terminate the attempt, which the model excludes (§14: no forced termination, no revocation of handed-out instances) and JavaScript cannot do to a Promise chain; or keep the dependencies alive after their owner closed, which is the unbounded retention of item 3 moved one level up and would stop the owner from ever disposing what it owns. The remaining behaviour, closing the dependencies in the normal order and acknowledging it in the report, is the one implemented and tested.
+
+## Third review round (2026-09-05)
+
+Two further auditors reviewed HEAD 6bb36c2 and reported about thirty-five findings across the core, the Hyla-mini site manager, caches and rendering, static output, the two backends, and delivery. Every claim was re-verified against the source of the time (aa196b5) by three read-only passes; the two core claims C3 and C4 were reproduced live before anything was changed. The rule of the round: stay inside the semantic model (`docs/SEMANTIC_MODEL.md`, task book K/H items) or show the item cannot be solved under it. Fixes were made in groups (core, site manager, caches and security, static output, backends, delivery), one commit each, every fix with a regression test shown to fail on the pre-fix sources. Issue numbers I-58…I-84 in `work/v05/ISSUES.md`; decisions D35…D53; migration notes M-22…M-30. This round's own probes are archived under `work/v05/probes/review-3-2026-09-05/`.
+
+Three design questions were decided with the user: `Family.range()` types as the origin's Contract view (D36); post identity is `(tenantId, id)` on both backends (D51); the CI release-gate job is included and labelled as not verified in the cloud (D53).
+
+| finding | verdict | fix | regression |
+|---|---|---|---|
+| C1 a private Family referenced only through `range()` was unresolvable (`MISSING_SERVICE`); R07 and the benchmark were seeded by an exact edge | holds | ranges carry their origin; candidates are {origin} ∪ owner closure ∪ admitted (I-58, D35 supersedes D16, M-22) | R07 range-only Family; benchmark `privateRangeAndBoundEntryCase` without the exact helper |
+| C2 `range()` typed as the origin's full instance | holds | range = Contract view (`ProvidedShape<Provides>`); the Runtime keeps only candidates providing the origin's Contracts, `INCOMPATIBLE_IMPLEMENTATION` otherwise (I-59, D36, M-23) | type tests `type-tests/api.ts`; R07 covering / non-covering revisions |
+| C3 plan-template keys omitted the lineage anchors; the hit path never re-solved | holds, reproduced both ways | key carries an anchors digest; a backtrackable failure on a hit evicts and re-solves (I-60, D37) | R17 anchors (both orders, forced stale hit) |
+| C4 `dispose()` before a deadline that fired inside the grace hid the attempt | holds, reproduced | the settling sequence falls through to the abandoned-attempt path with the remaining grace (I-61, D38, M-18) | R-5 (+ control) |
+| C5 `check()`/`explain()` called pure while registering and consuming ids | holds | own id counter; `inspect().definitions`; wording (I-62, D39, M-25) | K12 (100 plans) |
+| C6 same family+version with a different `setup` silently first-wins | holds | setup digest in the structural signature → `DUPLICATE_DEFINITION` (I-63, D40, M-24) | R20, core.test, hardening rewritten |
+| C7 / C9 / C10 docs (§5 omission vs. undeclared; `preload()`; completion barrier in PACKAGE_AUTHORING) | hold | wording; `preload()` deprecated (I-64, D41) | — |
+| C8 padded tests (vacuous override/fresh assertion; F-PL-04 waiting for the timeout) | holds | R06 asserts owners and a distinct instance; R-5 disposes first (I-65) | R06, R-5 |
+| S1 SiteEnv leak after a failed creation | already fixed (0434be0, I-52) | — | R-2 leak |
+| S2 redundant reservation released without waking the queue | holds | `releaseReservation()` (I-66) | S2 |
+| S3 capacity vs. disposing Envs; H11 never asserted the bound | capacity already fixed (I-53); the test gap holds | H11 asserts `liveEnvCount − roots ≤ capacity` at every lease and sample, `maxSiteEnvsAlive` in `working-set.json` (I-66) | H11 |
+| S4 background error channels (manager fixed; worker loop unobserved) | manager already fixed (I-55); the worker holds | supervised loop, `failed` state, `stop()` rethrows into `close().errors` (I-69, D44) | S4 ×2 (child process under the default policy) |
+| S5 stale configuration read drained a newer Env; generation captured before the wait | holds | monotonic rotation by (generation, configRevision) (I-67, D42) | S5 ×2 |
+| S6 `LeasePurpose` ignored | holds | `reservedForRequests`, purpose-aware queue (I-68, D43, M-26) | S6 ×2 |
+| S7 `close()` swallowed manager errors | partly | idempotent `close()`, errors flattened to leaves (I-70, D45, M-27) | S7 |
+| S8 request preflight not automatic for embedders | partly | third startup check from a synthetic `preflight` site world (I-70) | S8, H06 |
+| S9 domain table never refreshed; `normalizeDomain` kept a trailing dot, no IDNA | holds | rate-limited reload on unknown host, worker tick reload, IDNA normalization (I-71, D46) | S9 ×2, H01/S9, conformance |
+| R1 page cache unbounded, version read per hit, no single-flight; config read per acquire | holds | bounded single-flight cache, coalesced version and configuration reads; latency report (I-72, D47) | R-2b, `hyla-request-latency` |
+| R2 / R5 pipeline cache unbounded; `factorySetupCounts` module-global | hold | LRU keyed by (trust, stable JSON); per-instance tokens (I-73) | R2, H05 |
+| R3 no sanitizer policy for untrusted recipes | holds | `build(document, { trust })`, `sanitizer` role appended for `untrusted` (I-74, D48) | R3 ×2 (+ end-to-end) |
+| R4 / B5 `href` scheme, `theme.accent` CSS, cookie decoding → 500; stored configuration unvalidated | hold | `parseSiteConfig` on save and read, `isSafeHref`, `isCssColor`, renderer fallbacks, tolerant cookies (I-75, D49, M-28) | conformance, filesystem, postgres, R4 ×2 |
+| T1 static output prefix check only, symlinks followed | holds | resolved root, per-component symlink checks before the first write; static server follows no link (I-76, D50) | F-AP-08b |
+| T2 / T3 build deleted then wrote in place, no lock; no content snapshot | hold | snapshot render, ordered atomic publish, manifest last with `contentVersion`, in-process mutex + `.hyla-build.lock` (I-77, D50, M-29) | F-AP-08c |
+| B1 post id global on PostgreSQL, per-tenant on the filesystem | holds | `(tenant_id, id)` composite key, migrated in place (I-78, D51, M-30) | conformance, postgres |
+| B2 domain claim race on both backends | holds | `domains` table under advisory locks; filesystem `__domains__` lock (I-79, D51) | conformance (5 rounds) |
+| B3 content write and version bump not atomic | holds | transaction per public mutation; filesystem pending marker (I-80, D51) | postgres trigger, filesystem marker |
+| B4 `withClient` destroyed the connection on every error | holds | destroy only on connection-level errors (I-81, D52) | pool policy |
+| D1 / V2 demo `fetch` cannot set `Host` → dynamic cells 404; gate checked exit code only | holds (committed logs showed `404 22 bytes`) | self-asserting demo over `node:http`; `expectStdout` in the gate (I-82, D53) | gate steps `hyla-demo-filesystem`, `rebuild-demo` |
+| V3 "530 tests" = 265 × 2 | holds | `distinctTests` / `rebuildTests`; VALIDATION wording (I-83, D53) | manifest |
+| V1 / V5 no CI release gate; archives unpublished | holds | `release-gate` job with artifact upload; labelled not verified in the cloud (I-84, D53) | — (cloud run pending) |
+| extra: vacuous `revisionBefore` assertion; VALIDATION artefact table stale by construction | hold | assertion fixed; table replaced by a pointer to the run's hash list (I-79, I-83) | conformance |
+| V4 other documentation claims (ALS, selector, `InputRef.load`) | inaccurate: already v0.5-correct | — | — |
+| lineage key / template size grows with Env depth | kept as a limit | bounded by `planCache.maxEntries` (F-CD-04) | — |
+| thenable Service instances only diagnosed at runtime | kept as a limit | `foreign-thenable-setup` (D17); no type-level guard | — |
+
+Verification of this round: every new regression was run against the pre-fix sources first (stash of the group's source files, rebuild, run) and shown to fail there while everything else stayed green, then on the fix; the full suites, the archived probes of earlier rounds (updated where the intended behaviour changed: factory-sharing counts the appended sanitizer pass, static-export expects the D28 refusal) and the development gate pass on the fixed source. The release runs and the independent re-audit of this round are recorded in `work/v05/STATE.md`.
