@@ -1,189 +1,305 @@
 started: postgres://syna@127.0.0.1:54329/postgres
+pg-test-cluster: server PostgreSQL 17.10 at postgres://syna@127.0.0.1:54329/postgres (temporary cluster)
 TAP version 13
 # Subtest: H04 PostgreSQL → HTTP and PostgreSQL → static files render the same public content
 ok 1 - H04 PostgreSQL → HTTP and PostgreSQL → static files render the same public content
   ---
-  duration_ms: 98.105166
+  duration_ms: 105.700458
   type: 'test'
   ...
 # Subtest: H04 filesystem → HTTP and filesystem → static files render the same public content
 ok 2 - H04 filesystem → HTTP and filesystem → static files render the same public content
   ---
-  duration_ms: 59.782167
+  duration_ms: 67.308375
   type: 'test'
   ...
 # Subtest: H04 the two backends produce identical public pages for identical fixtures
 ok 3 - H04 the two backends produce identical public pages for identical fixtures
   ---
-  duration_ms: 62.380625
+  duration_ms: 80.874
   type: 'test'
   ...
 # Subtest: postgres: repository conformance
     # Subtest: reports its backend and lists the seeded tenants
     ok 1 - reports its backend and lists the seeded tenants
       ---
-      duration_ms: 1.194292
+      duration_ms: 1.349916
       type: 'test'
       ...
     # Subtest: lists public posts versus all posts
     ok 2 - lists public posts versus all posts
       ---
-      duration_ms: 2.020625
+      duration_ms: 2.163125
       type: 'test'
       ...
     # Subtest: never returns drafts or private posts with public visibility
     ok 3 - never returns drafts or private posts with public visibility
       ---
-      duration_ms: 1.764875
+      duration_ms: 2.429417
       type: 'test'
       ...
     # Subtest: resolves the shared slug to a different post per tenant
     ok 4 - resolves the shared slug to a different post per tenant
       ---
-      duration_ms: 0.510542
+      duration_ms: 0.517708
       type: 'test'
       ...
     # Subtest: isolates tenants: alpha never sees beta rows
     ok 5 - isolates tenants: alpha never sees beta rows
       ---
-      duration_ms: 1.796958
+      duration_ms: 6.341667
       type: 'test'
       ...
     # Subtest: applies locale, category and tag filters
     ok 6 - applies locale, category and tag filters
       ---
-      duration_ms: 1.382042
+      duration_ms: 1.614875
       type: 'test'
       ...
     # Subtest: round-trips every stored field of a post
     ok 7 - round-trips every stored field of a post
       ---
-      duration_ms: 0.506375
+      duration_ms: 0.651667
       type: 'test'
       ...
     # Subtest: orders posts deterministically with comparePosts (newest first, then slug)
     ok 8 - orders posts deterministically with comparePosts (newest first, then slug)
       ---
-      duration_ms: 0.65
+      duration_ms: 0.535792
       type: 'test'
       ...
     # Subtest: increments the revision and keeps the id when the slug changes
     ok 9 - increments the revision and keeps the id when the slug changes
       ---
-      duration_ms: 2.859375
+      duration_ms: 4.64925
       type: 'test'
       ...
     # Subtest: rejects a slug already used by a different id in the same tenant
     ok 10 - rejects a slug already used by a different id in the same tenant
       ---
-      duration_ms: 1.967459
+      duration_ms: 4.454167
       type: 'test'
       ...
     # Subtest: rejects unsafe tenant ids, slugs and invalid input
     ok 11 - rejects unsafe tenant ids, slugs and invalid input
       ---
-      duration_ms: 1.189542
+      duration_ms: 4.385083
       type: 'test'
       ...
     # Subtest: round-trips categories and tags and upserts by slug
     ok 12 - round-trips categories and tags and upserts by slug
       ---
-      duration_ms: 1.932958
+      duration_ms: 2.654833
       type: 'test'
       ...
     # Subtest: saves the site config and increments configRevision
     ok 13 - saves the site config and increments configRevision
       ---
-      duration_ms: 2.280875
+      duration_ms: 7.250875
       type: 'test'
       ...
     # Subtest: runs work inside transaction() against the tenant repository
     ok 14 - runs work inside transaction() against the tenant repository
       ---
-      duration_ms: 1.618708
+      duration_ms: 2.306542
       type: 'test'
       ...
     # Subtest: re-seeding is idempotent in content and increments revisions
     ok 15 - re-seeding is idempotent in content and increments revisions
       ---
-      duration_ms: 4.297166
+      duration_ms: 4.568167
       type: 'test'
       ...
     # Subtest: contentVersion changes on every mutation of the tenant and never for another tenant
     ok 16 - contentVersion changes on every mutation of the tenant and never for another tenant
       ---
-      duration_ms: 4.332791
+      duration_ms: 6.668791
+      type: 'test'
+      ...
+    # Subtest: saveSiteConfig validates the document (SiteConfigError); a refused save leaves the stored configuration and its revision unchanged
+    ok 17 - saveSiteConfig validates the document (SiteConfigError); a refused save leaves the stored configuration and its revision unchanged
+      ---
+      duration_ms: 4.942125
       type: 'test'
       ...
     # Subtest: saveSiteConfig refuses a domain another tenant already claims (DomainConflictError), also when spelled differently
-    ok 17 - saveSiteConfig refuses a domain another tenant already claims (DomainConflictError), also when spelled differently
+    ok 18 - saveSiteConfig refuses a domain another tenant already claims (DomainConflictError), also when spelled differently
       ---
-      duration_ms: 2.255
+      duration_ms: 3.625416
+      type: 'test'
+      ...
+    # Subtest: two tenants claiming one domain at the same time: exactly one wins, every round (B2)
+    ok 19 - two tenants claiming one domain at the same time: exactly one wins, every round (B2)
+      ---
+      duration_ms: 12.680084
+      type: 'test'
+      ...
+    # Subtest: a post id is scoped to its tenant: the same id in two tenants is two posts (B1)
+    ok 20 - a post id is scoped to its tenant: the same id in two tenants is two posts (B1)
+      ---
+      duration_ms: 4.292833
+      type: 'test'
+      ...
+    # Subtest: a public-repository mutation of the same tenant inside transaction() is refused at once instead of waiting for the unit of work forever (F-BD3-04)
+    ok 21 - a public-repository mutation of the same tenant inside transaction() is refused at once instead of waiting for the unit of work forever (F-BD3-04)
+      ---
+      duration_ms: 3.402916
+      type: 'test'
+      ...
+    # Subtest: mutations a unit of work issues at once all land, one after another, and the content version advances once per mutation (F-BD3-05)
+    ok 22 - mutations a unit of work issues at once all land, one after another, and the content version advances once per mutation (F-BD3-05)
+      ---
+      duration_ms: 3.023833
+      type: 'test'
+      ...
+    # Subtest: a domain conflict inside transaction() leaves the tenant's own domain ownership untouched, whether or not the work handles it (F-BD3-02)
+    ok 23 - a domain conflict inside transaction() leaves the tenant's own domain ownership untouched, whether or not the work handles it (F-BD3-02)
+      ---
+      duration_ms: 4.285791
+      type: 'test'
+      ...
+    # Subtest: overlapping saves of one tenant's configuration leave its domain ownership equal to the configuration that won (F-BD3-03)
+    ok 24 - overlapping saves of one tenant's configuration leave its domain ownership equal to the configuration that won (F-BD3-03)
+      ---
+      duration_ms: 26.33175
+      type: 'test'
+      ...
+    # Subtest: a NUL character in a post, a name or a configuration is refused by both backends before anything is written (F-BD3-12)
+    ok 25 - a NUL character in a post, a name or a configuration is refused by both backends before anything is written (F-BD3-12)
+      ---
+      duration_ms: 2.0385
+      type: 'test'
+      ...
+    # Subtest: listTenants() lists a tenant that only has a category or a tag (F-BD3-12)
+    ok 26 - listTenants() lists a tenant that only has a category or a tag (F-BD3-12)
+      ---
+      duration_ms: 3.001
       type: 'test'
       ...
     # Subtest: deleteTenant removes only that tenant
-    ok 18 - deleteTenant removes only that tenant
+    ok 27 - deleteTenant removes only that tenant
       ---
-      duration_ms: 3.2825
+      duration_ms: 3.013
       type: 'test'
       ...
-    1..18
+    1..27
 ok 4 - postgres: repository conformance
   ---
-  duration_ms: 64.02675
+  duration_ms: 157.56475
   type: 'suite'
   ...
 # Subtest: postgres: transactions, pool sharing and disposal
     # Subtest: uses the isolated schema for every table and pins search_path
     ok 1 - uses the isolated schema for every table and pins search_path
       ---
-      duration_ms: 3.500875
+      duration_ms: 3.051833
+      type: 'test'
+      ...
+    # Subtest: a raw update that leaves an invalid document is a SiteConfigError on read for that tenant, never a page (R4/B5)
+    ok 2 - a raw update that leaves an invalid document is a SiteConfigError on read for that tenant, never a page (R4/B5)
+      ---
+      duration_ms: 3.387375
+      type: 'test'
+      ...
+    # Subtest: migrating a schema whose posts were keyed by id alone moves them to (tenant_id, id) and back-fills domain ownership (B1/B2)
+    ok 3 - migrating a schema whose posts were keyed by id alone moves them to (tenant_id, id) and back-fills domain ownership (B1/B2)
+      ---
+      duration_ms: 18.581875
+      type: 'test'
+      ...
+    # Subtest: a mutation and its content-version bump are one transaction on the public path: when the bump fails nothing is written (B3)
+    ok 4 - a mutation and its content-version bump are one transaction on the public path: when the bump fails nothing is written (B3)
+      ---
+      duration_ms: 7.388417
+      type: 'test'
+      ...
+    # Subtest: pool: business errors hand the connection back, only connection-level errors destroy it (B4)
+    ok 5 - pool: business errors hand the connection back, only connection-level errors destroy it (B4)
+      ---
+      duration_ms: 9.372167
       type: 'test'
       ...
     # Subtest: rolls back the whole transaction when work throws
-    ok 2 - rolls back the whole transaction when work throws
+    ok 6 - rolls back the whole transaction when work throws
       ---
-      duration_ms: 12.784
+      duration_ms: 3.006542
       type: 'test'
       ...
     # Subtest: keeps concurrent transactions on different tenants from interleaving state
-    ok 3 - keeps concurrent transactions on different tenants from interleaving state
+    ok 7 - keeps concurrent transactions on different tenants from interleaving state
       ---
-      duration_ms: 11.471666
+      duration_ms: 6.698542
       type: 'test'
       ...
     # Subtest: serializes conflicting writers on the unique (tenant_id, slug) constraint
-    ok 4 - serializes conflicting writers on the unique (tenant_id, slug) constraint
+    ok 8 - serializes conflicting writers on the unique (tenant_id, slug) constraint
       ---
-      duration_ms: 6.999125
+      duration_ms: 3.028084
       type: 'test'
       ...
     # Subtest: shares one pool across repositories and child Envs and stays within max
-    ok 5 - shares one pool across repositories and child Envs and stays within max
+    ok 9 - shares one pool across repositories and child Envs and stays within max
       ---
-      duration_ms: 11.0355
+      duration_ms: 12.7565
       type: 'test'
       ...
     # Subtest: ends the pool on runtime.dispose()
-    ok 6 - ends the pool on runtime.dispose()
+    ok 10 - ends the pool on runtime.dispose()
       ---
-      duration_ms: 0.420792
+      duration_ms: 0.449333
       type: 'test'
       ...
-    1..6
+    1..10
 ok 5 - postgres: transactions, pool sharing and disposal
   ---
-  duration_ms: 52.72425
+  duration_ms: 73.986417
   type: 'suite'
   ...
-1..5
-# tests 27
-# suites 2
-# pass 27
+# Subtest: postgres: audit-3 regressions
+    # Subtest: a unit of work that continues past a failed statement is TransactionAbortedError, and nothing of it is written (F-BD3-01)
+    ok 1 - a unit of work that continues past a failed statement is TransactionAbortedError, and nothing of it is written (F-BD3-01)
+      ---
+      duration_ms: 4.473291
+      type: 'test'
+      ...
+    # Subtest: a mutation that waits for a lock another session holds fails with SQLSTATE 55P03 after lockTimeoutMs, keeping the connection (F-BD3-04)
+    ok 2 - a mutation that waits for a lock another session holds fails with SQLSTATE 55P03 after lockTimeoutMs, keeping the connection (F-BD3-04)
+      ---
+      duration_ms: 562.488333
+      type: 'test'
+      ...
+    # Subtest: two units of work on one tenant that touch the same posts in a different order serialize on the tenant lock: no deadlock (F-BD3-07)
+    ok 3 - two units of work on one tenant that touch the same posts in a different order serialize on the tenant lock: no deadlock (F-BD3-07)
+      ---
+      duration_ms: 119.034625
+      type: 'test'
+      ...
+    # Subtest: starting on a schema whose stored configuration has a malformed domains value succeeds, and the back-fill runs once (F-BD3-06)
+    ok 4 - starting on a schema whose stored configuration has a malformed domains value succeeds, and the back-fill runs once (F-BD3-06)
+      ---
+      duration_ms: 23.772625
+      type: 'test'
+      ...
+    # Subtest: closing the pool rejects queued leases at once, waits closeTimeoutMs for leased connections, and terminates and reports one that never comes back (F-BD3-08)
+    ok 5 - closing the pool rejects queued leases at once, waits closeTimeoutMs for leased connections, and terminates and reports one that never comes back (F-BD3-08)
+      ---
+      duration_ms: 380.151958
+      type: 'test'
+      ...
+    1..5
+ok 6 - postgres: audit-3 regressions
+  ---
+  duration_ms: 1115.790542
+  type: 'suite'
+  ...
+1..6
+# tests 45
+# suites 3
+# pass 45
 # fail 0
 # cancelled 0
 # skipped 0
 # todo 0
-# duration_ms 391.654958
+# duration_ms 1545.897917
 stopped
-removed /var/folders/y0/gk3fktfn14g1xqyjjqr9mq8h0000gn/T/syna-v05-rebuild-EQqvRq/pg
+removed /var/folders/y0/gk3fktfn14g1xqyjjqr9mq8h0000gn/T/syna-v05-rebuild-Qq1OUf/pg

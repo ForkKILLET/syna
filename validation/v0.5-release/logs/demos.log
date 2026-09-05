@@ -11,6 +11,7 @@
 > tsc -b packages/core --force && tsc -b tsconfig.json --force
 
 Hello, Syna!
+demo: OK
 
 > syna-v0.5-workspace@0.5.0 demo:hyla
 > npm run build && node apps/hyla-demo/dist/index.js
@@ -32,11 +33,11 @@ Automatically discovered package versions: {
 Application status: { databasePool: 1, databaseUrl: 'postgres://demo@localhost/hyla' }
 Blog world: Scope-Aware Systems (blog-42)
 Blog reuses root PostgreSQL pool: 1
+[DEBUG] OpenAI v2 request request-a; completion #1
+[DEBUG] OpenAI v2 request request-b; completion #1
 Request A provider: OpenAI
 Request B provider: OpenAI
-[DEBUG] OpenAI v2 request request-a; completion #1
 [openai@2.4.2 request=request-a] Summarize for Scope-Aware Systems (request-a): Canonical slots make derived worlds predictable.
-[DEBUG] OpenAI v2 request request-b; completion #1
 [openai@2.4.2 request=request-b] Summarize for Scope-Aware Systems (request-b): Bindings preserve a user-selected implementation.
 Request-local summarizers are distinct: true
 Selector exposes every admitted implementation revision:
@@ -69,6 +70,7 @@ Runtime admission/internal split: {
     'demo.postgres@3.2.1'
   ],
   overriddenServices: [],
+  definitions: { entries: 7, inputs: 3, bindings: 1, contracts: 1, families: 9 },
   rootEnvCount: 1,
   liveEnvCount: 2,
   unsettledAttempts: [],
@@ -77,6 +79,7 @@ Runtime admission/internal split: {
 }
 [INFO] closing PostgreSQL pool #1
 [INFO] logger disposed
+demo: OK
 
 > syna-v0.5-workspace@0.5.0 demo:fluida
 > npm run build && node apps/fluida-demo/dist/index.js
@@ -107,6 +110,7 @@ Both transactions share the same pool: true
 Database stats: { queryCount: 0 }
 [INFO] closing PostgreSQL pool #1
 [INFO] logger disposed
+demo: OK
 
 > syna-v0.5-workspace@0.5.0 demo:features
 > npm run build && node apps/features-demo/dist/index.js
@@ -122,5 +126,6 @@ Destructuring a dependency ref is still lazy: true
 Counter materialized after await: 1
 Structural cycle works after setup: b a
 Re-providing an Input forks its reverse closure: true
-Setup wait cycle rejected: Setup of syna-demo.features-app/setup-cycle-d@1.0.0 did not complete within 30000 ms. Observed load() calls form a cycle (syna-demo.features-app/setup-cycle-d@1.0.0 -> syna-demo.features-app/setup-cycle-c@1.0.0 -> syna-demo.features-app/setup-cycle-d@1.0.0); this is an observation, not a proof of deadlock.
+Setup wait cycle rejected: Setup of syna-demo.features-app/setup-cycle-d@1.0.0 did not complete within 1000 ms. Observed load() calls form a cycle (syna-demo.features-app/setup-cycle-d@1.0.0 -> syna-demo.features-app/setup-cycle-c@1.0.0 -> syna-demo.features-app/setup-cycle-d@1.0.0); this is an observation, not a proof of deadlock.
 Lineage-fixed conflict rejected: Lineage-unique Service Family demo.fixed-service cannot diverge below its anchor demo.fixed-service@1.0.0 (slot slot-1).
+demo: OK

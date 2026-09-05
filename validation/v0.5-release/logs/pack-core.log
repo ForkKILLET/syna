@@ -5,10 +5,10 @@ npm notice 1.1kB LICENSE
 npm notice 1.3kB README.md
 npm notice 1.5kB dist/definition.d.ts
 npm notice 1.1kB dist/definition.d.ts.map
-npm notice 14.1kB dist/definition.js
-npm notice 13.6kB dist/definition.js.map
-npm notice 28.4kB dist/descriptors.d.ts
-npm notice 25.4kB dist/descriptors.d.ts.map
+npm notice 14.2kB dist/definition.js
+npm notice 13.8kB dist/definition.js.map
+npm notice 30.8kB dist/descriptors.d.ts
+npm notice 26.0kB dist/descriptors.d.ts.map
 npm notice 50B dist/descriptors.js
 npm notice 114B dist/descriptors.js.map
 npm notice 1.7kB dist/errors.d.ts
@@ -27,38 +27,38 @@ npm notice 888B dist/internal/abort.d.ts
 npm notice 775B dist/internal/abort.d.ts.map
 npm notice 2.5kB dist/internal/abort.js
 npm notice 2.5kB dist/internal/abort.js.map
-npm notice 3.6kB dist/internal/definition-compiler.d.ts
-npm notice 2.1kB dist/internal/definition-compiler.d.ts.map
-npm notice 15.8kB dist/internal/definition-compiler.js
-npm notice 13.4kB dist/internal/definition-compiler.js.map
-npm notice 3.3kB dist/internal/entry-planner.d.ts
-npm notice 2.4kB dist/internal/entry-planner.d.ts.map
-npm notice 34.7kB dist/internal/entry-planner.js
-npm notice 34.6kB dist/internal/entry-planner.js.map
+npm notice 3.7kB dist/internal/definition-compiler.d.ts
+npm notice 2.2kB dist/internal/definition-compiler.d.ts.map
+npm notice 16.7kB dist/internal/definition-compiler.js
+npm notice 13.9kB dist/internal/definition-compiler.js.map
+npm notice 3.8kB dist/internal/entry-planner.d.ts
+npm notice 2.5kB dist/internal/entry-planner.d.ts.map
+npm notice 37.3kB dist/internal/entry-planner.js
+npm notice 35.6kB dist/internal/entry-planner.js.map
 npm notice 2.0kB dist/internal/graph-builder.d.ts
 npm notice 1.7kB dist/internal/graph-builder.d.ts.map
-npm notice 11.9kB dist/internal/graph-builder.js
-npm notice 10.9kB dist/internal/graph-builder.js.map
-npm notice 1.6kB dist/internal/identity.d.ts
+npm notice 13.2kB dist/internal/graph-builder.js
+npm notice 11.9kB dist/internal/graph-builder.js.map
+npm notice 2.3kB dist/internal/identity.d.ts
 npm notice 1.3kB dist/internal/identity.d.ts.map
-npm notice 5.2kB dist/internal/identity.js
-npm notice 5.0kB dist/internal/identity.js.map
+npm notice 6.4kB dist/internal/identity.js
+npm notice 6.1kB dist/internal/identity.js.map
 npm notice 3.7kB dist/internal/implementation-directory.d.ts
 npm notice 2.9kB dist/internal/implementation-directory.d.ts.map
 npm notice 10.1kB dist/internal/implementation-directory.js
 npm notice 8.8kB dist/internal/implementation-directory.js.map
 npm notice 1.9kB dist/internal/implementation-views.d.ts
 npm notice 1.6kB dist/internal/implementation-views.d.ts.map
-npm notice 4.3kB dist/internal/implementation-views.js
-npm notice 4.4kB dist/internal/implementation-views.js.map
-npm notice 4.4kB dist/internal/materializer.d.ts
-npm notice 1.9kB dist/internal/materializer.d.ts.map
-npm notice 28.8kB dist/internal/materializer.js
-npm notice 25.0kB dist/internal/materializer.js.map
-npm notice 725B dist/internal/plan-cache.d.ts
-npm notice 697B dist/internal/plan-cache.d.ts.map
-npm notice 1.6kB dist/internal/plan-cache.js
-npm notice 1.6kB dist/internal/plan-cache.js.map
+npm notice 4.7kB dist/internal/implementation-views.js
+npm notice 4.5kB dist/internal/implementation-views.js.map
+npm notice 5.0kB dist/internal/materializer.d.ts
+npm notice 2.0kB dist/internal/materializer.d.ts.map
+npm notice 31.7kB dist/internal/materializer.js
+npm notice 27.1kB dist/internal/materializer.js.map
+npm notice 851B dist/internal/plan-cache.d.ts
+npm notice 751B dist/internal/plan-cache.d.ts.map
+npm notice 1.8kB dist/internal/plan-cache.js
+npm notice 1.7kB dist/internal/plan-cache.js.map
 npm notice 734B dist/internal/resolution-realm.d.ts
 npm notice 422B dist/internal/resolution-realm.d.ts.map
 npm notice 874B dist/internal/resolution-realm.js
@@ -77,8 +77,8 @@ npm notice 554B dist/loading.js
 npm notice 466B dist/loading.js.map
 npm notice 268B dist/runtime.d.ts
 npm notice 276B dist/runtime.d.ts.map
-npm notice 26.0kB dist/runtime.js
-npm notice 23.4kB dist/runtime.js.map
+npm notice 27.5kB dist/runtime.js
+npm notice 24.4kB dist/runtime.js.map
 npm notice 748B dist/semver.d.ts
 npm notice 774B dist/semver.d.ts.map
 npm notice 1.8kB dist/semver.js
@@ -88,10 +88,10 @@ npm notice Tarball Details
 npm notice name: @syna/core
 npm notice version: 0.5.0
 npm notice filename: syna-core-0.5.0.tgz
-npm notice package size: 92.5 kB
-npm notice unpacked size: 443.4 kB
-npm notice shasum: 63dae13a11f584a8f53d69d9f7a41e895def57bb
-npm notice integrity: sha512-nU0BvwWsyKuGW[...]9qn8o6597P0jQ==
+npm notice package size: 98.7 kB
+npm notice unpacked size: 466.8 kB
+npm notice shasum: c023991337aa3f2029a651775138b0c7541afae9
+npm notice integrity: sha512-lvsDcaa63ZSAI[...]Vftj8h6iRdvuw==
 npm notice total files: 83
 npm notice
 syna-core-0.5.0.tgz

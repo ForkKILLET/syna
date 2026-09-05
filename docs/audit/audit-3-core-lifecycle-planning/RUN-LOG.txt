@@ -1,0 +1,143 @@
+===== 01-unreachable-dropped-handle.probe.mjs =====
+PASS  child process exited 0  -- observed: ""
+NOTE  raw child output  -- observed: {"droppedId":"env-2","keptId":"env-3","ledgerBefore":["env-2","env-3"],"droppedCollected":true,"keptState":"disposed","cleanups":["kept","dropped"],"unreachableEvents":["attempt-unreachable:env-3","attempt-unreachable:env-2"],"ledgerAfter":[],"rounds":12}
+PASS  both attempts were in the ledger after the bounded close  -- observed: ["env-2","env-3"]
+PASS  the dropped Env was collected (nothing in the Runtime holds it)
+PASS  kept Env: attempt closed as unreachable, state disposed  -- observed: "disposed"
+PASS  kept Env: its onDispose cleanup ran  -- observed: ["kept","dropped"]
+PASS  kept Env: attempt-unreachable reported  -- observed: ["attempt-unreachable:env-3","attempt-unreachable:env-2"]
+PASS  dropped Env: its onDispose cleanup ran (documented: cleanups run when the Promise is collected)  -- observed: ["kept","dropped"]
+PASS  dropped Env: attempt-unreachable reported (documented)  -- observed: ["attempt-unreachable:env-3","attempt-unreachable:env-2"]
+PASS  ledger is empty afterwards  -- observed: []
+
+9/9 checks passed
+----- exit 0 -----
+
+===== 01b-unreachable-repeat.probe.mjs =====
+NOTE  single: per-run outcomes  -- observed: [{"droppedCollected":true,"droppedCleanup":true,"droppedEvent":true,"keptCleanup":false,"ledger":0},{"droppedCollected":true,"droppedCleanup":true,"droppedEvent":true,"keptCleanup":false,"ledger":0},{"droppedCollected":true,"droppedCleanup":true,"droppedEvent":true,"keptCleanup":false,"ledger":0},{"droppedCollected":true,"droppedCleanup":true,"droppedEvent":true,"keptCleanup":false,"ledger":0},{"droppedCollected":true,"droppedCleanup":true,"droppedEvent":true,"keptCleanup":false,"ledger":0},{"droppedCollected":true,"droppedCleanup":true,"droppedEvent":true,"keptCleanup":false,"ledger":0}]
+PASS  single: the dropped Env is collected in every run  -- observed: [true,true,true,true,true,true]
+PASS  single: the dropped attempt's cleanup ran and attempt-unreachable fired in every run (documented)  -- observed: [[true,true],[true,true],[true,true],[true,true],[true,true],[true,true]]
+PASS  single: ledger empty at the end in every run  -- observed: [0,0,0,0,0,0]
+NOTE  single-yield: per-run outcomes  -- observed: [{"droppedCollected":true,"droppedCleanup":true,"droppedEvent":true,"keptCleanup":false,"ledger":0},{"droppedCollected":true,"droppedCleanup":true,"droppedEvent":true,"keptCleanup":false,"ledger":0},{"droppedCollected":true,"droppedCleanup":true,"droppedEvent":true,"keptCleanup":false,"ledger":0},{"droppedCollected":true,"droppedCleanup":true,"droppedEvent":true,"keptCleanup":false,"ledger":0},{"droppedCollected":true,"droppedCleanup":true,"droppedEvent":true,"keptCleanup":false,"ledger":0},{"droppedCollected":true,"droppedCleanup":true,"droppedEvent":true,"keptCleanup":false,"ledger":0}]
+PASS  single-yield: the dropped Env is collected in every run  -- observed: [true,true,true,true,true,true]
+PASS  single-yield: the dropped attempt's cleanup ran and attempt-unreachable fired in every run (documented)  -- observed: [[true,true],[true,true],[true,true],[true,true],[true,true],[true,true]]
+PASS  single-yield: ledger empty at the end in every run  -- observed: [0,0,0,0,0,0]
+NOTE  pair: per-run outcomes  -- observed: [{"droppedCollected":true,"droppedCleanup":true,"droppedEvent":true,"keptState":"disposed","keptCleanup":true,"ledger":0},{"droppedCollected":true,"droppedCleanup":true,"droppedEvent":true,"keptState":"disposed","keptCleanup":true,"ledger":0},{"droppedCollected":true,"droppedCleanup":true,"droppedEvent":true,"keptState":"disposed","keptCleanup":true,"ledger":0},{"droppedCollected":true,"droppedCleanup":true,"droppedEvent":true,"keptState":"disposed","keptCleanup":true,"ledger":0},{"droppedCollected":true,"droppedCleanup":true,"droppedEvent":true,"keptState":"disposed","keptCleanup":true,"ledger":0},{"droppedCollected":true,"droppedCleanup":true,"droppedEvent":true,"keptState":"disposed","keptCleanup":true,"ledger":0}]
+PASS  pair: the dropped Env is collected in every run  -- observed: [true,true,true,true,true,true]
+PASS  pair: the dropped attempt's cleanup ran and attempt-unreachable fired in every run (documented)  -- observed: [[true,true],[true,true],[true,true],[true,true],[true,true],[true,true]]
+PASS  pair: ledger empty at the end in every run  -- observed: [0,0,0,0,0,0]
+
+9/9 checks passed
+----- exit 0 -----
+
+===== 01c-v8-weak-order.mjs =====
+immediate-gc: [{"callbacks":[{"id":1,"tokenAlive":true}]},{"callbacks":[{"id":1,"tokenAlive":true}]},{"callbacks":[{"id":1,"tokenAlive":true}]},{"callbacks":[{"id":1,"tokenAlive":true}]},{"callbacks":[{"id":1,"tokenAlive":true}]}]
+churn-then-gc: [{"callbacks":[{"id":1,"tokenAlive":true}]},{"callbacks":[{"id":1,"tokenAlive":true}]},{"callbacks":[{"id":1,"tokenAlive":true}]},{"callbacks":[{"id":1,"tokenAlive":true}]},{"callbacks":[{"id":1,"tokenAlive":true}]}]
+yield-then-gc: [{"callbacks":[{"id":1,"tokenAlive":false}]},{"callbacks":[{"id":1,"tokenAlive":false}]},{"callbacks":[{"id":1,"tokenAlive":false}]},{"callbacks":[{"id":1,"tokenAlive":false}]},{"callbacks":[{"id":1,"tokenAlive":false}]}]
+----- exit 0 -----
+
+===== 02-selector-cross-runtime-cache.probe.mjs =====
+PASS  first Runtime (implB) expands the selector and opens the candidate  -- observed: [object Object]
+PASS  second Runtime (implA, same key, different setup body) expands the selector (Runtime isolation, K01)  -- observed: [object Object]
+PASS  third Runtime (implBmeta) expands the selector  -- observed: ["audit3.impl@1.0.0:available"]
+PASS  third Runtime reports no definition warnings of its own (none of its descriptors drift)  -- observed: []
+PASS  control: with a Contract object no earlier Runtime used, implA expands fine
+
+5/5 checks passed
+----- exit 0 -----
+
+===== 03-public-range-origin.probe.mjs =====
+PASS  the origin is known to the Runtime (internal, not admitted)  -- observed: ["audit3.range-origin.private/helper@1.0.0","audit3.range-origin/owner@1.0.0"]
+PASS  public realm: a range whose origin is known but not admitted is refused (code: admitted only)  -- observed: SynaError(MISSING_SERVICE: "No revision of audit3.range-origin.private/helper visible at root>audit3.range-origin/entry/public/v1/require:helper satisfies *.")
+PASS  explain() agrees: MISSING_SERVICE for the public root  -- observed: "MISSING_SERVICE"
+PASS  private realm: the same range resolves to the origin (D35)  -- observed: {"v":"1.0.0"}
+
+4/4 checks passed
+----- exit 0 -----
+
+===== 04-tree-close-bound.probe.mjs =====
+PASS  each level owns its own stuck slot  -- observed: ["env-1","env-2","env-3"]
+NOTE  root.dispose() elapsed ms for a 3-level chain  -- observed: {"elapsed":456,"graceMs":150}
+PASS  dispose() of the root reported the abandoned attempts  -- observed: AggregateError("Env env-1 failed to dispose cleanly.", errors=[AggregateError("Env env-2 failed to dispose cleanly.", errors=[AggregateError("Env env-3 failed to dispose cleanly.", errors=[SynaError(UNSETTLED_ATTEMPT: "Env env-3 closed while 1 setup attempt(s) were still running; their resources are not under Syna control. The Env stays disposing until they settle.")]), SynaError(UNSETTLED_ATTEMPT: "Env env-2 closed while 1 setup attempt(s) were still running; their resources are not under Syna control. The Env stays disposing until they settle.")]), SynaError(UNSETTLED_ATTEMPT: "Env env-1 closed while 1 setup attempt(s) were still running; their resources are not under Syna control. The Env stays disposing until they settle.")])
+FAIL  the close of a 3-level tree is bounded by ONE grace period (documented)  -- observed: {"elapsed":456,"bound":300}
+
+2/3 checks passed; FAILED: the close of a 3-level tree is bounded by ONE grace period (documented)
+----- exit 1 -----
+
+===== 05-slow-rollback-in-grace.probe.mjs =====
+NOTE  close report for a failed setup whose rollback is slow  -- observed: {"codes":["UNSETTLED_ATTEMPT"],"events":["rollback-start","attempt-abandoned"],"envState":"disposing","slotState":"abandoned","ledger":1}
+PASS  (a) the close waited only one grace and reported the slow rollback as an abandoned attempt  -- observed: {"report":"Env env-1 closed while 1 setup attempt(s) were still rolling back; their resources are not under Syna control. The Env stays disposing until they settle.","state":"disposing"}
+FAIL  (a) the report claims the setup attempt is "still running", although its setup already failed  -- observed: "Env env-1 closed while 1 setup attempt(s) were still rolling back; their resources are not under Syna control. The Env stays disposing until they settle."
+PASS  (a) the abandoned attempt IS listed in inspect().unsettledAttempts while the Env is disposing for it (expected by the docs; the code never registers an attempt whose raw Promise already settled)  -- observed: [{"attempt":1,"slot":"slot-1","revision":"audit3.slow-rollback/failing@1.0.0","env":"env-1","state":"rolling-back","runningForMs":46}]
+PASS  (a) once the rollback finished and the Env is disposed, its slot is disposed too  -- observed: {"envState":"disposed","slotState":"disposed"}
+PASS  (a) the original waiter got the setup failure  -- observed: Error("setup failed")
+PASS  (b) after the bounded close the attempt is in the ledger and the Env is disposing  -- observed: {"ledger":1,"state":"disposing"}
+NOTE  during the late cleanup  -- observed: {"state":"disposing","ledger":1,"slot":"abandoned"}
+PASS  (b) the Env stays disposing while its late cleanup runs (documented)  -- observed: {"state":"disposing","ledger":1,"slot":"abandoned"}
+PASS  (b) the ledger still lists the attempt while the Env is disposing for it  -- observed: {"state":"disposing","ledger":1,"slot":"abandoned"}
+PASS  (b) runtime.dispose() during the late cleanup reports the outstanding attempt  -- observed: AggregateError("One or more Syna root Envs failed to dispose.", errors=[SynaError(UNSETTLED_ATTEMPT: "The Runtime closed while 1 setup attempt(s) were still running, rolling back or being cleaned up; their resources are not under Syna control.")])
+PASS  (b) after the cleanup the Env is disposed  -- observed: {"state":"disposed","events":["attempt-abandoned","late-cleanup-start","late-cleanup-end","late-setup-result"]}
+
+9/10 checks passed; FAILED: (a) the report claims the setup attempt is "still running", although its setup already failed
+----- exit 1 -----
+
+===== 06-requires-order-determinism.probe.mjs =====
+PASS  both copies have the same Entry id  -- observed: ["audit3.order/entry/main/v1","audit3.order/entry/main/v1"]
+NOTE  cold plan, keys p,q  -- observed: {"p":"p/p@2.0.0","q":"q/q@1.0.0"}
+NOTE  cold plan, keys q,p  -- observed: {"p":"p/p@2.0.0","q":"q/q@1.0.0"}
+PASS  1. the same Entry (same id, same signature) plans to the same topology regardless of requires key order  -- observed: {"coldPQ":{"p":"p/p@2.0.0","q":"q/q@1.0.0"},"coldQP":{"p":"p/p@2.0.0","q":"q/q@1.0.0"}}
+NOTE  one Runtime, cache on: p,q then q,p  -- observed: {"first":{"p":"p/p@2.0.0","q":"q/q@1.0.0"},"second":{"p":"p/p@2.0.0","q":"q/q@1.0.0"},"stats":{"hits":1,"misses":1,"entries":1,"evictions":0,"maxEntries":512}}
+PASS  2. registering the second copy is not DUPLICATE_DEFINITION (signature ignores key order)  -- observed: {"p":"p/p@2.0.0","q":"q/q@1.0.0"}
+PASS  2. cached result for copy q,p equals its own cold result (R17: cache must not change the plan)  -- observed: {"cached":{"p":"p/p@2.0.0","q":"q/q@1.0.0"},"cold":{"p":"p/p@2.0.0","q":"q/q@1.0.0"}}
+
+4/4 checks passed
+----- exit 0 -----
+
+===== 07-cache-hit-skips-drift-check.probe.mjs =====
+PASS  the two copies have the same key and differ structurally (setup body)
+PASS  cold plan: an Entry referencing the drifted copy is DUPLICATE_DEFINITION  -- observed: "DUPLICATE_DEFINITION"
+NOTE  warm plan of the drifted copy  -- observed: {"status":"rejected","code":"DUPLICATE_DEFINITION","cacheHits":1}
+PASS  warm plan: the drifted copy is still DUPLICATE_DEFINITION (cache must not change the diagnosis, R17/D40)  -- observed: "DUPLICATE_DEFINITION"
+PASS  check() of the canonical copy plans fine
+PASS  after check() of the canonical copy, entering the drifted copy is still DUPLICATE_DEFINITION  -- observed: "DUPLICATE_DEFINITION"
+PASS  after eviction the drifted copy is DUPLICATE_DEFINITION again (diagnosis is cache-state dependent)  -- observed: "DUPLICATE_DEFINITION"
+
+6/6 checks passed
+----- exit 0 -----
+
+===== 08-controls.probe.mjs =====
+PASS  C1 the close is clean when the late result arrives inside the remaining grace  -- observed: {"state":"disposed","events":["cleanup","late-setup-result"]}
+PASS  C1 the waiter saw INITIALIZATION_TIMEOUT, the late result was cleaned up and reported  -- observed: {"code":"INITIALIZATION_TIMEOUT","events":["cleanup","late-setup-result"]}
+PASS  C1 ledger empty, slot disposed  -- observed: "disposed"
+PASS  C2 cancellation paths leave no unhandled rejection (strict mode exits 0)  -- observed: ""
+PASS  C2 codes: LOAD_CANCELLED x2 (running, cooldown), LOAD_CANCELLED (pre-aborted on failed slot), then recovered  -- observed: ["LOAD_CANCELLED","LOAD_CANCELLED","LOAD_CANCELLED","recovered"]
+PASS  C3 owner disposal cancels a recovery cooldown promptly  -- observed: {"elapsed":0,"code":"INVALID_ENV_STATE"}
+PASS  C3 no dormant materialization after the owner closed  -- observed: "INVALID_ENV_STATE"
+PASS  C4 check()/explain() are allowed while the anchor activates; enter() is OWNER_NOT_READY  -- observed: {"check":{"ok":true,"inspection":{"nodeCount":2,"ownedSlotCount":0,"reusedSlotCount":2,"eagerServiceCount":1,"selectedRevisions":{}}},"explain":true,"enter":"OWNER_NOT_READY"}
+PASS  C4 planning while activating consumed no Env id and published nothing  -- observed: 1
+PASS  C4 after Ready the same BoundEntry enters a child anchored at the owner Env  -- observed: "env-1"
+PASS  C4 after the anchor left the tree, enter() is INVALID_ENV_STATE (plain rejection)  -- observed: "INVALID_ENV_STATE"
+PASS  C5 anchors in the template key, order anchored>unanchored: explain() and enter() agree with cold plans in both passes  -- observed: {"anchored-1":{"explain":"1.0.0","loaded":"1.0.0"},"unanchored-1":{"explain":"2.0.0","loaded":"2.0.0"},"anchored-2":{"explain":"1.0.0","loaded":"1.0.0"},"unanchored-2":{"explain":"2.0.0","loaded":"2.0.0"}}
+PASS  C5 anchors in the template key, order unanchored>anchored: explain() and enter() agree with cold plans in both passes  -- observed: {"unanchored-1":{"explain":"2.0.0","loaded":"2.0.0"},"anchored-1":{"explain":"1.0.0","loaded":"1.0.0"},"unanchored-2":{"explain":"2.0.0","loaded":"2.0.0"},"anchored-2":{"explain":"1.0.0","loaded":"1.0.0"}}
+PASS  C5 check() did not anchor F: the following enter() plans as cold (F@2)
+PASS  C6 an admitted covering revision beats the private origin; the non-covering 1.2.0 is not a candidate
+PASS  C6 a range satisfied only by a non-covering revision is INCOMPATIBLE_IMPLEMENTATION in explain() (backtrackable, not thrown)  -- observed: "INCOMPATIBLE_IMPLEMENTATION"
+PASS  C6 with only the non-covering revision admitted the range falls back to the origin
+NOTE  O1 slot ids of the first Env after five check() calls (check() consumes slot ids, not Env ids)  -- observed: {"envId":"env-1","slotIds":["slot-1","slot-3","slot-2"]}
+NOTE  O1 load({signal: aborted}) on synthetic refs resolves, on a Service ref rejects LOAD_CANCELLED  -- observed: {"all":"fulfilled","sub":"fulfilled","impl":"LOAD_CANCELLED"}
+
+17/17 checks passed
+----- exit 0 -----
+
+===== 09-misc.probe.mjs =====
+NOTE  M1 run() outcome when the callback succeeded but the close abandoned an attempt  -- observed: AggregateError("Env env-1 failed to dispose cleanly.", errors=[SynaError(UNSETTLED_ATTEMPT: "Env env-1 closed while 1 setup attempt(s) were still running; their resources are not under Syna control. The Env stays disposing until they settle.")])
+FAIL  M1 run() rejects with the close report and the successful business result is not recoverable from it  -- observed: "rejected"
+NOTE  M2 plan with the p,q copy admitted first  -- observed: {"p":"p/p@2.0.0","q":"q/q@1.0.0"}
+NOTE  M2 plan with the q,p copy admitted first  -- observed: {"p":"p/p@2.0.0","q":"q/q@1.0.0"}
+PASS  M2 two Runtimes admitting the same set of definitions (copies differing only in requires key order) plan the same topology  -- observed: {"pqFirst":{"p":"p/p@2.0.0","q":"q/q@1.0.0"},"qpFirst":{"p":"p/p@2.0.0","q":"q/q@1.0.0"}}
+PASS  M3 cold: a range whose family drifts in uniqueWithin is DUPLICATE_DEFINITION  -- observed: "DUPLICATE_DEFINITION"
+PASS  M3 warm: the same drift is still DUPLICATE_DEFINITION on a template hit  -- observed: "DUPLICATE_DEFINITION"
+
+3/4 checks passed; FAILED: M1 run() rejects with the close report and the successful business result is not recoverable from it
+----- exit 1 -----
+

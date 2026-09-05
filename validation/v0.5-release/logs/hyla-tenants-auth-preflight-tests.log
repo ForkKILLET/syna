@@ -2,69 +2,81 @@ TAP version 13
 # Subtest: H06 the render infrastructure preflight refuses a factory that depends on the current request before anything listens
 ok 1 - H06 the render infrastructure preflight refuses a factory that depends on the current request before anything listens
   ---
-  duration_ms: 13.952542
+  duration_ms: 16.213833
   type: 'test'
   ...
 # Subtest: H06 a replacement renderer that reads site facts is refused at the infrastructure preflight with the dependency path
 ok 2 - H06 a replacement renderer that reads site facts is refused at the infrastructure preflight with the dependency path
   ---
-  duration_ms: 0.77325
+  duration_ms: 0.802
   type: 'test'
   ...
 # Subtest: H06 the concurrent plugin-protocol probe detects closure pollution between products (check() cannot; a runtime test can)
 ok 3 - H06 the concurrent plugin-protocol probe detects closure pollution between products (check() cannot; a runtime test can)
   ---
-  duration_ms: 5.636833
+  duration_ms: 5.329625
+  type: 'test'
+  ...
+# Subtest: S8 createHylaApp() refuses a deployment whose request world breaks the request budget, before any tenant exists
+ok 4 - S8 createHylaApp() refuses a deployment whose request world breaks the request budget, before any tenant exists
+  ---
+  duration_ms: 2.154625
   type: 'test'
   ...
 # Subtest: H12 request budget: the real request world stays within budget, and explain() shows what would break it
-ok 4 - H12 request budget: the real request world stays within budget, and explain() shows what would break it
+ok 5 - H12 request budget: the real request world stays within budget, and explain() shows what would break it
   ---
-  duration_ms: 30.039541
+  duration_ms: 39.648042
   type: 'test'
   ...
 # Subtest: H12 a transitive CurrentRequest dependency in infrastructure is explained as a per-request fork and blocked by the budget
-ok 5 - H12 a transitive CurrentRequest dependency in infrastructure is explained as a per-request fork and blocked by the budget
+ok 6 - H12 a transitive CurrentRequest dependency in infrastructure is explained as a per-request fork and blocked by the budget
   ---
-  duration_ms: 0.481458
+  duration_ms: 0.491458
   type: 'test'
   ...
 # Subtest: H13 the worker is started by the host after the root is Ready, loops in its own child world and stops before shared resources close
-ok 6 - H13 the worker is started by the host after the root is Ready, loops in its own child world and stops before shared resources close
+ok 7 - H13 the worker is started by the host after the root is Ready, loops in its own child world and stops before shared resources close
   ---
-  duration_ms: 79.500375
+  duration_ms: 87.119625
   type: 'test'
   ...
 # Subtest: H01 the data model normalizes input, orders deterministically and treats locale and visibility as data
-ok 7 - H01 the data model normalizes input, orders deterministically and treats locale and visibility as data
+ok 8 - H01 the data model normalizes input, orders deterministically and treats locale and visibility as data
   ---
-  duration_ms: 0.304334
+  duration_ms: 0.3405
+  type: 'test'
+  ...
+# Subtest: H01 / S9 normalizeDomain: one canonical spelling per host (case, port, trailing dot, IDNA), nothing else passes
+ok 9 - H01 / S9 normalizeDomain: one canonical spelling per host (case, port, trailing dot, IDNA), nothing else passes
+  ---
+  duration_ms: 1.200875
   type: 'test'
   ...
 # Subtest: H08 domains map to tenants through the controlled table; unknown hosts and untrusted forwarded hosts are refused
-ok 8 - H08 domains map to tenants through the controlled table; unknown hosts and untrusted forwarded hosts are refused
+ok 10 - H08 domains map to tenants through the controlled table; unknown hosts and untrusted forwarded hosts are refused
   ---
-  duration_ms: 68.945834
+  duration_ms: 83.095166
   type: 'test'
   ...
 # Subtest: H08 a trusted proxy may supply the host; page caches are partitioned by tenant, locale and visibility
-ok 9 - H08 a trusted proxy may supply the host; page caches are partitioned by tenant, locale and visibility
+ok 11 - H08 a trusted proxy may supply the host; page caches are partitioned by tenant, locale and visibility
   ---
-  duration_ms: 30.962333
+  duration_ms: 38.514708
   type: 'test'
   ...
 # Subtest: H09 two authenticators are swapped per site without touching content code; anonymous reads public only; A cannot read B
-ok 10 - H09 two authenticators are swapped per site without touching content code; anonymous reads public only; A cannot read B
+ok 12 - H09 two authenticators are swapped per site without touching content code; anonymous reads public only; A cannot read B
   ---
-  duration_ms: 41.0515
+  duration_ms: 51.118833
   type: 'test'
   ...
-1..10
-# tests 10
+1..12
+# tests 12
 # suites 0
-# pass 10
+# pass 12
 # fail 0
 # cancelled 0
 # skipped 0
 # todo 0
-# duration_ms 305.162583
+# duration_ms 354.001459
