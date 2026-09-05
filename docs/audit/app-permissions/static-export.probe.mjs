@@ -63,7 +63,9 @@ try {
     ['private / draft ids', /alpha-p3|alpha-p4|beta-p3/],
   ]
   for (const tenantId of ['alpha', 'beta']) {
-    const files = await walk(outputs[tenantId])
+    // D28 / third round (I-77): the builder keeps its own dot-files (`.hyla-build.json`, and `.hyla-build.lock`
+    // while a build runs) next to the pages; they are not part of the published set the manifest lists.
+    const files = (await walk(outputs[tenantId])).filter(file => !path.basename(file).startsWith('.hyla-build.'))
     check(`${tenantId}: files written match manifest`, files.length === manifests[tenantId].files.length, { files: files.length, manifest: manifests[tenantId].files })
     for (const file of files) {
       const content = await readFile(file, 'utf8')
@@ -118,11 +120,16 @@ try {
   await mkdir(path.join(victim, 'category'), { recursive: true })
   await writeFile(path.join(victim, 'category', 'unrelated.txt'), 'x')
   await writeFile(path.join(victim, 'notes.txt'), 'x')
+  // D28 (audit fix): the builder refuses a non-empty directory without a manifest of its own instead of
+  // cleaning it; the refusal is the expected outcome here (the original probe crashed on it).
   const lease = await manager.acquire('alpha', 'build')
+  let refused
   try {
     await lease.env.run(BuildEntry, { build: { outputDir: victim } }, async ({ builder }) => (await builder.load()).build())
   }
+  catch (error) { refused = error }
   finally { lease.release() }
+  check('builder refuses a foreign non-empty directory (OUTPUT_DIR_NOT_EMPTY)', refused?.code === 'OUTPUT_DIR_NOT_EMPTY', refused?.message)
   const keepExists = await stat(path.join(victim, 'posts', 'notes', 'keep.md')).then(() => true, () => false)
   const unrelatedExists = await stat(path.join(victim, 'category', 'unrelated.txt')).then(() => true, () => false)
   const notesExists = await stat(path.join(victim, 'notes.txt')).then(() => true, () => false)

@@ -5,7 +5,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import net from 'node:net'
 import { execFile } from 'node:child_process'
-import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readdir, readFile, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -327,6 +327,149 @@ test('F-AP-08 the static builder never deletes files it did not write, and refus
     assert.ok((await readdir(path.join(outputDir, 'posts'))).includes('hello-world'))
   }
   finally {
+    await rm(outputDir, { recursive: true, force: true })
+    await harness.close()
+  }
+})
+
+test('F-AP-08b symbolic links under the output directory are refused by the builder before it touches anything and are never published by the static server (T1)', async () => {
+  const harness = await createFilesystemApp()
+  const outputDir = await mkdtemp(path.join(tmpdir(), 'hyla-audit-symlink-'))
+  const outside = await mkdtemp(path.join(tmpdir(), 'hyla-audit-outside-'))
+  let staticServer
+  try {
+    const manager = await harness.app.app.deps.sites.load()
+    const build = async (dir = outputDir) => {
+      const lease = await manager.acquire('alpha', 'build')
+      try {
+        return await lease.env.run(BuildEntry, { build: { outputDir: dir } }, async ({ builder }) => (await builder.load()).build())
+      }
+      finally {
+        lease.release()
+      }
+    }
+    const first = await build()
+    assert.ok(first.files.includes(path.join('posts', 'shared-slug', 'index.html')))
+    await writeFile(path.join(outside, 'index.html'), 'OUTSIDE\n')
+    await writeFile(path.join(outside, 'secret.txt'), 'SECRET\n')
+
+    // A page directory replaced by a link to a foreign directory: the next build is refused before anything is written.
+    await rm(path.join(outputDir, 'posts', 'shared-slug'), { recursive: true })
+    await symlink(outside, path.join(outputDir, 'posts', 'shared-slug'))
+    const manifestBefore = await readFile(path.join(outputDir, '.hyla-build.json'), 'utf8')
+    const indexBefore = await readFile(path.join(outputDir, 'index.html'), 'utf8')
+    await assert.rejects(build(), error => error.name === 'StaticBuildError' && error.code === 'UNSAFE_OUTPUT_DIR' && /symbolic links are not allowed/.test(error.message))
+    assert.equal(await readFile(path.join(outside, 'index.html'), 'utf8'), 'OUTSIDE\n', 'the file behind the link is untouched')
+    assert.equal(await readFile(path.join(outputDir, '.hyla-build.json'), 'utf8'), manifestBefore, 'the previous manifest is untouched')
+    assert.equal(await readFile(path.join(outputDir, 'index.html'), 'utf8'), indexBefore, 'the previous pages are untouched')
+    assert.ok(!(await readdir(outputDir)).includes('.hyla-build.lock'), 'no lock is left behind')
+
+    // The static server follows no link, whether to a file or to a directory; the rest of the build is still served.
+    await symlink(path.join(outside, 'secret.txt'), path.join(outputDir, 'leak.txt'))
+    staticServer = await startStaticServer(outputDir)
+    assert.equal((await fetchText(`${staticServer.url}/index.html`)).status, 200)
+    assert.equal((await fetchText(`${staticServer.url}/posts/hello-world/`)).status, 200)
+    assert.equal((await fetchText(`${staticServer.url}/leak.txt`)).status, 404)
+    assert.equal((await fetchText(`${staticServer.url}/posts/shared-slug/`)).status, 404)
+    assert.equal((await fetchText(`${staticServer.url}/posts/shared-slug/index.html`)).status, 404)
+    assert.equal((await fetchText(`${staticServer.url}/posts/shared-slug/secret.txt`)).status, 404)
+
+    // An output directory that is itself a symbolic link is refused.
+    const alias = path.join(outside, 'alias')
+    await symlink(outputDir, alias)
+    await assert.rejects(build(alias), error => error.code === 'UNSAFE_OUTPUT_DIR' && /is a symbolic link/.test(error.message))
+  }
+  finally {
+    await staticServer?.close()
+    await rm(outputDir, { recursive: true, force: true })
+    await rm(outside, { recursive: true, force: true })
+    await harness.close()
+  }
+})
+
+test('F-AP-08c a build is one content snapshot published file by file: a failed render leaves the previous build byte-identical, concurrent builds serialize, a live lock is refused and a stale one taken over, a moving content version is retried and finally refused (T2/T3)', async () => {
+  const harness = await createFilesystemApp()
+  const outputDir = await mkdtemp(path.join(tmpdir(), 'hyla-audit-publish-'))
+  const manager = await harness.app.app.deps.sites.load()
+  const lease = await manager.acquire('alpha', 'build')
+  const lockFile = path.join(outputDir, '.hyla-build.lock')
+  const hasLock = async () => (await readdir(outputDir)).includes('.hyla-build.lock')
+  try {
+    const build = () => lease.env.run(BuildEntry, { build: { outputDir } }, async ({ builder }) => (await builder.load()).build())
+    const first = await build()
+    assert.equal(first.attempts, 1)
+    assert.equal(typeof first.contentVersion, 'string')
+    const onDisk = JSON.parse(await readFile(path.join(outputDir, '.hyla-build.json'), 'utf8'))
+    assert.equal(onDisk.contentVersion, first.contentVersion, 'the manifest records the content version of the build')
+    assert.ok(!onDisk.files.includes('.hyla-build.lock') && !(await hasLock()))
+    const snapshot = async () => Object.fromEntries(await Promise.all(first.files.map(async file => [file, await readFile(path.join(outputDir, file), 'utf8')])))
+    const before = await snapshot()
+
+    // (1) A render that fails midway: nothing of the previous build changes, no lock stays behind.
+    const context = lease.context
+    const realRenderPost = context.renderPost
+    let renders = 0
+    context.renderPost = async (...args) => {
+      renders += 1
+      if (renders === 2) throw new Error('render exploded')
+      return realRenderPost.apply(context, args)
+    }
+    try {
+      await assert.rejects(build(), /render exploded/)
+    }
+    finally {
+      context.renderPost = realRenderPost
+    }
+    assert.deepEqual(await snapshot(), before)
+    assert.ok(!(await hasLock()))
+
+    // (2) Concurrent builds of one directory run one after another; all succeed, no lock stays behind.
+    const results = await Promise.all([build(), build(), build()])
+    for (const result of results) assert.deepEqual(result.files, first.files)
+    assert.deepEqual(await snapshot(), before)
+    assert.ok(!(await hasLock()))
+
+    // (3) A lock held by a live process is refused and left alone; one whose process is gone, or older than the stale age, is taken over.
+    await writeFile(lockFile, JSON.stringify({ pid: process.pid, startedAt: new Date().toISOString() }))
+    await assert.rejects(build(), error => error.name === 'StaticBuildError' && error.code === 'BUILD_LOCKED' && /another build is running/.test(error.message))
+    assert.ok(await hasLock(), 'a live lock is never removed')
+    assert.deepEqual(await snapshot(), before)
+    await writeFile(lockFile, JSON.stringify({ pid: process.pid, startedAt: new Date(Date.now() - 11 * 60_000).toISOString() }))
+    assert.deepEqual((await build()).files, first.files, 'stale by age')
+    assert.ok(!(await hasLock()))
+    await writeFile(lockFile, JSON.stringify({ pid: 2 ** 22 + 4096, startedAt: new Date().toISOString() }))
+    assert.deepEqual((await build()).files, first.files, 'stale by a dead process')
+    assert.ok(!(await hasLock()))
+
+    // (4) The content version moves while pages render: rendered again from the new version; one that never settles is refused with nothing written.
+    const repository = context.repository
+    const realVersion = repository.contentVersion
+    let reads = 0
+    repository.contentVersion = async () => {
+      reads += 1
+      return reads === 1 ? 'moved-1' : 'moved-2'
+    }
+    try {
+      const moved = await build()
+      assert.equal(moved.attempts, 2)
+      assert.equal(moved.contentVersion, 'moved-2')
+      assert.equal(JSON.parse(await readFile(path.join(outputDir, '.hyla-build.json'), 'utf8')).contentVersion, 'moved-2')
+      repository.contentVersion = async () => {
+        reads += 1
+        return `moving-${reads}`
+      }
+      const manifestBefore = await readFile(path.join(outputDir, '.hyla-build.json'), 'utf8')
+      await assert.rejects(build(), error => error.name === 'StaticBuildError' && error.code === 'BUILD_CONTENT_CHANGED' && /3 attempts/.test(error.message))
+      assert.equal(await readFile(path.join(outputDir, '.hyla-build.json'), 'utf8'), manifestBefore)
+    }
+    finally {
+      repository.contentVersion = realVersion
+    }
+    assert.deepEqual(await snapshot(), before)
+    assert.ok(!(await hasLock()))
+  }
+  finally {
+    lease.release()
     await rm(outputDir, { recursive: true, force: true })
     await harness.close()
   }

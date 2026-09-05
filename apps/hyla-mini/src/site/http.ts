@@ -1,9 +1,10 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
-import { readFile, stat } from 'node:fs/promises'
+import { readFile, realpath, stat } from 'node:fs/promises'
 import path from 'node:path'
 import type { AddressInfo } from 'node:net'
 import type { EnvHandle } from '@syna/core'
 import type { RequestHeaders } from '../auth/principal.js'
+import { UnsafePathError, assertNoSymlink } from '../data/filesystem/files.js'
 import type { DomainTable } from './domains.js'
 import { requestHost } from './domains.js'
 import type { AppEntry } from './app-entry.js'
@@ -193,9 +194,14 @@ const MIME: Record<string, string> = {
   '.css': 'text/css; charset=utf-8',
 }
 
-/** Serves a static build directory so the static side of the matrix can be read back over HTTP. */
+/**
+ * Serves a static build directory so the static side of the matrix can be read
+ * back over HTTP. The root is resolved once; below it nothing may be a symbolic
+ * link (a planted link would publish files outside the build), and the file
+ * finally read must still resolve inside the root.
+ */
 export async function startStaticServer(rootDir: string, port = 0): Promise<RunningServer> {
-  const root = path.resolve(rootDir)
+  const root = await realpath(path.resolve(rootDir))
   const report = (error: unknown, context: HttpErrorContext): void => { console.error(`[hyla-mini static] ${context.status} ${context.path ?? '-'}:`, error) }
   const server = createServer(guarded(async (request, response) => {
       let relative: string
@@ -223,9 +229,15 @@ export async function startStaticServer(rootDir: string, port = 0): Promise<Runn
       }
       try {
         let file = target
+        await assertNoSymlink(root, file)
         const info = await stat(file).catch(() => undefined)
-        if (info?.isDirectory()) file = path.join(file, 'index.html')
-        const content = await readFile(file)
+        if (info?.isDirectory()) {
+          file = path.join(file, 'index.html')
+          await assertNoSymlink(root, file)
+        }
+        const real = await realpath(file)
+        if (real !== root && !real.startsWith(root + path.sep)) throw new UnsafePathError(`${file} resolves outside ${root}`)
+        const content = await readFile(real)
         response.writeHead(200, { 'content-type': MIME[path.extname(file)] ?? 'application/octet-stream' })
         response.end(content)
       }
