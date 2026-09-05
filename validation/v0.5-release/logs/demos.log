@@ -1,0 +1,125 @@
+
+> syna-v0.5-workspace@0.5.0 demo
+> npm run demo:minimal && npm run demo:hyla && npm run demo:fluida && npm run demo:features
+
+
+> syna-v0.5-workspace@0.5.0 demo:minimal
+> npm run build && node apps/minimal-demo/dist/index.js
+
+
+> syna-v0.5-workspace@0.5.0 build
+> tsc -b packages/core --force && tsc -b tsconfig.json --force
+
+Hello, Syna!
+
+> syna-v0.5-workspace@0.5.0 demo:hyla
+> npm run build && node apps/hyla-demo/dist/index.js
+
+
+> syna-v0.5-workspace@0.5.0 build
+> tsc -b packages/core --force && tsc -b tsconfig.json --force
+
+
+=== Hyla / BASM-style demo ===
+Automatically discovered package versions: {
+  openAiLegacy: '1.8.4',
+  openAiCurrent: '2.4.2',
+  claude: '3.1.0',
+  postgres: '3.2.1'
+}
+[INFO] opening PostgreSQL pool #1 for postgres://demo@localhost/hyla
+[INFO] Hyla application is ready
+Application status: { databasePool: 1, databaseUrl: 'postgres://demo@localhost/hyla' }
+Blog world: Scope-Aware Systems (blog-42)
+Blog reuses root PostgreSQL pool: 1
+Request A provider: OpenAI
+Request B provider: OpenAI
+[DEBUG] OpenAI v2 request request-a; completion #1
+[openai@2.4.2 request=request-a] Summarize for Scope-Aware Systems (request-a): Canonical slots make derived worlds predictable.
+[DEBUG] OpenAI v2 request request-b; completion #1
+[openai@2.4.2 request=request-b] Summarize for Scope-Aware Systems (request-b): Bindings preserve a user-selected implementation.
+Request-local summarizers are distinct: true
+Selector exposes every admitted implementation revision:
+  - Claude @ 3.1.0
+  - OpenAI @ 2.4.2
+  - OpenAI @ 1.8.4
+[DEBUG] OpenAI v1 request provider-panel; completion #1
+[openai@1.8.4 request=provider-panel] Run a provider selected from the canonical selector slot.
+Runtime catalog (no Env topology required): [ 'Claude@3.1.0', 'OpenAI@2.4.2', 'OpenAI@1.8.4' ]
+Runtime admission/internal split: {
+  admittedServices: [
+    'demo.hyla/application@1.0.0',
+    'demo.hyla/article-summarizer@1.0.0',
+    'demo.hyla/blog-runtime@1.0.0',
+    'demo.hyla/provider-panel@1.0.0',
+    'demo.llm.claude@3.1.0',
+    'demo.llm.openai@1.8.4',
+    'demo.llm.openai@2.4.2'
+  ],
+  internalServices: [
+    'demo.hyla/application@1.0.0',
+    'demo.hyla/article-summarizer@1.0.0',
+    'demo.hyla/blog-runtime@1.0.0',
+    'demo.hyla/provider-panel@1.0.0',
+    'demo.llm.claude@3.1.0',
+    'demo.llm.openai@1.8.4',
+    'demo.llm.openai@2.4.2',
+    'demo.logger@1.1.0',
+    'demo.postgres/pool-metrics@3.2.1',
+    'demo.postgres@3.2.1'
+  ],
+  overriddenServices: [],
+  rootEnvCount: 1,
+  liveEnvCount: 2,
+  planCache: { hits: 2, misses: 7, entries: 7, evictions: 0, maxEntries: 512 },
+  definitionWarnings: []
+}
+[INFO] closing PostgreSQL pool #1
+[INFO] logger disposed
+
+> syna-v0.5-workspace@0.5.0 demo:fluida
+> npm run build && node apps/fluida-demo/dist/index.js
+
+
+> syna-v0.5-workspace@0.5.0 build
+> tsc -b packages/core --force && tsc -b tsconfig.json --force
+
+
+=== Fluida-style demo ===
+[INFO] opening PostgreSQL pool #1 for postgres://demo@localhost/fluida
+Shared database pool: 1
+tx-a: tx uses pool 1; repository returned { id: 'article-tx-a', pool: 1 }
+tx-a: local slot owners [
+  'demo.fluida/input/current-transaction/v1=>env-2',
+  'demo.fluida/article-repository@1.0.0=>env-2',
+  'demo.fluida/transaction@1.0.0=>env-2'
+]
+tx-b: tx uses pool 1; repository returned { id: 'article-tx-b', pool: 1 }
+tx-b: local slot owners [
+  'demo.fluida/input/current-transaction/v1=>env-3',
+  'demo.fluida/article-repository@1.0.0=>env-3',
+  'demo.fluida/transaction@1.0.0=>env-3'
+]
+Transactions are distinct: true
+Repositories are distinct: true
+Both transactions share the same pool: true
+Database stats: { queryCount: 0 }
+[INFO] closing PostgreSQL pool #1
+[INFO] logger disposed
+
+> syna-v0.5-workspace@0.5.0 demo:features
+> npm run build && node apps/features-demo/dist/index.js
+
+
+> syna-v0.5-workspace@0.5.0 build
+> tsc -b packages/core --force && tsc -b tsconfig.json --force
+
+
+=== Core semantics demo ===
+Eager service started during Entry activation: 1
+Destructuring a dependency ref is still lazy: true
+Counter materialized after await: 1
+Structural cycle works after setup: b a
+Re-providing an Input forks its reverse closure: true
+Setup wait cycle rejected: Setup of syna-demo.features-app/setup-cycle-d@1.0.0 did not complete within 30000 ms. Observed load() calls form a cycle (syna-demo.features-app/setup-cycle-d@1.0.0 -> syna-demo.features-app/setup-cycle-c@1.0.0 -> syna-demo.features-app/setup-cycle-d@1.0.0); this is an observation, not a proof of deadlock.
+Lineage-fixed conflict rejected: Lineage-unique Service Family demo.fixed-service cannot diverge below its anchor demo.fixed-service@1.0.0 (slot slot-1).

@@ -1,0 +1,4 @@
+
+> syna-v0.5-workspace@0.5.0 clean
+> find packages apps -type d -name dist -prune -exec rm -rf {} + && find packages apps -name '*.tsbuildinfo' -delete
+

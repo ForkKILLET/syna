@@ -1,0 +1,4 @@
+
+> syna-v0.5-workspace@0.5.0 type-tests
+> tsc -p packages/core/tsconfig.type-tests.json --pretty false
+

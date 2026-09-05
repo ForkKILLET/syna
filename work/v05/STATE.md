@@ -1,9 +1,9 @@
 # Syna v0.5 + Hyla-mini — STATE
 
 ## Current phase
-Phase F: release gate. `node scripts/verify-v05.mjs --release` COMPLETE (exit 0) at commit f9a3b35: 30 steps, 506/506 tests, 0 skipped, fingerprint 68119800…43a79; docs/VALIDATION.md regenerated from that manifest.
-Release-gate history (2026-09-05): run 1 PARTIAL — archive scan rejected two strings in the archived cache-delivery audit report (reworded, c9006e4); run 2 PARTIAL — H10 backpressure test raced on concurrent config reads (test fixed, f9a3b35, I-49); run 3 COMPLETE.
-Next: commit VALIDATION.md + ledgers → final `--release` run on that source (RELEASE_MANIFEST.json) → commit release evidence → session report.
+DONE (2026-09-05). Final `node scripts/verify-v05.mjs --release` on commit f91c2ab (clean tree): exit 0, COMPLETE, 30 steps, 506/506 tests, 0 skipped, source fingerprint ce43ce696ca9c6eacb6765b289f44f1fdcbe25f2dc54c3f6c7d585fc0a17864c (224 files); archives work/release/syna-v0.5.0-source.tar.gz (373781 B, sha256 d574dfda…27ff73), .zip (484783 B, sha256 94f8a682…c08754), pack/syna-core-0.5.0.tgz (88811 B, 497c07d3…da329), pack/syna-tsconfig-0.5.0.tgz (1483 B, 81861252…25cbf). Evidence: RELEASE_MANIFEST.json, validation/v0.5-release/ (manifest, SHA256SUMS.txt, benchmark, working set, archive scan, logs force-added despite *.log ignore).
+Release-gate history (2026-09-05): run 1 PARTIAL — archive scan rejected two strings in the archived cache-delivery audit report (reworded, c9006e4); run 2 PARTIAL — H10 backpressure test raced on concurrent config reads (test fixed, f9a3b35, I-49); run 3 COMPLETE at f9a3b35 (fingerprint 68119800…43a79, source of docs/VALIDATION.md numbers); run 4 COMPLETE at f91c2ab (final, includes docs/VALIDATION.md).
+No remote push, no npm publish, no deployment; the user's PostgreSQL on 5432 was never used.
 
 ## Environment (recorded 2026-09-04, local machine)
 - Host: Darwin 25.2.0 arm64, Apple M4 Pro (14 cores), 48 GiB RAM

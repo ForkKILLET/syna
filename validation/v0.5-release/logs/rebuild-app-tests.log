@@ -1,0 +1,513 @@
+TAP version 13
+# Subtest: F-AP-01 a SiteEnv rotated to draining while it is still being created is closed once nobody leases it
+ok 1 - F-AP-01 a SiteEnv rotated to draining while it is still being created is closed once nobody leases it
+  ---
+  duration_ms: 3128.19125
+  type: 'test'
+  ...
+# Subtest: F-AP-02 invalidate() while a lease is held: new acquires get a fresh env immediately; the old one closes when released
+ok 2 - F-AP-02 invalidate() while a lease is held: new acquires get a fresh env immediately; the old one closes when released
+  ---
+  duration_ms: 17.899917
+  type: 'test'
+  ...
+# Subtest: F-AP-03 malformed request targets are answered with 400 instead of hanging the connection or escaping as rejections
+ok 3 - F-AP-03 malformed request targets are answered with 400 instead of hanging the connection or escaping as rejections
+  ---
+  duration_ms: 75.497459
+  type: 'test'
+  ...
+# Subtest: F-AP-04 edits and visibility changes reach cached pages without a configuration save
+ok 4 - F-AP-04 edits and visibility changes reach cached pages without a configuration save
+  ---
+  duration_ms: 48.938292
+  type: 'test'
+  ...
+# Subtest: F-AP-05/06 a burst of acquirers on a fast-failing tenant shares one creation attempt; HTTP clients see codes, not internals
+ok 5 - F-AP-05/06 a burst of acquirers on a fast-failing tenant shares one creation attempt; HTTP clients see codes, not internals
+  ---
+  duration_ms: 21.483292
+  type: 'test'
+  ...
+# Subtest: F-AP-07/11 an unreachable database fails createHylaApp() with the connection error itself, and the runtime is released
+ok 6 - F-AP-07/11 an unreachable database fails createHylaApp() with the connection error itself, and the runtime is released
+  ---
+  duration_ms: 2.10225
+  type: 'test'
+  ...
+# Subtest: F-AP-08 the static builder never deletes files it did not write, and refuses a foreign non-empty directory
+ok 7 - F-AP-08 the static builder never deletes files it did not write, and refuses a foreign non-empty directory
+  ---
+  duration_ms: 45.889333
+  type: 'test'
+  ...
+# Subtest: F-AP-09 stop() issued while start() is in flight wins: the loop never runs and the worker world is released
+ok 8 - F-AP-09 stop() issued while start() is in flight wins: the loop never runs and the worker world is released
+  ---
+  duration_ms: 19.651958
+  type: 'test'
+  ...
+# Subtest: F-AP-10 an override whose instance lacks the Authenticator interface fails site creation, not the first request
+ok 9 - F-AP-10 an override whose instance lacks the Authenticator interface fails site creation, not the first request
+  ---
+  duration_ms: 20.588792
+  type: 'test'
+  ...
+# Subtest: F-AP-12 close() reports leases still held at shutdown instead of discarding the report
+ok 10 - F-AP-12 close() reports leases still held at shutdown instead of discarding the report
+  ---
+  duration_ms: 63.871667
+  type: 'test'
+  ...
+# Subtest: F-AP-13 an out-of-band domain conflict disables only that host and is reported; every other tenant keeps serving
+ok 11 - F-AP-13 an out-of-band domain conflict disables only that host and is reported; every other tenant keeps serving
+  ---
+  duration_ms: 25.651625
+  type: 'test'
+  ...
+# Subtest: control: the fixture tenants still round-trip through the two-tenant HTTP path after the audit fixes
+ok 12 - control: the fixture tenants still round-trip through the two-tenant HTTP path after the audit fixes
+  ---
+  duration_ms: 21.92225
+  type: 'test'
+  ...
+# Subtest: filesystem/default layout: repository conformance
+    # Subtest: reports its backend and lists the seeded tenants
+    ok 1 - reports its backend and lists the seeded tenants
+      ---
+      duration_ms: 0.976917
+      type: 'test'
+      ...
+    # Subtest: lists public posts versus all posts
+    ok 2 - lists public posts versus all posts
+      ---
+      duration_ms: 8.044333
+      type: 'test'
+      ...
+    # Subtest: never returns drafts or private posts with public visibility
+    ok 3 - never returns drafts or private posts with public visibility
+      ---
+      duration_ms: 8.165958
+      type: 'test'
+      ...
+    # Subtest: resolves the shared slug to a different post per tenant
+    ok 4 - resolves the shared slug to a different post per tenant
+      ---
+      duration_ms: 2.066042
+      type: 'test'
+      ...
+    # Subtest: isolates tenants: alpha never sees beta rows
+    ok 5 - isolates tenants: alpha never sees beta rows
+      ---
+      duration_ms: 6.99475
+      type: 'test'
+      ...
+    # Subtest: applies locale, category and tag filters
+    ok 6 - applies locale, category and tag filters
+      ---
+      duration_ms: 5.506209
+      type: 'test'
+      ...
+    # Subtest: round-trips every stored field of a post
+    ok 7 - round-trips every stored field of a post
+      ---
+      duration_ms: 2.073958
+      type: 'test'
+      ...
+    # Subtest: orders posts deterministically with comparePosts (newest first, then slug)
+    ok 8 - orders posts deterministically with comparePosts (newest first, then slug)
+      ---
+      duration_ms: 1.999541
+      type: 'test'
+      ...
+    # Subtest: increments the revision and keeps the id when the slug changes
+    ok 9 - increments the revision and keeps the id when the slug changes
+      ---
+      duration_ms: 11.664375
+      type: 'test'
+      ...
+    # Subtest: rejects a slug already used by a different id in the same tenant
+    ok 10 - rejects a slug already used by a different id in the same tenant
+      ---
+      duration_ms: 6.112167
+      type: 'test'
+      ...
+    # Subtest: rejects unsafe tenant ids, slugs and invalid input
+    ok 11 - rejects unsafe tenant ids, slugs and invalid input
+      ---
+      duration_ms: 1.780083
+      type: 'test'
+      ...
+    # Subtest: round-trips categories and tags and upserts by slug
+    ok 12 - round-trips categories and tags and upserts by slug
+      ---
+      duration_ms: 2.371125
+      type: 'test'
+      ...
+    # Subtest: saves the site config and increments configRevision
+    ok 13 - saves the site config and increments configRevision
+      ---
+      duration_ms: 2.374125
+      type: 'test'
+      ...
+    # Subtest: runs work inside transaction() against the tenant repository
+    ok 14 - runs work inside transaction() against the tenant repository
+      ---
+      duration_ms: 5.346541
+      type: 'test'
+      ...
+    # Subtest: re-seeding is idempotent in content and increments revisions
+    ok 15 - re-seeding is idempotent in content and increments revisions
+      ---
+      duration_ms: 10.787792
+      type: 'test'
+      ...
+    # Subtest: contentVersion changes on every mutation of the tenant and never for another tenant
+    ok 16 - contentVersion changes on every mutation of the tenant and never for another tenant
+      ---
+      duration_ms: 6.997084
+      type: 'test'
+      ...
+    # Subtest: saveSiteConfig refuses a domain another tenant already claims (DomainConflictError), also when spelled differently
+    ok 17 - saveSiteConfig refuses a domain another tenant already claims (DomainConflictError), also when spelled differently
+      ---
+      duration_ms: 2.88925
+      type: 'test'
+      ...
+    # Subtest: deleteTenant removes only that tenant
+    ok 18 - deleteTenant removes only that tenant
+      ---
+      duration_ms: 2.284875
+      type: 'test'
+      ...
+    1..18
+ok 13 - filesystem/default layout: repository conformance
+  ---
+  duration_ms: 129.163917
+  type: 'suite'
+  ...
+# Subtest: filesystem/blog layout: repository conformance
+    # Subtest: reports its backend and lists the seeded tenants
+    ok 1 - reports its backend and lists the seeded tenants
+      ---
+      duration_ms: 0.382875
+      type: 'test'
+      ...
+    # Subtest: lists public posts versus all posts
+    ok 2 - lists public posts versus all posts
+      ---
+      duration_ms: 2.89675
+      type: 'test'
+      ...
+    # Subtest: never returns drafts or private posts with public visibility
+    ok 3 - never returns drafts or private posts with public visibility
+      ---
+      duration_ms: 5.911708
+      type: 'test'
+      ...
+    # Subtest: resolves the shared slug to a different post per tenant
+    ok 4 - resolves the shared slug to a different post per tenant
+      ---
+      duration_ms: 2.433958
+      type: 'test'
+      ...
+    # Subtest: isolates tenants: alpha never sees beta rows
+    ok 5 - isolates tenants: alpha never sees beta rows
+      ---
+      duration_ms: 5.231834
+      type: 'test'
+      ...
+    # Subtest: applies locale, category and tag filters
+    ok 6 - applies locale, category and tag filters
+      ---
+      duration_ms: 4.407375
+      type: 'test'
+      ...
+    # Subtest: round-trips every stored field of a post
+    ok 7 - round-trips every stored field of a post
+      ---
+      duration_ms: 1.588708
+      type: 'test'
+      ...
+    # Subtest: orders posts deterministically with comparePosts (newest first, then slug)
+    ok 8 - orders posts deterministically with comparePosts (newest first, then slug)
+      ---
+      duration_ms: 1.840292
+      type: 'test'
+      ...
+    # Subtest: increments the revision and keeps the id when the slug changes
+    ok 9 - increments the revision and keeps the id when the slug changes
+      ---
+      duration_ms: 8.053209
+      type: 'test'
+      ...
+    # Subtest: rejects a slug already used by a different id in the same tenant
+    ok 10 - rejects a slug already used by a different id in the same tenant
+      ---
+      duration_ms: 5.390709
+      type: 'test'
+      ...
+    # Subtest: rejects unsafe tenant ids, slugs and invalid input
+    ok 11 - rejects unsafe tenant ids, slugs and invalid input
+      ---
+      duration_ms: 1.5215
+      type: 'test'
+      ...
+    # Subtest: round-trips categories and tags and upserts by slug
+    ok 12 - round-trips categories and tags and upserts by slug
+      ---
+      duration_ms: 2.020459
+      type: 'test'
+      ...
+    # Subtest: saves the site config and increments configRevision
+    ok 13 - saves the site config and increments configRevision
+      ---
+      duration_ms: 1.790834
+      type: 'test'
+      ...
+    # Subtest: runs work inside transaction() against the tenant repository
+    ok 14 - runs work inside transaction() against the tenant repository
+      ---
+      duration_ms: 4.064417
+      type: 'test'
+      ...
+    # Subtest: re-seeding is idempotent in content and increments revisions
+    ok 15 - re-seeding is idempotent in content and increments revisions
+      ---
+      duration_ms: 10.386625
+      type: 'test'
+      ...
+    # Subtest: contentVersion changes on every mutation of the tenant and never for another tenant
+    ok 16 - contentVersion changes on every mutation of the tenant and never for another tenant
+      ---
+      duration_ms: 5.723292
+      type: 'test'
+      ...
+    # Subtest: saveSiteConfig refuses a domain another tenant already claims (DomainConflictError), also when spelled differently
+    ok 17 - saveSiteConfig refuses a domain another tenant already claims (DomainConflictError), also when spelled differently
+      ---
+      duration_ms: 2.198042
+      type: 'test'
+      ...
+    # Subtest: deleteTenant removes only that tenant
+    ok 18 - deleteTenant removes only that tenant
+      ---
+      duration_ms: 1.884208
+      type: 'test'
+      ...
+    1..18
+ok 14 - filesystem/blog layout: repository conformance
+  ---
+  duration_ms: 81.439833
+  type: 'suite'
+  ...
+# Subtest: filesystem: layouts and renames
+    # Subtest: reports the filesystem backend
+    ok 1 - reports the filesystem backend
+      ---
+      duration_ms: 0.067417
+      type: 'test'
+      ...
+    # Subtest: DefaultLayout stores posts/<slug>.md and BlogLayout posts/<primaryCategory>/<slug>.md
+    ok 2 - DefaultLayout stores posts/<slug>.md and BlogLayout posts/<primaryCategory>/<slug>.md
+      ---
+      duration_ms: 0.47575
+      type: 'test'
+      ...
+    # Subtest: renaming slug and primary category moves the file and keeps the id
+    ok 3 - renaming slug and primary category moves the file and keeps the id
+      ---
+      duration_ms: 7.036209
+      type: 'test'
+      ...
+    # Subtest: identity comes from the front matter, not the file name
+    ok 4 - identity comes from the front matter, not the file name
+      ---
+      duration_ms: 2.306959
+      type: 'test'
+      ...
+    1..4
+ok 15 - filesystem: layouts and renames
+  ---
+  duration_ms: 21.974416
+  type: 'suite'
+  ...
+# Subtest: filesystem: path safety
+    # Subtest: safeJoin rejects traversal, absolute segments and escapes
+    ok 1 - safeJoin rejects traversal, absolute segments and escapes
+      ---
+      duration_ms: 0.191292
+      type: 'test'
+      ...
+    # Subtest: rejects path traversal in tenant ids and slugs
+    ok 2 - rejects path traversal in tenant ids and slugs
+      ---
+      duration_ms: 0.349292
+      type: 'test'
+      ...
+    # Subtest: refuses symlinked post files and symlinked tenant directories
+    ok 3 - refuses symlinked post files and symlinked tenant directories
+      ---
+      duration_ms: 9.782166
+      type: 'test'
+      ...
+    1..3
+ok 16 - filesystem: path safety
+  ---
+  duration_ms: 16.716167
+  type: 'suite'
+  ...
+# Subtest: filesystem: atomic writes and per-tenant serialization
+    # Subtest: writeFileAtomic replaces content fully and leaves no temp files
+    ok 1 - writeFileAtomic replaces content fully and leaves no temp files
+      ---
+      duration_ms: 7.218916
+      type: 'test'
+      ...
+    # Subtest: KeyedMutex serializes same-key work and lets different keys run concurrently
+    ok 2 - KeyedMutex serializes same-key work and lets different keys run concurrently
+      ---
+      duration_ms: 22.800375
+      type: 'test'
+      ...
+    # Subtest: concurrent savePost calls for one tenant serialize without lost updates
+    ok 3 - concurrent savePost calls for one tenant serialize without lost updates
+      ---
+      duration_ms: 134.818208
+      type: 'test'
+      ...
+    # Subtest: transaction() serializes with other mutations of the same tenant
+    ok 4 - transaction() serializes with other mutations of the same tenant
+      ---
+      duration_ms: 34.674667
+      type: 'test'
+      ...
+    1..4
+ok 17 - filesystem: atomic writes and per-tenant serialization
+  ---
+  duration_ms: 199.655
+  type: 'suite'
+  ...
+# Subtest: H06 the render infrastructure preflight refuses a factory that depends on the current request before anything listens
+ok 18 - H06 the render infrastructure preflight refuses a factory that depends on the current request before anything listens
+  ---
+  duration_ms: 17.036208
+  type: 'test'
+  ...
+# Subtest: H06 a replacement renderer that reads site facts is refused at the infrastructure preflight with the dependency path
+ok 19 - H06 a replacement renderer that reads site facts is refused at the infrastructure preflight with the dependency path
+  ---
+  duration_ms: 0.849042
+  type: 'test'
+  ...
+# Subtest: H06 the concurrent plugin-protocol probe detects closure pollution between products (check() cannot; a runtime test can)
+ok 20 - H06 the concurrent plugin-protocol probe detects closure pollution between products (check() cannot; a runtime test can)
+  ---
+  duration_ms: 5.959875
+  type: 'test'
+  ...
+# Subtest: H12 request budget: the real request world stays within budget, and explain() shows what would break it
+ok 21 - H12 request budget: the real request world stays within budget, and explain() shows what would break it
+  ---
+  duration_ms: 42.979875
+  type: 'test'
+  ...
+# Subtest: H12 a transitive CurrentRequest dependency in infrastructure is explained as a per-request fork and blocked by the budget
+ok 22 - H12 a transitive CurrentRequest dependency in infrastructure is explained as a per-request fork and blocked by the budget
+  ---
+  duration_ms: 0.5095
+  type: 'test'
+  ...
+# Subtest: H13 the worker is started by the host after the root is Ready, loops in its own child world and stops before shared resources close
+ok 23 - H13 the worker is started by the host after the root is Ready, loops in its own child world and stops before shared resources close
+  ---
+  duration_ms: 84.85675
+  type: 'test'
+  ...
+# Subtest: H01 the data model normalizes input, orders deterministically and treats locale and visibility as data
+ok 24 - H01 the data model normalizes input, orders deterministically and treats locale and visibility as data
+  ---
+  duration_ms: 0.29775
+  type: 'test'
+  ...
+# Subtest: H05 three recipes with observable differences are built from one shared set of factory slots
+ok 25 - H05 three recipes with observable differences are built from one shared set of factory slots
+  ---
+  duration_ms: 23.064042
+  type: 'test'
+  ...
+# Subtest: H05 concurrent rendering across recipes and tenants shares no mutable state (outputs are independent of interleaving)
+ok 26 - H05 concurrent rendering across recipes and tenants shares no mutable state (outputs are independent of interleaving)
+  ---
+  duration_ms: 15.267458
+  type: 'test'
+  ...
+# Subtest: H05 recipe validation: stage order, duplicate plugins, option schemas and defaults, unknown contract
+ok 27 - H05 recipe validation: stage order, duplicate plugins, option schemas and defaults, unknown contract
+  ---
+  duration_ms: 2.963333
+  type: 'test'
+  ...
+# Subtest: H07 recipes round-trip through JSON, resolve inside the saved version intent, upgrade in a new Runtime and fail explicitly without the family
+ok 28 - H07 recipes round-trip through JSON, resolve inside the saved version intent, upgrade in a new Runtime and fail explicitly without the family
+  ---
+  duration_ms: 2.898875
+  type: 'test'
+  ...
+# Subtest: H10 leases are single-flight per key, idempotent on release, evicted only when idle, and bounded by capacity with backpressure
+ok 29 - H10 leases are single-flight per key, idempotent on release, evicted only when idle, and bounded by capacity with backpressure
+  ---
+  duration_ms: 383.111417
+  type: 'test'
+  ...
+# Subtest: H10 configuration update under traffic: new requests enter the new revision, in-flight requests finish on the old one, old envs are released and never accumulate
+ok 30 - H10 configuration update under traffic: new requests enter the new revision, in-flight requests finish on the old one, old envs are released and never accumulate
+  ---
+  duration_ms: 34.410667
+  type: 'test'
+  ...
+# Subtest: H10 a cold creation failure leaves no poisoned single-flight promise and backs off; shutdown refuses new acquires and reports unreleased leases
+ok 31 - H10 a cold creation failure leaves no poisoned single-flight promise and backs off; shutdown refuses new acquires and reports unreleased leases
+  ---
+  duration_ms: 191.117834
+  type: 'test'
+  ...
+# Subtest: H11 / P05 working set stays bounded under hot-spot, rotating and long-tail access with many tenants; heap trend is sampled after GC
+ok 32 - H11 / P05 working set stays bounded under hot-spot, rotating and long-tail access with many tenants; heap trend is sampled after GC
+  ---
+  duration_ms: 2618.078041
+  type: 'test'
+  ...
+# Subtest: H11 shutdown with concurrent acquire/release: no acquire after close, every lease accounted for
+ok 33 - H11 shutdown with concurrent acquire/release: no acquire after close, every lease accounted for
+  ---
+  duration_ms: 32.684334
+  type: 'test'
+  ...
+# Subtest: H08 domains map to tenants through the controlled table; unknown hosts and untrusted forwarded hosts are refused
+ok 34 - H08 domains map to tenants through the controlled table; unknown hosts and untrusted forwarded hosts are refused
+  ---
+  duration_ms: 86.879084
+  type: 'test'
+  ...
+# Subtest: H08 a trusted proxy may supply the host; page caches are partitioned by tenant, locale and visibility
+ok 35 - H08 a trusted proxy may supply the host; page caches are partitioned by tenant, locale and visibility
+  ---
+  duration_ms: 33.316292
+  type: 'test'
+  ...
+# Subtest: H09 two authenticators are swapped per site without touching content code; anonymous reads public only; A cannot read B
+ok 36 - H09 two authenticators are swapped per site without touching content code; anonymous reads public only; A cannot read B
+  ---
+  duration_ms: 43.539291
+  type: 'test'
+  ...
+1..36
+# tests 78
+# suites 5
+# pass 78
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 3692.644333

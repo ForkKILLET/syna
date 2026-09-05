@@ -1,0 +1,4 @@
+
+> syna-v0.5-workspace@0.5.0 build
+> tsc -b packages/core --force && tsc -b tsconfig.json --force
+

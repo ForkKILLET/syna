@@ -1,0 +1,40 @@
+TAP version 13
+# Subtest: H10 leases are single-flight per key, idempotent on release, evicted only when idle, and bounded by capacity with backpressure
+ok 1 - H10 leases are single-flight per key, idempotent on release, evicted only when idle, and bounded by capacity with backpressure
+  ---
+  duration_ms: 365.546834
+  type: 'test'
+  ...
+# Subtest: H10 configuration update under traffic: new requests enter the new revision, in-flight requests finish on the old one, old envs are released and never accumulate
+ok 2 - H10 configuration update under traffic: new requests enter the new revision, in-flight requests finish on the old one, old envs are released and never accumulate
+  ---
+  duration_ms: 42.269
+  type: 'test'
+  ...
+# Subtest: H10 a cold creation failure leaves no poisoned single-flight promise and backs off; shutdown refuses new acquires and reports unreleased leases
+ok 3 - H10 a cold creation failure leaves no poisoned single-flight promise and backs off; shutdown refuses new acquires and reports unreleased leases
+  ---
+  duration_ms: 198.500708
+  type: 'test'
+  ...
+# Subtest: H11 / P05 working set stays bounded under hot-spot, rotating and long-tail access with many tenants; heap trend is sampled after GC
+ok 4 - H11 / P05 working set stays bounded under hot-spot, rotating and long-tail access with many tenants; heap trend is sampled after GC
+  ---
+  duration_ms: 2684.563667
+  type: 'test'
+  ...
+# Subtest: H11 shutdown with concurrent acquire/release: no acquire after close, every lease accounted for
+ok 5 - H11 shutdown with concurrent acquire/release: no acquire after close, every lease accounted for
+  ---
+  duration_ms: 43.618458
+  type: 'test'
+  ...
+1..5
+# tests 5
+# suites 0
+# pass 5
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 3496.1195
