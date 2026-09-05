@@ -50,15 +50,15 @@ for (const step of manifest.steps) {
   out(`| ${step.name} | ${step.exitCode} | ${tests} | ${duration} | \`${step.log}\` |`)
 }
 out('')
-out(`Totals: ${manifest.totals.steps} steps, ${manifest.totals.failed} failed steps, ${manifest.totals.tests} tests, ${manifest.totals.passed} passed, ${manifest.totals.skippedTests} skipped/not run. Blocked steps: ${manifest.blocked.length}.`, '')
+const totals = manifest.totals
+const distinct = totals.distinctTests ?? manifest.steps.filter(step => !step.name.startsWith('rebuild-')).reduce((sum, step) => sum + (step.tests?.tests ?? 0), 0)
+const rerun = totals.rebuildTests ?? totals.tests - distinct
+out(`Totals: ${totals.steps} steps, ${totals.failed} failed steps; ${totals.tests} test executions: ${distinct} distinct cases, ${rerun} of them executed a second time in the rebuilt copy (the \`rebuild-*\` steps); ${totals.passed} passed, ${totals.skippedTests} skipped/not run. Blocked steps: ${manifest.blocked.length}.`, '')
 out('The `rebuild-*` steps ran inside a fresh directory created with `mkdtemp` in the OS temp dir: the source tarball was unpacked there, `npm ci` installed from the lockfile, the workspace was built and type-tested, and the core, application and PostgreSQL/matrix suites plus the filesystem demo ran against that copy. `pack-*` produced the npm tarballs from the rebuilt copy; `consumer-*` installed them into an independent TypeScript project, compiled it and ran it.', '')
 
 if (manifest.release) {
-  out(`## Release artefacts (\`${runDir}/SHA256SUMS.txt\`)`, '')
-  out('| artefact | bytes | sha256 |', '|---|---:|---|')
-  for (const item of [...manifest.release.archives, ...manifest.release.packed]) out(`| \`${item.path}\` | ${item.bytes} | \`${item.sha256}\` |`)
-  out('')
-  out(`Rebuilt from \`${manifest.release.rebuiltFrom}\`. Consumer smoke result (last line of \`${runDir}/logs/consumer-run.log\`): \`${consumerLog.at(-1)}\`.`, '')
+  out('## Release artefacts', '')
+  out(`The ${manifest.release.archives.length} source archives and ${manifest.release.packed.length} npm packages of the run this page was generated from are listed with sizes and SHA-256 digests in that run's \`SHA256SUMS.txt\` and under \`release\` in its \`manifest.json\`. They are not copied here: this page is part of the shipped source, so the run of reference (\`RELEASE_MANIFEST.json\`, \`validation/v0.5-release/SHA256SUMS.txt\`) is executed on a source that already contains it and its hashes are the ones to check. Rebuilt from \`${manifest.release.rebuiltFrom}\`. Consumer smoke result (last line of \`${runDir}/logs/consumer-run.log\`): \`${consumerLog.at(-1)}\`.`, '')
 }
 
 out(`## Micro-benchmarks (P01–P04, \`${runDir}/benchmark-v0.5.json\`)`, '')
@@ -128,7 +128,7 @@ if (existsSync(latencyFile)) {
 }
 
 out('## Audit and review fixes covered by this run', '')
-out('The suites above include the regressions written for the independent audits and for the second review round (`docs/AUDIT.md`): `packages/core/tests/v05-audit-lifecycle.test.mjs`, `v05-audit-planning.test.mjs` and `v05-review-lifecycle.test.mjs` inside `core-tests`, `apps/hyla-mini/tests/audit-app.test.mjs` and `apps/hyla-mini/tests/review-app.test.mjs` as their own steps, and the two repository-conformance cases (content version, domain claims) inside the filesystem and PostgreSQL suites.', '')
+out('The suites above include the regressions written for the independent audits and for the second and third review rounds (`docs/AUDIT.md`): `packages/core/tests/v05-audit-lifecycle.test.mjs`, `v05-audit-planning.test.mjs` and `v05-review-lifecycle.test.mjs` inside `core-tests` (the third round\'s core cases live in the `v05-*` files named in `work/v05/ISSUES.md` I-58…I-65), `apps/hyla-mini/tests/audit-app.test.mjs` and `apps/hyla-mini/tests/review-app.test.mjs` as their own steps, the site-manager, render and preflight cases of the third round inside their steps, and the repository-conformance cases (content version, domain claims and concurrent claims, tenant-scoped post identity, configuration validation) inside the filesystem and PostgreSQL suites. The demo steps are self-asserting (`demo: OK` and three `: 200` cells are required, not just exit 0).', '')
 
 out('## What is not covered', '')
 out('- Coverage percentages are not a gate in v0.5; the adversarial and application suites are.')

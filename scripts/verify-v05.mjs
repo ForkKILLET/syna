@@ -78,8 +78,13 @@ function run(name, command, commandArgs, options = {}) {
         // skipped, todo and cancelled tests all count as "not run" for a no-skip step.
         ok: code === 0 && !timedOut && (counts ? counts.fail === 0 && counts.cancelled === 0 && (!options.noSkip || notRun === 0) : true),
       }
+      // A step may also have to say something: an exit code alone does not prove a demo served its pages.
+      if (step.ok && options.expectStdout && !options.expectStdout(output)) {
+        step.ok = false
+        step.note = 'exit 0, but the expected output lines are missing (expectStdout)'
+      }
       steps.push(step)
-      log(`${step.ok ? 'ok  ' : 'FAIL'} ${name} (exit ${code}${signal ? `/${signal}` : ''}, ${step.durationMs} ms${counts ? `, tests ${counts.pass}/${counts.tests} pass, ${counts.fail} fail, ${notRun} not run` : ''})`)
+      log(`${step.ok ? 'ok  ' : 'FAIL'} ${name} (exit ${code}${signal ? `/${signal}` : ''}, ${step.durationMs} ms${counts ? `, tests ${counts.pass}/${counts.tests} pass, ${counts.fail} fail, ${notRun} not run` : ''}${step.note ? `; ${step.note}` : ''})`)
       resolve(step)
     })
   })
@@ -93,6 +98,14 @@ function parseTap(output) {
   const tests = get('tests')
   if (tests === undefined) return undefined
   return { tests, pass: get('pass') ?? 0, fail: get('fail') ?? 0, skipped: get('skipped') ?? 0, todo: get('todo') ?? 0, cancelled: get('cancelled') ?? 0 }
+}
+
+/** The Hyla-mini demo must have served all three cells (two HTTP tenants, one static build) with 200 and said so. */
+function demoServedAllCells(output) {
+  return /^demo: .* → HTTP alpha \/posts\/shared-slug: 200 /m.test(output)
+    && /^demo: .* → HTTP beta \/posts\/shared-slug: 200 /m.test(output)
+    && /^demo: .* → static alpha \/posts\/shared-slug\/ \(\d+ files\): 200 /m.test(output)
+    && /^demo: OK$/m.test(output)
 }
 
 /** Manifests must not leak the host's directory layout: the workspace root becomes `<root>`. */
@@ -172,7 +185,7 @@ async function developmentGate() {
     blocked.push({ step: pgStep.name, reason: 'PostgreSQL could not be started or reached (see log). Provide SYNA_TEST_PG_URL or install postgresql@17 binaries.' })
   }
   await run('demos', 'npm', ['run', 'demo'])
-  await run('hyla-demo-filesystem', 'node', ['apps/hyla-mini/bin/hyla-mini.mjs', 'demo', '--root', path.join(root, 'work', 'demo-content')])
+  await run('hyla-demo-filesystem', 'node', ['apps/hyla-mini/bin/hyla-mini.mjs', 'demo', '--root', path.join(root, 'work', 'demo-content')], { expectStdout: demoServedAllCells })
   rmSync(path.join(root, 'work', 'demo-content'), { recursive: true, force: true })
   await run('benchmarks', 'node', ['--expose-gc', 'benchmarks/v0.5-planning.mjs', path.join(validationDir, 'benchmark-v0.5.json')])
   // Report only (no budget): end-to-end request latency on both backends, PostgreSQL through the temporary cluster.
@@ -235,7 +248,7 @@ async function releaseGate(sourceFingerprint) {
   await run('rebuild-core-tests', 'node', ['--test', '--test-reporter=tap', ...readdirSync(path.join(unpacked, 'packages/core/tests')).filter(f => f.endsWith('.test.mjs')).sort().map(f => `packages/core/tests/${f}`)], { ...rebuildLogs, noSkip: true })
   await run('rebuild-app-tests', 'node', ['--test', '--test-reporter=tap', '--expose-gc', 'apps/hyla-mini/tests/filesystem.test.mjs', 'apps/hyla-mini/tests/render.test.mjs', 'apps/hyla-mini/tests/tenants-auth.test.mjs', 'apps/hyla-mini/tests/preflight.test.mjs', 'apps/hyla-mini/tests/audit-app.test.mjs', 'apps/hyla-mini/tests/review-app.test.mjs', 'apps/hyla-mini/tests/site-manager.test.mjs'], { ...rebuildLogs, noSkip: true })
   await run('rebuild-postgres-matrix-tests', 'node', ['scripts/pg-test-cluster.mjs', 'with', '--', 'node', '--test', '--test-reporter=tap', 'apps/hyla-mini/tests/postgres.test.mjs', 'apps/hyla-mini/tests/matrix.test.mjs'], { ...rebuildLogs, noSkip: true, env: { SYNA_PG_CLUSTER_DIR: path.join(rebuildDir, 'pg') } })
-  await run('rebuild-demo', 'node', ['apps/hyla-mini/bin/hyla-mini.mjs', 'demo', '--root', path.join(rebuildDir, 'demo-content')], rebuildLogs)
+  await run('rebuild-demo', 'node', ['apps/hyla-mini/bin/hyla-mini.mjs', 'demo', '--root', path.join(rebuildDir, 'demo-content')], { ...rebuildLogs, expectStdout: demoServedAllCells })
 
   // Package tarball + independent consumer project.
   const packDir = path.join(releaseDir, 'pack')
@@ -301,6 +314,10 @@ if (release && !insideArchive) releaseResult = await releaseGate(sourceFingerpri
 const mustRun = steps.filter(step => step.mustRun !== false)
 const failed = mustRun.filter(step => !step.ok)
 const skipped = mustRun.reduce((sum, step) => sum + (step.tests?.skipped ?? 0), 0)
+// The `rebuild-*` steps run the same suites a second time inside the unpacked archive: their
+// tests are executions of cases already counted, not additional cases.
+const isRebuild = step => step.name.startsWith('rebuild-')
+const sumTests = (predicate, key) => steps.filter(predicate).reduce((sum, step) => sum + (step.tests?.[key] ?? 0), 0)
 const status = blocked.length > 0 ? 'BLOCKED' : failed.length === 0 && skipped === 0 ? 'COMPLETE' : 'PARTIAL'
 const packageJson = JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf8'))
 const manifest = {
@@ -317,8 +334,13 @@ const manifest = {
     steps: steps.length,
     failed: failed.length,
     skippedTests: skipped,
-    tests: steps.reduce((sum, step) => sum + (step.tests?.tests ?? 0), 0),
-    passed: steps.reduce((sum, step) => sum + (step.tests?.pass ?? 0), 0),
+    /** Test executions across all steps (a case run twice counts twice). */
+    tests: sumTests(() => true, 'tests'),
+    passed: sumTests(() => true, 'pass'),
+    /** Distinct test cases: executions outside the `rebuild-*` steps. */
+    distinctTests: sumTests(step => !isRebuild(step), 'tests'),
+    /** Executions inside the `rebuild-*` steps (the same cases run a second time on the rebuilt copy). */
+    rebuildTests: sumTests(isRebuild, 'tests'),
   },
   blocked,
   ...(releaseResult ? { release: releaseResult } : {}),
@@ -332,7 +354,7 @@ if (release && releaseResult) {
   writeFileSync(path.join(validationDir, 'SHA256SUMS.txt'), `${sums}\n`)
 }
 log('')
-log(`== ${status} == ${manifest.totals.tests} tests, ${manifest.totals.passed} passed, ${failed.length} failed steps, ${skipped} skipped tests`)
+log(`== ${status} == ${manifest.totals.tests} test executions (${manifest.totals.distinctTests} distinct cases, ${manifest.totals.rebuildTests} re-run in the rebuilt copy), ${manifest.totals.passed} passed, ${failed.length} failed steps, ${skipped} skipped tests`)
 log(`source fingerprint: ${sourceFingerprint.digest} (${sourceFingerprint.files} files)`)
 for (const step of steps) log(`  ${step.ok ? 'ok  ' : 'FAIL'} ${step.name.padEnd(40)} exit=${step.exitCode}${step.tests ? ` pass=${step.tests.pass} fail=${step.tests.fail} skip=${step.tests.skipped}` : ''} log=${step.log}`)
 if (releaseResult) {

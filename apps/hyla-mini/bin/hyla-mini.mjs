@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 // Hyla-mini command line: serve | build | seed | explain | demo
+import http from 'node:http'
 import path from 'node:path'
 import process from 'node:process'
-import { mkdtemp } from 'node:fs/promises'
+import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import {
   BuildEntry,
@@ -30,6 +31,26 @@ function parseArgs(argv) {
     else { options[key] = next; index += 1 }
   }
   return { command, options }
+}
+
+/** Plain node:http GET; unlike fetch(), it can send an arbitrary Host header (the tenant is chosen by host). */
+function request(url, host) {
+  const target = new URL(url)
+  return new Promise((resolve, reject) => {
+    const outgoing = http.request({
+      hostname: target.hostname,
+      port: target.port,
+      path: `${target.pathname}${target.search}`,
+      method: 'GET',
+      headers: host ? { host } : {},
+    }, response => {
+      const chunks = []
+      response.on('data', chunk => chunks.push(chunk))
+      response.on('end', () => resolve({ status: response.statusCode, body: Buffer.concat(chunks).toString('utf8') }))
+    })
+    outgoing.on('error', reject)
+    outgoing.end()
+  })
 }
 
 function backendFrom(options) {
@@ -111,24 +132,53 @@ async function main() {
       return
     }
     if (command === 'demo') {
+      // Self-asserting: every cell must answer 200 with the tenant's own site title in the
+      // body, otherwise the demo fails (exit 1) instead of merely printing a status code.
       await seed(app, options)
       await preflightRequests(app)
+      const fixture = loadContentFixture()
+      const backend = backendFrom(options).kind === 'postgres' ? 'PG' : 'FS'
+      const failures = []
+      const cell = (label, response, marker) => {
+        const ok = response.status === 200 && response.body.includes(marker)
+        console.log(`demo: ${label}: ${response.status} ${Buffer.byteLength(response.body)} bytes${ok ? '' : ` — expected 200 with ${JSON.stringify(marker)} in the body`}`)
+        if (!ok) failures.push(label)
+      }
       const domains = await app.domains()
       const server = await startHttpServer({ app: app.app, domains })
-      const dynamic = await fetch(`${server.url}/posts/shared-slug`, { headers: { host: 'alpha.test' } })
-      console.log(`PG/FS → HTTP alpha /posts/shared-slug: ${dynamic.status} ${(await dynamic.text()).length} bytes`)
-      const beta = await fetch(`${server.url}/posts/shared-slug`, { headers: { host: 'beta.test' } })
-      console.log(`         beta  /posts/shared-slug: ${beta.status} ${(await beta.text()).length} bytes`)
-      const out = await mkdtemp(path.join(tmpdir(), 'hyla-static-'))
-      const manager = await app.app.deps.sites.load()
-      const lease = await manager.acquire('alpha', 'build')
-      const manifest = await lease.env.run(BuildEntry, { build: { outputDir: out } }, async ({ builder }) => (await builder.load()).build())
-      lease.release()
-      const staticServer = await startStaticServer(out)
-      const served = await fetch(`${staticServer.url}/posts/shared-slug/`)
-      console.log(`PG/FS → static alpha: ${manifest.files.length} files in ${out}; served /posts/shared-slug/: ${served.status}`)
-      await staticServer.close()
-      await server.close()
+      try {
+        for (const tenantId of ['alpha', 'beta']) {
+          const site = fixture.tenants[tenantId].site
+          cell(`${backend} → HTTP ${tenantId} /posts/shared-slug`, await request(`${server.url}/posts/shared-slug`, site.domains[0]), site.title)
+        }
+        const out = await mkdtemp(path.join(tmpdir(), 'hyla-static-'))
+        try {
+          const manager = await app.app.deps.sites.load()
+          const lease = await manager.acquire('alpha', 'build')
+          let manifest
+          try {
+            manifest = await lease.env.run(BuildEntry, { build: { outputDir: out } }, async ({ builder }) => (await builder.load()).build())
+          }
+          finally {
+            lease.release()
+          }
+          const staticServer = await startStaticServer(out)
+          try {
+            cell(`${backend} → static alpha /posts/shared-slug/ (${manifest.files.length} files)`, await request(`${staticServer.url}/posts/shared-slug/`), fixture.tenants.alpha.site.title)
+          }
+          finally {
+            await staticServer.close()
+          }
+        }
+        finally {
+          await rm(out, { recursive: true, force: true })
+        }
+      }
+      finally {
+        await server.close()
+      }
+      if (failures.length > 0) throw new Error(`DEMO FAILED: ${failures.join('; ')}`)
+      console.log('demo: OK')
       return
     }
     throw new Error(`Unknown command ${command}`)
