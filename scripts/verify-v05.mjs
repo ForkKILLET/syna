@@ -161,6 +161,7 @@ async function developmentGate() {
   await run('hyla-render-tests', 'node', ['--test', '--test-reporter=tap', 'apps/hyla-mini/tests/render.test.mjs'], { noSkip: true })
   await run('hyla-tenants-auth-preflight-tests', 'node', ['--test', '--test-reporter=tap', 'apps/hyla-mini/tests/tenants-auth.test.mjs', 'apps/hyla-mini/tests/preflight.test.mjs'], { noSkip: true })
   await run('hyla-audit-regression-tests', 'node', ['--test', '--test-reporter=tap', 'apps/hyla-mini/tests/audit-app.test.mjs'], { noSkip: true })
+  await run('hyla-review-regression-tests', 'node', ['--test', '--test-reporter=tap', 'apps/hyla-mini/tests/review-app.test.mjs'], { noSkip: true })
   await run('hyla-site-manager-working-set-tests', 'node', ['--test', '--test-reporter=tap', '--expose-gc', 'apps/hyla-mini/tests/site-manager.test.mjs'], { noSkip: true, env: { SYNA_WORKING_SET_OUT: path.join(validationDir, 'working-set.json') } })
   // Real PostgreSQL: a temporary cluster (or SYNA_TEST_PG_URL). Never skipped; a missing server is BLOCKED.
   const pgStep = await run('hyla-postgres-and-matrix-tests', 'node', [
@@ -227,7 +228,7 @@ async function releaseGate(sourceFingerprint) {
   await run('rebuild-build', 'npm', ['run', 'build'], rebuildLogs)
   await run('rebuild-type-tests', 'npm', ['run', 'type-tests'], rebuildLogs)
   await run('rebuild-core-tests', 'node', ['--test', '--test-reporter=tap', ...readdirSync(path.join(unpacked, 'packages/core/tests')).filter(f => f.endsWith('.test.mjs')).sort().map(f => `packages/core/tests/${f}`)], { ...rebuildLogs, noSkip: true })
-  await run('rebuild-app-tests', 'node', ['--test', '--test-reporter=tap', '--expose-gc', 'apps/hyla-mini/tests/filesystem.test.mjs', 'apps/hyla-mini/tests/render.test.mjs', 'apps/hyla-mini/tests/tenants-auth.test.mjs', 'apps/hyla-mini/tests/preflight.test.mjs', 'apps/hyla-mini/tests/audit-app.test.mjs', 'apps/hyla-mini/tests/site-manager.test.mjs'], { ...rebuildLogs, noSkip: true })
+  await run('rebuild-app-tests', 'node', ['--test', '--test-reporter=tap', '--expose-gc', 'apps/hyla-mini/tests/filesystem.test.mjs', 'apps/hyla-mini/tests/render.test.mjs', 'apps/hyla-mini/tests/tenants-auth.test.mjs', 'apps/hyla-mini/tests/preflight.test.mjs', 'apps/hyla-mini/tests/audit-app.test.mjs', 'apps/hyla-mini/tests/review-app.test.mjs', 'apps/hyla-mini/tests/site-manager.test.mjs'], { ...rebuildLogs, noSkip: true })
   await run('rebuild-postgres-matrix-tests', 'node', ['scripts/pg-test-cluster.mjs', 'with', '--', 'node', '--test', '--test-reporter=tap', 'apps/hyla-mini/tests/postgres.test.mjs', 'apps/hyla-mini/tests/matrix.test.mjs'], { ...rebuildLogs, noSkip: true, env: { SYNA_PG_CLUSTER_DIR: path.join(rebuildDir, 'pg') } })
   await run('rebuild-demo', 'node', ['apps/hyla-mini/bin/hyla-mini.mjs', 'demo', '--root', path.join(rebuildDir, 'demo-content')], rebuildLogs)
 

@@ -48,6 +48,9 @@ export function waitWithSignal<T>(
 ): Promise<T> {
   if (!signal) return promise
   if (signal.aborted) {
+    // The caller's own wait ends here; the shared promise keeps an observer so a
+    // later failure of the attempt is never an unhandled rejection of this copy.
+    promise.then(undefined, () => undefined)
     return Promise.reject(new SynaError('LOAD_CANCELLED', 'The caller cancelled its wait.', describe()))
   }
   return new Promise<T>((resolve, reject) => {

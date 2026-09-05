@@ -88,12 +88,13 @@ Topology precedes materialization. A Service slot moves through:
 ```text
 Dormant → Starting → Ready → Disposing → Disposed
               └────→ Failed ──(recovery)──→ Starting
-                       └→ Abandoned (attempt never settled before the owner closed)
+                       │  (final once a rollback failed)
+                       └→ Abandoned ──(late settlement / unreachable)──→ Disposed
 ```
 
 `DependencyRef.load()` materializes an already-planned slot and returns a plain Promise. Whether the caller awaits it is ordinary JavaScript; the Runtime adds no barrier and no obligation. One actual `setup()` execution is an attempt; each caller is a waiter; concurrent waiters join one attempt; a waiter may end its own wait with an AbortSignal without affecting the attempt.
 
-Failure is sticky by default. A failure policy may retry within one sequence (never after a failed rollback) and may allow one shared recovery sequence on a later `load()` after cooldown. A per-attempt initialization deadline turns a never-settling setup into `INITIALIZATION_TIMEOUT`; the attempt is then blocked from overlapping with a new one until its raw Promise settles, and late results are discarded, cleaned up and reported.
+Failure is sticky by default. A failure policy may retry within one sequence and may allow one shared recovery sequence on a later `load()` after cooldown. A failed rollback ends both: a slot whose cleanup threw (inside a sequence, or while a late result was being cleaned up) is final and refuses recovery with `ROLLBACK_FAILED`, because the resources that attempt acquired are no longer under Syna control and a new attempt would stack on top of them. A per-attempt initialization deadline turns a never-settling setup into `INITIALIZATION_TIMEOUT`; the attempt is then blocked from overlapping with a new one until its raw Promise settles, and late results are discarded, cleaned up and reported. An abandoned attempt (§13) ends the same way when its raw Promise settles late; if that Promise is garbage-collected first, nothing can settle it any more and the attempt is closed as unreachable (its cleanups run, `attempt-unreachable` is reported). Retention of an attempt is therefore bounded by the reachability of the user's own setup Promise, never by the Runtime.
 
 An eager Service slot must be Ready before its Env becomes Ready. Unrelated eager slots have no startup order guarantee.
 
@@ -105,7 +106,11 @@ A cycle of setup waits cannot be proven from Promises. The Runtime records which
 
 ## 13. Disposal
 
-A parent cannot dispose before its descendants. Closing first refuses new work and aborts the owner signal, then waits for descendants and registered attempts, then disposes owned slots. Each Env disposes only Service slots it owns; attempts that never settle are reported (`UNSETTLED_ATTEMPT`) rather than claimed closed.
+A parent cannot dispose before its descendants. Closing first refuses new work and aborts the owner signal of the whole subtree, then waits for descendants, then gives each owned in-flight attempt the disposal grace, then disposes owned slots. Each Env disposes only Service slots it owns; attempts that did not settle within the grace are abandoned and reported (`UNSETTLED_ATTEMPT`, naming the dependency slots the attempt may still use) rather than claimed closed.
+
+The close is bounded. When it ends, the Env leaves the tree and the Runtime's registries whether or not attempts are outstanding: its parent no longer waits for it and nothing in the Runtime retains its graph. Its state stays `disposing` while an attempt abandoned by that close (its own, or one of a descendant closed by the same call) is outstanding, and becomes `disposed` when the last of them settles late or is closed as unreachable (§11). The Runtime keeps only a weak ledger of outstanding attempts (`inspect().unsettledAttempts`), which `runtime.dispose()` reports again.
+
+Dependencies of an abandoned attempt are disposed in the normal order after the grace. The model has no revocation and no forced termination (§14), so a setup that keeps running past the grace may observe closed dependencies; this is the acknowledged consequence of a bounded close, reported with the attempt, not a state the model can prevent.
 
 For materialized owned slots, the structural graph is condensed to an SCC DAG. SCCs are disposed dependant-first. Within an SCC, cleanup uses reverse materialization-completion order and offers no stronger business ordering guarantee.
 
@@ -121,4 +126,5 @@ Core v0 deliberately does not define:
 - reactive Input mutation tracking;
 - process/distributed singleton guarantees;
 - automatic cross-Contract runtime adapters;
-- forced revocation of escaped plain JavaScript Service instances.
+- forced revocation of escaped plain JavaScript Service instances;
+- forced termination of a `setup()` that ignores its stop signal: such an attempt is abandoned and reported, never killed, and the slots it depends on are closed in the normal order regardless.

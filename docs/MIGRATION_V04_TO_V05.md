@@ -23,8 +23,10 @@
 | M-15 | thenable 实例 | 未定义 | 实例不能是 thenable（await 必然吸收）；同步返回外部 thenable 触发 `foreign-thenable-setup` 诊断事件 | 把 thenable 客户端放进普通 holder 对象 |
 | M-16 | `RuntimeInspection` | — | 新增 `overriddenServices`、`liveEnvCount` | 可选 |
 | M-17 | `check()` 的意外错误 | `checkFrom(..., rethrowUnexpected)` 内部参数 | 非拓扑错误（策略 TypeError、无效 descriptor、budget）一律抛出 | 无需改动 |
-| M-18 | `dispose()` 后的 `env.state` | 总是 `disposed` | 有 attempt 被放弃（`UNSETTLED_ATTEMPT`）时保持 `disposing`、仍被 `inspect()` 计数，迟到结果清理后才 `disposed`；`runtime.dispose()` 会再次报告 | 等待/处理 `UNSETTLED_ATTEMPT`，不要把 `state === 'disposed'` 当作关闭完成的唯一信号 |
+| M-18 | `dispose()` 后的 `env.state` | 总是 `disposed` | 有 attempt 被放弃（`UNSETTLED_ATTEMPT`）时保持 `disposing`，迟到结果清理后（或 attempt 不可达后）才 `disposed`；有界关闭结束时 Env 已离开树与 `inspect()` 计数，未结束的 attempt 列在 `inspect().unsettledAttempts`，`runtime.dispose()` 会再次报告 | 等待/处理 `UNSETTLED_ATTEMPT`，不要把 `state === 'disposed'` 当作关闭完成的唯一信号；用 `unsettledAttempts` 而不是 `liveEnvCount` 观察未结束的 attempt |
 | M-19 | 未处理的 `load()` 失败 | 加入运行中 attempt 的调用者得到带内部 catch 的共享 Promise（失败被静默） | 每个调用者得到自己的 Promise，忘记 `.catch` 即 unhandled rejection | 给每个 `load()` 结果加处理（`await`/`.catch`/`preload()`） |
+| M-20 | 回滚失败后的恢复 | `retry-on-next-load` 冷却后照常启动新 attempt，即使上一次的 `onDispose` 清理抛错 | 清理失败过的 slot 永久 `failed`，之后每次 `load()` 得到 `ROLLBACK_FAILED`（`cause` 为原错误） | 把清理失败当作需要人工处理的事件（新 Env / 修复资源），不要依赖自动恢复 |
+| M-21 | 永不结算的 setup | 超时/被放弃的 attempt 永久占住 slot 与 Env | setup Promise 被垃圾回收后 attempt 以 `attempt-unreachable` 关闭：清理运行，slot 与 Env 成为 `disposed` | 需要观察时监听 `diagnostics.onEvent` 的 `attempt-unreachable`；不要假定 `disposing` 会永久存在 |
 
 ## 改写的旧测试（逐项）
 

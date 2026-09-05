@@ -1,4 +1,4 @@
-import { createRuntime, type CreateRuntimeOptions, type EnvHandle, type ServiceRevision, type SynaRuntime } from '@syna/core'
+import { createRuntime, type CreateRuntimeOptions, type EnvHandle, type ServiceRevision, type SynaRuntime, type UnsettledAttemptInspection } from '@syna/core'
 import { AUTHENTICATORS } from './auth/implementations.js'
 import { DatabasePool } from './data/postgres/pool.js'
 import { PostgresContentStore } from './data/postgres/store.js'
@@ -40,6 +40,14 @@ export interface HylaAppOptions {
 export interface HylaShutdownReport {
   /** `key#count` of site leases still held when the shutdown timeout expired. Empty on a clean close. */
   readonly unreleasedLeases: readonly string[]
+  /**
+   * Setup attempts that ignored the stop signal past the disposal grace and are
+   * still pending when `close()` returns (from `runtime.inspect().unsettledAttempts`).
+   * Their resources are outside Syna control; the Runtime retains only this ledger.
+   */
+  readonly unsettledAttempts: readonly UnsettledAttemptInspection[]
+  /** Errors raised while disposing the Runtime (Service cleanups that threw, unsettled attempts). Empty on a clean close. */
+  readonly errors: readonly unknown[]
 }
 
 export interface HylaApp {
@@ -179,17 +187,24 @@ export async function createHylaApp(options: HylaAppOptions): Promise<HylaApp> {
     app,
     preflight: reports,
     domains: async () => loadDomainTable(await app.deps.store.load()),
+    /**
+     * Never rejects for conditions it can report: unreleased leases, attempts
+     * that never settled and cleanup failures are returned, so the host decides
+     * what to log and what to escalate.
+     */
     async close() {
-      let report: HylaShutdownReport = { unreleasedLeases: [] }
+      let unreleasedLeases: readonly string[] = []
       try {
         const manager = await app.deps.sites.load()
-        report = await manager.shutdown()
+        unreleasedLeases = (await manager.shutdown()).unreleasedLeases
       }
       catch {
         // The manager never came up (or the app is already closing): nothing to report.
       }
-      await runtime.dispose()
-      return report
+      const errors: unknown[] = []
+      try { await runtime.dispose() }
+      catch (error) { errors.push(...(error instanceof AggregateError ? error.errors : [error])) }
+      return { unreleasedLeases, unsettledAttempts: runtime.inspect().unsettledAttempts, errors }
     },
   }
 }

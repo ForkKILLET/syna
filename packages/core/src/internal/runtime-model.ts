@@ -147,6 +147,12 @@ export interface ServiceSlot {
   sequence?: Promise<unknown>
   /** A timed-out or abandoned attempt whose raw Promise has not settled yet. Blocks new attempts. */
   unsettledAttempt?: SetupAttempt
+  /**
+   * A rollback (attempt cleanup or late-settlement cleanup) of this slot failed:
+   * resources it acquired are outside Syna control. Permanent — no policy may
+   * start another attempt that would stack on top of them.
+   */
+  rollbackFailed?: boolean
   recovery?: Promise<unknown>
   cleanups: Array<() => Awaitable<void>>
   completionOrder?: number

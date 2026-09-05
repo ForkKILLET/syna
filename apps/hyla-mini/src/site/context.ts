@@ -53,12 +53,23 @@ export const SiteContext = define.service('site-context', {
     let misses = 0
     let cachedVersion: string | undefined
 
-    const cached = async (principal: Principal, path: string, produce: () => Promise<RenderedPage>): Promise<RenderedPage> => {
+    /**
+     * The content version must be read BEFORE any content that ends up in the
+     * page. A page cached under version v was then rendered from content read
+     * after the store reported v; any edit after that moves the version past
+     * v, so an entry can be served stale only if content is read first and the
+     * version afterwards (the edit would then land under the newer key).
+     */
+    const currentVersion = async (): Promise<string> => {
       const version = await repository.contentVersion()
       if (version !== cachedVersion) {
         pages.clear()
         cachedVersion = version
       }
+      return version
+    }
+
+    const cached = async (version: string, principal: Principal, path: string, produce: () => Promise<RenderedPage>): Promise<RenderedPage> => {
       const key = `${tenantId}|${site.configRevision}|${version}|${site.defaultLocale}|${visibilityClass(principal, tenantId)}|${path}`
       const existing = pages.get(key)
       if (existing) {
@@ -85,14 +96,18 @@ export const SiteContext = define.service('site-context', {
         const post = await repository.getPost(slug, { visibility: 'all' })
         return post && canViewPost(principal, tenantId, post) ? post : undefined
       },
-      renderIndex: (principal, category) => cached(principal, category ? `/category/${category}` : '/', async () => {
-        const posts = await visible(principal, category ? { category } : {})
-        return render.renderIndexPage(site, posts, category ? { category } : {})
-      }),
+      async renderIndex(principal, category) {
+        const version = await currentVersion()
+        return cached(version, principal, category ? `/category/${category}` : '/', async () => {
+          const posts = await visible(principal, category ? { category } : {})
+          return render.renderIndexPage(site, posts, category ? { category } : {})
+        })
+      },
       async renderPost(slug, principal) {
+        const version = await currentVersion()
         const post = await repository.getPost(slug, { visibility: 'all' })
         if (!post || !canViewPost(principal, tenantId, post)) return undefined
-        return cached(principal, `/posts/${slug}`, () => render.renderPostPage(site, post))
+        return cached(version, principal, `/posts/${slug}`, () => render.renderPostPage(site, post))
       },
       renderNotFound: path => render.renderNotFound(site, path),
       renderComment: markdown => render.renderComment(site, markdown),

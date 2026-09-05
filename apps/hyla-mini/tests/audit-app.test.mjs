@@ -375,7 +375,7 @@ test('F-AP-10 an override whose instance lacks the Authenticator interface fails
 test('F-AP-12 close() reports leases still held at shutdown instead of discarding the report', async () => {
   const clean = await createFilesystemApp()
   const cleanReport = await clean.app.close()
-  assert.deepEqual(cleanReport, { unreleasedLeases: [] })
+  assert.deepEqual(cleanReport, { unreleasedLeases: [], unsettledAttempts: [], errors: [] })
   await clean.close()
 
   const harness = await createFilesystemApp({ app: { siteManager: { shutdownTimeoutMs: 30 } } })

@@ -106,6 +106,7 @@ export type {
   SetupResult,
   SynaRuntime,
   UniquenessPolicy,
+  UnsettledAttemptInspection,
 } from './descriptors.js'
 
 export type { LoadedDependencies } from './loading.js'

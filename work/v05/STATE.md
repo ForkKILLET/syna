@@ -1,6 +1,13 @@
 # Syna v0.5 + Hyla-mini — STATE
 
 ## Current phase
+Second review round DONE (2026-09-05, after the 0.5.0 release gate of the same day). Four reviewer items — (1) a failed rollback could be retried and a caught cancellation could leave a rejected Promise; (2) Hyla tenant Env leak, eviction releasing capacity early, page-cache version race; (3) an Env with an abandoned attempt stayed `disposing` and retained without bound after the bounded close; (4) rollback-then-restart stacking resources, unhandled rejections after caught cancellation, an abandoned setup running while its dependencies were disposed — are I-50…I-57 (ISSUES.md), decisions D31…D34, regression tests `packages/core/tests/v05-review-lifecycle.test.mjs` (6) and `apps/hyla-mini/tests/review-app.test.mjs` (6), documented in docs/AUDIT.md "Second review round", the semantic model (§11, §13, §14), SEMANTIC_CHANGES §4, API_REFERENCE, MIGRATION M-18/M-20/M-21, HYLA_MINI.md and CHANGELOG. Seven items fixed; item 4c (dependencies of an abandoned attempt are closed while it may still run) is shown to be inherent under the model (no bounded close can wait for a runaway attempt; §14 excludes termination and revocation; retaining the dependencies would be item 3 one level up) and is acknowledged in the `UNSETTLED_ATTEMPT` report instead.
+Local verification of this round: typecheck + type tests clean; core 154/154; app 73/73 + review 6/6 + site-manager 5/5; the auditors' probes re-run against the fixed build (only the intended FAIL lines remain; the lifecycle probe that expected `rootEnvCount 0` while an attempt is outstanding now passes). This round's own probes are archived under `work/v05/probes/review-2026-09-05/`. `docs/VALIDATION.md` is now produced by `scripts/validation-doc.mjs` from a run directory. Release-gate re-run for this round: see "Release gate after the second review round" below.
+
+## Release gate after the second review round
+(filled in by the evidence commit)
+
+## Release 0.5.0 gate (2026-09-05, before the second review round)
 DONE (2026-09-05). Final `node scripts/verify-v05.mjs --release` on commit ded5f10 (clean tree): exit 0, COMPLETE, 30 steps, 506/506 tests, 0 skipped, source fingerprint ce43ce696ca9c6eacb6765b289f44f1fdcbe25f2dc54c3f6c7d585fc0a17864c (224 files); archives work/release/syna-v0.5.0-source.tar.gz (373781 B, sha256 d574dfda…27ff73), .zip (484783 B, sha256 94f8a682…c08754), pack/syna-core-0.5.0.tgz (88811 B, 497c07d3…da329), pack/syna-tsconfig-0.5.0.tgz (1483 B, 81861252…25cbf). Evidence: RELEASE_MANIFEST.json, validation/v0.5-release/ (manifest, SHA256SUMS.txt, benchmark, working set, archive scan, logs force-added despite *.log ignore).
 Release-gate history (2026-09-05): run 1 PARTIAL — archive scan rejected two strings in the archived cache-delivery audit report (reworded, 4a35776); run 2 PARTIAL — H10 backpressure test raced on concurrent config reads (test fixed, 7d5bf55, I-49); run 3 COMPLETE at 7d5bf55 (fingerprint 68119800…43a79, source of docs/VALIDATION.md numbers); run 4 COMPLETE at ded5f10 (final, includes docs/VALIDATION.md).
 No remote push, no npm publish, no deployment; the user's PostgreSQL on 5432 was never used.
@@ -26,8 +33,8 @@ All 13 commits had been made as `syna-v05 <wangxinhe06@gmail.com>` (taken from t
 - Baseline has no lockfile; committed `dist/` outputs; hand-written semver.
 
 ## Actual failures / open items
-None open. Local verification after the audit fixes (2026-09-05): core 144/144, type-tests pass, app 73/73 + site-manager 5/5, PostgreSQL + matrix 27/27 on the temporary cluster, quick benchmarks within budgets. Auditors' probes re-run; remaining FAIL lines are intended-behaviour changes listed at the end of ISSUES.md.
-Documented-only items: F-PL-08 (D22), F-CD-04 residual template size, F-CD-07 backend request timing not benchmarked, F-AP-10 core cannot check interface compatibility of overrides at runtime.
+None open. Local verification after the audit fixes (2026-09-05): core 144/144, type-tests pass, app 73/73 + site-manager 5/5, PostgreSQL + matrix 27/27 on the temporary cluster, quick benchmarks within budgets. Auditors' probes re-run; remaining FAIL lines are intended-behaviour changes listed at the end of ISSUES.md. After the second review round: core 154/154, app 73/73 + review 6/6 + site-manager 5/5 (see "Current phase").
+Documented-only items: F-PL-08 (D22), F-CD-04 residual template size, F-CD-07 backend request timing not benchmarked, F-AP-10 core cannot check interface compatibility of overrides at runtime, I-57/D34 dependencies of an abandoned attempt are closed in order while it may still run (inherent).
 
 ## Modified files
 - (Phase A) work/v05/*.md, .gitignore, package-lock.json

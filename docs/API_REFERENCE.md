@@ -131,9 +131,9 @@ const runtime = createRuntime({
 - `services`: the immutable public admission set. Exact transitive dependencies form private definition realms.
 - `override(source, fake)`: construction-time definition override. Source keeps nominal identity, Contract membership, eagerness and metadata; the fake supplies `requires`/`setup`/`failure`/`setupDeadlineMs`. All resolution paths use the compiled view. Duplicate source, self and cycles are errors.
 - `initialization.deadlineMs`: default per-attempt setup deadline → `INITIALIZATION_TIMEOUT` with `details.pendingLoads` and an optional `details.suspectedWaitCycle` (an observation, not a proof).
-- `disposal.graceMs`: how long disposal waits, after broadcasting the stop signal, for each in-flight setup attempt of the closing Env (running or already timed out) to settle before abandoning it. Slots wait concurrently, so a close is bounded by one grace period regardless of `setupDeadlineMs` (even `Infinity`). Abandoned attempts are reported as `UNSETTLED_ATTEMPT`; the Env then stays `disposing` (and counted by `inspect()`) until the late result arrives and is cleaned up.
+- `disposal.graceMs`: how long disposal waits, after broadcasting the stop signal, for each in-flight setup attempt of the closing Env (running or already timed out) to settle before abandoning it. Slots wait concurrently, so a close is bounded by one grace period regardless of `setupDeadlineMs` (even `Infinity`). Abandoned attempts are reported as `UNSETTLED_ATTEMPT` (`details.slots[].dependencies` names the dependency slots each attempt may still use; they are closed in the normal order regardless). The Env then leaves the tree and the `inspect()` counts, keeps `state === 'disposing'` until the late result is cleaned up or the attempt is found unreachable, and the attempt is listed in `inspect().unsettledAttempts`.
 - `planning.searchBudget`: candidate expansions per plan before `PLANNING_BUDGET_EXCEEDED`.
-- `diagnostics.onEvent`: `late-setup-result`, `late-setup-failure`, `attempt-abandoned`, `foreign-thenable-setup`. Exceptions in the handler are ignored; diagnostics never change outcomes.
+- `diagnostics.onEvent`: `late-setup-result`, `late-setup-failure`, `attempt-abandoned`, `attempt-unreachable` (an abandoned or timed-out attempt whose setup Promise was garbage-collected: nothing can settle it any more, so its cleanups ran and the attempt is closed), `foreign-thenable-setup`. Exceptions in the handler are ignored; diagnostics never change outcomes.
 
 Methods:
 
@@ -142,7 +142,8 @@ runtime.enter(entry, parameters?)     // Promise<EnvHandle>
 runtime.run(entry, parameters?, callback)
 runtime.check(entry, parameters?)     // Promise<EntryCheck>  (plan only)
 runtime.explain(entry, parameters?)   // Promise<EntryExplanation> (plan only)
-runtime.inspect()                     // admitted/internal/overridden services, root/live env counts, plan cache stats, warnings
+runtime.inspect()                     // admitted/internal/overridden services, root/live env counts, plan cache stats, warnings,
+                                      // unsettledAttempts: attempts abandoned or timed out that have not settled yet (weakly held)
 runtime.catalog.implementations(C) / resolve(ref) / revisions(familyId)   // read-only metadata
 runtime.dispose(); await runtime[Symbol.asyncDispose]()
 ```
@@ -151,7 +152,8 @@ runtime.dispose(); await runtime[Symbol.asyncDispose]()
 
 ```ts
 env.id; env.deps; env.state            // 'activating' | 'ready' | 'disposing' | 'disposed'
-                                       // 'disposed' only once every owned attempt settled and every descendant finalized
+                                       // 'disposed' only once every attempt abandoned by this Env's close has settled
+                                       // (its own and those of the descendants that close took down with it)
 env.enter(entry, parameters?); env.run(...); env.check(...); env.explain(...)
 env.derive({ fresh, share })
 env.bind(entry)                        // BoundEntry anchored at this Env, public authority
@@ -163,7 +165,7 @@ Entering from an Env that is still `activating` rejects with `OWNER_NOT_READY`; 
 
 ### Ready and closing
 
-An Env is Ready when every eager slot it owns is Ready; inherited eager slots are already Ready in their owner. Closing: refuse new work and abort the owner signal, wait for descendants, wait for registered attempts (up to the disposal grace), then dispose owned Ready slots dependant-first over the SCC condensation. Business and cleanup errors are both kept (`AggregateError`, or `error.suppressed` for `run()`).
+An Env is Ready when every eager slot it owns is Ready; inherited eager slots are already Ready in their owner. Closing: refuse new work and abort the owner signal, wait for descendants, wait for registered attempts (up to the disposal grace), then dispose owned Ready slots dependant-first over the SCC condensation. Business and cleanup errors are both kept (`AggregateError`, or `error.suppressed` for `run()`). The close is bounded by one grace period; when it ends the Env has left the tree whatever is still outstanding (see the lifecycle notes).
 
 ## BoundEntry
 
@@ -183,6 +185,9 @@ const UnitOfWork = define.service('unit-of-work', {
 - `ref.load()` returns a Promise of its own for every caller (all callers share one attempt). A rejected Promise nobody handles is an ordinary unhandled rejection. `load({ signal })` with an already-aborted signal rejects with `LOAD_CANCELLED` and starts nothing.
 - `onDispose(cleanup)` is accepted for as long as the setup attempt is still executing, including after its deadline passed or its owner started closing; the late-settlement cleanup then runs it. A lifecycle whose setup Promise already settled is stale and refused (`INVALID_ENV_STATE`).
 - Closing an Env moves the whole subtree to `disposing` and aborts every descendant's `signal` first, then waits for descendants (sibling subtrees concurrently), then gives owned attempts `disposal.graceMs`, then disposes owned Ready slots dependant-first (through never-started intermediates as well). `DependencyRef`s are bound to slots: a ref obtained from a child Env keeps working after that child is disposed as long as the slot's owner Env is alive.
+- An attempt that ignores the signal past the grace is abandoned and reported (`UNSETTLED_ATTEMPT`); its dependencies are closed in the normal order anyway (the Runtime cannot revoke an instance it handed out) and the report names them. The Env then leaves the tree and the Runtime's registries, so its parent no longer waits for it and `inspect()` no longer counts it; its `state` stays `disposing` until the attempts settle late (cleaned up, `late-setup-*`) or become unreachable (`attempt-unreachable`). `inspect().unsettledAttempts` lists those attempts, held weakly: an attempt lives exactly as long as the caller's own setup Promise, never longer because of the Runtime. `runtime.dispose()` reports the ledger again if it is not empty.
+- A failed rollback is final. When a cleanup throws (inside a retry sequence, or while a late result is cleaned up) the slot stays `failed` and every later `load()` rejects with `ROLLBACK_FAILED` (`cause`: the original error), even under `afterExhaustion: 'retry-on-next-load'`: the resources of that attempt are outside Syna's control and a new attempt would stack on top of them.
+- A `load({ signal })` whose signal fires rejects the caller's own Promise with `LOAD_CANCELLED`; a later failure of the attempt it was waiting for is not turned into an unhandled rejection on that caller's behalf.
 
 ## explain()
 
@@ -209,7 +214,7 @@ if (explanation.ok) {
 
 ## Errors
 
-`SynaError` has `code` (`SynaErrorCode`) and `details`. Codes: `AMBIGUOUS_IMPLEMENTATION`, `CONSTRAINT_VIOLATION`, `DUPLICATE_DEFINITION`, `ENTRY_ACTIVATION_FAILED`, `INCOMPATIBLE_IMPLEMENTATION`, `INITIALIZATION_TIMEOUT`, `INVALID_DESCRIPTOR`, `INVALID_ENV_STATE`, `LINEAGE_UNIQUENESS_CONFLICT`, `LOAD_CANCELLED`, `MISSING_AUTO_POLICY`, `MISSING_BINDING`, `MISSING_IMPLEMENTATION`, `MISSING_INPUT`, `MISSING_SERVICE`, `OWNER_NOT_READY`, `PLANNING_BUDGET_EXCEEDED`, `RUNTIME_MISMATCH`, `SHARE_CONSTRAINT_FAILED`, `UNAVAILABLE_IMPLEMENTATION`, `UNSATISFIABLE_TOPOLOGY`, `UNSETTLED_ATTEMPT`. Diagnostics (`check`, `explain`, candidate availability) use the same union plus `UNKNOWN_ERROR`. Policy exceptions, invalid descriptors and budget exhaustion are never disguised as `UNSATISFIABLE_TOPOLOGY`.
+`SynaError` has `code` (`SynaErrorCode`) and `details`. Codes: `AMBIGUOUS_IMPLEMENTATION`, `CONSTRAINT_VIOLATION`, `DUPLICATE_DEFINITION`, `ENTRY_ACTIVATION_FAILED`, `INCOMPATIBLE_IMPLEMENTATION`, `INITIALIZATION_TIMEOUT`, `INVALID_DESCRIPTOR`, `INVALID_ENV_STATE`, `LINEAGE_UNIQUENESS_CONFLICT`, `LOAD_CANCELLED`, `MISSING_AUTO_POLICY`, `MISSING_BINDING`, `MISSING_IMPLEMENTATION`, `MISSING_INPUT`, `MISSING_SERVICE`, `OWNER_NOT_READY`, `PLANNING_BUDGET_EXCEEDED`, `ROLLBACK_FAILED`, `RUNTIME_MISMATCH`, `SHARE_CONSTRAINT_FAILED`, `UNAVAILABLE_IMPLEMENTATION`, `UNSATISFIABLE_TOPOLOGY`, `UNSETTLED_ATTEMPT`. Diagnostics (`check`, `explain`, candidate availability) use the same union plus `UNKNOWN_ERROR`. Policy exceptions, invalid descriptors and budget exhaustion are never disguised as `UNSATISFIABLE_TOPOLOGY`.
 
 ## Platform
 

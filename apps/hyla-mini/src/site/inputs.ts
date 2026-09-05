@@ -41,6 +41,20 @@ export interface SiteManagerSettings {
   readonly creationBackoffMs: number
   readonly creationBackoffMaxMs: number
   readonly shutdownTimeoutMs: number
+  /**
+   * Receives the failure when closing a SiteEnv rejects (a Service cleanup
+   * threw, or a setup attempt ignored the stop signal past the disposal grace
+   * and is reported as `UNSETTLED_ATTEMPT`). The record is already released
+   * and its capacity handed on; the failure is counted in `stats().disposalFailures`.
+   * Defaults to `console.error`.
+   */
+  readonly onDisposalError: (error: unknown, record: SiteRecordSummary) => void
+}
+
+export interface SiteRecordSummary {
+  readonly key: string
+  readonly tenantId: string
+  readonly configRevision: number
 }
 
 export const SiteManagerOptions = define.input<Partial<SiteManagerSettings>>('site-manager-options')
@@ -54,4 +68,5 @@ export const DEFAULT_SITE_MANAGER_SETTINGS: SiteManagerSettings = Object.freeze(
   creationBackoffMs: 200,
   creationBackoffMaxMs: 10_000,
   shutdownTimeoutMs: 5_000,
+  onDisposalError: (error: unknown, record: SiteRecordSummary) => { console.error(`[hyla-mini sites] closing ${record.key} failed:`, error) },
 })

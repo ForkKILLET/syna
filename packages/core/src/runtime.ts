@@ -127,7 +127,11 @@ class EnvImpl<Requires extends DependencyMap> implements EnvHandle<Requires> {
   readonly deps: DependencyRefs<Requires>
   readonly abortController = new AbortController()
   state: EnvState = 'activating'
-  /** Resolves when the Env reaches `disposed`: every owned attempt settled and every descendant finalized. */
+  /**
+   * Resolves when the Env reaches `disposed`: every owned attempt settled and
+   * every descendant finalized. Only a parent that is itself closing waits on
+   * it; the Runtime holds no reference to an Env after its bounded close.
+   */
   readonly finalized: Promise<void>
   markFinalized: () => void = () => undefined
   private disposePromise?: Promise<void>
@@ -296,6 +300,7 @@ class RuntimeImpl implements SynaRuntime, ImplementationViewHost {
       overriddenServices: definitions.overriddenServices,
       rootEnvCount: [...this.roots].filter(root => root.state !== 'disposed').length,
       liveEnvCount: this.envById.size,
+      unsettledAttempts: this.materializer.unsettledAttempts(),
       planCache,
       definitionWarnings: definitions.warnings,
     }
@@ -341,6 +346,17 @@ class RuntimeImpl implements SynaRuntime, ImplementationViewHost {
       const errors = (await Promise.allSettled(roots.map(root => root.dispose())))
         .flatMap(result => (result.status === 'rejected' ? [result.reason] : []))
       this.planner.clearCache()
+      // Envs that completed their bounded close earlier are no longer roots, but an
+      // attempt they abandoned may still be pending: report it again instead of
+      // fulfilling as if everything had settled.
+      const outstanding = this.materializer.unsettledAttempts()
+      if (outstanding.length > 0) {
+        errors.push(new SynaError(
+          'UNSETTLED_ATTEMPT',
+          `The Runtime closed while ${outstanding.length} setup attempt(s) were still running; their resources are not under Syna control.`,
+          { attempts: outstanding },
+        ))
+      }
       if (errors.length > 0) {
         throw new AggregateError(errors, 'One or more Syna root Envs failed to dispose.')
       }
@@ -626,10 +642,16 @@ class RuntimeImpl implements SynaRuntime, ImplementationViewHost {
    * independent), give owned attempts the disposal grace period, then dispose
    * owned Ready slots dependant-first over the SCC condensation.
    *
-   * The Env reaches `disposed` only once everything it owns has settled. When an
-   * attempt or a descendant is still pending, dispose() reports it
-   * (`UNSETTLED_ATTEMPT`) and the Env stays `disposing` — still registered and
-   * counted by inspect() — until the late result arrives and is cleaned up.
+   * That much is bounded by the grace period, and at its end the Env leaves the
+   * tree and the Runtime's registries whatever is still pending: its parent no
+   * longer waits for it and the Runtime never retains a closed Env. The Env's
+   * *state* reaches `disposed` only once everything this close abandoned has
+   * settled: its own attempts and those of the descendants closed by this same
+   * call (a descendant that completed its own bounded close earlier has already
+   * left the tree and holds nothing here). Until then dispose() has reported
+   * the attempts (`UNSETTLED_ATTEMPT`) and the Env stays `disposing`. The
+   * attempts themselves are listed in `inspect().unsettledAttempts` and are kept
+   * alive only by the user's own pending setup Promise.
    */
   async disposeEnv(env: EnvImpl<any>): Promise<void> {
     if (env.state === 'disposed') return
@@ -653,6 +675,7 @@ class RuntimeImpl implements SynaRuntime, ImplementationViewHost {
       ...abandoned.map(item => item.attempt.settled),
       ...children.filter(child => child.state !== 'disposed').map(child => child.finalized),
     ]
+    this.detachEnv(env)
     if (pending.length === 0) {
       this.finalizeEnv(env)
     }
@@ -671,6 +694,17 @@ class RuntimeImpl implements SynaRuntime, ImplementationViewHost {
             slot: item.slot.id,
             revision: item.slot.service.key,
             attempt: item.attempt.id,
+            // The attempt ignored the stop signal past the grace period; the slots it
+            // depends on were closed in the normal order regardless (the Runtime cannot
+            // revoke an instance it already handed out), which is acknowledged here.
+            dependencies: [...item.slot.requires.entries()]
+              .filter((entry): entry is [string, ServiceSlot] => entry[1].kind === 'service')
+              .map(([dependency, target]) => ({
+                dependency,
+                slot: target.id,
+                revision: target.service.key,
+                state: target.state,
+              })),
           })),
         },
       ))
@@ -680,12 +714,16 @@ class RuntimeImpl implements SynaRuntime, ImplementationViewHost {
     }
   }
 
-  private finalizeEnv(env: EnvImpl<any>): void {
-    if (env.state === 'disposed') return
-    env.state = 'disposed'
+  /** Bounded close complete: the Runtime forgets the Env even if it is not yet `disposed`. */
+  private detachEnv(env: EnvImpl<any>): void {
     env.parent?.children.delete(env)
     this.roots.delete(env)
     this.envById.delete(env.id)
+  }
+
+  private finalizeEnv(env: EnvImpl<any>): void {
+    if (env.state === 'disposed') return
+    env.state = 'disposed'
     env.markFinalized()
   }
 }

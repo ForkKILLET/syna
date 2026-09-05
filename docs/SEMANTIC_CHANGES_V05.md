@@ -40,7 +40,11 @@
 - 一个逻辑 slot 同时最多一个未结束且未清理的 attempt。并发 waiters join 同一 attempt。`load({ signal })` 只结束自己的等待（`LOAD_CANCELLED`），attempt 继续。
 - attempt 超时后 raw setup Promise 仍在运行：slot 标记 `failed`，`unsettledAttempt` 阻止重叠的新 attempt（`UNSETTLED_ATTEMPT`）；迟到结果被丢弃、其 `onDispose` 清理被执行、通过 `diagnostics.onEvent` 报告（`late-setup-result` / `late-setup-failure`）。setup 在超时（或 owner 关闭）之后才调用的 `onDispose()` 仍被接受并在迟到结算时执行——迟到获得的资源正是必须释放的资源；只有 raw Promise 已结算后的过期 lifecycle 才被拒绝（`INVALID_ENV_STATE`）。
 - 每次 `load()` 返回调用者自己的 Promise（共享同一 attempt）：忘记处理的失败在任何 slot 状态下都是普通的 unhandled rejection；已 abort 的 `signal` 直接得到 `LOAD_CANCELLED`，不会启动休眠 slot。
-- 关闭：先把**整棵子树**（自身与所有后代）同步置为 `disposing` 并 abort 各自 signal（拒绝新工作、广播取消），再并发等待各子树关闭，再给本 Env 拥有的每个在途 attempt（正在运行的和已超时的）最多 `disposal.graceMs` 的结算时间（各 slot 并发计时，所以整体上界是一个 grace，与 `setupDeadlineMs`——包括 `Infinity`——无关），然后 dependant-first 清理（顺序也穿越从未启动的中间 slot）。仍未结束的 attempt 标记 `abandoned`，`dispose()` 以 `UNSETTLED_ATTEMPT` 报告；此时 Env **保持 `disposing`**、继续被 `inspect()` 计数、后续 `runtime.dispose()` 再次报告它，直到迟到结果到达并清理完毕才成为 `disposed`——不宣称完全 Disposed。
+- 关闭：先把**整棵子树**（自身与所有后代）同步置为 `disposing` 并 abort 各自 signal（拒绝新工作、广播取消），再并发等待各子树关闭，再给本 Env 拥有的每个在途 attempt（正在运行的和已超时的）最多 `disposal.graceMs` 的结算时间（各 slot 并发计时，所以整体上界是一个 grace，与 `setupDeadlineMs`——包括 `Infinity`——无关），然后 dependant-first 清理（顺序也穿越从未启动的中间 slot）。仍未结束的 attempt 标记 `abandoned`，`dispose()` 以 `UNSETTLED_ATTEMPT` 报告，`details.slots[].dependencies` 列出该 attempt 可能仍在使用、却已按正常顺序关闭的依赖 slot。
+- 有界关闭到此结束，Env **离开树与 Runtime 注册表**：父 Env 不再等它，`inspect()` 的 `rootEnvCount`/`liveEnvCount` 不再计数它，Runtime 不保留它的图。它的 `state` 在本次关闭放弃的 attempt（自身拥有的，或同一次关闭里关掉的后代的）仍未结束时保持 `disposing`，迟到结果清理完毕、或 attempt 被判定不可达后才成为 `disposed`——既不宣称完全 Disposed，也不无界保留。Runtime 只保留一份弱引用账本 `inspect().unsettledAttempts`（`WeakRef`：attempt 只要用户自己的 setup Promise 仍可达就在账上），`runtime.dispose()` 据此再次报告；setup Promise 被垃圾回收即意味着没有任何人还能结算它，attempt 随即以 `attempt-unreachable` 关闭：其 `onDispose` 清理运行，slot 与 Env 成为 `disposed`。
+- 回滚失败是终局：一个 sequence 内某次 attempt 的清理抛错，或迟到结果的清理抛错之后，slot 永久 `failed`；`retry-on-next-load` 冷却后也不再启动新 attempt，`load()` 得到 `ROLLBACK_FAILED`（`cause` 为原错误）——那次 attempt 获得的资源已不受 Syna 控制，再开一次只会把新资源叠在旧资源上。
+- 被放弃的 attempt 的依赖在 grace 之后照常按顺序关闭：模型既没有撤销已交出的实例（§14）也没有强杀 setup，所以无视 signal 继续运行的 setup 可能观察到已关闭的依赖。这是有界关闭的必然后果，被报告而不是被掩盖，也不是模型内能"修复"的缺陷。
+- 取消：`load({ signal })` 被 abort 时调用者自己的 Promise 以 `LOAD_CANCELLED` 拒绝；它所等待的 attempt 之后的失败不会再以调用者的名义变成 unhandled rejection（等待端退出前接管了共享 Promise 的拒绝）。
 - 运行时 `Ready` = 该 Env 拥有的全部 eager slots Ready；继承 eager 不重启；未声明等待关系的 eager 无顺序保证。
 
 ## 5. Contract、C.all、refs

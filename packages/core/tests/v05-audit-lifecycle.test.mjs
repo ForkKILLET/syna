@@ -257,15 +257,23 @@ test('F-PL-04 an Env with an abandoned attempt stays disposing (and counted) unt
 
   assert.equal(env.state, 'disposing', 'not claimed fully disposed while a resource is outstanding')
   assert.equal(env.inspect().nodes[0].state, 'abandoned')
+  // Second review round: the bounded close is also the end of the Runtime's hold on
+  // the Env. It leaves the registries; the outstanding attempt is accounted for in
+  // the ledger instead (env id, slot, revision, state, running time).
   assert.deepEqual(
     [runtime.inspect().rootEnvCount, runtime.inspect().liveEnvCount],
-    [1, 1],
-    'the Env is still accounted for',
+    [0, 0],
+    'the Runtime retains no closed Env',
   )
+  const [outstanding] = runtime.inspect().unsettledAttempts
+  assert.equal(runtime.inspect().unsettledAttempts.length, 1)
+  assert.equal(outstanding.env, env.id)
+  assert.equal(outstanding.state, 'abandoned')
+  assert.match(outstanding.revision, /honest-state/)
   await assert.rejects(runtime.dispose(), error => {
-    const nested = error.errors[0]
-    return nested instanceof AggregateError && nested.errors.some(item => item.code === 'UNSETTLED_ATTEMPT')
-  }, 'runtime.dispose() re-reports the outstanding attempt instead of fulfilling silently')
+    const report = error.errors.find(item => item.code === 'UNSETTLED_ATTEMPT')
+    return report !== undefined && report.details.attempts.length === 1 && report.details.attempts[0].env === env.id
+  }, 'runtime.dispose() re-reports the outstanding attempt from the ledger instead of fulfilling silently')
 
   gate.resolve()
   await sleep(10)
@@ -274,6 +282,7 @@ test('F-PL-04 an Env with an abandoned attempt stays disposing (and counted) unt
   assert.deepEqual(events.filter(event => event !== 'cleanup'), ['attempt-abandoned', 'late-setup-result'])
   assert.ok(events.includes('cleanup'))
   assert.equal(runtime.inspect().liveEnvCount, 0)
+  assert.equal(runtime.inspect().unsettledAttempts.length, 0)
 })
 
 test('F-PL-04 a parent whose child holds an abandoned attempt is disposing until the child finalizes', async () => {
@@ -291,10 +300,12 @@ test('F-PL-04 a parent whose child holds an abandoned attempt is disposing until
   await sleep(5)
   await assert.rejects(root.dispose())
   assert.deepEqual([root.state, child.state], ['disposing', 'disposing'])
+  assert.equal(runtime.inspect().liveEnvCount, 0, 'both completed their bounded close and left the registries')
+  assert.equal(runtime.inspect().unsettledAttempts.length, 1)
   gate.resolve()
   await sleep(10)
   assert.deepEqual([root.state, child.state], ['disposed', 'disposed'])
-  assert.equal(runtime.inspect().liveEnvCount, 0)
+  assert.equal(runtime.inspect().unsettledAttempts.length, 0)
   await runtime.dispose().catch(() => undefined)
 })
 

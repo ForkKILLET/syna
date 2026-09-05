@@ -43,7 +43,9 @@ export const MaintenanceWorker = define.service('maintenance-worker', {
       await loop
       state = 'stopped'
     }
-    signal.addEventListener('abort', () => { void stop() }, { once: true })
+    // The stop signal only starts the wind-down; its outcome is reported by the
+    // cleanup below (which awaits the same loop), never as an unhandled rejection.
+    signal.addEventListener('abort', () => { stop().catch(() => undefined) }, { once: true })
     onDispose(stop)
 
     return {
@@ -78,7 +80,7 @@ export const MaintenanceWorker = define.service('maintenance-worker', {
           try {
             const sites = await world.deps.sites.load()
             while (!stopRequested && !signal.aborted) {
-              await sites.sweep()
+              await sites.sweep() // never rejects: closes that fail are reported by the manager
               ticks += 1
               await new Promise<void>(resolve => {
                 wake = resolve

@@ -505,7 +505,14 @@ export interface InitializationOptions {
 }
 
 export interface DisposalOptions {
-  /** How long disposal waits for a timed-out setup attempt to actually settle before reporting it as abandoned. */
+  /**
+   * How long disposal waits, after broadcasting the stop signal, for each
+   * in-flight setup attempt of the closing Env (running or already timed out)
+   * to settle before abandoning it. Bounds the close: once it passes, owned
+   * Ready slots are disposed, the Env leaves the Runtime's registries and
+   * `dispose()` settles. An abandoned attempt keeps only itself alive (via the
+   * user's own pending Promise); it is listed in `inspect().unsettledAttempts`.
+   */
   readonly graceMs?: number
 }
 
@@ -538,6 +545,19 @@ export type RuntimeEvent =
       readonly elapsedMs: number
     }
   | {
+      /**
+       * The raw setup Promise of a timed-out or abandoned attempt was garbage-
+       * collected before settling: nothing can resolve it any more. Cleanups the
+       * attempt registered were run and the attempt is settled as failed.
+       */
+      readonly type: 'attempt-unreachable'
+      readonly slot: string
+      readonly revision: string
+      readonly env: string
+      readonly elapsedMs: number
+      readonly cleanupErrors: readonly unknown[]
+    }
+  | {
       readonly type: 'foreign-thenable-setup'
       readonly slot: string
       readonly revision: string
@@ -559,12 +579,30 @@ export interface CreateRuntimeOptions {
   readonly diagnostics?: DiagnosticsOptions
 }
 
+/** A setup attempt whose raw Promise is still pending after its deadline passed or its owner Env closed. */
+export interface UnsettledAttemptInspection {
+  readonly attempt: number
+  readonly slot: string
+  readonly revision: string
+  readonly env: string
+  readonly state: 'timed-out' | 'abandoned'
+  readonly runningForMs: number
+}
+
 export interface RuntimeInspection {
   readonly admittedServices: readonly string[]
   readonly internalServices: readonly string[]
   readonly overriddenServices: readonly string[]
+  /** Root Envs that have not completed their bounded close. */
   readonly rootEnvCount: number
+  /** Envs (any depth) that have not completed their bounded close. */
   readonly liveEnvCount: number
+  /**
+   * Attempts the Runtime is still waiting on: timed out while their owner is
+   * alive, or abandoned by a closed owner. Their Envs are no longer counted
+   * above; the Runtime retains no Env graph for them, only this ledger.
+   */
+  readonly unsettledAttempts: readonly UnsettledAttemptInspection[]
   readonly planCache: {
     readonly hits: number
     readonly misses: number
