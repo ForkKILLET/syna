@@ -15,5 +15,13 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node }}
-      - run: npm install
-      - run: npm run check
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run test:app
+      # Real PostgreSQL: ubuntu runners ship PostgreSQL binaries; the script starts a temporary cluster.
+      - run: node scripts/pg-test-cluster.mjs with -- node --test apps/hyla-mini/tests/postgres.test.mjs apps/hyla-mini/tests/matrix.test.mjs
+        env:
+          SYNA_PG_BIN: /usr/lib/postgresql/16/bin
+      - run: npm run demo

@@ -11,21 +11,27 @@
     "clean": "find packages apps -type d -name dist -prune -exec rm -rf {} + && find packages apps -name '*.tsbuildinfo' -delete",
     "build": "tsc -b packages/core --force && tsc -b tsconfig.json --force",
     "typecheck": "tsc -b tsconfig.json --pretty false && npm run type-tests",
+    "type-tests": "tsc -p packages/core/tsconfig.type-tests.json --pretty false",
     "test": "npm run build && node --test packages/core/tests/*.test.mjs",
+    "test:app": "node --test apps/hyla-mini/tests/filesystem.test.mjs apps/hyla-mini/tests/render.test.mjs apps/hyla-mini/tests/tenants-auth.test.mjs apps/hyla-mini/tests/preflight.test.mjs && node --test --expose-gc apps/hyla-mini/tests/site-manager.test.mjs",
+    "test:postgres": "node scripts/pg-test-cluster.mjs with -- node --test apps/hyla-mini/tests/postgres.test.mjs apps/hyla-mini/tests/matrix.test.mjs",
+    "test:coverage": "npm run build && node --test --experimental-test-coverage packages/core/tests/*.test.mjs",
+    "demo:minimal": "npm run build && node apps/minimal-demo/dist/index.js",
     "demo:hyla": "npm run build && node apps/hyla-demo/dist/index.js",
     "demo:fluida": "npm run build && node apps/fluida-demo/dist/index.js",
     "demo:features": "npm run build && node apps/features-demo/dist/index.js",
+    "demo:hyla-mini": "node apps/hyla-mini/bin/hyla-mini.mjs demo --root ./work/demo-content",
     "demo": "npm run demo:minimal && npm run demo:hyla && npm run demo:fluida && npm run demo:features",
-    "check": "npm run typecheck && npm test && npm run demo",
-    "type-tests": "tsc -p packages/core/tsconfig.type-tests.json --pretty false",
-    "demo:minimal": "npm run build && node apps/minimal-demo/dist/index.js",
-    "test:coverage": "npm run build && node --test --experimental-test-coverage packages/core/tests/*.test.mjs",
-    "benchmark:v04": "npm run build && node --expose-gc benchmarks/v0.4-planning.mjs benchmarks/results-v0.4.0.json"
+    "check": "npm run typecheck && npm test && npm run test:app && npm run demo",
+    "benchmark:v05": "npm run build && node --expose-gc benchmarks/v0.5-planning.mjs benchmarks/results-v0.5.0.json",
+    "benchmark:v04-workload": "npm run build && node --expose-gc benchmarks/v0.4-planning.mjs benchmarks/results-v0.4-workload-on-v0.5-same-machine.json",
+    "verify": "node scripts/verify-v05.mjs --dev",
+    "verify:release": "node scripts/verify-v05.mjs --release"
   },
   "engines": {
     "node": ">=22"
   },
-  "packageManager": "npm@10.9.2",
+  "packageManager": "npm@11.12.1",
   "description": "Syna v0.5 core, demos and the Hyla-mini application",
   "devDependencies": {
     "@types/node": "^22.19.7",

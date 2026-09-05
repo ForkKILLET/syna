@@ -26,7 +26,8 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "test": "node --test tests/*.test.mjs"
+    "test": "node --test tests/filesystem.test.mjs tests/render.test.mjs tests/tenants-auth.test.mjs tests/preflight.test.mjs && node --test --expose-gc tests/site-manager.test.mjs",
+    "test:postgres": "node ../../scripts/pg-test-cluster.mjs with -- node --test tests/postgres.test.mjs tests/matrix.test.mjs"
   },
   "dependencies": {
     "@syna/core": "0.5.0",

@@ -96,7 +96,7 @@ function gitInfo() {
 
 /** Source fingerprint: sha256 over the sorted list of (path, sha256(content)) for every archived source file. */
 function listSourceFiles() {
-  const include = ['packages', 'apps', 'benchmarks', 'docs', 'scripts', 'validation/v0.5-release/README.md']
+  const include = ['packages', 'apps', 'benchmarks', 'docs', 'scripts', 'validation/README.md']
   const rootFiles = ['package.json', 'package-lock.json', 'tsconfig.json', 'README.md', 'README.zh-CN.md', 'LICENSE', 'CHANGELOG.md', '.gitignore', '.npmrc', 'MIGRATION_V04_TO_V05.md']
   const excludeDir = new Set(['node_modules', 'dist', 'dist-local', '.tsbuildinfo', 'work', 'coverage'])
   const files = []
