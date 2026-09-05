@@ -7,9 +7,11 @@ import {
   DatabaseConfig,
   DatabasePool,
   PostgresContentStore,
+  SiteConfigError,
   define,
+  siteConfigInputFromFixture,
 } from '../dist/index.js'
-import { repositoryConformance } from './helpers/repository-conformance.mjs'
+import { fixture, repositoryConformance, sampleExtras } from './helpers/repository-conformance.mjs'
 
 const connectionString = process.env.SYNA_TEST_PG_URL
 if (!connectionString) {
@@ -82,6 +84,15 @@ describe('postgres: transactions, pool sharing and disposal', () => {
       "select table_name from information_schema.tables where table_schema = 'public' and table_name in ('posts', 'sites', 'categories', 'tags', 'content_versions')",
     )
     assert.deepEqual(publicTables.rows, [], 'nothing leaked into public')
+  })
+
+  it('a raw update that leaves an invalid document is a SiteConfigError on read for that tenant, never a page (R4/B5)', async () => {
+    const delta = store.forTenant('delta')
+    await delta.saveSiteConfig({ ...siteConfigInputFromFixture('delta', fixture.tenants.alpha, sampleExtras), domains: ['delta.test'] })
+    assert.equal((await delta.getSiteConfig()).configRevision, 1)
+    await pool.query(`update sites set config = '{"title": 1, "theme": "dark"}'::jsonb where tenant_id = $1`, ['delta'])
+    await assert.rejects(delta.getSiteConfig(), error => error instanceof SiteConfigError && error.code === 'INVALID_SITE_CONFIG' && error.mode === 'stored' && error.tenantId === 'delta')
+    await store.deleteTenant('delta')
   })
 
   it('rolls back the whole transaction when work throws', async () => {

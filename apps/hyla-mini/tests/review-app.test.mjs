@@ -120,6 +120,56 @@ test('R-2 a closing Env keeps its unit of capacity until the close settles; the 
   }
 })
 
+test('R-2b the page cache is single-flight, bounded (least recently used dropped) and never keeps a failed render', async () => {
+  const harness = await createFilesystemApp({ app: { siteManager: { pageCacheMaxEntries: 2 } } })
+  try {
+    const manager = await harness.app.app.deps.sites.load()
+    const lease = await manager.acquire('alpha', 'request')
+    try {
+      const { context } = lease
+      assert.equal(context.cacheStats.maxEntries, 2)
+      // Ten concurrent renders of one page: one production, the other nine join it.
+      const realList = context.repository.listPosts.bind(context.repository)
+      let listCalls = 0
+      context.repository.listPosts = async filter => { listCalls += 1; await sleep(5); return realList(filter) }
+      const pages = await Promise.all(Array.from({ length: 10 }, () => context.renderIndex(anonymous)))
+      assert.ok(pages.every(page => page.html === pages[0].html))
+      assert.equal(listCalls, 1, 'one production')
+      assert.deepEqual({ misses: context.cacheStats.misses, coalesced: context.cacheStats.coalesced, entries: context.cacheStats.entries }, { misses: 1, coalesced: 9, entries: 1 })
+      context.repository.listPosts = realList
+      // Bounded: three distinct pages, two kept; the least recently used goes first.
+      const slugs = (await context.listPosts(anonymous)).map(post => post.slug)
+      assert.ok(slugs.length >= 2)
+      await context.renderPost(slugs[0], anonymous) // index, post0
+      await context.renderIndex(anonymous) // a hit: index is now the most recently used
+      await context.renderPost(slugs[1], anonymous) // post0 is dropped
+      assert.equal(context.cacheStats.entries, 2)
+      assert.equal(context.cacheStats.evictions, 1)
+      const missesBefore = context.cacheStats.misses
+      await context.renderIndex(anonymous)
+      assert.equal(context.cacheStats.misses, missesBefore, 'the index survived')
+      await context.renderPost(slugs[0], anonymous)
+      assert.equal(context.cacheStats.misses, missesBefore + 1, 'post0 was rendered again')
+      // A failed render is not cached and does not poison the key: the next lookup renders again.
+      let failOnce = true
+      context.repository.listPosts = async filter => { if (failOnce) { failOnce = false; throw new Error('store hiccup') } return realList(filter) }
+      const entriesBefore = context.cacheStats.entries
+      await assert.rejects(context.renderIndex(anonymous, 'engineering'), /store hiccup/)
+      assert.equal(context.cacheStats.entries, entriesBefore)
+      const category = await context.renderIndex(anonymous, 'engineering')
+      assert.equal(category.meta.kind, 'category')
+      assert.equal(context.cacheStats.entries, Math.min(2, entriesBefore + 1))
+      context.repository.listPosts = realList
+    }
+    finally {
+      lease.release()
+    }
+  }
+  finally {
+    await harness.close()
+  }
+})
+
 test('R-2 the page cache reads the content version before the content it renders, so an edit landing in between is never cached under the new version', async () => {
   const harness = await createFilesystemApp()
   try {

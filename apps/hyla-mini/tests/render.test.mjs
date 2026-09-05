@@ -3,7 +3,9 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { createRuntime, definePackage } from '@syna/core'
 import {
+  DEFAULT_ACCENT,
   MarkdownStageFactoryContract,
+  PIPELINE_CACHE_MAX_ENTRIES,
   PipelineBuilder,
   RecipeError,
   RenderInfrastructureEntry,
@@ -15,11 +17,15 @@ import {
   RemarkParseFactory,
   RemarkRehypeFactory,
   RehypeStringifyFactory,
+  UNTRUSTED_SANITIZE_OCCURRENCE,
   bodyRecipe,
   commentRecipe,
+  createFactory,
   defaultRecipes,
   define,
   factorySetupCounts,
+  isCssColor,
+  isSafeHref,
   parseRecipeDocument,
   previewRecipe,
   stageRef,
@@ -39,8 +45,28 @@ const siteConfig = (tenantId, recipes = defaultRecipes()) => ({
 
 const untrusted = 'Hello <script>alert(1)</script> [link](https://evil.test/x) <img src=x onerror=alert(2)> *ok*'
 
+/** A third-party rehype stage that injects script and an event handler into the tree, after any sanitizer the recipe placed. */
+const EvilRehypeFactory = define.service('evil-rehype-factory', {
+  provides: [MarkdownStageFactoryContract],
+  setup() {
+    return createFactory(
+      { pluginId: 'evil-rehype', kind: 'rehype', optionsVersion: 1, optionsSchema: { type: 'object', additionalProperties: false, properties: {} }, repeatable: false },
+      () => processor => processor.use(() => tree => {
+        tree.children.push(
+          { type: 'element', tagName: 'script', properties: {}, children: [{ type: 'text', value: 'alert(1)' }] },
+          { type: 'element', tagName: 'img', properties: { src: 'x', onError: 'alert(2)' }, children: [] },
+        )
+      }),
+    )
+  },
+})
+const withEvilStage = recipe => ({
+  ...recipe,
+  stages: [...recipe.stages.slice(0, -1), { occurrence: 'evil', ref: stageRef(EvilRehypeFactory), optionsVersion: 1, options: {} }, recipe.stages.at(-1)],
+})
+
 test('H05 three recipes with observable differences are built from one shared set of factory slots', async () => {
-  const before = { ...factorySetupCounts }
+  assert.deepEqual(factorySetupCounts, {}, 'the module-global setup counter is deprecated and never written (I-73)')
   const runtime = createRuntime({ services: [PipelineBuilder, Renderer, ...STAGE_FACTORIES] })
   const env = await runtime.enter(RenderInfrastructureEntry)
   const builder = await env.deps.pipelines.load()
@@ -63,11 +89,18 @@ test('H05 three recipes with observable differences are built from one shared se
   assert.match(previewHtml, /First paragraph/)
   assert.doesNotMatch(previewHtml, /Third/)
 
-  // Every factory Service was set up exactly once in this Runtime world; products differ per recipe.
-  for (const factory of STAGE_FACTORIES) {
-    const id = factory.family.id.split('/').at(-1).replace('-factory', '')
-    assert.equal((factorySetupCounts[id] ?? 0) - (before[id] ?? 0), 1, `${id} set up once`)
-  }
+  // Every factory Service is one instance in this Runtime world (one token per factory, the same
+  // before and after the builds); another Runtime gets other instances. Products differ per recipe.
+  const instances = await builder.factoryInstances()
+  assert.equal(Object.keys(instances).length, STAGE_FACTORIES.length)
+  assert.equal(new Set(Object.values(instances)).size, STAGE_FACTORIES.length, 'one token per factory')
+  assert.deepEqual(await builder.factoryInstances(), instances, 'the tokens are stable: no factory was set up again')
+  const other = createRuntime({ services: [PipelineBuilder, Renderer, ...STAGE_FACTORIES] })
+  const otherBuilder = await (await other.enter(RenderInfrastructureEntry)).deps.pipelines.load()
+  const otherInstances = await otherBuilder.factoryInstances()
+  assert.deepEqual(Object.keys(otherInstances).sort(), Object.keys(instances).sort())
+  for (const key of Object.keys(instances)) assert.notEqual(otherInstances[key], instances[key], `${key}: a separate Runtime world has its own instance`)
+  await other.dispose()
   const stats = await builder.factoryStats()
   assert.equal(stats[`${RemarkParseFactory.family.id}@${RemarkParseFactory.version}`], 3, 'parse configured once per recipe')
   assert.equal(stats[`${RehypeSanitizeFactory.family.id}@${RehypeSanitizeFactory.version}`], 2)
@@ -127,6 +160,110 @@ test('H05 recipe validation: stage order, duplicate plugins, option schemas and 
   await assert.rejects(builder.build({ formatVersion: 2, name: 'x', stages: [] }), RecipeError)
   const defaulted = await builder.build({ ...body, stages: body.stages.map(stage => stage.occurrence === 'gfm' ? { ...stage, options: {} } : stage) })
   assert.equal(defaulted.stages.length, 5)
+  await runtime.dispose()
+})
+
+test('R3 untrusted policy: a rehype stage after the recipe\'s sanitizer cannot re-introduce script under `untrusted`; the same recipe as `trusted` keeps it', async () => {
+  const runtime = createRuntime({ services: [PipelineBuilder, Renderer, ...STAGE_FACTORIES, EvilRehypeFactory] })
+  const env = await runtime.enter(RenderInfrastructureEntry)
+  const builder = await env.deps.pipelines.load()
+  const evilComment = withEvilStage(commentRecipe())
+  const trusted = await builder.build(evilComment)
+  const untrustedPipe = await builder.build(evilComment, { trust: 'untrusted' })
+  assert.equal(builder.stats.builds, 2, 'trust is part of the cache key')
+  assert.equal(trusted.trust, 'trusted')
+  assert.equal(untrustedPipe.trust, 'untrusted')
+  const trustedHtml = await trusted.process('hi [x](https://ext.test/)')
+  assert.match(trustedHtml, /<script>alert\(1\)<\/script>/, 'as written, the late stage injects script')
+  assert.match(trustedHtml, /onerror/i)
+  const untrustedHtml = await untrustedPipe.process('hi [x](https://ext.test/)')
+  assert.doesNotMatch(untrustedHtml, /<script|onerror/i, 'the appended final sanitizer strips what the late stage injected')
+  assert.match(untrustedHtml, /rel="nofollow noopener ugc" target="_blank"/, 'the platform link attributes survive the final sanitizer')
+  assert.deepEqual(untrustedPipe.stages.map(stage => stage.occurrence), ['parse', 'gfm', 'bridge', 'sanitize', 'links', 'evil', UNTRUSTED_SANITIZE_OCCURRENCE, 'compile'])
+  assert.equal(untrustedPipe.stages.at(-2).appended, true)
+  assert.equal(untrustedPipe.stages.at(-2).pluginId, 'rehype-sanitize')
+
+  // A recipe with no sanitizer and raw HTML enabled (the trusted body recipe): under `untrusted`
+  // raw HTML is turned off at the bridge and the compiler, and a sanitizer is appended.
+  const bodyUntrusted = await builder.build(withEvilStage(bodyRecipe()), { trust: 'untrusted' })
+  const html = await bodyUntrusted.process('<b onclick="x()">raw</b> <script>alert(3)</script> *ok* [x](https://ext.test/)')
+  assert.doesNotMatch(html, /<script|onclick|onerror|<b/i, 'raw HTML is dropped at the bridge; the injected script and handler are stripped by the appended sanitizer')
+  assert.match(html, /<em>ok<\/em>/)
+  assert.match(html, /<img src="x">/, 'the injected image survives without its handler (images are allowed by the platform schema)')
+  assert.ok(bodyUntrusted.stages.some(stage => stage.appended))
+  // The recipe's own last rehype stage is the sanitizer: nothing is appended.
+  const sanitizerLast = { ...commentRecipe(), stages: commentRecipe().stages.filter(stage => stage.occurrence !== 'links') }
+  const plain = await builder.build(sanitizerLast, { trust: 'untrusted' })
+  assert.ok(!plain.stages.some(stage => stage.appended))
+  assert.doesNotMatch(await plain.process(untrusted), /<script|onerror|<img/)
+  await runtime.dispose()
+
+  // Without any admitted sanitizer, an untrusted build is refused explicitly; trusted builds still work.
+  const bare = createRuntime({ services: [PipelineBuilder, ...STAGE_FACTORIES.filter(factory => factory !== RehypeSanitizeFactory)] })
+  const bareEnv = await bare.enter(define.entry('builder-only-bare', { requires: { pipelines: PipelineBuilder } }))
+  const bareBuilder = await bareEnv.deps.pipelines.load()
+  await assert.rejects(bareBuilder.build(bodyRecipe(), { trust: 'untrusted' }), error => error instanceof RecipeError && /sanitizer role/.test(error.message))
+  assert.ok(await bareBuilder.build(bodyRecipe()))
+  await bare.dispose()
+})
+
+test('R2 the pipeline cache is a bounded LRU keyed by (trust, recipe); key order does not matter; failed builds are not kept', async () => {
+  const runtime = createRuntime({ services: [PipelineBuilder, ...STAGE_FACTORIES] })
+  const env = await runtime.enter(define.entry('builder-only-lru', { requires: { pipelines: PipelineBuilder } }))
+  const builder = await env.deps.pipelines.load()
+  assert.equal(builder.stats.maxEntries, PIPELINE_CACHE_MAX_ENTRIES)
+  const body = bodyRecipe()
+  const reordered = { stages: body.stages.map(stage => ({ options: stage.options, optionsVersion: stage.optionsVersion, ref: stage.ref, occurrence: stage.occurrence })), name: body.name, formatVersion: body.formatVersion }
+  await builder.build(body)
+  await builder.build(reordered)
+  assert.deepEqual({ builds: builder.stats.builds, cacheHits: builder.stats.cacheHits, entries: builder.stats.entries }, { builds: 1, cacheHits: 1, entries: 1 })
+  for (let index = 0; index < PIPELINE_CACHE_MAX_ENTRIES; index += 1) await builder.build({ ...body, name: `body-${index}` })
+  assert.equal(builder.stats.entries, PIPELINE_CACHE_MAX_ENTRIES)
+  assert.equal(builder.stats.evictions, 1, 'the original body, least recently used, was dropped')
+  await builder.build(body)
+  assert.equal(builder.stats.builds, PIPELINE_CACHE_MAX_ENTRIES + 2, 'rebuilt after its eviction')
+  await builder.build({ ...body, name: 'body-1' }) // a hit makes it the most recently used
+  await builder.build({ ...body, name: 'extra' })
+  const builds = builder.stats.builds
+  await builder.build({ ...body, name: 'body-1' })
+  assert.equal(builder.stats.builds, builds, 'body-1 survived (recently used); another entry went')
+  assert.equal(builder.stats.entries, PIPELINE_CACHE_MAX_ENTRIES)
+  const bad = { ...body, stages: body.stages.map(stage => stage.occurrence === 'gfm' ? { ...stage, options: { singleTilde: 'yes' } } : stage) }
+  await assert.rejects(builder.build(bad), RecipeError)
+  await assert.rejects(builder.build(bad), RecipeError)
+  assert.equal(builder.stats.entries, PIPELINE_CACHE_MAX_ENTRIES, 'a failed build holds no entry')
+  await runtime.dispose()
+})
+
+test('R4 the renderer never emits an unsafe navigation href or a non-color accent, even from a configuration that bypassed validation', async () => {
+  const runtime = createRuntime({ services: [PipelineBuilder, Renderer, ...STAGE_FACTORIES] })
+  const env = await runtime.enter(RenderInfrastructureEntry)
+  const renderer = await env.deps.renderer.load()
+  const site = {
+    ...siteConfig('alpha'),
+    theme: { name: 'paper', accent: 'red; } body { display: none }' },
+    navigation: [
+      { label: 'js', href: 'javascript:alert(1)' },
+      { label: 'ok', href: '/about' },
+      { label: 'ext', href: 'https://example.test/' },
+      { label: 'proto', href: '//evil.test/' },
+      { label: 'data', href: 'data:text/html,x' },
+    ],
+  }
+  const page = renderer.renderNotFound(site, '/x')
+  assert.match(page.html, new RegExp(`--accent:${DEFAULT_ACCENT}`))
+  assert.doesNotMatch(page.html, /display: none/)
+  assert.match(page.html, /<a href="#">js<\/a>/)
+  assert.match(page.html, /<a href="\/about">ok<\/a>/)
+  assert.match(page.html, /<a href="https:\/\/example.test\/">ext<\/a>/)
+  assert.match(page.html, /<a href="#">proto<\/a>/)
+  assert.match(page.html, /<a href="#">data<\/a>/)
+  const good = renderer.renderNotFound(siteConfig('alpha'), '/x')
+  assert.match(good.html, /--accent:#3366cc/)
+  for (const color of ['#3366cc', '#000', '#abcd', '#aabbccdd', 'rgb(1, 2, 3)', 'rgba(1,2,3,0.5)', 'hsl(120 50% 50%)', 'RebeccaPurple', 'transparent']) assert.equal(isCssColor(color), true, color)
+  for (const bad of ['red;', 'url(x)', 'rgb(a)', 'expression(1)', '#12', '', 'red }']) assert.equal(isCssColor(bad), false, bad)
+  for (const href of ['/', '/a/b?c=1#x', './x', '../x', 'posts/x', '#top', 'https://a.test/', 'HTTP://a.test', 'mailto:a@b.test']) assert.equal(isSafeHref(href), true, href)
+  for (const href of ['javascript:alert(1)', 'JAVASCRIPT:x', 'data:text/html,x', 'vbscript:x', '//evil.test', 'a b', '', 'ftp://x']) assert.equal(isSafeHref(href), false, href)
   await runtime.dispose()
 })
 

@@ -1,5 +1,6 @@
 import { Ajv, type ValidateFunction } from 'ajv'
 import type { RecipeDocument, RecipeStage, StoredImplementationRef } from '../domain/model.js'
+import { RECIPE_FORMAT_VERSION, recipeDocumentSchema } from '../domain/recipe-schema.js'
 import type { ServiceRevision } from '@syna/core'
 import { StageFactoryRef, type MarkdownStageFactory } from './stages.js'
 import {
@@ -12,46 +13,11 @@ import {
   RemarkRehypeFactory,
 } from './factories.js'
 
-export const RECIPE_FORMAT_VERSION = 1
+export { RECIPE_FORMAT_VERSION }
 
 const ajv = new Ajv({ allErrors: true, useDefaults: true, strict: true })
 
-const recipeSchema = {
-  type: 'object',
-  additionalProperties: false,
-  required: ['formatVersion', 'name', 'stages'],
-  properties: {
-    formatVersion: { const: RECIPE_FORMAT_VERSION },
-    name: { type: 'string', minLength: 1, maxLength: 64 },
-    stages: {
-      type: 'array',
-      minItems: 3,
-      items: {
-        type: 'object',
-        additionalProperties: false,
-        required: ['occurrence', 'ref', 'optionsVersion', 'options'],
-        properties: {
-          occurrence: { type: 'string', minLength: 1, maxLength: 64 },
-          ref: {
-            type: 'object',
-            additionalProperties: false,
-            required: ['kind', 'contractId', 'implementationId', 'version'],
-            properties: {
-              kind: { const: 'persistent-implementation-ref' },
-              contractId: { type: 'string', minLength: 1 },
-              implementationId: { type: 'string', minLength: 1 },
-              version: { type: 'string', minLength: 1 },
-            },
-          },
-          optionsVersion: { type: 'integer', minimum: 1 },
-          options: { type: 'object' },
-        },
-      },
-    },
-  },
-} as const
-
-const validateDocument: ValidateFunction = ajv.compile(recipeSchema)
+const validateDocument: ValidateFunction = ajv.compile(recipeDocumentSchema)
 
 export class RecipeError extends Error {
   readonly recipe: string | undefined

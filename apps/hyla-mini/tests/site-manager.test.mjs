@@ -331,11 +331,11 @@ test('S2 a reservation whose record was created meanwhile is handed to the next 
     const [x, y] = await addTenants(store, 2)
     const manager = await harness.app.app.deps.sites.load()
     const gates = gateConfigReads(store)
-    // A and B both read X's configuration (no record yet); C reads Y's.
+    // A and B both acquire X (one shared configuration read, no record yet); C reads Y's.
     const a = manager.acquire(x, 'request')
     const b = manager.acquire(x, 'request')
     const c = manager.acquire(y, 'request')
-    await waitUntil(() => gates.waiting(x) === 2 && gates.waiting(y) === 1)
+    await waitUntil(() => gates.waiting(x) === 1 && gates.waiting(y) === 1)
     // Same tick: A and B reserve the two units (B's becomes redundant once A
     // inserts the record); C finds the working set full and queues.
     gates.open(x)

@@ -1,6 +1,10 @@
 import type { Post, SiteConfig } from '../domain/model.js'
+import { isCssColor, isSafeHref } from '../domain/site-config.js'
 import { define } from '../syna.js'
 import { PipelineBuilder, type BuiltPipeline } from './pipeline.js'
+
+/** Used when a stored configuration (validated on save, but possibly older or foreign) carries an accent that is not a color. */
+export const DEFAULT_ACCENT = '#000000'
 
 export interface RenderedPage {
   readonly html: string
@@ -44,16 +48,19 @@ export function escapeHtml(value: string): string {
 }
 
 function layout(site: SiteConfig, locale: string, title: string, main: string): string {
+  // Defence in depth behind the store's validation: an unsafe href renders as a
+  // dead link, an accent that is not a color renders as the default.
   const navigation = site.navigation
-    .map(item => `<li><a href="${escapeHtml(item.href)}">${escapeHtml(item.label)}</a></li>`)
+    .map(item => `<li><a href="${escapeHtml(isSafeHref(item.href) ? item.href : '#')}">${escapeHtml(item.label)}</a></li>`)
     .join('')
+  const accent = isCssColor(site.theme.accent) ? site.theme.accent : DEFAULT_ACCENT
   return [
     '<!doctype html>',
     `<html lang="${escapeHtml(locale)}" data-theme="${escapeHtml(site.theme.name)}">`,
     '<head>',
     '<meta charset="utf-8">',
     `<title>${escapeHtml(title)} · ${escapeHtml(site.title)}</title>`,
-    `<style>:root{--accent:${escapeHtml(site.theme.accent)}}body{font-family:system-ui;max-width:48rem;margin:2rem auto;padding:0 1rem}a{color:var(--accent)}</style>`,
+    `<style>:root{--accent:${escapeHtml(accent)}}body{font-family:system-ui;max-width:48rem;margin:2rem auto;padding:0 1rem}a{color:var(--accent)}</style>`,
     '</head>',
     '<body>',
     `<header><h1><a href="/">${escapeHtml(site.title)}</a></h1><nav><ul>${navigation}</ul></nav></header>`,
@@ -70,10 +77,12 @@ export const Renderer = define.service('renderer', {
   async setup({ pipelines }): Promise<Renderer> {
     const builder = await pipelines.load()
 
+    // Bodies and previews come from the site's authors (trusted); comments are
+    // foreign input and get the untrusted policy on top of the site's recipe.
     const pipelinesFor = async (site: SiteConfig) => {
       const [body, comment, preview] = await Promise.all([
         builder.build(site.recipes.body),
-        builder.build(site.recipes.comment),
+        builder.build(site.recipes.comment, { trust: 'untrusted' }),
         builder.build(site.recipes.preview),
       ])
       return { body, comment, preview }

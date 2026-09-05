@@ -1,6 +1,6 @@
 import type { Root as HastRoot, Element } from 'hast'
 import type { Root as MdastRoot, RootContent } from 'mdast'
-import rehypeSanitize, { defaultSchema } from 'rehype-sanitize'
+import rehypeSanitize, { defaultSchema, type Options as Schema } from 'rehype-sanitize'
 import rehypeStringify from 'rehype-stringify'
 import remarkGfm from 'remark-gfm'
 import remarkParse from 'remark-parse'
@@ -10,16 +10,18 @@ import { visit } from 'unist-util-visit'
 import { define } from '../syna.js'
 import { MarkdownStageFactoryContract, createFactory } from './stages.js'
 
-/** Module-level counters let tests prove each factory Service was set up once per Runtime world. */
-export const factorySetupCounts: Record<string, number> = {}
-function countSetup(id: string): void {
-  factorySetupCounts[id] = (factorySetupCounts[id] ?? 0) + 1
-}
+/**
+ * @deprecated Never written since the third review round: a module-global
+ * counter was mutable state shared by every Runtime in the process (and by
+ * every factory setup, a violation of the plugin protocol Hyla asks of third
+ * parties). Sharing is proven per instance instead: `PipelineBuilder.factoryInstances()`
+ * returns one token per factory instance (`MarkdownStageFactory.stats.instance`).
+ */
+export const factorySetupCounts: Readonly<Record<string, number>> = Object.freeze({})
 
 export const RemarkParseFactory = define.service('remark-parse-factory', {
   provides: [MarkdownStageFactoryContract],
   setup() {
-    countSetup('remark-parse')
     return createFactory(
       { pluginId: 'remark-parse', kind: 'parse', optionsVersion: 1, optionsSchema: { type: 'object', additionalProperties: false, properties: {} }, repeatable: false },
       () => processor => processor.use(remarkParse),
@@ -30,7 +32,6 @@ export const RemarkParseFactory = define.service('remark-parse-factory', {
 export const RemarkGfmFactory = define.service('remark-gfm-factory', {
   provides: [MarkdownStageFactoryContract],
   setup() {
-    countSetup('remark-gfm')
     return createFactory(
       {
         pluginId: 'remark-gfm',
@@ -66,7 +67,6 @@ const remarkExcerpt: Plugin<[{ maxCharacters: number }], MdastRoot> = ({ maxChar
 export const RemarkExcerptFactory = define.service('remark-excerpt-factory', {
   provides: [MarkdownStageFactoryContract],
   setup() {
-    countSetup('remark-excerpt')
     return createFactory(
       {
         pluginId: 'remark-excerpt',
@@ -88,7 +88,6 @@ export const RemarkExcerptFactory = define.service('remark-excerpt-factory', {
 export const RemarkRehypeFactory = define.service('remark-rehype-factory', {
   provides: [MarkdownStageFactoryContract],
   setup() {
-    countSetup('remark-rehype')
     return createFactory(
       {
         pluginId: 'remark-rehype',
@@ -106,10 +105,28 @@ export const RemarkRehypeFactory = define.service('remark-rehype-factory', {
   },
 })
 
+const LINK_REL_TOKENS = ['nofollow', 'noopener', 'noreferrer', 'ugc'] as const
+
+/** The default schema, minus images on request, plus the attributes the platform's own link stage adds (`rel` tokens, `target="_blank"`). */
+function sanitizeSchema(options: Readonly<Record<string, unknown>>): Schema {
+  const tagNames = options.allowImages ? defaultSchema.tagNames : (defaultSchema.tagNames ?? []).filter(tag => tag !== 'img')
+  const attributes = options.allowLinkTargets
+    ? { ...defaultSchema.attributes, a: [...(defaultSchema.attributes?.a ?? []), ['rel', ...LINK_REL_TOKENS], ['target', '_blank']] }
+    : defaultSchema.attributes
+  return { ...defaultSchema, tagNames, attributes } as Schema
+}
+
+/**
+ * A second identity of the sanitize plugin. unified merges repeated uses of one
+ * plugin function into the first, so a sanitizer appended after a recipe's own
+ * sanitize stage would only re-configure that earlier pass; this identity is a
+ * pass of its own, run where the builder puts it (last among the rehype stages).
+ */
+const rehypeSanitizeFinalPass: Plugin<[Schema], HastRoot> = schema => rehypeSanitize(schema) as never
+
 export const RehypeSanitizeFactory = define.service('rehype-sanitize-factory', {
   provides: [MarkdownStageFactoryContract],
   setup() {
-    countSetup('rehype-sanitize')
     return createFactory(
       {
         pluginId: 'rehype-sanitize',
@@ -118,15 +135,20 @@ export const RehypeSanitizeFactory = define.service('rehype-sanitize-factory', {
         optionsSchema: {
           type: 'object',
           additionalProperties: false,
-          properties: { allowImages: { type: 'boolean', default: true } },
+          properties: {
+            allowImages: { type: 'boolean', default: true },
+            /** Keep `rel` (known tokens) and `target="_blank"` on links, which the platform's link stage adds. */
+            allowLinkTargets: { type: 'boolean', default: false },
+            /** Run as an additional pass even when the recipe already used rehype-sanitize earlier (builder use). */
+            finalPass: { type: 'boolean', default: false },
+          },
         },
         repeatable: false,
+        sanitizer: { options: { allowImages: true, allowLinkTargets: true, finalPass: true } },
       },
       options => processor => {
-        const schema = options.allowImages
-          ? defaultSchema
-          : { ...defaultSchema, tagNames: (defaultSchema.tagNames ?? []).filter(tag => tag !== 'img') }
-        return processor.use(rehypeSanitize, schema)
+        const schema = sanitizeSchema(options)
+        return options.finalPass ? processor.use(rehypeSanitizeFinalPass, schema) : processor.use(rehypeSanitize, schema)
       },
     )
   },
@@ -146,7 +168,6 @@ const rehypeExternalLinks: Plugin<[{ rel: readonly string[] }], HastRoot> = ({ r
 export const RehypeExternalLinksFactory = define.service('rehype-external-links-factory', {
   provides: [MarkdownStageFactoryContract],
   setup() {
-    countSetup('rehype-external-links')
     return createFactory(
       {
         pluginId: 'rehype-external-links',
@@ -169,7 +190,6 @@ export const RehypeExternalLinksFactory = define.service('rehype-external-links-
 export const RehypeStringifyFactory = define.service('rehype-stringify-factory', {
   provides: [MarkdownStageFactoryContract],
   setup() {
-    countSetup('rehype-stringify')
     return createFactory(
       {
         pluginId: 'rehype-stringify',

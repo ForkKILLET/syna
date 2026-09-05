@@ -15,13 +15,16 @@ import {
   AuthOptions,
   AuthenticatorContract,
   BuildEntry,
+  MarkdownStageFactoryContract,
   SessionAuth,
   SignedTokenAuth,
   SiteAuth,
+  createFactory,
   createHylaApp,
   defaultRecipes,
   define,
   loadDomainTable,
+  stageRef,
   startHttpServer,
   startStaticServer,
 } from '../dist/index.js'
@@ -467,6 +470,62 @@ test('S9 the maintenance worker reloads the domain table on every tick; a failed
     assert.equal(worker.state, 'stopped')
   }
   finally {
+    await harness.close()
+  }
+})
+
+test('R3 /comments/preview goes through the untrusted policy: a stage registered after the site\'s sanitizer cannot emit script there, while the trusted body recipe runs as written', async () => {
+  const EvilRehypeFactory = define.service('audit-evil-rehype-factory', {
+    provides: [MarkdownStageFactoryContract],
+    setup() {
+      return createFactory(
+        { pluginId: 'audit-evil-rehype', kind: 'rehype', optionsVersion: 1, optionsSchema: { type: 'object', additionalProperties: false, properties: {} }, repeatable: false },
+        () => processor => processor.use(() => tree => {
+          tree.children.push({ type: 'element', tagName: 'script', properties: {}, children: [{ type: 'text', value: 'alert(1)' }] })
+        }),
+      )
+    },
+  })
+  const harness = await createFilesystemApp({ app: { extraServices: [EvilRehypeFactory] } })
+  let server
+  try {
+    const store = await harness.app.app.deps.store.load()
+    const alpha = store.forTenant('alpha')
+    const current = await alpha.getSiteConfig()
+    const withEvil = recipe => ({ ...recipe, stages: [...recipe.stages.slice(0, -1), { occurrence: 'evil', ref: stageRef(EvilRehypeFactory), optionsVersion: 1, options: {} }, recipe.stages.at(-1)] })
+    await alpha.saveSiteConfig({ ...current, recipes: { ...current.recipes, comment: withEvil(current.recipes.comment), body: withEvil(current.recipes.body) } })
+    const domains = await harness.app.domains()
+    server = await startHttpServer({ app: harness.app.app, domains })
+    const preview = await fetchText(`${server.url}/comments/preview?text=${encodeURIComponent('hello [x](https://ext.test/)')}`, { headers: { host: 'alpha.test' } })
+    assert.equal(preview.status, 200, preview.body)
+    assert.doesNotMatch(preview.body, /<script/i, 'the comment pipeline ends with the platform sanitizer')
+    assert.match(preview.body, /rel="nofollow noopener ugc"/)
+    const post = await fetchText(`${server.url}/posts/shared-slug`, { headers: { host: 'alpha.test' } })
+    assert.equal(post.status, 200)
+    assert.match(post.body, /<script>alert\(1\)<\/script>/, 'a trusted body recipe runs as written, late stage included')
+  }
+  finally {
+    await server?.close()
+    await harness.close()
+  }
+})
+
+test('R4 a malformed session cookie is an anonymous request, not a 500', async () => {
+  const harness = await createFilesystemApp()
+  let server
+  try {
+    const domains = await harness.app.domains()
+    server = await startHttpServer({ app: harness.app.app, domains, onError: () => undefined })
+    const plain = await fetchText(`${server.url}/`, { headers: { host: 'alpha.test' } })
+    const malformed = await fetchText(`${server.url}/`, { headers: { host: 'alpha.test', cookie: 'hyla_session=%E0%A4%A; other=%ZZ' } })
+    assert.equal(malformed.status, 200)
+    assert.equal(malformed.body, plain.body, 'served as anonymous')
+    const member = await fetchText(`${server.url}/`, { headers: { host: 'alpha.test', cookie: 'hyla_session=alpha-member' } })
+    assert.equal(member.status, 200)
+    assert.notEqual(member.body, plain.body, 'control: a valid session sees more')
+  }
+  finally {
+    await server?.close()
     await harness.close()
   }
 })

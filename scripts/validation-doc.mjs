@@ -6,7 +6,7 @@
 // Every number in the document comes from manifest.json, benchmark-v0.5.json, working-set.json,
 // the consumer-run log and the two same-machine v0.4 comparison files under benchmarks/.
 // Nothing is hand-typed; re-run the script after every gate run that is meant to be the record.
-import { readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 
 const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..')
@@ -112,12 +112,27 @@ const phaseNames = { hot: 'hot', rotate: 'rotation', tail: 'long tail', mixed: '
 const stats = workingSet.finalStats
 out(`${workingSet.tenants} tenants configured, capacity ${workingSet.capacity}; max SiteEnv records per phase: ${Object.entries(workingSet.maxRecordsPerPhase).map(([phase, count]) => `${phaseNames[phase] ?? phase} ${count}`).join(', ')}; final records ${stats.records}, evictions ${stats.evictions}, creations ${stats.creations}, creation failures ${stats.creationFailures}, leases ${stats.leases}, pending acquires ${stats.pendingAcquires}. Heap after GC per phase: ${workingSet.heapSamples.map(sample => `${sample.label} ${mib(sample.heapUsed)} MiB (records ${sample.records}, live envs ${sample.liveEnvs}, disposing ${sample.disposing ?? 0})`).join('; ')}. Site Envs alive at any acquire (live envs minus the two roots, sampled on every lease): at most ${workingSet.maxSiteEnvsAlive ?? 'n/a'} of capacity ${workingSet.capacity}. Plan cache at the end: ${JSON.stringify(workingSet.planCache)}.`, '')
 
+const latencyFile = path.join(runDir, 'hyla-request-latency.json')
+if (existsSync(latencyFile)) {
+  const latency = json(latencyFile)
+  out(`## Hyla-mini request latency (report only, \`${runDir}/hyla-request-latency.json\`)`, '')
+  out(`${latency.note} Quick mode: ${latency.quick}. Not a budget: nothing here gates the release.`, '')
+  out('| backend | case | samples | p50 ms | p95 ms | p99 ms |', '|---|---|---:|---:|---:|---:|')
+  for (const backend of latency.backends) {
+    if (backend.skipped) { out(`| ${backend.backend} | skipped: ${backend.skipped} | | | | |`); continue }
+    for (const item of backend.cases) out(`| ${backend.backend} | ${item.name} | ${item.timing.samples} | ${ms(item.timing.p50Ms)} | ${ms(item.timing.p95Ms)} | ${ms(item.timing.p99Ms)} |`)
+  }
+  out('')
+  const described = latency.backends.find(backend => backend.cases)?.cases ?? []
+  out(described.map(item => `\`${item.name}\`: ${item.description}.`).join(' '), '')
+}
+
 out('## Audit and review fixes covered by this run', '')
 out('The suites above include the regressions written for the independent audits and for the second review round (`docs/AUDIT.md`): `packages/core/tests/v05-audit-lifecycle.test.mjs`, `v05-audit-planning.test.mjs` and `v05-review-lifecycle.test.mjs` inside `core-tests`, `apps/hyla-mini/tests/audit-app.test.mjs` and `apps/hyla-mini/tests/review-app.test.mjs` as their own steps, and the two repository-conformance cases (content version, domain claims) inside the filesystem and PostgreSQL suites.', '')
 
 out('## What is not covered', '')
 out('- Coverage percentages are not a gate in v0.5; the adversarial and application suites are.')
-out('- Benchmarks use empty setups; Hyla-mini request latency including PostgreSQL round trips is not a micro-benchmark and is not claimed here.')
+out('- Benchmarks use empty setups; Hyla-mini request latency (section above) is reported end to end on this machine but is not a budget and not a cross-machine claim.')
 out('- The gate ran with no other workload on the machine; single-run timings still carry noise (see the v0.4 comparison for the spread between two runs of the same code).')
 
 writeFileSync(path.resolve(root, outFile), lines.join('\n') + '\n')

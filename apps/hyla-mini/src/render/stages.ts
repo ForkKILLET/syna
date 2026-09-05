@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import type { Processor } from 'unified'
 import { define } from '../syna.js'
 
@@ -27,6 +28,17 @@ export interface ConfiguredStage {
  * publicly provides — never on request or site facts (those arrive as
  * configure()/render() arguments).
  */
+/**
+ * Declared by a sanitizing `rehype` factory. The PipelineBuilder appends such a
+ * factory, configured with `options`, as the final rehype stage of every
+ * pipeline built as `untrusted` whose recipe does not already end its rehype
+ * stages with a sanitizer. `options` must make the factory add a pass of its
+ * own (unified merges repeated uses of one plugin identity into the first).
+ */
+export interface SanitizerRole {
+  readonly options: Readonly<Record<string, unknown>>
+}
+
 export interface MarkdownStageFactory {
   readonly pluginId: string
   readonly kind: StageKind
@@ -34,9 +46,16 @@ export interface MarkdownStageFactory {
   readonly optionsSchema: JsonSchema
   /** Whether one recipe may use this plugin more than once (unified merges repeated `.use()` settings otherwise). */
   readonly repeatable: boolean
+  /** Present on sanitizing factories: the platform's guarantee for untrusted input. */
+  readonly sanitizer?: SanitizerRole
   configure(options: Readonly<Record<string, unknown>>): ConfiguredStage
-  /** Observable counters used by tests to prove sharing and absence of cross-recipe state. */
-  readonly stats: { readonly configured: number }
+  /**
+   * Observable counters used by tests to prove sharing and absence of
+   * cross-recipe state. `instance` is a token minted when the factory instance
+   * was created (one per Service setup): equal tokens across recipes prove one
+   * shared slot, different tokens across Runtimes prove separate worlds.
+   */
+  readonly stats: { readonly configured: number; readonly instance: string }
 }
 
 export const MarkdownStageFactoryContract = define.contract<MarkdownStageFactory>('markdown-stage-factory', {
@@ -47,14 +66,16 @@ export const MarkdownStageFactoryContract = define.contract<MarkdownStageFactory
 export const StageFactoryRef = define.binding('stage-factory', MarkdownStageFactoryContract)
 
 export function createFactory(
-  descriptor: Pick<MarkdownStageFactory, 'pluginId' | 'kind' | 'optionsVersion' | 'optionsSchema' | 'repeatable'>,
+  descriptor: Pick<MarkdownStageFactory, 'pluginId' | 'kind' | 'optionsVersion' | 'optionsSchema' | 'repeatable' | 'sanitizer'>,
   build: (options: Readonly<Record<string, unknown>>) => (processor: Processor<any, any, any, any, any>) => Processor<any, any, any, any, any>,
 ): MarkdownStageFactory {
   let configured = 0
+  const instance = randomUUID() // per factory instance; no module-global state is touched
   return {
     ...descriptor,
     stats: {
       get configured() { return configured },
+      get instance() { return instance },
     },
     configure(options) {
       configured += 1

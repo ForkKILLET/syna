@@ -18,10 +18,10 @@ import type {
   Post,
   PostFilter,
   PostInput,
-  SiteConfig,
   SiteConfigInput,
   Tag,
 } from '../../domain/model.js'
+import { parseSiteConfig } from '../../domain/site-config.js'
 import { DomainConflictError, SlugConflictError, assertName, buildPost, normalizeTimestamp, resolveRevision } from '../common.js'
 import { ContentRoot } from './config.js'
 import {
@@ -294,15 +294,17 @@ export function createFilesystemContentStore(rootDir: string, layout: ContentLay
         return { tenantId, ...entry }
       }),
       async getSiteConfig() {
-        const stored = await readJson(tenantId, SITE_FILE, isStoredSiteConfig)
+        // Whatever is on disk (an out-of-band edit, another program's file) is validated before it becomes a site.
+        const stored = await readJson(tenantId, SITE_FILE, isRecord)
         if (stored === undefined) return undefined
-        return { ...stored, tenantId } satisfies SiteConfig
+        return parseSiteConfig({ ...stored, tenantId }, 'stored')
       },
-      saveSiteConfig: config => serialize(async () => {
-        if (config.tenantId !== tenantId) {
-          throw new TypeError(`SiteConfig.tenantId ${JSON.stringify(config.tenantId)} does not match repository tenant ${tenantId}.`)
+      saveSiteConfig: input => serialize(async () => {
+        if (input.tenantId !== tenantId) {
+          throw new TypeError(`SiteConfig.tenantId ${JSON.stringify(input.tenantId)} does not match repository tenant ${tenantId}.`)
         }
-        const claimed = new Set((Array.isArray(config.domains) ? config.domains : []).map(normalizeDomain).filter((host): host is string => host !== undefined))
+        const config = parseSiteConfig(input, 'input')
+        const claimed = new Set(config.domains.map(normalizeDomain).filter((host): host is string => host !== undefined))
         if (claimed.size > 0) {
           for (const other of await listTenantIds()) {
             if (other === tenantId) continue

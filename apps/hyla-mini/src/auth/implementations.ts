@@ -21,7 +21,14 @@ function parseCookies(header: string | undefined): Record<string, string> {
   for (const part of (header ?? '').split(';')) {
     const index = part.indexOf('=')
     if (index < 0) continue
-    cookies[part.slice(0, index).trim()] = decodeURIComponent(part.slice(index + 1).trim())
+    let value: string
+    try {
+      value = decodeURIComponent(part.slice(index + 1).trim())
+    }
+    catch {
+      continue // a malformed percent-encoding is no cookie, not a 500
+    }
+    cookies[part.slice(0, index).trim()] = value
   }
   return cookies
 }

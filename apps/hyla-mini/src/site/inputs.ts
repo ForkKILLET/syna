@@ -45,6 +45,12 @@ export interface SiteManagerSettings {
    * least 2, else 0; must be an integer in [0, capacity).
    */
   readonly reservedForRequests: number
+  /**
+   * Rendered pages kept per SiteEnv (least recently used dropped beyond it).
+   * The key includes tenant, configuration revision, content version, locale,
+   * visibility class and path, so this bounds memory, not correctness.
+   */
+  readonly pageCacheMaxEntries: number
   /** Cold-creation failure backoff (bounded exponential). */
   readonly creationBackoffMs: number
   readonly creationBackoffMaxMs: number
@@ -77,6 +83,7 @@ export const DEFAULT_SITE_MANAGER_SETTINGS: Omit<SiteManagerSettings, 'reservedF
   sweepIntervalMs: 1_000,
   maxPendingAcquires: 64,
   acquireTimeoutMs: 5_000,
+  pageCacheMaxEntries: 256,
   creationBackoffMs: 200,
   creationBackoffMaxMs: 10_000,
   shutdownTimeoutMs: 5_000,

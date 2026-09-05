@@ -175,6 +175,11 @@ async function developmentGate() {
   await run('hyla-demo-filesystem', 'node', ['apps/hyla-mini/bin/hyla-mini.mjs', 'demo', '--root', path.join(root, 'work', 'demo-content')])
   rmSync(path.join(root, 'work', 'demo-content'), { recursive: true, force: true })
   await run('benchmarks', 'node', ['--expose-gc', 'benchmarks/v0.5-planning.mjs', path.join(validationDir, 'benchmark-v0.5.json')])
+  // Report only (no budget): end-to-end request latency on both backends, PostgreSQL through the temporary cluster.
+  await run('hyla-request-latency', 'node', [
+    'scripts/pg-test-cluster.mjs', 'with', '--',
+    'node', 'benchmarks/hyla-request-latency.mjs', path.join(validationDir, 'hyla-request-latency.json'),
+  ], { env: { SYNA_PG_CLUSTER_DIR: path.join(root, 'work', release ? 'pg-release' : 'pg-dev') } })
   if (!existsSync(path.join(validationDir, 'working-set.json'))) {
     steps.push({ name: 'working-set-report', ok: false, exitCode: 1, mustRun: true, command: 'internal', log: path.relative(root, path.join(validationDir, 'working-set.json')), note: 'site-manager tests did not write the working-set report' })
   }

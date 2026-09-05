@@ -1,6 +1,7 @@
 export { define } from './syna.js'
 export * from './domain/model.js'
 export * from './domain/content.js'
+export * from './domain/site-config.js'
 export * from './data/postgres/config.js'
 export * from './data/filesystem/config.js'
 export * from './data/filesystem/layout.js'

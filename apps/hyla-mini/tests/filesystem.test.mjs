@@ -11,15 +11,17 @@ import {
   DefaultLayout,
   FilesystemContentStore,
   KeyedMutex,
+  SiteConfigError,
   UnsafePathError,
   define,
   readFrontMatter,
   safeJoin,
   seedTenantContent,
+  siteConfigInputFromFixture,
   writeFileAtomic,
   writeFrontMatter,
 } from '../dist/index.js'
-import { fixture, repositoryConformance } from './helpers/repository-conformance.mjs'
+import { fixture, repositoryConformance, sampleExtras } from './helpers/repository-conformance.mjs'
 
 const StoreEntry = define.entry('test-filesystem-store', {
   requires: { store: FilesystemContentStore },
@@ -169,6 +171,22 @@ describe('filesystem: path safety', () => {
     assert.throws(() => safeJoin('relative/root', 'a'), UnsafePathError)
   })
 
+  it('a stored site.json that is not a site configuration is a SiteConfigError for that tenant, never a page (R4/B5)', async () => {
+    const { store, rootDir } = handle
+    const alpha = store.forTenant('alpha')
+    await alpha.saveSiteConfig({ ...siteConfigInputFromFixture('alpha', fixture.tenants.alpha, sampleExtras) })
+    const file = path.join(rootDir, 'alpha', 'site.json')
+    const good = await readFile(file, 'utf8')
+    // Edited behind the store's back: a string where the theme should be, a script href.
+    const broken = { ...JSON.parse(good), theme: 'dark', navigation: [{ label: 'x', href: 'javascript:alert(1)' }] }
+    await writeFile(file, JSON.stringify(broken))
+    await assert.rejects(alpha.getSiteConfig(), error => error instanceof SiteConfigError && error.code === 'INVALID_SITE_CONFIG' && error.mode === 'stored' && error.tenantId === 'alpha' && error.problems.length >= 1)
+    await writeFile(file, '{"title": 1}')
+    await assert.rejects(alpha.getSiteConfig(), SiteConfigError)
+    await writeFile(file, good)
+    assert.equal((await alpha.getSiteConfig()).title, fixture.tenants.alpha.site.title, 'restored')
+  })
+
   it('rejects path traversal in tenant ids and slugs', async () => {
     const { store } = handle
     assert.throws(() => store.forTenant('../x'), TypeError)
@@ -217,7 +235,7 @@ describe('filesystem: path safety', () => {
     await assert.rejects(zeta.listPosts({ visibility: 'all' }), /symbolic link/)
     await assert.rejects(zeta.listCategories(), /symbolic link/)
     await assert.rejects(zeta.saveCategory({ slug: 'c', name: 'C' }), /symbolic link/)
-    await assert.rejects(zeta.saveSiteConfig({ tenantId: 'zeta' }), /symbolic link/)
+    await assert.rejects(zeta.saveSiteConfig({ ...siteConfigInputFromFixture('zeta', fixture.tenants.alpha, sampleExtras), domains: ['zeta.test'] }), /symbolic link/)
     await assert.rejects(store.deleteTenant('zeta'), /symbolic link|not a real directory/)
     assert.ok(await exists(outsideTenant), 'the link target was not deleted')
     assert.ok(await exists(path.join(outsideTenant, 'categories.json')))

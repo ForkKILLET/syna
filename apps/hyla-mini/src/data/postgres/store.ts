@@ -14,10 +14,10 @@ import type {
   Post,
   PostFilter,
   PostInput,
-  SiteConfig,
   SiteConfigInput,
   Tag,
 } from '../../domain/model.js'
+import { parseSiteConfig } from '../../domain/site-config.js'
 import { DomainConflictError, SlugConflictError, assertName, normalizeTimestamp } from '../common.js'
 import { applyMigrations } from './migrations.js'
 import { DatabasePool, executorOf } from './pool.js'
@@ -236,13 +236,15 @@ export function repositoryOn(tenantId: string, sql: SqlExecutor): ContentReposit
       )
       const row = result.rows[0]
       if (row === undefined) return undefined
-      return { ...row.config, tenantId, configRevision: row.config_revision } satisfies SiteConfig
+      // Whatever the row holds (a raw update, another program's document) is validated before it becomes a site.
+      return parseSiteConfig({ ...row.config, tenantId, configRevision: row.config_revision }, 'stored')
     },
-    async saveSiteConfig(config) {
-      if (config.tenantId !== tenantId) {
-        throw new TypeError(`SiteConfig.tenantId ${JSON.stringify(config.tenantId)} does not match repository tenant ${tenantId}.`)
+    async saveSiteConfig(input) {
+      if (input.tenantId !== tenantId) {
+        throw new TypeError(`SiteConfig.tenantId ${JSON.stringify(input.tenantId)} does not match repository tenant ${tenantId}.`)
       }
-      const claimed = (Array.isArray(config.domains) ? config.domains : []).map(normalizeDomain).filter((host): host is string => host !== undefined)
+      const config = parseSiteConfig(input, 'input')
+      const claimed = config.domains.map(normalizeDomain).filter((host): host is string => host !== undefined)
       if (claimed.length > 0) {
         const conflict = await sql.query<{ tenant_id: string; domain: string }>(
           `select s.tenant_id, d.value as domain

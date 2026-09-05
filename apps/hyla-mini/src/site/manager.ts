@@ -156,6 +156,9 @@ export const SiteEnvironmentManager = define.service('site-environment-manager',
     if (!Number.isSafeInteger(settings.reservedForRequests) || settings.reservedForRequests < 0 || settings.reservedForRequests >= settings.capacity) {
       throw new TypeError(`siteManager.reservedForRequests must be an integer in [0, capacity); got ${String(settings.reservedForRequests)} for capacity ${settings.capacity}.`)
     }
+    if (!Number.isSafeInteger(settings.pageCacheMaxEntries) || settings.pageCacheMaxEntries < 1) {
+      throw new TypeError(`siteManager.pageCacheMaxEntries must be a positive integer; got ${String(settings.pageCacheMaxEntries)}.`)
+    }
     const boundSites = await sites.load()
     const contentStore = await store.load()
     const runtimeId = runtimeIdentity()
@@ -184,10 +187,19 @@ export const SiteEnvironmentManager = define.service('site-environment-manager',
       }
     }
 
-    const readConfig = async (tenantId: string): Promise<SiteConfig> => {
-      const config = await contentStore.forTenant(tenantId).getSiteConfig()
-      if (!config) throw new UnknownTenantError(tenantId)
-      return config
+    /** Concurrent acquirers of one tenant share a single store round-trip. */
+    const configReads = new Map<string, Promise<SiteConfig>>()
+    const readConfig = (tenantId: string): Promise<SiteConfig> => {
+      let pending = configReads.get(tenantId)
+      if (!pending) {
+        pending = (async () => {
+          const config = await contentStore.forTenant(tenantId).getSiteConfig()
+          if (!config) throw new UnknownTenantError(tenantId)
+          return config
+        })().finally(() => { configReads.delete(tenantId) })
+        configReads.set(tenantId, pending)
+      }
+      return pending
     }
 
     const liveRecords = (): SiteRecord[] => [...records.values()].filter(record => record.state !== 'disposed')

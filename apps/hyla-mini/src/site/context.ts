@@ -3,12 +3,16 @@ import { ContentBackend, type ContentRepository } from '../domain/content.js'
 import { Renderer, type RenderedPage } from '../render/renderer.js'
 import { canViewPost, visibilityClass, type Principal } from '../auth/principal.js'
 import { define } from '../syna.js'
-import { SiteSnapshot, TenantId } from './inputs.js'
+import { DEFAULT_SITE_MANAGER_SETTINGS, SiteManagerOptions, SiteSnapshot, TenantId } from './inputs.js'
 
 export interface PageCacheStats {
   readonly hits: number
   readonly misses: number
+  /** Lookups that joined a render already in flight for the same key (single-flight). */
+  readonly coalesced: number
   readonly entries: number
+  readonly evictions: number
+  readonly maxEntries: number
 }
 
 /**
@@ -18,7 +22,10 @@ export interface PageCacheStats {
  * the store on every lookup, so an edit or a visibility change is never served
  * stale; when it moves, the whole page cache of this site is dropped. It never
  * caches authorization decisions or the Syna plan; Syna's plan cache never
- * caches pages.
+ * caches pages. The cache is bounded (`pageCacheMaxEntries`, least recently
+ * used dropped), concurrent lookups of one key share one render, concurrent
+ * version lookups share one store round-trip, and a render that fails is not
+ * cached.
  */
 export interface SiteContext {
   readonly tenantId: string
@@ -39,19 +46,28 @@ export const SiteContext = define.service('site-context', {
     snapshot: SiteSnapshot,
     store: ContentBackend,
     renderer: Renderer,
+    settings: SiteManagerOptions,
   },
-  async setup({ tenant, snapshot, store, renderer }): Promise<SiteContext> {
+  async setup({ tenant, snapshot, store, renderer, settings }): Promise<SiteContext> {
     const tenantId = tenant.read()
     const site = snapshot.read()
     if (site.tenantId !== tenantId) {
       throw new TypeError(`Site snapshot belongs to ${site.tenantId}, not ${tenantId}.`)
     }
+    const maxEntries = settings.read().pageCacheMaxEntries ?? DEFAULT_SITE_MANAGER_SETTINGS.pageCacheMaxEntries
+    if (!Number.isSafeInteger(maxEntries) || maxEntries < 1) {
+      throw new TypeError(`pageCacheMaxEntries must be a positive integer; got ${String(maxEntries)}.`)
+    }
     const repository = (await store.load()).forTenant(tenantId)
     const render = await renderer.load()
-    const pages = new Map<string, RenderedPage>()
+    const pages = new Map<string, RenderedPage>() // insertion order = recency
+    const producing = new Map<string, Promise<RenderedPage>>()
     let hits = 0
     let misses = 0
+    let coalesced = 0
+    let evictions = 0
     let cachedVersion: string | undefined
+    let versionRead: Promise<string> | undefined
 
     /**
      * The content version must be read BEFORE any content that ends up in the
@@ -59,27 +75,52 @@ export const SiteContext = define.service('site-context', {
      * after the store reported v; any edit after that moves the version past
      * v, so an entry can be served stale only if content is read first and the
      * version afterwards (the edit would then land under the newer key).
+     * Concurrent lookups share one store round-trip; the order above holds for
+     * each of them, since none reads content before the shared read settles.
      */
-    const currentVersion = async (): Promise<string> => {
-      const version = await repository.contentVersion()
-      if (version !== cachedVersion) {
-        pages.clear()
-        cachedVersion = version
-      }
-      return version
+    const currentVersion = (): Promise<string> => {
+      versionRead ??= (async () => {
+        const version = await repository.contentVersion()
+        if (version !== cachedVersion) {
+          pages.clear()
+          cachedVersion = version
+        }
+        return version
+      })().finally(() => { versionRead = undefined })
+      return versionRead
     }
 
-    const cached = async (version: string, principal: Principal, path: string, produce: () => Promise<RenderedPage>): Promise<RenderedPage> => {
+    const cached = (version: string, principal: Principal, path: string, produce: () => Promise<RenderedPage>): Promise<RenderedPage> => {
       const key = `${tenantId}|${site.configRevision}|${version}|${site.defaultLocale}|${visibilityClass(principal, tenantId)}|${path}`
       const existing = pages.get(key)
       if (existing) {
         hits += 1
-        return existing
+        pages.delete(key)
+        pages.set(key, existing) // most recently used
+        return Promise.resolve(existing)
+      }
+      const inFlight = producing.get(key)
+      if (inFlight) {
+        coalesced += 1
+        return inFlight
       }
       misses += 1
-      const page = await produce()
-      pages.set(key, page)
-      return page
+      const pending = produce().then(page => {
+        // A render under a version the cache has already left behind is returned but not kept.
+        if (cachedVersion === version) {
+          pages.set(key, page)
+          if (pages.size > maxEntries) {
+            const oldest = pages.keys().next().value
+            if (oldest !== undefined) {
+              pages.delete(oldest)
+              evictions += 1
+            }
+          }
+        }
+        return page
+      }).finally(() => { producing.delete(key) })
+      producing.set(key, pending)
+      return pending
     }
 
     const visible = async (principal: Principal, filter: Omit<PostFilter, 'visibility'> = {}) => {
@@ -114,7 +155,10 @@ export const SiteContext = define.service('site-context', {
       cacheStats: {
         get hits() { return hits },
         get misses() { return misses },
+        get coalesced() { return coalesced },
         get entries() { return pages.size },
+        get evictions() { return evictions },
+        get maxEntries() { return maxEntries },
       },
     }
   },

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { after, before, describe, it } from 'node:test'
 import {
   DomainConflictError,
+  SiteConfigError,
   SlugConflictError,
   comparePosts,
   loadContentFixture,
@@ -12,16 +13,17 @@ import {
 
 export const fixture = loadContentFixture()
 
+/** A recipe of valid shape (the store validates documents structurally; it never resolves factories). */
 function recipe(name) {
+  const ref = implementationId => ({ kind: 'persistent-implementation-ref', contractId: 'hyla.mini/markdown-stage-factory/v1', implementationId, version: '^0.1.0' })
   return {
     formatVersion: 1,
     name,
-    stages: [{
-      occurrence: 'markdown',
-      ref: { kind: 'persistent-implementation-ref', contractId: 'hyla.mini/render-stage/v1', implementationId: 'hyla.mini/markdown', version: '^0.1.0' },
-      optionsVersion: 1,
-      options: { gfm: true },
-    }],
+    stages: [
+      { occurrence: 'parse', ref: ref('hyla.mini/remark-parse-factory'), optionsVersion: 1, options: {} },
+      { occurrence: 'bridge', ref: ref('hyla.mini/remark-rehype-factory'), optionsVersion: 1, options: { allowDangerousHtml: false } },
+      { occurrence: 'compile', ref: ref('hyla.mini/rehype-stringify-factory'), optionsVersion: 1, options: {} },
+    ],
   }
 }
 
@@ -299,6 +301,37 @@ export function repositoryConformance(name, makeStore) {
       seen.push(await beta.contentVersion())
       assert.equal(new Set(seen).size, seen.length, `every mutation produced a new version: ${seen}`)
       assert.equal(await alpha.contentVersion(), alphaBefore, 'the other tenant is untouched')
+    })
+
+    it('saveSiteConfig validates the document (SiteConfigError); a refused save leaves the stored configuration and its revision unchanged', async () => {
+      const base = siteConfigInputFromFixture('beta', fixture.tenants.beta, sampleExtras)
+      await beta.saveSiteConfig(base)
+      const stored = await beta.getSiteConfig()
+      const refused = [
+        ['script href', { ...base, navigation: [{ label: 'x', href: 'javascript:alert(1)' }] }],
+        ['protocol-relative href', { ...base, navigation: [{ label: 'x', href: '//evil.test/' }] }],
+        ['stylesheet injection in accent', { ...base, theme: { ...base.theme, accent: 'red; } body { display: none }' } }],
+        ['unusable domain', { ...base, domains: ['not a host'] }],
+        ['unknown locale', { ...base, defaultLocale: 'fr' }],
+        ['recipe without stages', { ...base, recipes: { ...base.recipes, comment: { formatVersion: 1, name: 'c', stages: [] } } }],
+        ['unknown key', { ...base, extra: true }],
+        ['missing auth', { ...base, auth: undefined }],
+      ]
+      for (const [what, input] of refused) {
+        await assert.rejects(
+          beta.saveSiteConfig(input),
+          error => error instanceof SiteConfigError && error.code === 'INVALID_SITE_CONFIG' && error.mode === 'input' && error.tenantId === 'beta' && error.problems.length > 0,
+          what,
+        )
+      }
+      assert.deepEqual(await beta.getSiteConfig(), stored, 'nothing changed')
+      // Control: the accepted spellings.
+      const accepted = await beta.saveSiteConfig({
+        ...base,
+        theme: { name: 'ink', accent: 'rgb(10, 20, 30)' },
+        navigation: [{ label: 'a', href: '/about' }, { label: 'b', href: '#top' }, { label: 'c', href: 'mailto:hi@example.test' }, { label: 'd', href: 'https://example.test/x?y=1' }, { label: 'e', href: 'posts/relative' }],
+      })
+      assert.equal(accepted.configRevision, stored.configRevision + 1)
     })
 
     it('saveSiteConfig refuses a domain another tenant already claims (DomainConflictError), also when spelled differently', async () => {

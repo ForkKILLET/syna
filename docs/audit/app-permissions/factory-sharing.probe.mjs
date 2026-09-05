@@ -50,7 +50,10 @@ try {
     'hyla.mini/remark-gfm-factory@0.1.0': 4,
     'hyla.mini/remark-excerpt-factory@0.1.0': 2,
     'hyla.mini/remark-rehype-factory@0.1.0': 6,
-    'hyla.mini/rehype-sanitize-factory@0.1.0': 4,
+    // Third review round (I-74): comment pipelines are built `untrusted`; their last rehype stage is the
+    // links stage, so the builder appends the platform sanitizer as a final pass (one more configure()
+    // per comment pipeline: 4 recipe occurrences + 2 appended passes).
+    'hyla.mini/rehype-sanitize-factory@0.1.0': 6,
     'hyla.mini/rehype-external-links-factory@0.1.0': 4,
     'hyla.mini/rehype-stringify-factory@0.1.0': 6,
   }
@@ -67,8 +70,15 @@ try {
   check('no additional configure() during the storm (products are reused, not rebuilt per render)', sortedJson(statsAfterStorm) === sortedJson(statsAfterBaseline), statsAfterStorm)
   check('pipeline builder served the storm from its cache', pipelines.stats.builds === 6 && pipelines.stats.cacheHits >= 6, pipelines.stats)
 
-  const setupDelta = Object.fromEntries(Object.keys(factorySetupCounts).map(key => [key, factorySetupCounts[key] - (setupBefore[key] ?? 0)]))
-  check('each factory Service was set up exactly once in this app', Object.values(setupDelta).every(count => count === 1) && Object.keys(setupDelta).length === 7, setupDelta)
+  // Third review round (I-73): the module-global setup counter is no longer written (`factorySetupCounts`
+  // is a frozen, deprecated export). Sharing is proven by per-instance tokens: one token per admitted factory,
+  // stable across the storm, so every recipe and tenant used the same seven instances.
+  void setupBefore
+  void factorySetupCounts
+  const instances = await pipelines.factoryInstances()
+  const instancesAfter = await pipelines.factoryInstances()
+  check('each factory Service is one instance shared by every recipe and tenant of this app (seven tokens, unchanged by the storm)',
+    Object.keys(instances).length === 7 && new Set(Object.values(instances)).size === 7 && JSON.stringify(instances) === JSON.stringify(instancesAfter), instances)
 
   // ownership
   const requestEnv = await alpha.env.enter(RequestEntry, { request: PROBE_REQUEST })
