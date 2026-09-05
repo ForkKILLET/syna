@@ -43,6 +43,15 @@ const TAGS_FILE = 'tags.json'
 const SITE_FILE = 'site.json'
 /** Per-tenant monotonic counter advanced by every mutation; read by page caches. */
 const VERSION_FILE = 'content.version'
+/**
+ * Written before the first content write of a mutation and removed after its
+ * version bump. A marker found outside a mutation is the trace of a crash in
+ * between: the next version read bumps once, so caches drop whatever that
+ * mutation may have written.
+ */
+const PENDING_VERSION_FILE = 'content.version.pending'
+/** Lock key (never a tenant id) that serializes domain claims across tenants. Lock order: tenant, then domains. */
+const DOMAINS_LOCK = '__domains__'
 
 interface PostFile {
   readonly post: Post
@@ -211,7 +220,12 @@ export function createFilesystemContentStore(rootDir: string, layout: ContentLay
       .sort()
   }
 
-  function repository(tenantId: string, serialize: <T>(fn: () => Promise<T>) => Promise<T>): ContentRepository {
+  /**
+   * `recover` is true for the public repository only: a pending-version marker
+   * seen outside the serialized section is a crash leftover and is settled by
+   * one bump. Inside `transaction()` the marker belongs to the running work.
+   */
+  function repository(tenantId: string, serialize: <T>(fn: () => Promise<T>) => Promise<T>, recover = false): ContentRepository {
     assertSafeSegment(tenantId, 'tenantId')
 
     const readVersion = async (): Promise<number> => {
@@ -219,10 +233,17 @@ export function createFilesystemContentStore(rootDir: string, layout: ContentLay
       const parsed = text === undefined ? 0 : Number.parseInt(text, 10)
       return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : 0
     }
-    /** Called inside the tenant's serialized mutation section. */
+    const hasPendingMarker = async (): Promise<boolean> =>
+      (await readTextIfExists(await resolveTenantFile(tenantId, PENDING_VERSION_FILE))) !== undefined
+    /** Called inside the serialized section, right before a mutation's first content write. */
+    const markPending = async (): Promise<void> => {
+      await writeFileAtomic(await resolveTenantFile(tenantId, PENDING_VERSION_FILE), `${new Date().toISOString()}\n`)
+    }
+    /** Called inside the tenant's serialized mutation section; clears the pending marker. */
     const bump = async (): Promise<void> => {
       const next = (await readVersion()) + 1
       await writeFileAtomic(await resolveTenantFile(tenantId, VERSION_FILE), `${next}\n`)
+      await rm(await resolveTenantFile(tenantId, PENDING_VERSION_FILE), { force: true })
     }
 
     async function savePost(input: PostInput): Promise<Post> {
@@ -235,6 +256,7 @@ export function createFilesystemContentStore(rootDir: string, layout: ContentLay
 
       const relativePath = layout.postPath(post)
       const target = await resolveTenantFile(tenantId, relativePath)
+      await markPending()
       await writeFileAtomic(target, serializePost(post))
       // Identity is the front-matter id: a slug or primary-category rename moves
       // the file. The new file is on disk before the old one goes away.
@@ -269,6 +291,7 @@ export function createFilesystemContentStore(rootDir: string, layout: ContentLay
         const files = await scanPosts(tenantId)
         const existing = files.find(file => file.post.id === id)
         if (existing === undefined) return false
+        await markPending()
         await rm(await resolveTenantFile(tenantId, existing.relativePath), { force: true })
         await bump()
         return true
@@ -279,6 +302,7 @@ export function createFilesystemContentStore(rootDir: string, layout: ContentLay
       },
       saveCategory: category => serialize(async () => {
         const entry = { slug: assertSafeSegment(category.slug, 'Category slug'), name: assertName(category.name, 'Category name') }
+        await markPending()
         await upsertNamed(tenantId, CATEGORIES_FILE, entry)
         await bump()
         return { tenantId, ...entry }
@@ -289,6 +313,7 @@ export function createFilesystemContentStore(rootDir: string, layout: ContentLay
       },
       saveTag: tag => serialize(async () => {
         const entry = { slug: assertSafeSegment(tag.slug, 'Tag slug'), name: assertName(tag.name, 'Tag name') }
+        await markPending()
         await upsertNamed(tenantId, TAGS_FILE, entry)
         await bump()
         return { tenantId, ...entry }
@@ -305,30 +330,45 @@ export function createFilesystemContentStore(rootDir: string, layout: ContentLay
         }
         const config = parseSiteConfig(input, 'input')
         const claimed = new Set(config.domains.map(normalizeDomain).filter((host): host is string => host !== undefined))
-        if (claimed.size > 0) {
-          for (const other of await listTenantIds()) {
-            if (other === tenantId) continue
-            const theirs = await readJson(other, SITE_FILE, isStoredSiteConfig).catch(() => undefined)
-            const taken = (Array.isArray(theirs?.domains) ? theirs.domains : []).find(domain => {
-              const host = normalizeDomain(domain)
-              return host !== undefined && claimed.has(host)
-            })
-            if (taken !== undefined) throw new DomainConflictError(tenantId, taken, other)
+        // The scan of the other tenants and the write of this one are one critical
+        // section under the store-wide domains lock: two tenants claiming one host
+        // at the same time cannot both pass the scan.
+        return locks.withLock(DOMAINS_LOCK, async () => {
+          if (claimed.size > 0) {
+            for (const other of await listTenantIds()) {
+              if (other === tenantId) continue
+              const theirs = await readJson(other, SITE_FILE, isStoredSiteConfig).catch(() => undefined)
+              const taken = (Array.isArray(theirs?.domains) ? theirs.domains : []).find(domain => {
+                const host = normalizeDomain(domain)
+                return host !== undefined && claimed.has(host)
+              })
+              if (taken !== undefined) throw new DomainConflictError(tenantId, taken, other)
+            }
           }
-        }
-        const previous = await readJson(tenantId, SITE_FILE, isStoredSiteConfig)
-        const next: StoredSiteConfig = { ...config, configRevision: (previous?.configRevision ?? 0) + 1 }
-        await writeJson(tenantId, SITE_FILE, next)
-        await bump()
-        return next
+          const previous = await readJson(tenantId, SITE_FILE, isStoredSiteConfig)
+          const next: StoredSiteConfig = { ...config, configRevision: (previous?.configRevision ?? 0) + 1 }
+          await markPending()
+          await writeJson(tenantId, SITE_FILE, next)
+          await bump()
+          return next
+        })
       }),
-      contentVersion: async () => String(await readVersion()),
+      contentVersion: async () => {
+        if (recover && await hasPendingMarker()) {
+          // Outside the serialized section a marker can only be left over from a
+          // crashed mutation (a running one clears it before leaving the section).
+          await serialize(async () => {
+            if (await hasPendingMarker()) await bump()
+          })
+        }
+        return String(await readVersion())
+      },
     }
   }
 
   return {
     backend: 'filesystem',
-    forTenant: tenantId => repository(tenantId, fn => locks.withLock(tenantId, fn)),
+    forTenant: tenantId => repository(tenantId, fn => locks.withLock(tenantId, fn), true),
     listTenants: listTenantIds,
     /**
      * Unit of work on the filesystem backend: `work` runs while holding the

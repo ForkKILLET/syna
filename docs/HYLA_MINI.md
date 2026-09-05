@@ -35,6 +35,13 @@ InfrastructureEntry (root)      DatabaseConfig 或 ContentRoot+Layout 的 Input
 
 Post：stable `id`、`tenantId`、`slug`、`locale`（`zh-CN`/`en`，普通数据）、Markdown `body`、`status`（published/draft/private）、`categories` 与 `primaryCategory`、`tags`、`revision`、时间戳（fixture 控制）。Category/Tag/SiteConfig（标题、域名、主题参数、导航、三份配方、auth 设置、`configRevision`）。排序、路径安全、locale/状态判断在 `domain/model.ts`，两个后端共用。
 
+两个后端的写入保证（第三轮 B1–B4）：
+
+- 身份：文章由 `(tenantId, id)` 标识。PostgreSQL 的 `posts` 主键是 `(tenant_id, id)`（早期只以 `id` 为主键的 schema 在启动迁移时幂等地改为复合键），同一个 id 在两个租户里是两篇互不影响的文章，与文件系统后端和按租户划分的仓库 API 一致。
+- 变更与版本号：每个变更和它的内容版本推进是同一个工作单元。PostgreSQL 公共路径上的每个变更（`savePost`/`deletePost`/`saveCategory`/`saveTag`/`saveSiteConfig`）自成一个事务，写入与 `content_versions` 的推进一起提交或一起回滚；`transaction()` 里的变更沿用外层事务。文件系统后端在变更的第一次内容写入之前写下 `content.version.pending` 标记，推进版本后删除；公共仓库在串行区之外看到残留标记（写入与推进之间崩溃的痕迹）时推进一次版本，使缓存丢弃该变更可能写下的内容——这不是多文件 ACID，只是让崩溃不会把缓存永久留在旧版本。
+- 域名归属：PostgreSQL 有 `domains(normalized_host primary key, tenant_id)` 表（迁移时从已有配置回填，之后每次保存重写该租户的行）；保存配置时按排序后的主机名逐个取事务级 advisory 锁，再检查并写入，两个租户同时认领一个主机名只有一个成功，主键是绕过应用写入者的兜底。文件系统后端在租户锁之内再取存储级 `__domains__` 锁，把扫描其他租户与写入自己的配置做成一个临界区（锁序：租户 → 域名）。
+- 连接池：只有连接级错误（`isConnectionError`：SQLSTATE 08 类、57P01/57P02/57P03、网络 errno、pg 的连接终止消息）、租约期间连接上的 error 事件、或 BEGIN/ROLLBACK 本身失败才销毁连接；业务错误（约束冲突、抛出的异常、坏 SQL）回滚后把连接交还池。`stats().removed` 计数被丢弃的连接。租约中的连接在两次查询之间断开不会成为进程级 error 事件。
+
 ## 站点工作集（H10/H11）
 
 `SiteEnvironmentManager` 是普通 Hyla Service（Syna core 无 TenantScope/LRU）：

@@ -323,6 +323,35 @@ describe('filesystem: atomic writes and per-tenant serialization', () => {
     }
   })
 
+  it('a content-version marker left by a crashed mutation bumps the version once on the next read, so caches drop what that mutation may have written (B3)', async () => {
+    const handle = await makeStore(DefaultLayout)
+    try {
+      const repo = handle.store.forTenant('crashy')
+      await repo.savePost({ id: 'c-1', slug: 'c-1', locale: 'en', title: 'c', body: 'b\n', status: 'published', categories: [], tags: [] })
+      const version = Number(await repo.contentVersion())
+      const marker = path.join(handle.rootDir, 'crashy', 'content.version.pending')
+      assert.equal(await exists(marker), false, 'a completed mutation leaves no marker')
+      await writeFile(marker, `${new Date().toISOString()}\n`)
+      assert.equal(Number(await repo.contentVersion()), version + 1, 'the leftover marker bumps the version once')
+      assert.equal(await exists(marker), false, 'and is cleared')
+      assert.equal(Number(await repo.contentVersion()), version + 1, 'only once')
+      await repo.saveCategory({ slug: 'x', name: 'X' })
+      assert.equal(Number(await repo.contentVersion()), version + 2)
+      assert.equal(await exists(marker), false)
+      // Inside transaction() the marker belongs to the running work: reads there never settle it.
+      await handle.store.transaction('crashy', async tx => {
+        await writeFile(marker, 'mine\n')
+        assert.equal(Number(await tx.contentVersion()), version + 2)
+        assert.equal(await exists(marker), true)
+        await rm(marker)
+      })
+      assert.equal(Number(await repo.contentVersion()), version + 2)
+    }
+    finally {
+      await handle.dispose()
+    }
+  })
+
   it('transaction() serializes with other mutations of the same tenant', async () => {
     const handle = await makeStore(DefaultLayout)
     try {

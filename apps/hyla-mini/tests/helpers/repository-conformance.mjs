@@ -336,7 +336,7 @@ export function repositoryConformance(name, makeStore) {
 
     it('saveSiteConfig refuses a domain another tenant already claims (DomainConflictError), also when spelled differently', async () => {
       const betaConfig = siteConfigInputFromFixture('beta', fixture.tenants.beta, sampleExtras)
-      await beta.saveSiteConfig(betaConfig) // baseline: beta owns its own domains
+      const revisionBefore = (await beta.saveSiteConfig(betaConfig)).configRevision // baseline: beta owns its own domains
       const alphaDomain = fixture.tenants.alpha.site.domains[0]
       await assert.rejects(
         beta.saveSiteConfig({ ...betaConfig, domains: [...betaConfig.domains, alphaDomain.toUpperCase()] }),
@@ -351,12 +351,63 @@ export function repositoryConformance(name, makeStore) {
         DomainConflictError,
         'a fully-qualified spelling (trailing dot) is the same claim',
       )
-      const revisionBefore = (await beta.getSiteConfig()).configRevision
       assert.equal((await beta.getSiteConfig()).configRevision, revisionBefore, 'a refused save changes nothing')
       // Control: a tenant may keep (re-save) its own domains and add new ones.
       const saved = await beta.saveSiteConfig({ ...betaConfig, domains: [...betaConfig.domains, 'beta-extra.test'] })
       assert.equal(saved.configRevision, revisionBefore + 1)
       assert.ok((await beta.getSiteConfig()).domains.includes('beta-extra.test'))
+    })
+
+    it('two tenants claiming one domain at the same time: exactly one wins, every round (B2)', async () => {
+      const base = tenantId => ({ ...siteConfigInputFromFixture(tenantId, fixture.tenants.alpha, sampleExtras), domains: [] })
+      const first = store.forTenant('claim-a')
+      const second = store.forTenant('claim-b')
+      await first.saveSiteConfig(base('claim-a'))
+      await second.saveSiteConfig(base('claim-b'))
+      try {
+        for (let round = 0; round < 5; round += 1) {
+          const host = `contested-${round}.test`
+          const results = await Promise.allSettled([
+            first.saveSiteConfig({ ...base('claim-a'), domains: [host] }),
+            second.saveSiteConfig({ ...base('claim-b'), domains: [host.toUpperCase()] }),
+          ])
+          const winners = results.filter(result => result.status === 'fulfilled')
+          assert.equal(winners.length, 1, `round ${round}: ${results.map(result => result.status === 'fulfilled' ? 'won' : String(result.reason))}`)
+          const loser = results.find(result => result.status === 'rejected')
+          assert.ok(loser.reason instanceof DomainConflictError, String(loser.reason))
+          assert.equal(loser.reason.ownerTenantId, winners[0].value.tenantId)
+          const owners = [await first.getSiteConfig(), await second.getSiteConfig()].filter(config => config.domains.some(domain => domain.toLowerCase() === host))
+          assert.equal(owners.length, 1, 'the stored configurations agree with the outcome')
+          assert.equal(owners[0].tenantId, winners[0].value.tenantId)
+        }
+      }
+      finally {
+        await store.deleteTenant('claim-a')
+        await store.deleteTenant('claim-b')
+      }
+    })
+
+    it('a post id is scoped to its tenant: the same id in two tenants is two posts (B1)', async () => {
+      const draftFor = slug => ({ id: 'shared-id', slug, locale: 'en', title: slug, body: `${slug}\n`, status: 'published', categories: [], tags: [] })
+      const one = await alpha.savePost(draftFor('shared-id-alpha'))
+      const two = await beta.savePost(draftFor('shared-id-beta'))
+      try {
+        assert.equal(one.revision, 1)
+        assert.equal(two.revision, 1)
+        assert.equal((await alpha.getPostById('shared-id')).slug, 'shared-id-alpha')
+        assert.equal((await beta.getPostById('shared-id')).slug, 'shared-id-beta')
+        const updated = await alpha.savePost({ ...draftFor('shared-id-alpha'), body: 'changed\n' })
+        assert.equal(updated.revision, 2)
+        assert.equal((await beta.getPostById('shared-id')).revision, 1, "updating alpha's post leaves beta's alone")
+        assert.equal((await beta.getPostById('shared-id')).body, 'shared-id-beta\n')
+        assert.equal(await alpha.deletePost('shared-id'), true)
+        assert.equal(await alpha.getPostById('shared-id'), undefined)
+        assert.equal((await beta.getPostById('shared-id')).slug, 'shared-id-beta', "deleting alpha's post leaves beta's alone")
+      }
+      finally {
+        await alpha.deletePost('shared-id')
+        await beta.deletePost('shared-id')
+      }
     })
 
     it('deleteTenant removes only that tenant', async () => {

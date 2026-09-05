@@ -1,13 +1,19 @@
-import { escapeIdentifier } from 'pg'
+import { escapeIdentifier, escapeLiteral } from 'pg'
 import type { DatabasePool } from './pool.js'
 
 /**
  * Idempotent DDL for the Hyla-mini content tables. All statements are qualified
  * with the configured schema, and the whole batch runs under a transaction-scoped
  * advisory lock so concurrent starts do not race `CREATE ... IF NOT EXISTS`.
+ *
+ * Posts are identified by `(tenant_id, id)`: an id is a tenant-scoped fact, as it
+ * is on the filesystem backend and in the tenant-scoped repository API. Domain
+ * ownership lives in `domains` (one row per normalized host), so two tenants
+ * claiming one host at the same time is decided by the primary key.
  */
 export function migrationStatements(schema: string): readonly string[] {
   const s = escapeIdentifier(schema)
+  const literal = escapeLiteral(schema)
   return [
     `create schema if not exists ${s}`,
     `create table if not exists ${s}.sites (
@@ -16,7 +22,7 @@ export function migrationStatements(schema: string): readonly string[] {
        config_revision integer not null
      )`,
     `create table if not exists ${s}.posts (
-       id text primary key,
+       id text not null,
        tenant_id text not null,
        slug text not null,
        locale text not null,
@@ -29,8 +35,25 @@ export function migrationStatements(schema: string): readonly string[] {
        revision integer not null,
        created_at timestamptz not null,
        updated_at timestamptz not null,
+       primary key (tenant_id, id),
        unique (tenant_id, slug)
      )`,
+    // Schemas created before the third review round keyed posts by id alone (a
+    // global identity): move them to the composite key. Runs once; a composite
+    // key has two columns and is left alone.
+    `do $$
+     declare single_column_key text;
+     begin
+       select c.conname into single_column_key
+         from pg_constraint c
+         join pg_class t on t.oid = c.conrelid
+         join pg_namespace n on n.oid = t.relnamespace
+        where n.nspname = ${literal} and t.relname = 'posts' and c.contype = 'p' and array_length(c.conkey, 1) = 1;
+       if single_column_key is not null then
+         execute format('alter table %I.posts drop constraint %I', ${literal}, single_column_key);
+         execute format('alter table %I.posts add primary key (tenant_id, id)', ${literal});
+       end if;
+     end $$`,
     `create index if not exists posts_tenant_status_created_idx
        on ${s}.posts (tenant_id, status, created_at desc)`,
     `create index if not exists posts_tenant_categories_idx
@@ -53,6 +76,22 @@ export function migrationStatements(schema: string): readonly string[] {
        tenant_id text primary key,
        version bigint not null
      )`,
+    `create table if not exists ${s}.domains (
+       normalized_host text primary key,
+       tenant_id text not null
+     )`,
+    `create index if not exists domains_tenant_idx on ${s}.domains (tenant_id)`,
+    // Back-fill from configurations stored before the table existed: lower-case,
+    // trimmed, without a port or a trailing dot (the SQL approximation of
+    // normalizeDomain; a tenant's next save rewrites its rows with the real one).
+    `insert into ${s}.domains (normalized_host, tenant_id)
+     select distinct on (host) host, tenant_id from (
+       select regexp_replace(lower(trim(d.value)), '(:[0-9]+)?\\.?$', '') as host, s.tenant_id
+         from ${s}.sites s, jsonb_array_elements_text(s.config->'domains') as d
+     ) claims
+     where host <> ''
+     order by host, tenant_id
+     on conflict (normalized_host) do nothing`,
   ]
 }
 

@@ -8,6 +8,7 @@ import {
   DatabasePool,
   PostgresContentStore,
   SiteConfigError,
+  applyMigrations,
   define,
   siteConfigInputFromFixture,
 } from '../dist/index.js'
@@ -75,7 +76,18 @@ describe('postgres: transactions, pool sharing and disposal', () => {
       'select table_name from information_schema.tables where table_schema = $1 order by table_name',
       [schema],
     )
-    assert.deepEqual(tables.rows.map(row => row.table_name), ['categories', 'content_versions', 'posts', 'sites', 'tags'])
+    assert.deepEqual(tables.rows.map(row => row.table_name), ['categories', 'content_versions', 'domains', 'posts', 'sites', 'tags'])
+    const postKey = await pool.query(
+      `select array_agg(a.attname::text order by k.ordinality) as columns
+         from pg_constraint c
+         join pg_class t on t.oid = c.conrelid
+         join pg_namespace n on n.oid = t.relnamespace
+         cross join lateral unnest(c.conkey) with ordinality as k(attnum, ordinality)
+         join pg_attribute a on a.attrelid = t.oid and a.attnum = k.attnum
+        where n.nspname = $1 and t.relname = 'posts' and c.contype = 'p'`,
+      [schema],
+    )
+    assert.deepEqual(postKey.rows[0].columns, ['tenant_id', 'id'], 'posts are identified by (tenant_id, id)')
     const searchPath = await pool.withClient(client => client.query('show search_path'))
     assert.equal(searchPath.rows[0].search_path, schema)
     const inTransaction = await pool.withTransaction(client => client.query('show search_path'))
@@ -93,6 +105,97 @@ describe('postgres: transactions, pool sharing and disposal', () => {
     await pool.query(`update sites set config = '{"title": 1, "theme": "dark"}'::jsonb where tenant_id = $1`, ['delta'])
     await assert.rejects(delta.getSiteConfig(), error => error instanceof SiteConfigError && error.code === 'INVALID_SITE_CONFIG' && error.mode === 'stored' && error.tenantId === 'delta')
     await store.deleteTenant('delta')
+  })
+
+  it('migrating a schema whose posts were keyed by id alone moves them to (tenant_id, id) and back-fills domain ownership (B1/B2)', async () => {
+    const legacy = `${schema}_legacy`
+    const legacyRuntime = createRuntime({ services: [DatabasePool, PostgresContentStore] })
+    try {
+      await pool.query(`create schema ${legacy}`)
+      await pool.query(`create table ${legacy}.posts (id text primary key, tenant_id text not null, slug text not null, locale text not null, title text not null, body text not null, status text not null, categories text[] not null, primary_category text null, tags text[] not null, revision integer not null, created_at timestamptz not null, updated_at timestamptz not null, unique (tenant_id, slug))`)
+      await pool.query(`create table ${legacy}.sites (tenant_id text primary key, config jsonb not null, config_revision integer not null)`)
+      await pool.query(`insert into ${legacy}.sites (tenant_id, config, config_revision) values ('old-a', '{"domains": ["Old-A.test.", "shared.test:8080"]}', 3), ('old-b', '{"domains": ["old-b.test", "SHARED.TEST"]}', 1)`)
+      const legacyEnv = await legacyRuntime.enter(StoreEntry, { config: { ...config, schema: legacy } })
+      try {
+        const legacyStore = await legacyEnv.deps.store.load()
+        const key = await pool.query(
+          `select array_agg(a.attname::text order by k.ordinality) as columns from pg_constraint c join pg_class t on t.oid = c.conrelid join pg_namespace n on n.oid = t.relnamespace cross join lateral unnest(c.conkey) with ordinality as k(attnum, ordinality) join pg_attribute a on a.attrelid = t.oid and a.attnum = k.attnum where n.nspname = $1 and t.relname = 'posts' and c.contype = 'p'`,
+          [legacy],
+        )
+        assert.deepEqual(key.rows[0].columns, ['tenant_id', 'id'])
+        const domains = await pool.query(`select normalized_host, tenant_id from ${legacy}.domains order by normalized_host`)
+        assert.deepEqual(domains.rows, [
+          { normalized_host: 'old-a.test', tenant_id: 'old-a' },
+          { normalized_host: 'old-b.test', tenant_id: 'old-b' },
+          { normalized_host: 'shared.test', tenant_id: 'old-a' },
+        ], 'one owner per normalized host; a host two stored configurations claim goes to the first tenant')
+        // The migration is idempotent: running it again changes nothing.
+        await applyMigrations(await legacyEnv.deps.pool.load())
+        assert.deepEqual((await pool.query(`select count(*)::int as n from ${legacy}.domains`)).rows[0].n, 3)
+        // And the same id now lives in two tenants.
+        await legacyStore.forTenant('old-a').savePost(draft('same-id'))
+        await legacyStore.forTenant('old-b').savePost(draft('same-id'))
+        assert.equal((await pool.query(`select count(*)::int as n from ${legacy}.posts where id = 'same-id'`)).rows[0].n, 2)
+      }
+      finally {
+        await legacyEnv.dispose()
+      }
+    }
+    finally {
+      await legacyRuntime.dispose()
+      await pool.query(`drop schema if exists ${legacy} cascade`)
+    }
+  })
+
+  it('a mutation and its content-version bump are one transaction on the public path: when the bump fails nothing is written (B3)', async () => {
+    const epsilon = store.forTenant('epsilon')
+    await epsilon.savePost(draft('eps-1'))
+    const versionBefore = await epsilon.contentVersion()
+    const removedBefore = pool.stats().removed
+    await pool.query(`create or replace function ${schema}.refuse_bump() returns trigger language plpgsql as $$ begin raise exception 'bump refused'; end $$`)
+    await pool.query(`create trigger refuse_bump before insert or update on ${schema}.content_versions for each row when (new.tenant_id = 'epsilon') execute function ${schema}.refuse_bump()`)
+    try {
+      await assert.rejects(epsilon.savePost(draft('eps-2')), /bump refused/)
+      assert.equal(await epsilon.getPostById('eps-2'), undefined, 'the post write was rolled back with the bump')
+      await assert.rejects(epsilon.deletePost('eps-1'), /bump refused/)
+      assert.ok(await epsilon.getPostById('eps-1'), 'the delete was rolled back')
+      await assert.rejects(epsilon.saveCategory({ slug: 'c', name: 'C' }), /bump refused/)
+      assert.deepEqual(await epsilon.listCategories(), [])
+      await assert.rejects(epsilon.saveTag({ slug: 't', name: 'T' }), /bump refused/)
+      assert.deepEqual(await epsilon.listTags(), [])
+      await assert.rejects(epsilon.saveSiteConfig({ ...siteConfigInputFromFixture('epsilon', fixture.tenants.alpha, sampleExtras), domains: ['epsilon.test'] }), /bump refused/)
+      assert.equal(await epsilon.getSiteConfig(), undefined, 'the configuration write was rolled back')
+      assert.deepEqual((await pool.query('select tenant_id from domains where normalized_host = $1', ['epsilon.test'])).rows, [], 'and so was its domain claim')
+      assert.equal(await epsilon.contentVersion(), versionBefore)
+      assert.equal(pool.stats().removed, removedBefore, 'a raised exception inside a transaction costs no connection')
+    }
+    finally {
+      await pool.query(`drop trigger if exists refuse_bump on ${schema}.content_versions`)
+      await pool.query(`drop function if exists ${schema}.refuse_bump()`)
+    }
+    // Control: without the trigger the same mutations commit.
+    await epsilon.savePost(draft('eps-2'))
+    assert.ok(await epsilon.getPostById('eps-2'))
+    assert.notEqual(await epsilon.contentVersion(), versionBefore)
+    await store.deleteTenant('epsilon')
+  })
+
+  it('pool: business errors hand the connection back, only connection-level errors destroy it (B4)', async () => {
+    const removedBefore = pool.stats().removed
+    const race = store.forTenant('pool-race')
+    const results = await Promise.allSettled(Array.from({ length: 20 }, (_, index) => race.savePost(draft(`pool-race-${index}`, { slug: 'contested' }))))
+    assert.equal(results.filter(result => result.status === 'fulfilled').length, 1, 'exactly one writer owns the slug')
+    assert.equal(results.filter(result => result.status === 'rejected' && result.reason.name === 'SlugConflictError').length, 19)
+    assert.equal(pool.stats().removed, removedBefore, 'nineteen rejected transactions destroyed no connection')
+    assert.ok(pool.stats().total <= max)
+    await assert.rejects(pool.withTransaction(client => client.query('select 1/0')), error => error.code === '22012')
+    assert.equal(pool.stats().removed, removedBefore, 'a failed statement is rolled back on a healthy connection')
+    // The backend goes away under the lease: the query fails with a connection error and only that connection is dropped.
+    await assert.rejects(pool.withClient(client => client.query('select pg_terminate_backend(pg_backend_pid())')), error => error.code === '57P01' || /terminat/i.test(error.message))
+    assert.equal(pool.stats().removed, removedBefore + 1)
+    assert.equal((await pool.query('select 1 as ok')).rows[0].ok, 1, 'the pool is still usable')
+    assert.equal(pool.stats().waiting, 0)
+    await store.deleteTenant('pool-race')
   })
 
   it('rolls back the whole transaction when work throws', async () => {
