@@ -1,6 +1,6 @@
 # Independent audits (AUDIT)
 
-Three fresh-context reviewers examined the v0.5 workspace without access to the implementer's conversation, with the source, the task book (`SYNA_V05_EXECUTION_PROMPT.md`) and the documents as their only input. Each reviewer wrote executable probes, reported PASS/FAIL per attack with observed values, and produced a report. The reports, probes and captured outputs are archived verbatim under `docs/audit/<line>/` (probe import paths adjusted from `work/v05/audit/<line>/` to `docs/audit/<line>/`; the working copies stay under `work/v05/audit/`).
+Three fresh-context reviewers examined the v0.5 workspace without access to the implementer's conversation, with the source, the task book (`SYNA_V05_EXECUTION_PROMPT.md`) and the documents as their only input. Each reviewer wrote executable probes, reported PASS/FAIL per attack with observed values, and produced a report. The reports, probes and captured outputs are archived under `docs/audit/<line>/` (probe import paths adjusted from `work/v05/audit/<line>/` to `docs/audit/<line>/`; two strings in the cache-delivery report were reworded so the archive scan for home paths and credential-bearing connection strings stays clean, as noted at the top of that copy; the reviewers' working copies stay verbatim under `work/v05/audit/`, outside the archive).
 
 | line | reviewer input | commit reviewed | probes | report |
 |---|---|---|---|---|

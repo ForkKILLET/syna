@@ -1,5 +1,7 @@
 # Independent review — cache / delivery / developer experience (Syna v0.5 + Hyla-mini)
 
+> Archived copy of the reviewer's report. Two strings were altered so that the source-archive scan (which rejects absolute home paths and `user:password@` connection strings) stays clean: a placeholder connection-string pattern in the unpack row is now described in words, and an elided absolute home path in the F-CD-08 section is spelled `<home>/…`. Nothing else differs from the reviewer's working copy `work/v05/audit/cache-delivery/REPORT.md` (outside the archive).
+
 Reviewer line: plan-cache neutrality (R17), long churn (R18/P04), benchmarks and budgets (P01–P03, P07), archive rebuild in a clean directory (G1), a real TypeScript consumer, deprecated paths, and whether `scripts/verify-v05.mjs` is a transparent runner.
 
 I did not write this code and was given no claim about its correctness. Everything below that says PASS or a number was run by me; anything I only read is marked "by inspection". No file under `packages/`, `apps/`, `docs/`, `scripts/`, `benchmarks/` was modified (`git status --porcelain -- packages apps docs scripts benchmarks` → 0 lines). All artefacts live under `work/v05/audit/cache-delivery/` (this directory).
@@ -31,7 +33,7 @@ Driver: `rebuild-logs/../rebuild.sh` (copied verbatim into `rebuild-logs/rebuild
 
 | step | command | exit | result |
 |---|---|---|---|
-| unpack | `git -C … archive --format=tar HEAD \| tar -x -C <scratch>/src` | 0 | 194 files; no `dist/`, no `node_modules/`, no `*.tsbuildinfo`; absolute-home-path scan hits only `validation/v0.5-dev/manifest.json` (see F-CD-08); no `postgres://user:pass@` strings |
+| unpack | `git -C … archive --format=tar HEAD \| tar -x -C <scratch>/src` | 0 | 194 files; no `dist/`, no `node_modules/`, no `*.tsbuildinfo`; absolute-home-path scan hits only `validation/v0.5-dev/manifest.json` (see F-CD-08); no credential-bearing `postgres://` connection strings |
 | install | `npm ci --no-fund --no-audit` | 0 | "added 127 packages in 482ms" (offline cache); `package-lock.json` sha256 `4b1a2427…3196` **identical before and after** |
 | build | `npm run build` | 0 | `tsc -b packages/core --force && tsc -b tsconfig.json --force` |
 | type tests | `npm run type-tests` | 0 | `tsc -p packages/core/tsconfig.type-tests.json --pretty false`, no output |
@@ -172,7 +174,7 @@ Severity vocabulary: blocking / major / minor / limitation; "uncertain" = not re
 
 ### F-CD-08 — manifests embed absolute host paths; the committed dev manifest ships them inside the git tree — **minor**
 
-- `hyla-demo-filesystem` and `benchmarks` steps record `--root /Users/weibohan/…` and the absolute benchmark output path in `command` (committed manifest; 2 occurrences in the scratch manifest too). `RELEASE_MANIFEST.json` at the repo root would carry the same. The orchestrator's own release archive excludes `validation/v0.5-dev` and scans for `/Users/…`, so the archive is clean, but `git archive HEAD` (what I was asked to use) does include `validation/v0.5-dev/manifest.json` with those paths, and the archive scan exempts everything under `validation/`.
+- `hyla-demo-filesystem` and `benchmarks` steps record `--root <home>/…` and the absolute benchmark output path in `command` (committed manifest; 2 occurrences in the scratch manifest too). `RELEASE_MANIFEST.json` at the repo root would carry the same. The orchestrator's own release archive excludes `validation/v0.5-dev` and scans for `/Users/…`, so the archive is clean, but `git archive HEAD` (what I was asked to use) does include `validation/v0.5-dev/manifest.json` with those paths, and the archive scan exempts everything under `validation/`.
 
 ### F-CD-09 — packed `@syna/core` README points at workspace-only documents — **minor (DX)**
 
