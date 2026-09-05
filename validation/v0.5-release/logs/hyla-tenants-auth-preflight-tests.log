@@ -2,61 +2,61 @@ TAP version 13
 # Subtest: H06 the render infrastructure preflight refuses a factory that depends on the current request before anything listens
 ok 1 - H06 the render infrastructure preflight refuses a factory that depends on the current request before anything listens
   ---
-  duration_ms: 16.634208
+  duration_ms: 13.702
   type: 'test'
   ...
 # Subtest: H06 a replacement renderer that reads site facts is refused at the infrastructure preflight with the dependency path
 ok 2 - H06 a replacement renderer that reads site facts is refused at the infrastructure preflight with the dependency path
   ---
-  duration_ms: 7.435042
+  duration_ms: 0.805875
   type: 'test'
   ...
 # Subtest: H06 the concurrent plugin-protocol probe detects closure pollution between products (check() cannot; a runtime test can)
 ok 3 - H06 the concurrent plugin-protocol probe detects closure pollution between products (check() cannot; a runtime test can)
   ---
-  duration_ms: 5.873291
+  duration_ms: 5.629416
   type: 'test'
   ...
 # Subtest: H12 request budget: the real request world stays within budget, and explain() shows what would break it
 ok 4 - H12 request budget: the real request world stays within budget, and explain() shows what would break it
   ---
-  duration_ms: 31.309917
+  duration_ms: 30.761166
   type: 'test'
   ...
 # Subtest: H12 a transitive CurrentRequest dependency in infrastructure is explained as a per-request fork and blocked by the budget
 ok 5 - H12 a transitive CurrentRequest dependency in infrastructure is explained as a per-request fork and blocked by the budget
   ---
-  duration_ms: 0.508917
+  duration_ms: 0.449792
   type: 'test'
   ...
 # Subtest: H13 the worker is started by the host after the root is Ready, loops in its own child world and stops before shared resources close
 ok 6 - H13 the worker is started by the host after the root is Ready, loops in its own child world and stops before shared resources close
   ---
-  duration_ms: 79.530791
+  duration_ms: 80.143709
   type: 'test'
   ...
 # Subtest: H01 the data model normalizes input, orders deterministically and treats locale and visibility as data
 ok 7 - H01 the data model normalizes input, orders deterministically and treats locale and visibility as data
   ---
-  duration_ms: 0.331833
+  duration_ms: 0.310834
   type: 'test'
   ...
 # Subtest: H08 domains map to tenants through the controlled table; unknown hosts and untrusted forwarded hosts are refused
 ok 8 - H08 domains map to tenants through the controlled table; unknown hosts and untrusted forwarded hosts are refused
   ---
-  duration_ms: 83.659875
+  duration_ms: 70.691458
   type: 'test'
   ...
 # Subtest: H08 a trusted proxy may supply the host; page caches are partitioned by tenant, locale and visibility
 ok 9 - H08 a trusted proxy may supply the host; page caches are partitioned by tenant, locale and visibility
   ---
-  duration_ms: 30.260125
+  duration_ms: 31.116917
   type: 'test'
   ...
 # Subtest: H09 two authenticators are swapped per site without touching content code; anonymous reads public only; A cannot read B
 ok 10 - H09 two authenticators are swapped per site without touching content code; anonymous reads public only; A cannot read B
   ---
-  duration_ms: 40.962
+  duration_ms: 41.722
   type: 'test'
   ...
 1..10
@@ -67,4 +67,4 @@ ok 10 - H09 two authenticators are swapped per site without touching content cod
 # cancelled 0
 # skipped 0
 # todo 0
-# duration_ms 318.477084
+# duration_ms 304.205084

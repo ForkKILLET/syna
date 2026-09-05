@@ -4,28 +4,28 @@
       "budget": "warm-enter-dispose-300-depth-2",
       "metric": "p95Ms",
       "max": 2,
-      "value": 0.35400000000004184,
+      "value": 0.41770800000000463,
       "ok": true
     },
     {
       "budget": "warm-enter-dispose-300-depth-6",
       "metric": "p95Ms",
       "max": 2,
-      "value": 0.33833299999997735,
+      "value": 0.35524999999995543,
       "ok": true
     },
     {
       "budget": "warm-enter-dispose-100-depth-2",
       "metric": "p95Ms",
       "max": 1,
-      "value": 0.17924999999999613,
+      "value": 0.179916999999989,
       "ok": true
     },
     {
       "budget": "bound-entry-private-range-request-enter-dispose-100",
       "metric": "p95Ms",
       "max": 1,
-      "value": 0.16687499999989086,
+      "value": 0.17316699999992125,
       "ok": true
     },
     {
@@ -54,22 +54,22 @@
   "cases": [
     {
       "name": "warm-enter-dispose-100-depth-2",
-      "p95Ms": 0.17924999999999613,
+      "p95Ms": 0.179916999999989,
       "planCache": 4
     },
     {
       "name": "warm-enter-dispose-100-depth-6",
-      "p95Ms": 0.15887499999999477,
+      "p95Ms": 0.15658400000000938,
       "planCache": 8
     },
     {
       "name": "warm-enter-dispose-300-depth-2",
-      "p95Ms": 0.35400000000004184,
+      "p95Ms": 0.41770800000000463,
       "planCache": 4
     },
     {
       "name": "warm-enter-dispose-300-depth-6",
-      "p95Ms": 0.33833299999997735,
+      "p95Ms": 0.35524999999995543,
       "planCache": 8
     },
     {
@@ -77,17 +77,17 @@
     },
     {
       "name": "site-enter-tenant-input-reverse-closure-200",
-      "p95Ms": 0.2657090000000153,
+      "p95Ms": 0.24679100000003018,
       "planCache": 2
     },
     {
       "name": "bound-entry-private-range-request-enter-dispose-100",
-      "p95Ms": 0.16687499999989086,
+      "p95Ms": 0.17316699999992125,
       "planCache": 4
     },
     {
       "name": "override-and-all-request-enter-dispose-100",
-      "p95Ms": 0.15129099999990103
+      "p95Ms": 0.14958299999989322
     },
     {
       "name": "churn-10000-requests",

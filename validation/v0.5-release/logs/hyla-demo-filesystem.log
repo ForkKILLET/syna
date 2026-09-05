@@ -1,4 +1,4 @@
 seeded tenants: alpha, beta
 PG/FS → HTTP alpha /posts/shared-slug: 404 22 bytes
          beta  /posts/shared-slug: 404 22 bytes
-PG/FS → static alpha: 6 files in /var/folders/y0/gk3fktfn14g1xqyjjqr9mq8h0000gn/T/hyla-static-oJkqWq; served /posts/shared-slug/: 200
+PG/FS → static alpha: 6 files in /var/folders/y0/gk3fktfn14g1xqyjjqr9mq8h0000gn/T/hyla-static-uT0tRR; served /posts/shared-slug/: 200
