@@ -1,6 +1,6 @@
 # Validation (VALIDATION)
 
-Every number below is copied by a script from machine-readable results of the transparent orchestrator; nothing is hand-typed. Source of this page: the release run `node scripts/verify-v05.mjs --release` recorded in `validation/v0.5-release/manifest.json` — status **COMPLETE**, generated 2026-09-05T04:42:33.548Z, source fingerprint `68119800a53ee307d4ecb4523db6fc8066a1a4bdb0c0b0bc7725c68129243a79` (224 files), git commit `f9a3b35` (dirty: false).
+Every number below is copied by a script from machine-readable results of the transparent orchestrator; nothing is hand-typed. Source of this page: the release run `node scripts/verify-v05.mjs --release` recorded in `validation/v0.5-release/manifest.json` — status **COMPLETE**, generated 2026-09-05T04:42:33.548Z, source fingerprint `68119800a53ee307d4ecb4523db6fc8066a1a4bdb0c0b0bc7725c68129243a79` (224 files), git commit `7d5bf55` (dirty: false; the manifest itself records the pre-rewrite hash `f9a3b35` of the same tree — the history was rewritten on 2026-09-05 to correct the author identity, trees and dates unchanged).
 
 The shipped source additionally contains this document, so the release run recorded in `RELEASE_MANIFEST.json` / `validation/v0.5-release/` was executed once more on that final source; it is the record of reference for the archive hashes and fingerprint. Its step list and test counts are the same by construction (the gate fails on any deviation); its timings are its own and may differ within noise from the ones quoted here.
 

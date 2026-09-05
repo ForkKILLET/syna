@@ -31,4 +31,4 @@ Tooling and delivery:
 
 ## 0.4.0
 
-- See git history (`395e089`) for the imported v0.4.0 reference implementation.
+- See git history (`de1d441`) for the imported v0.4.0 reference implementation.

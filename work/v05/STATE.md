@@ -1,9 +1,12 @@
 # Syna v0.5 + Hyla-mini — STATE
 
 ## Current phase
-DONE (2026-09-05). Final `node scripts/verify-v05.mjs --release` on commit f91c2ab (clean tree): exit 0, COMPLETE, 30 steps, 506/506 tests, 0 skipped, source fingerprint ce43ce696ca9c6eacb6765b289f44f1fdcbe25f2dc54c3f6c7d585fc0a17864c (224 files); archives work/release/syna-v0.5.0-source.tar.gz (373781 B, sha256 d574dfda…27ff73), .zip (484783 B, sha256 94f8a682…c08754), pack/syna-core-0.5.0.tgz (88811 B, 497c07d3…da329), pack/syna-tsconfig-0.5.0.tgz (1483 B, 81861252…25cbf). Evidence: RELEASE_MANIFEST.json, validation/v0.5-release/ (manifest, SHA256SUMS.txt, benchmark, working set, archive scan, logs force-added despite *.log ignore).
-Release-gate history (2026-09-05): run 1 PARTIAL — archive scan rejected two strings in the archived cache-delivery audit report (reworded, c9006e4); run 2 PARTIAL — H10 backpressure test raced on concurrent config reads (test fixed, f9a3b35, I-49); run 3 COMPLETE at f9a3b35 (fingerprint 68119800…43a79, source of docs/VALIDATION.md numbers); run 4 COMPLETE at f91c2ab (final, includes docs/VALIDATION.md).
+DONE (2026-09-05). Final `node scripts/verify-v05.mjs --release` on commit ded5f10 (clean tree): exit 0, COMPLETE, 30 steps, 506/506 tests, 0 skipped, source fingerprint ce43ce696ca9c6eacb6765b289f44f1fdcbe25f2dc54c3f6c7d585fc0a17864c (224 files); archives work/release/syna-v0.5.0-source.tar.gz (373781 B, sha256 d574dfda…27ff73), .zip (484783 B, sha256 94f8a682…c08754), pack/syna-core-0.5.0.tgz (88811 B, 497c07d3…da329), pack/syna-tsconfig-0.5.0.tgz (1483 B, 81861252…25cbf). Evidence: RELEASE_MANIFEST.json, validation/v0.5-release/ (manifest, SHA256SUMS.txt, benchmark, working set, archive scan, logs force-added despite *.log ignore).
+Release-gate history (2026-09-05): run 1 PARTIAL — archive scan rejected two strings in the archived cache-delivery audit report (reworded, 4a35776); run 2 PARTIAL — H10 backpressure test raced on concurrent config reads (test fixed, 7d5bf55, I-49); run 3 COMPLETE at 7d5bf55 (fingerprint 68119800…43a79, source of docs/VALIDATION.md numbers); run 4 COMPLETE at ded5f10 (final, includes docs/VALIDATION.md).
 No remote push, no npm publish, no deployment; the user's PostgreSQL on 5432 was never used.
+
+## History rewrite (2026-09-05)
+All 13 commits had been made as `syna-v05 <wangxinhe06@gmail.com>` (taken from the task book) instead of the user's global gitconfig identity. Rewritten with `git filter-branch --env-filter` (author + committer → gitconfig identity; trees, dates and messages unchanged; verified pairwise). Pre-rewrite → post-rewrite: 395e089→de1d441, d8b19c7→7b31678, 61ec315→14c88d5, ff09eef→7bf1da6, 0240b6f→afb8396, d6c7541→00a0e82, 397180e→069248b, e2a6c73→05a3a75, e1a2ab8→5c702b9, c9006e4→4a35776, f9a3b35→7d5bf55, f91c2ab→ded5f10, 582e3b5→052b599. RELEASE_MANIFEST.json of run 4 records `f91c2ab` (= ded5f10, same tree); the gate was run once more afterwards so the committed manifest points at an existing commit. Rule recorded in the user's global CLAUDE.md. A remote `origin` (git@github.com:synajs/syna-v05.git) exists and its `main` still holds the pre-rewrite commits (tip 582e3b5); nothing was pushed by this task — updating the remote requires the user to run `git push --force-with-lease origin main`.
 
 ## Environment (recorded 2026-09-04, local machine)
 - Host: Darwin 25.2.0 arm64, Apple M4 Pro (14 cores), 48 GiB RAM
@@ -18,7 +21,7 @@ No remote push, no npm publish, no deployment; the user's PostgreSQL on 5432 was
 ## Baseline
 - Source: `~/Downloads/syna-v0.4.0-source.tar.gz`
   sha256 e0f21a94765aeb9f8e9e7987d596844e4d1bf56fce3584c8de1358131f42a96c (318 entries; identical to unpacked copy).
-- Imported into this workspace as git commit `395e089` (repo initialised here; there was no git before).
+- Imported into this workspace as git commit `de1d441` (repo initialised here; there was no git before).
 - Baseline `npm run check` on this machine: exit 0; runtime tests 88 pass / 0 fail (see work/v05/logs/baseline-check.log).
 - Baseline has no lockfile; committed `dist/` outputs; hand-written semver.
 

@@ -4,9 +4,11 @@ Three fresh-context reviewers examined the v0.5 workspace without access to the 
 
 | line | reviewer input | commit reviewed | probes | report |
 |---|---|---|---|---|
-| Promise semantics / lifecycle (`packages/core`) | catch/degrade, background loads, `Promise.race`, late resolution, cancellation, retry, cleanup failures, disposal order, stop signals, deadlines | `0240b6f` (dist built from the working tree) | 13 probes, 148 checks | `docs/audit/promise-lifecycle/REPORT.md` |
-| Application / permissions / resources (`apps/hyla-mini`) | two tenants, private realms, override coherence, `C.all` factory sharing, site lease vs. configuration race, shared pool ownership and closing, static export, process hygiene | `0240b6f` | 10 probes (2 on real PostgreSQL), ~250 checks | `docs/audit/app-permissions/REPORT.md` |
-| Cache / delivery / developer experience | R17 neutrality, R18/P04 churn, benchmarks and budgets, G1 archive rebuild in a clean directory, TypeScript consumer, deprecated paths, orchestrator transparency | `e2a6c73` (`git archive` into `mktemp -d`) | 8 probes + own rebuild driver (`rebuild-logs/`) | `docs/audit/cache-delivery/REPORT.md` |
+| Promise semantics / lifecycle (`packages/core`) | catch/degrade, background loads, `Promise.race`, late resolution, cancellation, retry, cleanup failures, disposal order, stop signals, deadlines | `afb8396` (dist built from the working tree) | 13 probes, 148 checks | `docs/audit/promise-lifecycle/REPORT.md` |
+| Application / permissions / resources (`apps/hyla-mini`) | two tenants, private realms, override coherence, `C.all` factory sharing, site lease vs. configuration race, shared pool ownership and closing, static export, process hygiene | `afb8396` | 10 probes (2 on real PostgreSQL), ~250 checks | `docs/audit/app-permissions/REPORT.md` |
+| Cache / delivery / developer experience | R17 neutrality, R18/P04 churn, benchmarks and budgets, G1 archive rebuild in a clean directory, TypeScript consumer, deprecated paths, orchestrator transparency | `05a3a75` (`git archive` into `mktemp -d`) | 8 probes + own rebuild driver (`rebuild-logs/`) | `docs/audit/cache-delivery/REPORT.md` |
+
+Commit hashes: the git history was rewritten on 2026-09-05 to correct the author identity (trees, dates and messages unchanged). The archived reports cite the pre-rewrite hashes; `0240b6f` is now `afb8396` and `e2a6c73` is now `05a3a75`.
 
 Reviewers modified nothing under `packages/`, `apps/`, `docs/`, `scripts/`, `benchmarks/`; they ran alone against their own PostgreSQL data directories. Their timing numbers were recorded while other audits were running (stated in the reports).
 
