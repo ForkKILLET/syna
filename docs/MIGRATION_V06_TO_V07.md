@@ -91,7 +91,9 @@ v0.7 做三件事：删除 0.6 宣布到期的全部 23 个别名与 0.5 调用�
 
 `revisionKey` 不是 `family@version` 形式的 `CandidateRef` 不可能来自任何 Runtime，`set.load()` 以 `INVALID_DESCRIPTOR { descriptor: 'CandidateRef', problem: 'not-from-this-runtime' }` 拒绝（S7 的第 27 个位点）。测试：`packages/core/tests/v07-s8-missing-implementation.test.mjs`（六个位点各一例，`details` 逐键断言，编译产物里的抛出点计数为 6）。
 
-（S10 随其提交填写。）
+### S10 `asSynaError()`：包装外来错误时 `details.cause` 固定为 `{ name, message }`
+
+`asSynaError()` 是核心内部的辅助函数（`packages/core/src/errors.ts`，不在 `index.ts` 的导出里，仓库内目前没有调用方），公开 API 不变。0.6 只把 `Error` 实例放进 `cause`，非 `Error` 值丢失。0.7：`SynaError` 原样通过（不论码）；其他任何值都被包装——`details` = 抛出位点的 `details` 加上固定的 `cause: { name, message }`（`Error` 取 `name` / `message`；其他值取 `typeof` 与 `String()`），原值不论类型都放在 `cause`；不再从外来对象上读任何别的东西（`code`、`details`、`cause` 都不读）。返回类型是 `SynaError | (SynaErrorOf<Code> & { details: { cause: { name, message } } })`。测试：`packages/core/tests/v07-s10-as-syna-error.test.mjs`（直接从 `dist/errors.js` 导入；同时断言 `dist/index.d.ts` 不导出它）。
 
 ## §4 语义修订 S1 / S2
 

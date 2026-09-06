@@ -222,18 +222,42 @@ export function isSynaError<Code extends SynaErrorCode = SynaErrorCode>(error: u
   return error instanceof SynaError && (code === undefined || error.code === code)
 }
 
+/** What `asSynaError()` records about a foreign value: two strings, read from nothing else. */
+type ForeignCause = { readonly name: string; readonly message: string }
+
+/** A foreign value wrapped by `asSynaError()`: the site's details plus the fixed `cause` record; the value itself is `cause`. */
+type WrappedSynaError<Code extends SynaErrorCode> = SynaErrorOf<Code> & { readonly details: { readonly cause: ForeignCause } }
+
+function describeForeign(error: unknown): ForeignCause {
+  if (error instanceof Error) return { name: error.name, message: error.message }
+  let message: string
+  try { message = String(error) }
+  catch { message = Object.prototype.toString.call(error) }
+  return { name: typeof error, message }
+}
+
+/**
+ * A `SynaError` passes through unchanged, whatever its code. Anything else is
+ * wrapped: the result carries `code`, `message` and the site's `details` plus
+ * `details.cause`, the fixed `{ name, message }` record of the foreign value
+ * (`error.name` / `error.message` of an `Error`, else `typeof` and `String()`),
+ * and the original value as `cause` whatever its type. Nothing else is read
+ * from the foreign value — not a `code`, not `details`, not a `cause`.
+ */
 export function asSynaError<Code extends SynaErrorCode>(
   error: unknown,
   code: Code,
   message: string,
   ...rest: DetailsArguments<Code>
-): SynaError {
+): SynaError | WrappedSynaError<Code> {
   if (error instanceof SynaError) return error
   const [details, options] = rest
-  return new SynaErrorImpl(code, message, details, {
-    ...options,
-    cause: error instanceof Error ? error : undefined,
-  }) as unknown as SynaError<Code>
+  return new SynaErrorImpl(
+    code,
+    message,
+    { ...(details ?? {}), cause: describeForeign(error) } as unknown as SynaErrorDetails[Code],
+    { ...options, cause: error },
+  ) as unknown as WrappedSynaError<Code>
 }
 
 export interface Diagnostic {

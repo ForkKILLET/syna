@@ -47,9 +47,15 @@ Task book: `SYNA_V07_EXECUTION_PROMPT.md` (untracked at the workspace root; neve
 - Tests: new `v07-s8-missing-implementation.test.mjs` (six sites, exact details, the cross-Runtime CandidateRef with coinciding slot ids, no undefined field, six compiled sites); `v07-s7-invalid-descriptor` gains the malformed-key cases. The 0.5 snapshots record only the planner and the version site (both already carried `available`), so `v06-snapshots` needs no mapping.
 - Docs: `API_REFERENCE` row, `DEFERRED` S8 row removed, `MIGRATION_V06_TO_V07` §3 S8, `CHANGELOG`.
 
-### C4 — S10 — NEXT
+### C4 — S10: `asSynaError()` — DONE (this commit)
 
-`asSynaError()` (unexported, uncalled): wrap a non-SynaError with `cause` = the original value and `details = { ...siteDetails, cause: { name, message } }`; return type `SynaErrorOf<Code> & { readonly details: { readonly cause: { readonly name: string; readonly message: string } } }`; unit test through `dist/errors.js`; no new public export; `SynaErrorDetails` unchanged (the wrapper adds `cause` on top of the site's shape).
+- `errors.ts`: a `SynaError` passes through; any other value is wrapped with `details = { ...siteDetails, cause: { name, message } }` (`Error`: `name` / `message`; else `typeof` / `String()`, guarded against a throwing `toString`) and `cause` = the original value whatever its type; nothing else is read from it. Return type `SynaError | WrappedSynaError<Code>` (the intersection of PROPOSAL Q9 for the wrapped case; the pass-through keeps its own code, so the union is the honest type). The helper types are module-private; `index.ts` still does not export `asSynaError` (asserted).
+- Tests: new `v07-s10-as-syna-error.test.mjs` (Error, Error subclass, an Error carrying `code` / `details` / `cause` of its own (ignored), string / number / null / undefined / symbol / object / throwing `toString`, a code without required details, `options.cause` replaced by the value, pass-through, `diagnosticFromError` of the wrapped error, no public export).
+- Docs: `DEFERRED` S10 removed, `MIGRATION_V06_TO_V07` §3 S10, `CHANGELOG`. No API_REFERENCE change (no public name, no code).
+
+## Phase D — S1 (deadline is a waiter timeout) — NEXT
+
+Per PROPOSAL §2 and the task book §2.4: the setup deadline ends the waiters' wait (`INITIALIZATION_TIMEOUT`, per attempt, Q11), the attempt keeps running; a late success is accepted (slot Ready, no cleanup) while the owner is still `activating` / `ready`; only a close discards it (cleanup runs); several waiters time out one after another and the late success is still accepted; an eager attempt that is late rolls the activation back (ENTRY_ACTIVATION_FAILED) — the four counter-example tests; the deadline does not consume `failure.attempts`; the default stays 30_000. Withdrawn tests registered item by item (PROPOSAL §10).
 
 ## Later phases
 
