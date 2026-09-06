@@ -34,7 +34,7 @@ export const MyStageFactory = define.service('my-stage-factory', {
 
 ## 配方（Recipe）
 
-配方是 JSON：`formatVersion`、`name`、`stages[]`（`occurrence` 唯一键、`ref` = PersistentImplementationRef、`optionsVersion`、`options`）。`ref` 通过 `StageFactoryRef.to(MyStageFactory)` 生成，默认版本意图是 caret；保存的是用户意图，实际解析到的版本记录在 `BuiltPipeline.stages[].resolvedVersion` 供诊断。没有目标 Family 时明确失败（`MISSING_IMPLEMENTATION`），不自动换供应商。
+配方是 JSON：`formatVersion`、`name`、`stages[]`（`occurrence` 唯一键、`ref` = ImplementationRef（JSON 键 `kind`/`contractId`/`familyId`/`version`；0.5 写入的 `implementationId` 键在 0.6.x 仍可解析）、`optionsVersion`、`options`）。`ref` 通过 `StageFactoryRef.to(MyStageFactory)` 生成，默认版本意图是 caret；保存的是用户意图，实际解析到的版本记录在 `BuiltPipeline.stages[].resolvedVersion` 供诊断。没有目标 Family 时明确失败（`MISSING_IMPLEMENTATION`），不自动换供应商。
 
 阶段顺序规则：恰好一个 `parse` 在首，任意 `transform`（mdast），恰好一个 `bridge`（remark-rehype），任意 `rehype`（hast），恰好一个 `compile` 在尾。
 

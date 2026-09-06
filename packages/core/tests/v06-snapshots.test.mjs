@@ -16,8 +16,13 @@ const snapshotFile = path.join(here, 'snapshots/v05-explain-inspect.json')
 //   keys:   { from, to, within? }  rename an object key (only inside objects whose `kind` equals `within` when given)
 //   values: { key, from, to }      replace the value of `key` when it equals `from`
 const RENAMED = {
-  keys: [],
-  values: [],
+  keys: [
+    // R5: ImplementationRef.familyId (serialized key) replaces implementationId
+    { from: 'implementationId', to: 'familyId', within: 'persistent-implementation-ref' },
+  ],
+  values: [
+    { key: 'pickerRefJson', from: '{"kind":"persistent-implementation-ref","contractId":"snap/storage/v1","implementationId":"snap-memory","version":"^1.0.0"}', to: '{"kind":"persistent-implementation-ref","contractId":"snap/storage/v1","familyId":"snap-memory","version":"^1.0.0"}' },
+  ],
 }
 
 const applyRenames = value => {

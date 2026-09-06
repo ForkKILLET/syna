@@ -59,6 +59,8 @@ const pinned = SummaryLlm.to(OpenAI, '>=2.4.0 <3 || 4.x')
 const parsed = SummaryLlm.parse(json)          // validates shape and Contract id
 ```
 
+`to()`/`parse()` produce an `ImplementationRef`, a JSON-safe preference: `{ kind: 'persistent-implementation-ref', contractId, familyId, version }`. `familyId` is the implementation family (`ServiceFamily.id`); 0.5 serialized the same value under the key `implementationId`, and `parse()` accepts either key (both, when equal) until 0.7.0 — see `docs/MIGRATION_V05_TO_V06.md`. A ref never points at an Env-local slot.
+
 Ranges are validated at definition time (`TypeError` for invalid ranges). Reassigning the same exact revision is a no-op; a different revision creates a new choice slot and forks its dependants.
 
 ## Service
@@ -216,7 +218,7 @@ if (explanation.ok) {
 
 ## Implementation collections
 
-`C.all` yields an `ImplementationSet`: `candidates`, `resolve(persistentRef)`, `load(candidate | candidateRef | persistentRef, options?)`. Candidates are real nodes of the current Env; a `CandidateRef` belongs to one collection slot (`CONSTRAINT_VIOLATION` elsewhere). `PersistentImplementationRef` (`{ kind, contractId, implementationId, version }`) is JSON-safe; without the target family it fails with `MISSING_IMPLEMENTATION` — no supplier substitution.
+`C.all` yields an `ImplementationSet`: `candidates`, `resolve(ref)`, `load(candidate | candidateRef | ref, options?)` (`ref`: an `ImplementationRef`). Candidates are real nodes of the current Env; a `CandidateRef` belongs to one collection slot (`CONSTRAINT_VIOLATION` elsewhere). `PersistentImplementationRef` (`{ kind, contractId, implementationId, version }`) is JSON-safe; without the target family it fails with `MISSING_IMPLEMENTATION` — no supplier substitution.
 
 ## Errors
 
@@ -239,4 +241,6 @@ Every 0.5 name below still works in 0.6.x exactly as before (same object or a fo
 | `env.bind(entry)` | `env.anchor(entry)` | same result object shape and checks; `bind` forwards to `anchor` |
 | `BoundEntry` | `AnchoredEntry` | type alias |
 | `SynaRuntime` | `Runtime` | type alias; the only branded type name is `SynaError` |
+| `PersistentImplementationRef` | `ImplementationRef` | type alias; `ImplementationDescriptor.persistentRef` keeps its name (`ImplementationCandidate.ref` is the CandidateRef) |
+| `ref.implementationId` | `ref.familyId` | serialized key changes to `familyId`; `implementationId` stays readable (not enumerable); `parse()` accepts both keys |
 | `DependencyRef<T>` (the loadable ref) | `ServiceRef<T>` | in 0.6 `DependencyRef<T>` means `ServiceRef<T> \| InputRef<T>`; narrow with `'load' in ref` or type the variable as `ServiceRef` |

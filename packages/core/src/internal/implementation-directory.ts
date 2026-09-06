@@ -4,12 +4,13 @@ import type {
   Contract,
   ImplementationCandidate,
   ImplementationDescriptor,
-  PersistentImplementationRef,
+  ImplementationRef,
   RuntimePolicy,
   ServiceRevision,
 } from '../descriptors.js'
 import type { DiagnosticCode } from '../errors.js'
 import { SynaError } from '../errors.js'
+import { createImplementationRef, familyIdOf, normalizeImplementationRef } from '../definition.js'
 import { caretRange, satisfiesVersion } from '../semver.js'
 import type { CompiledService, InternalCandidateRef } from './runtime-model.js'
 import { compareRevisionIdentity, providesContract } from './identity.js'
@@ -79,7 +80,7 @@ export class ImplementationDirectory {
     return Object.freeze(this.candidatesForImplementationId(familyId).map(revision => revision.version))
   }
 
-  resolveCatalog<C extends Contract<any>>(ref: PersistentImplementationRef<C>): ImplementationDescriptor<C> {
+  resolveCatalog<C extends Contract<any>>(ref: ImplementationRef<C>): ImplementationDescriptor<C> {
     if (typeof ref !== 'object' || ref === null || ref.kind !== 'persistent-implementation-ref') {
       throw new SynaError('INVALID_DESCRIPTOR', 'catalog.resolve() expects a persistent implementation reference.')
     }
@@ -88,10 +89,10 @@ export class ImplementationDirectory {
       contract,
       this.candidatesForContract(contract),
       ref,
-      `catalog:${ref.contractId}:${ref.implementationId}`,
+      `catalog:${ref.contractId}:${familyIdOf(ref)}`,
       new Set(),
     )
-    return this.describe<C>(contract, revision, ref)
+    return this.describe<C>(contract, revision, normalizeImplementationRef(ref))
   }
 
   createIndex<C extends Contract<any>>(options: CandidateIndexOptions<C>): CandidateIndex<C> {
@@ -101,7 +102,7 @@ export class ImplementationDirectory {
   describe<C extends Contract<any>>(
     contract: Pick<Contract, 'id'>,
     revision: CompiledService,
-    persistentRef?: PersistentImplementationRef<C>,
+    persistentRef?: ImplementationRef<C>,
   ): ImplementationDescriptor<C> {
     return Object.freeze({
       contractId: contract.id,
@@ -110,19 +111,14 @@ export class ImplementationDirectory {
       eager: revision.eager,
       familyMetadata: revision.family.metadata,
       revisionMetadata: revision.metadata,
-      persistentRef: persistentRef ?? Object.freeze({
-        kind: 'persistent-implementation-ref' as const,
-        contractId: contract.id,
-        implementationId: revision.family.id,
-        version: caretRange(revision.version),
-      }) as PersistentImplementationRef<C>,
+      persistentRef: persistentRef ?? createImplementationRef<C>(contract, revision.family.id, caretRange(revision.version)),
     })
   }
 
   resolvePersistentRevision(
     contract: Pick<Contract, 'id'>,
     allowed: readonly CompiledService[],
-    ref: PersistentImplementationRef<any>,
+    ref: ImplementationRef<any>,
     site: string,
     parentActiveRevisionKeys: ReadonlySet<string>,
   ): CompiledService {
@@ -134,12 +130,13 @@ export class ImplementationDirectory {
       )
     }
     const allowedKeys = new Set(allowed.map(candidate => candidate.key))
-    const family = this.candidatesForImplementationId(ref.implementationId)
+    const familyId = familyIdOf(ref)
+    const family = this.candidatesForImplementationId(familyId)
     if (family.length === 0) {
       throw new SynaError(
         'MISSING_IMPLEMENTATION',
-        `Implementation family ${ref.implementationId} is not admitted by this Runtime; no supplier substitution is attempted.`,
-        { contract: contract.id, implementation: ref.implementationId, version: ref.version },
+        `Implementation family ${familyId} is not admitted by this Runtime; no supplier substitution is attempted.`,
+        { contract: contract.id, implementation: familyId, version: ref.version },
       )
     }
     const matching = family
@@ -149,10 +146,10 @@ export class ImplementationDirectory {
     if (matching.length === 0) {
       throw new SynaError(
         'MISSING_IMPLEMENTATION',
-        `No ${ref.implementationId} candidate for ${contract.id} satisfies ${ref.version}.`,
+        `No ${familyId} candidate for ${contract.id} satisfies ${ref.version}.`,
         {
           contract: contract.id,
-          implementation: ref.implementationId,
+          implementation: familyId,
           version: ref.version,
           available: family.map(candidate => candidate.version),
         },
@@ -236,7 +233,7 @@ export class CandidateIndex<C extends Contract<any>> {
     this.candidates = Object.freeze(values)
   }
 
-  resolve(ref: PersistentImplementationRef<C>): ImplementationCandidate<C> {
+  resolve(ref: ImplementationRef<C>): ImplementationCandidate<C> {
     if (typeof ref !== 'object' || ref === null || ref.kind !== 'persistent-implementation-ref') {
       throw new SynaError('INVALID_DESCRIPTOR', 'resolve() expects a persistent implementation reference.')
     }
@@ -244,14 +241,14 @@ export class CandidateIndex<C extends Contract<any>> {
       this.options.contract,
       this.options.revisions,
       ref,
-      `${this.options.sitePrefix}/persistent:${ref.implementationId}`,
+      `${this.options.sitePrefix}/persistent:${familyIdOf(ref)}`,
       this.options.parentActiveRevisionKeys,
     )
     return this.byRevisionKey.get(selected.key)!
   }
 
   normalize(
-    input: ImplementationCandidate<C> | CandidateRef<C> | PersistentImplementationRef<C>,
+    input: ImplementationCandidate<C> | CandidateRef<C> | ImplementationRef<C>,
   ): ImplementationCandidate<C> {
     if (typeof input !== 'object' || input === null) {
       throw new SynaError('INVALID_DESCRIPTOR', 'Expected a candidate, candidate ref or persistent ref.')
@@ -286,7 +283,7 @@ export class CandidateIndex<C extends Contract<any>> {
   }
 
   requireAvailable(
-    input: ImplementationCandidate<C> | CandidateRef<C> | PersistentImplementationRef<C>,
+    input: ImplementationCandidate<C> | CandidateRef<C> | ImplementationRef<C>,
   ): AvailableImplementationCandidate<C> {
     const candidate = this.normalize(input)
     if (candidate.availability.status === 'unavailable') {

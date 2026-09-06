@@ -97,16 +97,32 @@ export interface Input<ValueType = unknown> {
 
 export type InputType<I> = I extends Input<infer T> ? T : never
 
-/** JSON-safe implementation preference; never an Env-local slot reference. */
-export interface PersistentImplementationRef<
+/**
+ * JSON-safe implementation preference (a Binding assignment, a catalog lookup);
+ * never an Env-local slot reference. Serializes as
+ * `{ kind, contractId, familyId, version }`; `parse()` also accepts the 0.5 key
+ * `implementationId` for `familyId`.
+ */
+export interface ImplementationRef<
   C extends Contract<any> = Contract<any>,
 > {
   readonly kind: 'persistent-implementation-ref'
   readonly contractId: string
-  readonly implementationId: string
+  /** The implementation family (`ServiceFamily.id`). */
+  readonly familyId: string
   readonly version: string
+  /**
+   * @deprecated Use `familyId` (the same value). Optional in the type so a plain
+   * `{ kind, contractId, familyId, version }` object is an `ImplementationRef`;
+   * refs created by `to()`/`parse()` always carry it as a non-enumerable,
+   * non-serialized alias. Removed in 0.7.0.
+   */
+  readonly implementationId?: string
   readonly __contract?: C
 }
+
+/** @deprecated Use `ImplementationRef`. Removed in 0.7.0. */
+export type PersistentImplementationRef<C extends Contract<any> = Contract<any>> = ImplementationRef<C>
 
 /** Stable identity shared by installed revisions of one implementation. */
 export interface ServiceFamily<PublicApi = unknown> {
@@ -154,9 +170,9 @@ export interface Binding<C extends Contract<any> = Contract<any>> {
   to<S extends ServiceRevision<any, any>>(
     service: ServiceInstance<S> extends ContractApi<C> ? S : never,
     version?: string,
-  ): PersistentImplementationRef<C>
+  ): ImplementationRef<C>
 
-  parse(input: unknown): PersistentImplementationRef<C>
+  parse(input: unknown): ImplementationRef<C>
 }
 
 /** Retry is opt-in because setup may have externally visible side effects. */
@@ -368,7 +384,7 @@ export interface ImplementationDescriptor<C extends Contract<any> = Contract<any
   readonly eager: boolean
   readonly familyMetadata: Readonly<DescriptorMetadata>
   readonly revisionMetadata: Readonly<DescriptorMetadata>
-  readonly persistentRef: PersistentImplementationRef<C>
+  readonly persistentRef: ImplementationRef<C>
 }
 
 export type CandidateAvailability =
@@ -406,12 +422,12 @@ export interface ImplementationSelector<C extends Contract<any> = Contract<any>>
   extends Iterable<ImplementationCandidate<C>> {
   readonly contract: C
   readonly candidates: readonly ImplementationCandidate<C>[]
-  resolve(ref: PersistentImplementationRef<C>): ImplementationCandidate<C>
+  resolve(ref: ImplementationRef<C>): ImplementationCandidate<C>
   open(
-    candidate: ImplementationCandidate<C> | CandidateRef<C> | PersistentImplementationRef<C>,
+    candidate: ImplementationCandidate<C> | CandidateRef<C> | ImplementationRef<C>,
   ): Promise<ImplementationLease<C>>
   run<Result>(
-    candidate: ImplementationCandidate<C> | CandidateRef<C> | PersistentImplementationRef<C>,
+    candidate: ImplementationCandidate<C> | CandidateRef<C> | ImplementationRef<C>,
     callback: (
       implementation: ServiceRef<ContractApi<C>>,
       env: EnvHandle,
@@ -424,9 +440,9 @@ export interface ImplementationSet<C extends Contract<any> = Contract<any>>
   extends Iterable<ImplementationCandidate<C>> {
   readonly contract: C
   readonly candidates: readonly ImplementationCandidate<C>[]
-  resolve(ref: PersistentImplementationRef<C>): ImplementationCandidate<C>
+  resolve(ref: ImplementationRef<C>): ImplementationCandidate<C>
   load(
-    candidate: ImplementationCandidate<C> | CandidateRef<C> | PersistentImplementationRef<C>,
+    candidate: ImplementationCandidate<C> | CandidateRef<C> | ImplementationRef<C>,
     options?: LoadOptions,
   ): Promise<ContractApi<C>>
 }
@@ -435,7 +451,7 @@ export type EntryParameter = Input<any> | Binding<any>
 export type EntryParameterMap = Readonly<Record<string, EntryParameter>>
 
 export type BindingAssignment<B extends Binding<any>> =
-  | PersistentImplementationRef<B['contract']>
+  | ImplementationRef<B['contract']>
   | ServiceRevision<ContractApi<B['contract']>>
 
 export type EntryParameterValue<P extends EntryParameter> =
@@ -550,7 +566,7 @@ export interface RuntimeCatalog {
     contract: C,
   ): readonly ImplementationDescriptor<C>[]
   resolve<C extends Contract<any>>(
-    ref: PersistentImplementationRef<C>,
+    ref: ImplementationRef<C>,
   ): ImplementationDescriptor<C>
   /** Publicly admitted exact revisions of one Service family, highest first. */
   revisions(familyId: string): readonly string[]

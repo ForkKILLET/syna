@@ -19,7 +19,7 @@ import type {
   EnvInspectionNode,
   InputRef,
   LoadOptions,
-  PersistentImplementationRef,
+  ImplementationRef,
   RuntimeCatalog,
   RuntimeEvent,
   RuntimeInspection,
@@ -355,7 +355,7 @@ class RuntimeImpl implements Runtime, ImplementationViewHost {
     this.catalog = Object.freeze({
       implementations: <C extends Contract>(contract: C) =>
         this.directory.implementations(contract),
-      resolve: <C extends Contract>(ref: PersistentImplementationRef<C>) =>
+      resolve: <C extends Contract>(ref: ImplementationRef<C>) =>
         this.directory.resolveCatalog(ref),
       revisions: (familyId: string) => this.directory.revisions(familyId),
     })

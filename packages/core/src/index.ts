@@ -70,6 +70,7 @@ export type {
   ImplementationCandidate,
   ImplementationDescriptor,
   ImplementationLease,
+  ImplementationRef,
   ImplementationSelector,
   ImplementationSelectorDependency,
   ImplementationSet,

@@ -16,7 +16,7 @@ export const fixture = loadContentFixture()
 
 /** A recipe of valid shape (the store validates documents structurally; it never resolves factories). */
 function recipe(name) {
-  const ref = implementationId => ({ kind: 'persistent-implementation-ref', contractId: 'hyla.mini/markdown-stage-factory/v1', implementationId, version: '^0.1.0' })
+  const ref = familyId => ({ kind: 'persistent-implementation-ref', contractId: 'hyla.mini/markdown-stage-factory/v1', familyId, version: '^0.1.0' })
   return {
     formatVersion: 1,
     name,
@@ -32,7 +32,7 @@ function recipe(name) {
 export const sampleExtras = Object.freeze({
   recipes: { body: recipe('body'), comment: recipe('comment'), preview: recipe('preview') },
   auth: {
-    implementation: { kind: 'persistent-implementation-ref', contractId: 'hyla.mini/auth/v1', implementationId: 'hyla.mini/test-auth', version: '^0.1.0' },
+    implementation: { kind: 'persistent-implementation-ref', contractId: 'hyla.mini/auth/v1', familyId: 'hyla.mini/test-auth', version: '^0.1.0' },
     options: { mode: 'test' },
   },
 })

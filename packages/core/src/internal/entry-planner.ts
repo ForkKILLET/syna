@@ -18,6 +18,7 @@ import type {
 } from '../descriptors.js'
 import { SynaError } from '../errors.js'
 import { satisfiesVersion } from '../semver.js'
+import { familyIdOf } from '../definition.js'
 import { DefinitionCompiler } from './definition-compiler.js'
 import { GraphBuilder, type GraphBuilderHost } from './graph-builder.js'
 import { ImplementationDirectory } from './implementation-directory.js'
@@ -958,19 +959,20 @@ export class EntryPlanner implements GraphBuilderHost {
           { binding: binding.id, contract: binding.contract.id, reference: assignment.contractId },
         )
       }
+      const familyId = familyIdOf(assignment)
       const candidates = this.directory
-        .candidatesForImplementationId(assignment.implementationId)
+        .candidatesForImplementationId(familyId)
         .filter(candidate => satisfiesVersion(candidate.version, assignment.version))
         .filter(candidate => providesContract(candidate, binding.contract))
       if (candidates.length === 0) {
         throw new SynaError(
           'MISSING_IMPLEMENTATION',
-          `No admitted ${assignment.implementationId} revision satisfies ${assignment.version} and ${binding.contract.id}.`,
+          `No admitted ${familyId} revision satisfies ${assignment.version} and ${binding.contract.id}.`,
           {
             binding: binding.id,
-            implementation: assignment.implementationId,
+            implementation: familyId,
             version: assignment.version,
-            available: this.directory.revisions(assignment.implementationId),
+            available: this.directory.revisions(familyId),
           },
         )
       }

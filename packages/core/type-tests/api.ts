@@ -11,7 +11,9 @@ import {
   type EntryOptions,
   type EntryParameters,
   type EnvHandle,
+  type ImplementationRef,
   type InputRef,
+  type PersistentImplementationRef,
   type ReuseConstraints,
   type ReuseTarget,
   type Runtime,
@@ -188,6 +190,16 @@ const scopedValues: EntryParameters<typeof Root> = { ...validInput, scope: { fre
 void scopedValues
 // @ts-expect-error Options carry only `reuse`.
 void runtime.enter(Scoped, {}, { fresh: [Minimal] })
+
+// R5 (v0.6): Binding.to()/parse() produce an ImplementationRef with `familyId`; the 0.5 names still compile.
+const implementationRef: ImplementationRef<typeof Capability> = Selected.to(Implementation)
+const legacyRef: PersistentImplementationRef<typeof Capability> = implementationRef
+const familyId: string = implementationRef.familyId
+const legacyFamilyId: string | undefined = legacyRef.implementationId
+const plainRef: ImplementationRef<typeof Capability> = { kind: 'persistent-implementation-ref', contractId: Capability.id, familyId, version: '^1.0.0' }
+void plainRef
+void [familyId, legacyFamilyId, Selected.parse({ kind: 'persistent-implementation-ref', contractId: Capability.id, familyId, version: '^1.0.0' })]
+void runtime.catalog.resolve(implementationRef)
 
 // R3 (v0.6): createRuntime() returns a Runtime; SynaRuntime is the deprecated alias of the same type.
 const typedRuntime: Runtime = runtime

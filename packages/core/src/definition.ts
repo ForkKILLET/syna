@@ -18,7 +18,7 @@ import type {
   PackageDefinitions,
   PackageDescriptor,
   PackageManifest,
-  PersistentImplementationRef,
+  ImplementationRef,
   ProvidedShape,
   ReuseConstraints,
   ServiceDefinition,
@@ -99,37 +99,68 @@ function mergeMetadata(
   })
 }
 
-function createPersistentImplementationRef<C extends Contract<any>>(
-  contract: C,
-  implementationId: string,
+/**
+ * The family an implementation reference names: the 0.6 key `familyId`, or the
+ * 0.5 key `implementationId` on a raw (unparsed) object. Removed in 0.7.0.
+ */
+export function familyIdOf(ref: { readonly familyId?: unknown; readonly implementationId?: unknown }): string {
+  const id = ref.familyId ?? ref.implementationId
+  return typeof id === 'string' ? id : String(id)
+}
+
+/**
+ * A ref in the 0.6 shape for a raw object that may carry the 0.5 key: what the
+ * catalog reports as `persistentRef` after resolving a caller's reference. No
+ * validation — the reference has already resolved. Removed in 0.7.0.
+ */
+export function normalizeImplementationRef<C extends Contract>(ref: ImplementationRef<C>): ImplementationRef<C> {
+  const keys = Object.keys(ref)
+  if (keys.includes('familyId') && !keys.includes('implementationId')) return ref
+  const familyId = familyIdOf(ref)
+  const normalized = { kind: 'persistent-implementation-ref' as const, contractId: ref.contractId, familyId, version: ref.version }
+  Object.defineProperty(normalized, 'implementationId', { get: () => familyId, enumerable: false, configurable: false })
+  return Object.freeze(normalized) as unknown as ImplementationRef<C>
+}
+
+export function createImplementationRef<C extends Contract<any>>(
+  contract: Pick<Contract, 'id'>,
+  familyId: string,
   version: string,
-): PersistentImplementationRef<C> {
-  assertId(implementationId, 'Implementation')
+): ImplementationRef<C> {
+  assertId(familyId, 'Implementation')
   if (version.trim().length === 0) {
     throw new TypeError('Implementation version intent must not be empty.')
   }
-  assertValidRange(version, `Implementation version intent for ${implementationId}`)
-  return Object.freeze({
-    kind: 'persistent-implementation-ref',
+  assertValidRange(version, `Implementation version intent for ${familyId}`)
+  const ref = {
+    kind: 'persistent-implementation-ref' as const,
     contractId: contract.id,
-    implementationId,
+    familyId,
     version,
-  }) as PersistentImplementationRef<C>
+  }
+  // R5 alias (0.6): `implementationId` reads `familyId`; not enumerable, so JSON
+  // carries `familyId` only. Removed in 0.7.0.
+  Object.defineProperty(ref, 'implementationId', { get: () => familyId, enumerable: false, configurable: false })
+  return Object.freeze(ref) as unknown as ImplementationRef<C>
 }
 
 export function parseImplementationRef<C extends Contract<any>>(
   contract: C,
   input: unknown,
-): PersistentImplementationRef<C> {
+): ImplementationRef<C> {
   if (typeof input !== 'object' || input === null) {
     throw new TypeError('A persistent implementation reference must be an object.')
   }
   const value = input as Readonly<Record<string, unknown>>
+  const hasFamilyId = typeof value.familyId === 'string'
+  const hasLegacyId = typeof value.implementationId === 'string'
+  const familyId = hasFamilyId ? value.familyId as string : hasLegacyId ? value.implementationId as string : undefined
   if (
     value.kind !== 'persistent-implementation-ref'
     || value.contractId !== contract.id
-    || typeof value.implementationId !== 'string'
-    || value.implementationId.trim().length === 0
+    || familyId === undefined
+    || familyId.trim().length === 0
+    || (hasFamilyId && hasLegacyId && value.familyId !== value.implementationId)
     || typeof value.version !== 'string'
     || value.version.trim().length === 0
   ) {
@@ -137,11 +168,7 @@ export function parseImplementationRef<C extends Contract<any>>(
       `Invalid persistent implementation reference for Contract ${contract.id}.`,
     )
   }
-  return createPersistentImplementationRef(
-    contract,
-    value.implementationId,
-    value.version,
-  )
+  return createImplementationRef(contract, familyId, value.version)
 }
 
 export function auto<C extends Contract<any>>(contract: C): AutoImplementation<C> {
@@ -354,7 +381,7 @@ export function definePackage(manifest: PackageManifest): PackageDefinitions {
             `${service.key} does not explicitly provide Contract ${contract.id}.`,
           )
         }
-        return createPersistentImplementationRef(
+        return createImplementationRef(
           contract,
           service.family.id,
           version,

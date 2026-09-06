@@ -10,7 +10,7 @@ import type {
   ImplementationSelector,
   ImplementationSet,
   LoadOptions,
-  PersistentImplementationRef,
+  ImplementationRef,
   ServiceRevision,
 } from '../descriptors.js'
 import type { CandidateAvailabilityInput, ImplementationDirectory } from './implementation-directory.js'
@@ -120,7 +120,7 @@ export async function createSelector(
   })
 
   const openCandidate = async (
-    input: ImplementationCandidate<any> | CandidateRef<any> | PersistentImplementationRef<any>,
+    input: ImplementationCandidate<any> | CandidateRef<any> | ImplementationRef<any>,
   ): Promise<ImplementationLease<any>> => {
     const candidate = index.requireAvailable(input)
     const anchoredEntry = anchoredEntryByRevision.get(index.revisionKey(candidate))!

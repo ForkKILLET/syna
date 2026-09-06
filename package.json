@@ -13,7 +13,7 @@
     "typecheck": "tsc -b tsconfig.json --pretty false && npm run type-tests",
     "type-tests": "tsc -p packages/core/tsconfig.type-tests.json --pretty false",
     "test": "npm run build && node --test packages/core/tests/*.test.mjs",
-    "test:app": "node --test apps/hyla-mini/tests/filesystem.test.mjs apps/hyla-mini/tests/render.test.mjs apps/hyla-mini/tests/tenants-auth.test.mjs apps/hyla-mini/tests/preflight.test.mjs apps/hyla-mini/tests/audit-app.test.mjs apps/hyla-mini/tests/review-app.test.mjs && node --test --expose-gc apps/hyla-mini/tests/site-manager.test.mjs",
+    "test:app": "node --test apps/hyla-mini/tests/filesystem.test.mjs apps/hyla-mini/tests/render.test.mjs apps/hyla-mini/tests/v06-compat.test.mjs apps/hyla-mini/tests/tenants-auth.test.mjs apps/hyla-mini/tests/preflight.test.mjs apps/hyla-mini/tests/audit-app.test.mjs apps/hyla-mini/tests/review-app.test.mjs && node --test --expose-gc apps/hyla-mini/tests/site-manager.test.mjs",
     "test:postgres": "node scripts/pg-test-cluster.mjs with -- node --test apps/hyla-mini/tests/postgres.test.mjs apps/hyla-mini/tests/matrix.test.mjs",
     "test:scripts": "node --test scripts/tests/*.test.mjs",
     "test:coverage": "npm run build && node --test --experimental-test-coverage packages/core/tests/*.test.mjs",

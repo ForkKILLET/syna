@@ -40,7 +40,7 @@ const siteConfig = (tenantId, recipes = defaultRecipes()) => ({
   theme: { name: 'paper', accent: '#3366cc' },
   navigation: [{ label: 'Home', href: '/' }],
   recipes,
-  auth: { implementation: { kind: 'persistent-implementation-ref', contractId: 'x', implementationId: 'y', version: '*' }, options: {} },
+  auth: { implementation: { kind: 'persistent-implementation-ref', contractId: 'x', familyId: 'y', version: '*' }, options: {} },
   configRevision: 1,
 })
 
@@ -291,7 +291,7 @@ test('H07 recipes round-trip through JSON, resolve inside the saved version inte
   const widened = { ...saved, stages: saved.stages.map(stage => stage.occurrence === 'gfm' ? { ...stage, ref: { ...stage.ref, version: '>=0.1.0 <1' } } : stage) }
   assert.equal((await builder.build(widened)).stages.find(stage => stage.occurrence === 'gfm').resolvedVersion, '0.2.0', 'a user range that admits the upgrade resolves to it')
   assert.deepEqual(runtime.catalog.revisions(RemarkGfmFactory.family.id), ['0.2.0', '0.1.0'])
-  assert.equal(gfmStage.ref.implementationId, RemarkGfmFactory.family.id, 'exported names carry no version')
+  assert.equal(gfmStage.ref.familyId, RemarkGfmFactory.family.id, 'exported names carry no version')
   await runtime.dispose()
 
   const withoutGfm = createRuntime({ services: [PipelineBuilder, ...STAGE_FACTORIES.filter(factory => factory !== RemarkGfmFactory)] })
