@@ -122,7 +122,7 @@ void minimalInstance
 const NoParams = define.entry('no-params', { requires: { minimal: Minimal } })
 const runtime = createRuntime({
   services: [Implementation, Consumer, Minimal],
-  initialization: { deadlineMs: 5_000 },
+  limits: { setupDeadlineMs: 5_000 },
   diagnostics: { onEvent: event => { void event.type } },
 })
 void runtime.run(NoParams, async ({ minimal }) => (await minimal.load()).ping())
@@ -289,3 +289,10 @@ void policyContext
 // @ts-expect-error `dependencySite` is required.
 const partialContext: RuntimePolicyContext = { parentActiveRevisionKeys: new Set() }
 void partialContext
+
+// M1 (v0.6): one `limits` record; the 0.5 nested records still type-check as deprecated aliases.
+const limited: Runtime = createRuntime({ services: [Implementation], limits: { setupDeadlineMs: 5_000, disposalGraceMs: 1_000, planningBudget: 100, planCacheEntries: 8 } })
+const legacyLimited: Runtime = createRuntime({ services: [Implementation], planCache: { maxEntries: 8 }, initialization: { deadlineMs: 5_000 }, disposal: { graceMs: 1_000 }, planning: { searchBudget: 100 } })
+void [limited, legacyLimited]
+// @ts-expect-error the old key names do not exist inside `limits`.
+createRuntime({ services: [Implementation], limits: { deadlineMs: 5_000 } })

@@ -83,7 +83,7 @@ test('K12 check/explain never execute setup and report unsatisfiable constraints
   const BudgetEntry = define.entry('budget', { requires: { consumer: Consumer, fixed: Fixed2 } })
   const tight = createRuntime({
     services: [Consumer, Pick1, Pick2, Fixed1, Fixed2, ...providers],
-    planning: { searchBudget: 2 },
+    limits: { planningBudget: 2 },
     policy: { orderAutoCandidates: (_c, candidates) => [...candidates].sort((l, r) => l.key.localeCompare(r.key)) },
   })
   await assert.rejects(tight.enter(BudgetEntry), error => error.code === 'PLANNING_BUDGET_EXCEEDED')

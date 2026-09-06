@@ -194,7 +194,7 @@ test('R-1/R-4 a caught cancellation never leaves an unhandled rejection, on ever
         },
       })
       const Entry = define.entry('d', { requires: { consumer: Consumer } })
-      const runtime = createRuntime({ services: [Dep, Consumer], disposal: { graceMs: 30 } })
+      const runtime = createRuntime({ services: [Dep, Consumer], limits: { disposalGraceMs: 30 } })
       const env = await runtime.enter(Entry)
       const waiting = caught(env.deps.consumer.load())
       await sleep(10)
@@ -226,7 +226,7 @@ test('R-1/R-4 a caught cancellation never leaves an unhandled rejection, on ever
       const gate = deferred()
       const Svc = define.service('f', { async setup() { await gate.promise; return {} } })
       const Entry = define.entry('f', { requires: { svc: Svc } })
-      const runtime = createRuntime({ services: [Svc], disposal: { graceMs: 20 } })
+      const runtime = createRuntime({ services: [Svc], limits: { disposalGraceMs: 20 } })
       const env = await runtime.enter(Entry)
       const controller = new AbortController()
       const waiting = caught(env.deps.svc.load({ signal: controller.signal }))
@@ -298,7 +298,7 @@ test('R-3 the bounded close ends the Runtime\'s hold on an Env: abandoned attemp
   const Big = define.service('big', { async setup() { return { payload: new Uint8Array(1 << 16) } } })
   const Root = define.entry('root', {})
   const Child = define.entry('child', { requires: { stuck: Stuck, big: Big } })
-  const runtime = createRuntime({ services: [Stuck, Big], disposal: { graceMs: 10 }, diagnostics: { onEvent: event => events.push(event.type) } })
+  const runtime = createRuntime({ services: [Stuck, Big], limits: { disposalGraceMs: 10 }, diagnostics: { onEvent: event => events.push(event.type) } })
   const root = await runtime.enter(Root)
   const children = []
   for (let index = 0; index < 20; index += 1) {
@@ -360,7 +360,7 @@ test('R-3 retention is bounded by the user\'s own Promise: a setup that can neve
     const Stuck = define.service('stuck', { async setup(_deps, { onDispose }) { onDispose(() => { cleanups += 1 }); await gate; return {} } })
     const Root = define.entry('root', {})
     const Child = define.entry('child', { requires: { stuck: Stuck } })
-    const runtime = createRuntime({ services: [Stuck], disposal: { graceMs: 10 }, diagnostics: { onEvent: event => events.push(event.type + ':' + event.env) } })
+    const runtime = createRuntime({ services: [Stuck], limits: { disposalGraceMs: 10 }, diagnostics: { onEvent: event => events.push(event.type + ':' + event.env) } })
     const root = await runtime.enter(Root)
     // Env 1: the handle is dropped; its whole graph must become collectable.
     let dropped = await root.enter(Child)
@@ -438,7 +438,7 @@ test('R-4 the dependencies of an abandoned attempt are closed in the normal orde
     },
   })
   const Entry = define.entry({ requires: { slow: Slow, dep: Dep } })
-  const runtime = createRuntime({ services: [Dep, Slow], disposal: { graceMs: 20 }, diagnostics: { onEvent: event => events.push(event.type) } })
+  const runtime = createRuntime({ services: [Dep, Slow], limits: { disposalGraceMs: 20 }, diagnostics: { onEvent: event => events.push(event.type) } })
   const env = await runtime.enter(Entry)
   void env.deps.slow.load().catch(() => undefined)
   await sleep(5)
@@ -476,7 +476,7 @@ test('R-5 a setup deadline that fires inside the disposal grace does not hide th
     },
   })
   const Entry = define.entry({ requires: { slow: Slow } })
-  const runtime = createRuntime({ services: [Slow], disposal: { graceMs: 400 }, diagnostics: { onEvent: event => events.push(event.type) } })
+  const runtime = createRuntime({ services: [Slow], limits: { disposalGraceMs: 400 }, diagnostics: { onEvent: event => events.push(event.type) } })
   const env = await runtime.enter(Entry)
   const load = env.deps.slow.load()
   void load.catch(() => undefined)
@@ -509,7 +509,7 @@ test('R-5 a setup deadline that fires inside the disposal grace does not hide th
     async setup(_deps, { onDispose }) { onDispose(() => controlEvents.push('cleanup')); await controlGate.promise; return {} },
   })
   const ControlEntry = control.entry({ requires: { slow: SlowControl } })
-  const controlRuntime = createRuntime({ services: [SlowControl], disposal: { graceMs: 20 }, diagnostics: { onEvent: event => controlEvents.push(event.type) } })
+  const controlRuntime = createRuntime({ services: [SlowControl], limits: { disposalGraceMs: 20 }, diagnostics: { onEvent: event => controlEvents.push(event.type) } })
   const controlEnv = await controlRuntime.enter(ControlEntry)
   void controlEnv.deps.slow.load().catch(() => undefined)
   await sleep(2)

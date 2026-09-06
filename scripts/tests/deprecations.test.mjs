@@ -23,6 +23,19 @@ const EXPECTED = [
   { path: 'ImplementationRef.implementationId', replacement: 'familyId' },
   // R6 RuntimePolicyContext.site → dependencySite
   { path: 'RuntimePolicyContext.site', replacement: 'dependencySite' },
+  // M1 the four nested option records → limits
+  { path: 'PlanCacheOptions', replacement: 'limits.planCacheEntries' },
+  { path: 'PlanCacheOptions.maxEntries', replacement: 'limits.planCacheEntries' },
+  { path: 'InitializationOptions', replacement: 'limits.setupDeadlineMs' },
+  { path: 'InitializationOptions.deadlineMs', replacement: 'limits.setupDeadlineMs' },
+  { path: 'DisposalOptions', replacement: 'limits.disposalGraceMs' },
+  { path: 'DisposalOptions.graceMs', replacement: 'limits.disposalGraceMs' },
+  { path: 'PlanningOptions', replacement: 'limits.planningBudget' },
+  { path: 'PlanningOptions.searchBudget', replacement: 'limits.planningBudget' },
+  { path: 'CreateRuntimeOptions.planCache', replacement: 'limits.planCacheEntries' },
+  { path: 'CreateRuntimeOptions.initialization', replacement: 'limits.setupDeadlineMs' },
+  { path: 'CreateRuntimeOptions.disposal', replacement: 'limits.disposalGraceMs' },
+  { path: 'CreateRuntimeOptions.planning', replacement: 'limits.planningBudget' },
 ]
 
 test('every deprecated alias names its replacement and the 0.7.0 removal; nothing else is deprecated', () => {

@@ -113,7 +113,7 @@ D = define.service('setup-cycle-d', {
   },
 })
 const BadEntry = define.entry('bad-cycle', { requires: { c: C } })
-const badRuntime = createRuntime({ services: [C, D], initialization: { deadlineMs: 1_000 } })
+const badRuntime = createRuntime({ services: [C, D], limits: { setupDeadlineMs: 1_000 } })
 const badEnv = await badRuntime.enter(BadEntry)
 let waitCycleError: unknown
 try {

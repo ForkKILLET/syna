@@ -32,14 +32,13 @@ const timed = async fn => {
   return { ...outcome, elapsedMs: performance.now() - started }
 }
 
-test('F-PL-01 dispose() of a non-cooperative setup is bounded by disposal.graceMs, not by the initialization deadline', async () => {
+test('F-PL-01 dispose() of a non-cooperative setup is bounded by limits.disposalGraceMs, not by the initialization deadline', async () => {
   const define = makeDefine('v05.audit.bounded')
   const Stuck = define.service({ setup: never })
   const Entry = define.entry({ requires: { stuck: Stuck } })
   const runtime = createRuntime({
     services: [Stuck],
-    initialization: { deadlineMs: 5_000 },
-    disposal: { graceMs: 40 },
+    limits: { setupDeadlineMs: 5_000, disposalGraceMs: 40 },
   })
   const env = await runtime.enter(Entry)
   void env.deps.stuck.load().catch(() => undefined)
@@ -65,7 +64,7 @@ test('F-PL-01 setupDeadlineMs: Infinity cannot turn a stuck setup into a hanging
   })
   const Plain = define.entry('plain', { requires: { stuck: Stuck } })
   const WithEager = define.entry('with-eager', { requires: { eager: Eager } })
-  const runtime = createRuntime({ services: [Stuck, Eager], disposal: { graceMs: 40 } })
+  const runtime = createRuntime({ services: [Stuck, Eager], limits: { disposalGraceMs: 40 } })
 
   const env = await runtime.enter(Plain)
   void env.deps.stuck.load().catch(() => undefined)
@@ -93,7 +92,7 @@ test('F-PL-01 control: a cooperative setup that unwinds within the grace period 
     }),
   })
   const Entry = define.entry({ requires: { cooperative: Cooperative } })
-  const runtime = createRuntime({ services: [Cooperative], disposal: { graceMs: 500 } })
+  const runtime = createRuntime({ services: [Cooperative], limits: { disposalGraceMs: 500 } })
   const env = await runtime.enter(Entry)
   const loading = env.deps.cooperative.load().catch(error => error)
   await sleep(5)
@@ -145,7 +144,7 @@ test('F-PL-02 onDispose() registered after the owner closed mid-setup is still r
     },
   })
   const Entry = define.entry({ requires: { slow: Slow } })
-  const runtime = createRuntime({ services: [Slow], disposal: { graceMs: 20 } })
+  const runtime = createRuntime({ services: [Slow], limits: { disposalGraceMs: 20 } })
   const env = await runtime.enter(Entry)
   void env.deps.slow.load().catch(() => undefined)
   await sleep(5)
@@ -248,7 +247,7 @@ test('F-PL-04 an Env with an abandoned attempt stays disposing (and counted) unt
   const Entry = define.entry({ requires: { slow: Slow } })
   const runtime = createRuntime({
     services: [Slow],
-    disposal: { graceMs: 20 },
+    limits: { disposalGraceMs: 20 },
     diagnostics: { onEvent: event => events.push(event.type) },
   })
   const env = await runtime.enter(Entry)
@@ -293,7 +292,7 @@ test('F-PL-04 a parent whose child holds an abandoned attempt is disposing until
   })
   const Root = define.entry('root', {})
   const Child = define.entry('child', { requires: { slow: Slow } })
-  const runtime = createRuntime({ services: [Slow], disposal: { graceMs: 20 } })
+  const runtime = createRuntime({ services: [Slow], limits: { disposalGraceMs: 20 } })
   const root = await runtime.enter(Root)
   const child = await root.enter(Child)
   void child.deps.slow.load().catch(() => undefined)

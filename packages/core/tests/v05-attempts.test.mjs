@@ -177,7 +177,7 @@ test('K08 disposal reports an attempt that never settles as UNSETTLED_ATTEMPT an
   const Entry = define.entry({ requires: { stuck: Stuck } })
   const runtime = createRuntime({
     services: [Stuck],
-    disposal: { graceMs: 20 },
+    limits: { disposalGraceMs: 20 },
     diagnostics: { onEvent: event => events.push(event.type) },
   })
   const env = await runtime.enter(Entry)

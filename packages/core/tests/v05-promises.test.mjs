@@ -195,7 +195,7 @@ test('R04 structural A<->B is legal; runtime mutual calls work; Promise.race fal
     },
   })
   const Entry = define.entry({ requires: { a: A, b: B, racer: Racer } })
-  const runtime = createRuntime({ services: [A, B, Racer, Slow], initialization: { deadlineMs: 2000 } })
+  const runtime = createRuntime({ services: [A, B, Racer, Slow], limits: { setupDeadlineMs: 2000 } })
   const env = await runtime.enter(Entry)
   assert.equal(await (await env.deps.a.load()).callB(), 'b')
   assert.equal(await (await env.deps.b.load()).callA(), 'a')
@@ -215,7 +215,7 @@ test('R04 a genuinely pending wait cycle is reported by the initialization deadl
   X = define.service('x', { requires: { y: forward(() => Y) }, async setup({ y }) { await y.load(); return {} } })
   Y = define.service('y', { requires: { x: forward(() => X) }, async setup({ x }) { await x.load(); return {} } })
   const Entry = define.entry({ requires: { x: X } })
-  const runtime = createRuntime({ services: [X, Y], initialization: { deadlineMs: 30 } })
+  const runtime = createRuntime({ services: [X, Y], limits: { setupDeadlineMs: 30 } })
   const env = await runtime.enter(Entry)
   const started = Date.now()
   await assert.rejects(env.deps.x.load(), error => {

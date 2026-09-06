@@ -65,7 +65,7 @@ test('C.all planning is reusable and bounded across short-lived request Envs', a
   })
   const runtime = createRuntime({
     services: [Panel, ProviderA, ProviderB, ProviderC],
-    planCache: { maxEntries: 32 },
+    limits: { planCacheEntries: 32 },
   })
   const root = await runtime.enter(Root)
 
@@ -325,7 +325,7 @@ test('a worker world is started by the host after the owner is Ready, not during
 test('plan cache is capped and reports eviction rather than retaining unlimited Entry shapes', async () => {
   const define = defineFor('v04.cache-bound')
   const Service = define.service({ setup: () => ({}) })
-  const runtime = createRuntime({ services: [Service], planCache: { maxEntries: 4 } })
+  const runtime = createRuntime({ services: [Service], limits: { planCacheEntries: 4 } })
   for (let index = 0; index < 20; index += 1) {
     const Entry = define.entry(`entry-${index}`, { requires: { service: Service } })
     const env = await runtime.enter(Entry)

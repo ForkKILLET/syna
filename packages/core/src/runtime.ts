@@ -24,6 +24,7 @@ import type {
   RuntimeEvent,
   RuntimeInspection,
   RuntimePolicy,
+  RuntimeLimits,
   RuntimePolicyContext,
   Runtime,
   ServiceFamily,
@@ -51,9 +52,9 @@ import {
 } from './internal/implementation-views.js'
 import { isBacktrackableTopologyError } from './internal/solve-errors.js'
 
-const DEFAULT_DEADLINE_MS = 30_000
+const DEFAULT_SETUP_DEADLINE_MS = 30_000
 const DEFAULT_DISPOSAL_GRACE_MS = 2_000
-const DEFAULT_SEARCH_BUDGET = 10_000
+const DEFAULT_PLANNING_BUDGET = 10_000
 const DEFAULT_PLAN_CACHE_ENTRIES = 512
 
 const internalPackage = Object.freeze({
@@ -156,6 +157,28 @@ function positiveNumber(value: number | undefined, fallback: number, name: strin
     throw new TypeError(`${name} must be a positive number.`)
   }
   return value
+}
+
+/**
+ * `limits` with the 0.5 nested records (`planCache`, `initialization`, `disposal`,
+ * `planning`) accepted as deprecated aliases: each old key maps to exactly one
+ * limit, and giving a limit in both forms is a TypeError. Removed in 0.7.0.
+ */
+function resolveLimits(options: CreateRuntimeOptions): Required<RuntimeLimits> {
+  const limits = options.limits ?? {}
+  if (typeof limits !== 'object' || limits === null) throw new TypeError('limits must be an object.')
+  const pick = (key: keyof RuntimeLimits, legacy: number | undefined, legacyName: string): number | undefined => {
+    if (limits[key] !== undefined && legacy !== undefined) {
+      throw new TypeError(`createRuntime() received limits.${key} and its deprecated alias ${legacyName}; use limits.${key}.`)
+    }
+    return limits[key] ?? legacy
+  }
+  return {
+    setupDeadlineMs: positiveNumber(pick('setupDeadlineMs', options.initialization?.deadlineMs, 'initialization.deadlineMs'), DEFAULT_SETUP_DEADLINE_MS, 'limits.setupDeadlineMs'),
+    disposalGraceMs: positiveNumber(pick('disposalGraceMs', options.disposal?.graceMs, 'disposal.graceMs'), DEFAULT_DISPOSAL_GRACE_MS, 'limits.disposalGraceMs'),
+    planningBudget: pick('planningBudget', options.planning?.searchBudget, 'planning.searchBudget') ?? DEFAULT_PLANNING_BUDGET,
+    planCacheEntries: pick('planCacheEntries', options.planCache?.maxEntries, 'planCache.maxEntries') ?? DEFAULT_PLAN_CACHE_ENTRIES,
+  }
 }
 
 export const defaultRuntimePolicy: RuntimePolicy = Object.freeze({
@@ -329,6 +352,7 @@ class RuntimeImpl implements Runtime, ImplementationViewHost {
       catch { /* diagnostics must never change business outcomes */ }
     }
 
+    const limits = resolveLimits(options)
     this.compiler = new DefinitionCompiler(
       options.services,
       options.overrides ?? [],
@@ -339,12 +363,12 @@ class RuntimeImpl implements Runtime, ImplementationViewHost {
       this.compiler,
       this.directory,
       this.policy,
-      options.planCache?.maxEntries ?? DEFAULT_PLAN_CACHE_ENTRIES,
-      options.planning?.searchBudget ?? DEFAULT_SEARCH_BUDGET,
+      limits.planCacheEntries,
+      limits.planningBudget,
     )
-    this.disposalGraceMs = positiveNumber(options.disposal?.graceMs, DEFAULT_DISPOSAL_GRACE_MS, 'disposal.graceMs')
+    this.disposalGraceMs = limits.disposalGraceMs
     this.materializer = new Materializer({
-      deadlineMs: positiveNumber(options.initialization?.deadlineMs, DEFAULT_DEADLINE_MS, 'initialization.deadlineMs'),
+      deadlineMs: limits.setupDeadlineMs,
       disposalGraceMs: this.disposalGraceMs,
       onEvent: this.onEvent,
     })

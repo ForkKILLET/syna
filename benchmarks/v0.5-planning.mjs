@@ -102,7 +102,7 @@ function representativeWorld(serviceCount, options = {}) {
 
 async function warmEnterDisposeCase(serviceCount, depth) {
   const world = representativeWorld(serviceCount, { tag: `d${depth}` })
-  const runtime = createRuntime({ services: world.services, planCache: { maxEntries: 64 }, policy: { orderAutoCandidates: (_c, candidates) => candidates } })
+  const runtime = createRuntime({ services: world.services, limits: { planCacheEntries: 64 }, policy: { orderAutoCandidates: (_c, candidates) => candidates } })
   const coldStart = performance.now()
   const app = await runtime.enter(world.App, { choice: Choice(world) })
   const coldPlanMs = performance.now() - coldStart
@@ -131,7 +131,7 @@ async function phaseBreakdownCase(serviceCount) {
   const world = representativeWorld(serviceCount, { tag: 'phases' })
   const cold = [], warm = [], materialize = [], dispose = []
   for (let round = 0; round < iterations(60); round += 1) {
-    const runtime = createRuntime({ services: world.services, planCache: { maxEntries: 64 }, policy: { orderAutoCandidates: (_c, candidates) => candidates } })
+    const runtime = createRuntime({ services: world.services, limits: { planCacheEntries: 64 }, policy: { orderAutoCandidates: (_c, candidates) => candidates } })
     let started = performance.now()
     const app = await runtime.enter(world.App, { choice: Choice(world) })
     const site = await app.enter(world.Site, { tenant: 't' })
@@ -161,7 +161,7 @@ async function phaseBreakdownCase(serviceCount) {
 
 async function inputClosureCase() {
   const world = representativeWorld(200, { tag: 'closure' })
-  const runtime = createRuntime({ services: world.services, planCache: { maxEntries: 64 }, policy: { orderAutoCandidates: (_c, candidates) => candidates } })
+  const runtime = createRuntime({ services: world.services, limits: { planCacheEntries: 64 }, policy: { orderAutoCandidates: (_c, candidates) => candidates } })
   const app = await runtime.enter(world.App, { choice: Choice(world) })
   const siteA = await app.enter(world.Site, { tenant: 'a' })
   const explanation = await app.explain(world.Site, { tenant: 'b' })
@@ -194,7 +194,7 @@ async function privateRangeAndBoundEntryCase() {
   // by range only.
   const Owner = define.service('owner', { requires: { entry: PrivateEntry }, setup: ({ entry }) => ({ entry }) })
   const OwnerLayer = define.entry('owner-layer', { requires: { owner: Owner } })
-  const runtime = createRuntime({ services: [...world.services, Owner], planCache: { maxEntries: 64 }, policy: { orderAutoCandidates: (_c, candidates) => candidates } })
+  const runtime = createRuntime({ services: [...world.services, Owner], limits: { planCacheEntries: 64 }, policy: { orderAutoCandidates: (_c, candidates) => candidates } })
   const app = await runtime.enter(world.App, { choice: Choice(world) })
   const site = await app.enter(world.Site, { tenant: 'bound' })
   const ownerEnv = await site.enter(OwnerLayer)
@@ -214,7 +214,7 @@ async function overrideAndAllCase() {
   const world = representativeWorld(100, { tag: 'override' })
   const define = world.define
   const FakePool = define.service('fake-pool', { setup: () => ({}) })
-  const runtime = createRuntime({ services: world.services, overrides: [override(world.Pool, FakePool)], planCache: { maxEntries: 64 }, policy: { orderAutoCandidates: (_c, candidates) => candidates } })
+  const runtime = createRuntime({ services: world.services, overrides: [override(world.Pool, FakePool)], limits: { planCacheEntries: 64 }, policy: { orderAutoCandidates: (_c, candidates) => candidates } })
   const app = await runtime.enter(world.App, { choice: Choice(world) })
   const site = await app.enter(world.Site, { tenant: 'o' })
   const result = await timed(iterations(500), 50, async id => {
@@ -227,7 +227,7 @@ async function overrideAndAllCase() {
 
 async function churnCase() {
   const world = representativeWorld(100, { tag: 'churn' })
-  const runtime = createRuntime({ services: world.services, planCache: { maxEntries: 64 }, policy: { orderAutoCandidates: (_c, candidates) => candidates } })
+  const runtime = createRuntime({ services: world.services, limits: { planCacheEntries: 64 }, policy: { orderAutoCandidates: (_c, candidates) => candidates } })
   const app = await runtime.enter(world.App, { choice: Choice(world) })
   const site = await app.enter(world.Site, { tenant: 'churn' })
   const uow = await app.deps.uow.load()
@@ -268,7 +268,7 @@ async function churnCase() {
 async function lruChurnCase() {
   const define = pkg('lru-churn')
   const Service = define.service({ setup: () => ({}) })
-  const runtime = createRuntime({ services: [Service], planCache: { maxEntries: 16 } })
+  const runtime = createRuntime({ services: [Service], limits: { planCacheEntries: 16 } })
   const shapes = iterations(500)
   for (let index = 0; index < shapes; index += 1) {
     const Entry = define.entry(`entry-${index}`, { requires: { service: Service } })

@@ -67,7 +67,7 @@ Post：stable `id`、`tenantId`、`slug`、`locale`（`zh-CN`/`en`，普通数�
 - 全部在用时：有界等待队列（`maxPendingAcquires`、`acquireTimeoutMs`），超出即明确拒绝 `SITE_CAPACITY`，不强关活跃租户。
 - 冷创建失败不留 poison promise，按租户有界指数退避；读完配置后再次检查退避，所以同一突发中的其余 acquirer 得到 `SITE_CREATION_BACKOFF`（含 `cause`）而不是各自再试一次。创建时校验 Authenticator 实例形状（`scheme` + `authenticate()`），接口不兼容的 override 在站点创建时失败，而不是在租户的第一个请求。
 - 维护 worker（`MaintenanceWorker`）：宿主在 root Ready 后 `start({ intervalMs, domains })`；每个 tick 执行 `sweep()`，给定 `domains` 时还重载域名表（重载失败计入 `refreshFailures`，循环继续）。tick 抛错则循环结束、worker 世界释放、状态为 `failed`、`lastError` 保存原因；随后的 `stop()`（包括 Runtime 释放时的清理）重新抛出该错误，进入 `HylaApp.close()` 的 `errors`；`start()` 可以从 `failed` 重新开始。循环从不产生 unhandled rejection，也不会停在 `running`。
-- 关闭：拒绝新 acquire，等待 lease 到 `shutdownTimeoutMs`，报告未释放 lease，然后并发关闭 Env。`HylaApp.close()` 先执行这一关闭，再释放 Runtime，返回 `{ unreleasedLeases, unsettledAttempts, errors }`（管理器关闭本身失败也进入 `errors`；Runtime 嵌套的释放报告被展平成叶子错误；`close()` 幂等，重复调用返回同一份报告）：Runtime 释放的失败（例如某个 setup 无视 stop signal 超过 `disposal.graceMs` 时的 `UNSETTLED_ATTEMPT`）进入 `errors` 而不是抛出，仍在运行的 attempt 列在 `unsettledAttempts`（来自 `runtime.inspect()`）；Runtime 不再保留这些 Env，它们只由各自的 setup Promise 维持。
+- 关闭：拒绝新 acquire，等待 lease 到 `shutdownTimeoutMs`，报告未释放 lease，然后并发关闭 Env。`HylaApp.close()` 先执行这一关闭，再释放 Runtime，返回 `{ unreleasedLeases, unsettledAttempts, errors }`（管理器关闭本身失败也进入 `errors`；Runtime 嵌套的释放报告被展平成叶子错误；`close()` 幂等，重复调用返回同一份报告）：Runtime 释放的失败（例如某个 setup 无视 stop signal 超过 `limits.disposalGraceMs` 时的 `UNSETTLED_ATTEMPT`）进入 `errors` 而不是抛出，仍在运行的 attempt 列在 `unsettledAttempts`（来自 `runtime.inspect()`）；Runtime 不再保留这些 Env，它们只由各自的 setup Promise 维持。
 - Env 被驱逐不丢业务事实：数据、配方、配置版本都在后端。
 
 ## 权限边界

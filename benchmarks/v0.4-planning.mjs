@@ -73,7 +73,7 @@ async function requestChainCase(serviceCount, depth) {
     requires: { handler: services.at(-1) },
     parameters: { request: CurrentRequest },
   })
-  const runtime = createRuntime({ services: [Stable, services.at(-1)], planCache: { maxEntries: 64 } })
+  const runtime = createRuntime({ services: [Stable, services.at(-1)], limits: { planCacheEntries: 64 } })
   let anchor = await runtime.enter(Root)
   for (let index = 1; index < depth; index += 1) anchor = await anchor.enter(Layer)
   const result = await sample(500, 50, async id => {
@@ -112,7 +112,7 @@ async function collectionCase() {
     requires: { panel: Panel },
     parameters: { request: CurrentRequest },
   })
-  const runtime = createRuntime({ services: [Panel, ...providers], planCache: { maxEntries: 32 } })
+  const runtime = createRuntime({ services: [Panel, ...providers], limits: { planCacheEntries: 32 } })
   const root = await runtime.enter(Root)
   const result = await sample(1000, 100, async id => {
     const env = await root.enter(Request, { request: { id } })
@@ -148,7 +148,7 @@ async function bindingCase() {
     requires: { consumer: Consumer },
     parameters: { request: CurrentRequest, provider: Choice },
   })
-  const runtime = createRuntime({ services: [Consumer, Alpha, Beta], planCache: { maxEntries: 32 } })
+  const runtime = createRuntime({ services: [Consumer, Alpha, Beta], limits: { planCacheEntries: 32 } })
   const root = await runtime.enter(Root)
   const alpha = Choice.to(Alpha)
   const beta = Choice.to(Beta)
@@ -176,7 +176,7 @@ async function lruChurnCase() {
     syna: { id: 'benchmark.lru-churn' },
   })
   const Service = define.service({ setup: () => ({}) })
-  const runtime = createRuntime({ services: [Service], planCache: { maxEntries: 16 } })
+  const runtime = createRuntime({ services: [Service], limits: { planCacheEntries: 16 } })
   for (let index = 0; index < 500; index += 1) {
     const Entry = define.entry(`entry-${index}`, { requires: { service: Service } })
     const env = await runtime.enter(Entry)

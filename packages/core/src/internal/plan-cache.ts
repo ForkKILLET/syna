@@ -18,7 +18,7 @@ export class PlanTemplateCache<Value> {
 
   constructor(readonly maxEntries: number) {
     if (!Number.isSafeInteger(maxEntries) || maxEntries < 1) {
-      throw new TypeError('planCache.maxEntries must be a positive safe integer.')
+      throw new TypeError('limits.planCacheEntries must be a positive safe integer.')
     }
   }
 

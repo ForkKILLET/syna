@@ -141,7 +141,7 @@ test('F-CL3-03 an attempt whose Env handle was dropped is still closed as unreac
     })
     const Root = define.entry('root', {})
     const Child = define.entry('child', { requires: { stuck: Stuck } })
-    const runtime = createRuntime({ services: [Stuck], disposal: { graceMs: 10 }, diagnostics: { onEvent: event => events.push(event.type + ':' + event.env) } })
+    const runtime = createRuntime({ services: [Stuck], limits: { disposalGraceMs: 10 }, diagnostics: { onEvent: event => events.push(event.type + ':' + event.env) } })
     const root = await runtime.enter(Root)
     let dropped = await root.enter(Child)
     const droppedId = dropped.id
@@ -258,7 +258,7 @@ test('F-CL3-05a a failed setup whose rollback outlives the grace is reported as 
     },
   })
   const Entry = define.entry({ requires: { failing: Failing } })
-  const runtime = createRuntime({ services: [Failing], disposal: { graceMs: 40 }, diagnostics: { onEvent: event => events.push(event.type === 'attempt-abandoned' ? `attempt-abandoned:${event.phase}` : event.type) } })
+  const runtime = createRuntime({ services: [Failing], limits: { disposalGraceMs: 40 }, diagnostics: { onEvent: event => events.push(event.type === 'attempt-abandoned' ? `attempt-abandoned:${event.phase}` : event.type) } })
   const env = await runtime.enter(Entry)
   const load = env.deps.failing.load()
   void load.catch(() => undefined)
@@ -301,7 +301,7 @@ test('F-CL3-05b during a late cleanup the ledger still lists the attempt as sett
     },
   })
   const Entry = define.entry({ requires: { stuck: Stuck } })
-  const runtime = createRuntime({ services: [Stuck], disposal: { graceMs: 10 }, diagnostics: { onEvent: event => events.push(event.type) } })
+  const runtime = createRuntime({ services: [Stuck], limits: { disposalGraceMs: 10 }, diagnostics: { onEvent: event => events.push(event.type) } })
   const env = await runtime.enter(Entry)
   void env.deps.stuck.load().catch(() => undefined)
   await sleep(5)
@@ -334,7 +334,7 @@ test('F-CL3-05c runtime.dispose() waits within the grace for a settling attempt 
     },
   })
   const Entry = define.entry({ requires: { stuck: Stuck } })
-  const runtime = createRuntime({ services: [Stuck], disposal: { graceMs: 200 }, initialization: { deadlineMs: 20 } })
+  const runtime = createRuntime({ services: [Stuck], limits: { disposalGraceMs: 200, setupDeadlineMs: 20 } })
   const env = await runtime.enter(Entry)
   await assert.rejects(env.deps.stuck.load(), error => error.code === 'INITIALIZATION_TIMEOUT')
   // The Env's own close reports the timed-out attempt (its raw Promise is still pending).
@@ -352,7 +352,7 @@ test('F-CL3-08 run() keeps a successful business result on the close error', asy
   const define = makeDefine('v05.audit3.run-result')
   const Stuck = define.service('stuck', { async setup() { await new Promise(() => undefined) } })
   const Entry = define.entry({ requires: { stuck: Stuck } })
-  const runtime = createRuntime({ services: [Stuck], disposal: { graceMs: 20 } })
+  const runtime = createRuntime({ services: [Stuck], limits: { disposalGraceMs: 20 } })
   const outcome = await settle(runtime.run(Entry, async deps => {
     void deps.stuck.load().catch(() => undefined)
     await sleep(5)

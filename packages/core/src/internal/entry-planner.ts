@@ -172,7 +172,7 @@ export class EntryPlanner implements GraphBuilderHost {
     this.admitted = compiler.admitted
     this.planTemplates = new PlanTemplateCache(maxCacheEntries)
     if (!Number.isSafeInteger(searchBudget) || searchBudget < 1) {
-      throw new TypeError('planning.searchBudget must be a positive safe integer.')
+      throw new TypeError('limits.planningBudget must be a positive safe integer.')
     }
   }
 

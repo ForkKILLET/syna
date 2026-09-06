@@ -85,6 +85,7 @@ export type {
   PackageManifest,
   PlanCacheOptions,
   PlanningOptions,
+  RuntimeLimits,
   PersistentImplementationRef,
   ProvidedShape,
   ReuseConstraints,

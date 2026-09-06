@@ -528,29 +528,50 @@ export interface ServiceOverride<
   readonly to: To
 }
 
+/**
+ * Runtime limits. Defaults: `setupDeadlineMs` 30_000, `disposalGraceMs` 2_000,
+ * `planningBudget` 10_000, `planCacheEntries` 512.
+ */
+export interface RuntimeLimits {
+  /** Default per-attempt setup deadline in milliseconds (30_000). Reports INITIALIZATION_TIMEOUT; never proves a deadlock. */
+  readonly setupDeadlineMs?: number
+  /**
+   * How long disposal waits, in milliseconds (2_000), after broadcasting the
+   * stop signal, for each in-flight setup attempt of the closing Env (running
+   * or already timed out) to settle before abandoning it. Bounds the close:
+   * once it passes, owned Ready slots are disposed, the Env leaves the
+   * Runtime's registries and `dispose()` settles. An abandoned attempt keeps
+   * only itself alive (via the user's own pending Promise); it is listed in
+   * `inspect().unsettledAttempts`.
+   */
+  readonly disposalGraceMs?: number
+  /** Maximum candidate-choice expansions per Entry plan before PLANNING_BUDGET_EXCEEDED (10_000). */
+  readonly planningBudget?: number
+  /** Plan template cache capacity (512). */
+  readonly planCacheEntries?: number
+}
+
+/** @deprecated Use `limits.planCacheEntries`. Removed in 0.7.0. */
 export interface PlanCacheOptions {
+  /** @deprecated Use `limits.planCacheEntries`. Removed in 0.7.0. */
   readonly maxEntries?: number
 }
 
+/** @deprecated Use `limits.setupDeadlineMs`. Removed in 0.7.0. */
 export interface InitializationOptions {
-  /** Default per-attempt setup deadline. Reports INITIALIZATION_TIMEOUT; never proves a deadlock. */
+  /** @deprecated Use `limits.setupDeadlineMs`. Removed in 0.7.0. */
   readonly deadlineMs?: number
 }
 
+/** @deprecated Use `limits.disposalGraceMs`. Removed in 0.7.0. */
 export interface DisposalOptions {
-  /**
-   * How long disposal waits, after broadcasting the stop signal, for each
-   * in-flight setup attempt of the closing Env (running or already timed out)
-   * to settle before abandoning it. Bounds the close: once it passes, owned
-   * Ready slots are disposed, the Env leaves the Runtime's registries and
-   * `dispose()` settles. An abandoned attempt keeps only itself alive (via the
-   * user's own pending Promise); it is listed in `inspect().unsettledAttempts`.
-   */
+  /** @deprecated Use `limits.disposalGraceMs`. Removed in 0.7.0. */
   readonly graceMs?: number
 }
 
+/** @deprecated Use `limits.planningBudget`. Removed in 0.7.0. */
 export interface PlanningOptions {
-  /** Maximum candidate-choice expansions per Entry plan before PLANNING_BUDGET_EXCEEDED. */
+  /** @deprecated Use `limits.planningBudget`. Removed in 0.7.0. */
   readonly searchBudget?: number
 }
 
@@ -607,9 +628,14 @@ export interface CreateRuntimeOptions {
   readonly services: readonly ServiceRevision[]
   readonly policy?: Partial<RuntimePolicy>
   readonly overrides?: readonly ServiceOverride[]
+  readonly limits?: RuntimeLimits
+  /** @deprecated Use `limits.planCacheEntries`. Removed in 0.7.0. */
   readonly planCache?: PlanCacheOptions
+  /** @deprecated Use `limits.setupDeadlineMs`. Removed in 0.7.0. */
   readonly initialization?: InitializationOptions
+  /** @deprecated Use `limits.disposalGraceMs`. Removed in 0.7.0. */
   readonly disposal?: DisposalOptions
+  /** @deprecated Use `limits.planningBudget`. Removed in 0.7.0. */
   readonly planning?: PlanningOptions
   readonly diagnostics?: DiagnosticsOptions
 }

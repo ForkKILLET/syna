@@ -95,7 +95,7 @@ const buildWorld = () => {
   const Child = define.entry('child', { requires: { app: App }, parameters: { flag: Flag }, reuse: { fresh: [Cache] } })
   const Shared = define.entry('shared', { requires: { app: App }, reuse: { share: [Db1] } })
   const Chooser = define.entry('chooser', { requires: { storage: auto(Storage) } })
-  const runtime = createRuntime({ services: [Config, Db1, Db2, Cache, Memory, Files, PluginA, PluginB, Host, App], planCache: { maxEntries: 8 } })
+  const runtime = createRuntime({ services: [Config, Db1, Db2, Cache, Memory, Files, PluginA, PluginB, Host, App], limits: { planCacheEntries: 8 } })
   return { Storage, Plugin, Picker, Memory, Db1, Db2, Cache, Config, Root, Child, Shared, Chooser, runtime }
 }
 

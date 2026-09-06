@@ -27,6 +27,12 @@ v0.6 只收束 API 的名字与类型。语义——默认值、错误触发条�
 - 解析兼容保证：`Binding.parse()`、`catalog.resolve()`、`set.resolve()`、`set.load(ref)` 在 0.6.x 全程接受 `implementationId`；同时给出两键时必须相等，两键都缺则 `INVALID_DESCRIPTOR`。0.7.0 起只接受 `familyId`。
 - Hyla-mini：`StoredImplementationRef.familyId`；0.5 写入的配方与站点配置（`implementationId`）在读取边界（`parseRecipeDocument`、`parseSiteConfig`）规范化为 0.6 形状并在下次保存时以 `familyId` 写回；内容根无需重写（`apps/hyla-mini/tests/v06-compat.test.mjs`）。
 
+## 合并（旧形式保留为弃用别名，0.7.0 删除）
+
+| # | v0.5 | v0.6 | 理由 | 别名到期 |
+|---|---|---|---|---|
+| M1 | `planCache: { maxEntries }`、`initialization: { deadlineMs }`、`disposal: { graceMs }`、`planning: { searchBudget }`（类型 `PlanCacheOptions`、`InitializationOptions`、`DisposalOptions`、`PlanningOptions`） | `limits: { setupDeadlineMs, disposalGraceMs, planningBudget, planCacheEntries }`（`RuntimeLimits`）。默认值逐字不变：30_000 / 2_000 / 10_000 / 512（`packages/core/tests/v06-m1-limits.test.mjs` 锁定源码常量、类型声明注释与 API_REFERENCE 示例）。每个旧键映射到唯一的新键；同一限制同时以两种形式给出是 `TypeError`；无效值的校验消息改称新键（触发条件不变）。`inspect().planCache.maxEntries` 是检视字段，不改名 | (3) 四个各只有一个键的记录说的是同一件事：Runtime 的上限 | 0.7.0 |
+
 ## 删除（无别名）
 
 | # | 删除 | 替代 | 改写的测试 | 删除的测试 |

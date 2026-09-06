@@ -294,7 +294,7 @@ test('R-2/R-3 close() returns attempts that never settled and disposal errors in
   const reported = []
   const harness = await createFilesystemApp({ app: {
     extraServices: [StubbornAuth],
-    runtime: { disposal: { graceMs: 20 } },
+    runtime: { limits: { disposalGraceMs: 20 } },
     // The shutdown gives up waiting for the creating record long before the stubborn setup ends.
     siteManager: { capacity: 2, idleTtlMs: 60_000, shutdownTimeoutMs: 30, onDisposalError: error => reported.push(error) },
   } })

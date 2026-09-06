@@ -47,7 +47,7 @@ test('C.all plan templates are reused across request Envs and the cache remains 
     requires: { panel: Panel },
     parameters: { request: Request },
   })
-  const runtime = createRuntime({ services: [Panel, ...providers], planCache: { maxEntries: 32 } })
+  const runtime = createRuntime({ services: [Panel, ...providers], limits: { planCacheEntries: 32 } })
   const base = await runtime.enter(Base)
 
   for (let index = 0; index < 200; index += 1) {

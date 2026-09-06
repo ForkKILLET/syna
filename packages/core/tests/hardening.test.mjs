@@ -91,7 +91,7 @@ test('a setup wait cycle routed through a Ready service ends with INITIALIZATION
   })
 
   const Entry = define.entry({ requires: { a: A, b: B } })
-  const runtime = createRuntime({ services: [A, B, C], initialization: { deadlineMs: 40 } })
+  const runtime = createRuntime({ services: [A, B, C], limits: { setupDeadlineMs: 40 } })
   const env = await runtime.enter(Entry)
   await env.deps.a.load()
   await assert.rejects(

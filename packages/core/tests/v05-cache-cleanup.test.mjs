@@ -29,10 +29,10 @@ function buildWorld(define) {
   return { Request, Tenant, Choice, Pool, A, B, TenantCache, Handler, App, Site, RequestEntry }
 }
 
-async function topology(planCache) {
+async function topology(limits) {
   const define = makeDefine('v05.cache-neutral')
   const w = buildWorld(define)
-  const runtime = createRuntime({ services: [w.Pool, w.TenantCache, w.Handler, w.A, w.B], planCache })
+  const runtime = createRuntime({ services: [w.Pool, w.TenantCache, w.Handler, w.A, w.B], limits })
   const app = await runtime.enter(w.App)
   const observed = []
   for (const round of [0, 1, 2]) {
@@ -56,9 +56,9 @@ async function topology(planCache) {
 }
 
 test('R17 plan-cache disabled, enabled and constantly evicting yield identical topologies and explanations', async () => {
-  const large = await topology({ maxEntries: 512 })
-  const tiny = await topology({ maxEntries: 1 })
-  const small = await topology({ maxEntries: 3 })
+  const large = await topology({ planCacheEntries: 512 })
+  const tiny = await topology({ planCacheEntries: 1 })
+  const small = await topology({ planCacheEntries: 3 })
   assert.deepEqual(tiny.observed, large.observed)
   assert.deepEqual(small.observed, large.observed)
   assert.ok(large.stats.hits > 0)
@@ -118,7 +118,7 @@ test('R18 10,000 request/AnchoredEntry churns do not grow live Envs, plan templa
   const Panel = define.service('panel', { requires: { all: Capability.all, request: Request }, setup: ({ all }) => ({ all }) })
   const App = define.entry('app', { requires: { coordinator: Coordinator } })
   const RequestEntry = define.entry('request', { requires: { panel: Panel }, parameters: { request: Request } })
-  const runtime = createRuntime({ services: [Coordinator, Panel, P], planCache: { maxEntries: 64 } })
+  const runtime = createRuntime({ services: [Coordinator, Panel, P], limits: { planCacheEntries: 64 } })
   const app = await runtime.enter(App)
   const coordinator = await app.deps.coordinator.load()
   const baseline = runtime.inspect()
