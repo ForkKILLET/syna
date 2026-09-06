@@ -118,15 +118,27 @@ export interface PendingLoad {
 
 /**
  * One `load()` wait on a slot that is not Ready. The setup deadline is the
- * waiter's: its timer is armed while an attempt is running (re-armed when a
- * new attempt of the same sequence starts, cleared between attempts) and ends
+ * waiter's: it is armed while an attempt is running (re-armed when a new
+ * attempt of the same sequence starts, cleared between attempts) and ends
  * only this wait with `INITIALIZATION_TIMEOUT`; the attempt keeps running.
+ * Armed waiters sit in one deadline queue (a list sorted by expiry behind a
+ * single timer), so a wait costs no timer of its own.
  */
 export interface SetupWaiter {
   readonly id: number
+  readonly slot: ServiceSlot
   /** Ends the wait; no-op after the first call. */
   readonly settle: (outcome: { readonly ok: true; readonly value: unknown } | { readonly ok: false; readonly error: unknown }) => void
-  timer?: ReturnType<typeof setTimeout>
+  /** Called by the deadline queue once `expiresAt` has passed while the waiter was still queued. */
+  readonly onDeadline: (waiter: SetupWaiter) => void
+  /** The attempt the deadline is measured against and its length; set when armed. */
+  attempt: SetupAttempt | undefined
+  deadlineMs: number
+  /** Position in the deadline queue while armed (`queued`): the expiry, and the neighbours in expiry order. */
+  expiresAt: number
+  queued: boolean
+  prev: SetupWaiter | undefined
+  next: SetupWaiter | undefined
 }
 
 /** One actual execution of `setup()` for a slot. Waiters join it; it never runs concurrently with another attempt of the same slot. */
@@ -150,17 +162,20 @@ export interface SetupAttempt {
   /** Resolves once the raw setup Promise settled and any orphaned resources were cleaned. */
   readonly settled: Promise<void>
   resolveSettled: () => void
-  /** Resolves when disposal gives up waiting for the raw Promise; ends the attempt's race early. */
-  readonly abandoned: Promise<void>
-  abandon: () => void
-  /** Resolves when the raw Promise was garbage-collected unsettled while the attempt was still racing it. */
-  readonly unreachable: Promise<void>
-  markUnreachable: () => void
   /**
-   * Weak handle on the user's raw setup Promise, so the running attempt never
-   * keeps that Promise alive: its reachability alone bounds how long an
-   * overdue or abandoned attempt can stay open.
+   * Ends the attempt's race early while it is pending: disposal gave up waiting
+   * for the raw Promise (`abandoned`), or that Promise was garbage-collected
+   * unsettled (`unreachable`). Set by the race; a no-op once the race ended.
    */
+  endRace: ((kind: 'abandoned' | 'unreachable') => void) | undefined
+  /**
+   * The user's raw setup Promise, held only while the attempt runs off the
+   * ledger. The moment the attempt is listed (overdue or abandoned) it is
+   * swapped for `rawRef`, so from then on that Promise's reachability alone
+   * bounds how long the attempt can stay open.
+   */
+  raw: Promise<unknown> | undefined
+  /** Weak handle on the raw Promise of a listed attempt (see `raw`). */
   rawRef?: WeakRef<Promise<unknown>>
   /** The raw Promise is registered for the unreachable diagnosis (once per attempt). */
   watched: boolean
@@ -181,7 +196,7 @@ export interface ServiceSlot {
   attempt?: SetupAttempt
   /** Result promise of the current or last setup sequence; waiters join it. */
   sequence?: Promise<unknown>
-  /** Every `load()` currently waiting on this slot, each with its own deadline timer. */
+  /** Every `load()` currently waiting on this slot, each with its own deadline. */
   readonly waiters: Set<SetupWaiter>
   /** An abandoned attempt whose raw Promise has not settled yet (the owner closed). Blocks new attempts. */
   unsettledAttempt?: SetupAttempt
