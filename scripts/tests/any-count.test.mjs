@@ -1,5 +1,6 @@
 // A09: the number of `any` type keywords per TypeScript source file may not exceed the 0.5.0 baseline
-// (work/v06/ANY_BASELINE.json, recorded by `node scripts/any-count.mjs --json`). Files absent from the
+// (scripts/any-baseline-v0.5.0.json, recorded by `node scripts/any-count.mjs --json` on 0.5.0; shipped with the
+// source so the release gate can re-check it inside the rebuilt archive). Files absent from the
 // baseline must not use `any` at all.
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
@@ -9,7 +10,7 @@ import { fileURLToPath } from 'node:url'
 import { countAny } from '../any-count.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
-const baseline = JSON.parse(readFileSync(path.join(root, 'work/v06/ANY_BASELINE.json'), 'utf8'))
+const baseline = JSON.parse(readFileSync(path.join(root, 'scripts/any-baseline-v0.5.0.json'), 'utf8'))
 
 test('A09 any-keyword count per file is at or below the 0.5.0 baseline', () => {
   const counts = countAny()

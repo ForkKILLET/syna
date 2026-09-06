@@ -2,7 +2,7 @@
 // Counts the `any` type keyword per TypeScript source file (TypeScript AST, so comments and strings do not count).
 //
 //   node scripts/any-count.mjs [--json <out.json>]                 print / write the per-file counts
-//   node scripts/any-count.mjs --check work/v06/ANY_BASELINE.json   exit 1 if any file exceeds its baseline count
+//   node scripts/any-count.mjs --check scripts/any-baseline-v0.5.0.json   exit 1 if any file exceeds its baseline count
 //                                                                   (a file absent from the baseline must have 0)
 // Scanned: packages/*/src, packages/*/type-tests, apps/*/src (declaration files, dist and node_modules excluded).
 import { readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'

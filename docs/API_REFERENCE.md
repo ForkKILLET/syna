@@ -217,7 +217,7 @@ if (explanation.ok) {
 
 ## Errors
 
-`SynaError` is a union discriminated by `code`: `SynaError<'MISSING_INPUT'>` is one member, `SynaError` all of them. `isSynaError(error, code)` narrows to one member and `error.code === code` narrows `details` in a `switch`; `SynaErrorDetails[Code]` names the `details` type of a code (`SynaErrorDetails` is exported). `details` is frozen. Diagnostics (`check`, `explain`) use the same union plus `UNKNOWN_ERROR` (`DiagnosticCode`). Policy exceptions, invalid descriptors and budget exhaustion are never disguised as `UNSATISFIABLE_TOPOLOGY`.
+`SynaError` is a union discriminated by `code`: `SynaError<'MISSING_INPUT'>` is one member, `SynaError` all of them. `isSynaError(error, code)` narrows to one member and `error.code === code` narrows `details` in a `switch`; `SynaErrorOf<Code>` is the member type, `SynaErrorDetails[Code]` the `details` type of a code (both exported; `SynaErrorConstructor` types the `SynaError` value). `details` is frozen. Diagnostics (`check`, `explain`) use the same union plus `UNKNOWN_ERROR` (`DiagnosticCode`). Policy exceptions, invalid descriptors and budget exhaustion are never disguised as `UNSATISFIABLE_TOPOLOGY`.
 
 | Code | Thrown when | `details` |
 |---|---|---|

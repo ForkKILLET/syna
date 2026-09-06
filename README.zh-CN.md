@@ -99,8 +99,8 @@ false hello, world
 验收入口：
 
 ```sh
-node scripts/verify-v05.mjs --dev
-node scripts/verify-v05.mjs --release
+node scripts/verify-v06.mjs --dev
+node scripts/verify-v06.mjs --release
 ```
 
 后者只在全部必跑项目通过（含真实 PostgreSQL）、归档在空目录重建通过时输出 `COMPLETE` 并退出 0。

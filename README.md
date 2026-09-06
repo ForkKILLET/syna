@@ -32,8 +32,8 @@ npm run test:postgres   # real PostgreSQL: a temporary cluster is created under 
 Acceptance orchestrator (transparent runner; every sub-command is spawned and recorded with exit code, timing, TAP counts and log path):
 
 ```sh
-node scripts/verify-v05.mjs --dev       # G0: build, type tests, core, real PostgreSQL/FS, app matrix, demos, benchmarks
-node scripts/verify-v05.mjs --release   # G0 + G1: source archive, rebuild from the archive in an empty directory, pack + consumer smoke, RELEASE_MANIFEST.json + validation/v0.5-release/SHA256SUMS.txt
+node scripts/verify-v06.mjs --dev       # G0: build, type tests, core, real PostgreSQL/FS, app matrix, tooling, API inventory + diff, any budget, demos, benchmarks + same-machine comparison
+node scripts/verify-v06.mjs --release   # G0 + G1: source archive, rebuild from the archive in an empty directory, pack + consumer smoke, RELEASE_MANIFEST.json + validation/v0.6-release/SHA256SUMS.txt
 ```
 
 `--release` prints `COMPLETE`, `PARTIAL` or `BLOCKED` and exits 0 only on `COMPLETE`. A missing PostgreSQL never becomes a skip; it is `BLOCKED`.
@@ -160,8 +160,8 @@ Key rules: `serviceRef.load()` is an ordinary Promise (catch, race and backgroun
 - `docs/ARCHITECTURE.md` — module boundaries as implemented
 - `docs/HYLA_MINI.md`, `docs/PLUGIN_AUTHORING.md` — the application and its plugin protocol
 - `docs/AUDIT.md`, `docs/VALIDATION.md` — independent audit findings and the recorded validation run
-- `work/v05/`, `work/v06/` — execution ledgers (STATE, DECISIONS, ACCEPTANCE, ISSUES; the v0.6 API inventories and rename plan) and the review rounds' probes before archiving. Repository-only: the source archive produced by `scripts/verify-v05.mjs --release` contains `packages/`, `apps/`, `benchmarks/`, `docs/`, `scripts/` and the root files, never `work/`; documents in the archive that cite `work/v05/…` refer to this repository, and the archived audit probes live under `docs/audit/`.
+- `work/v05/`, `work/v06/` — execution ledgers (STATE, DECISIONS, ACCEPTANCE, ISSUES; the v0.6 API inventories and rename plan) and the review rounds' probes before archiving. Repository-only: the source archive produced by `scripts/verify-v06.mjs --release` contains `packages/`, `apps/`, `benchmarks/`, `docs/`, `scripts/` and the root files, never `work/`; documents in the archive that cite `work/v05/…` refer to this repository, and the archived audit probes live under `docs/audit/`.
 
 ## Status
 
-This workspace does not publish to npm and does not push to any remote. Release artifacts (source archives and package tarballs under `work/release/`, `RELEASE_MANIFEST.json`, `validation/v0.5-release/SHA256SUMS.txt`) are produced locally by `node scripts/verify-v05.mjs --release`. The root `SHA256SUMS.txt` belongs to the task documents that ship with the workspace and is not touched by the tooling.
+This workspace does not publish to npm and does not push to any remote. Release artifacts (source archives and package tarballs under `work/release/`, `RELEASE_MANIFEST.json`, `validation/v0.6-release/SHA256SUMS.txt`) are produced locally by `node scripts/verify-v06.mjs --release`. The root `SHA256SUMS.txt` belongs to the task documents that ship with the workspace and is not touched by the tooling.

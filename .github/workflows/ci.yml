@@ -34,8 +34,10 @@ jobs:
       - run: npm run demo:hyla-mini
 
   # The release gate (G0 + G1: archive, rebuild from the archive, pack, consumer smoke, manifest) with
-  # its outputs kept as a workflow artifact. First cloud run: 2026-09-05, run 33995206873 on 09e2931
-  # (success; gate COMPLETE 710/710 on PostgreSQL 16 / Node 22). See work/v05/STATE.md.
+  # its outputs kept as a workflow artifact. The v0.5 gate's first cloud run: 2026-09-05, run 33995206873
+  # on 09e2931 (success; COMPLETE 710/710 on PostgreSQL 16 / Node 22), see work/v05/STATE.md. The v0.6 gate
+  # records the same-machine benchmark comparison as "not comparable" on a runner that differs from the
+  # baseline machine (the comparison is evidence only on that machine; see docs/VALIDATION.md).
   release-gate:
     needs: check
     runs-on: ubuntu-latest
@@ -46,17 +48,17 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: node scripts/verify-v05.mjs --release
+      - run: node scripts/verify-v06.mjs --release
         env:
           SYNA_PG_BIN: /usr/lib/postgresql/16/bin
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: syna-v0.5-release-gate
+          name: syna-v0.6-release-gate
           if-no-files-found: warn
           path: |
             work/release/*.tar.gz
             work/release/*.zip
             work/release/pack/*.tgz
-            validation/v0.5-release/
+            validation/v0.6-release/
             RELEASE_MANIFEST.json

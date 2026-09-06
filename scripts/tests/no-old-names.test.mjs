@@ -47,6 +47,7 @@ const CODE_EXTENSIONS = ['.ts', '.mjs', '.js', '.cjs', '.yml', '.yaml']
 const SKIP_DIRS = new Set(['node_modules', 'dist', 'work', '.tsbuildinfo'])
 const SELF = 'scripts/tests/no-old-names.test.mjs'
 const DEPRECATIONS_TEST = 'scripts/tests/deprecations.test.mjs'
+const INVENTORY_TEST = 'scripts/tests/api-inventory.test.mjs' // asserts the absence of the deleted names, so it spells them
 
 // Current documentation. Ledgers and the migration tables describe history and are not scanned.
 const DOCS = [
@@ -74,7 +75,7 @@ function codeFiles() {
     if (stats.isDirectory()) files.push(...walk(path))
     else files.push(path)
   }
-  return files.map(path => relative(root, path)).filter(path => path !== SELF && path !== DEPRECATIONS_TEST).sort()
+  return files.map(path => relative(root, path)).filter(path => path !== SELF && path !== DEPRECATIONS_TEST && path !== INVENTORY_TEST).sort()
 }
 
 function scan(file, { allowLine }) {

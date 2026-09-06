@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Generates docs/VALIDATION.md from the machine-readable results of one orchestrator run.
 //
-//   node scripts/validation-doc.mjs [validation/v0.5-release] [docs/VALIDATION.md]
+//   node scripts/validation-doc.mjs [validation/v0.6-release] [docs/VALIDATION.md]
 //
 // Every number in the document comes from manifest.json, benchmark-v0.5.json, working-set.json,
 // the consumer-run log and the two same-machine v0.4 comparison files under benchmarks/.
@@ -10,7 +10,7 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 
 const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..')
-const runDir = process.argv[2] ?? 'validation/v0.5-release'
+const runDir = process.argv[2] ?? 'validation/v0.6-release'
 const outFile = process.argv[3] ?? 'docs/VALIDATION.md'
 const json = file => JSON.parse(readFileSync(path.resolve(root, file), 'utf8'))
 
@@ -20,6 +20,9 @@ const workingSet = json(path.join(runDir, 'working-set.json'))
 const v4 = json('benchmarks/results-v0.4.0-baseline-same-machine.json')
 const v4onv5 = json('benchmarks/results-v0.4-workload-on-v0.5-same-machine.json')
 const consumerLog = readFileSync(path.resolve(root, runDir, 'logs/consumer-run.log'), 'utf8').trim().split('\n').filter(Boolean)
+const gate = manifest.gate ?? 'scripts/verify-v05.mjs'
+const compareFile = path.join(runDir, 'benchmark-compare.json')
+const comparison = existsSync(path.resolve(root, compareFile)) ? json(compareFile) : null
 
 const ms = value => (typeof value === 'number' ? value.toFixed(3) : '—')
 const mib = bytes => (bytes / (1024 * 1024)).toFixed(1)
@@ -31,8 +34,8 @@ const lines = []
 const out = (...text) => lines.push(...text)
 
 out('# Validation (VALIDATION)', '')
-out(`Every number below is copied by a script (\`scripts/validation-doc.mjs\`) from machine-readable results of the transparent orchestrator; nothing is hand-typed. Source of this page: the ${manifest.mode} run \`node scripts/verify-v05.mjs --${manifest.mode}\` recorded in \`${runDir}/manifest.json\` — status **${manifest.status}**, generated ${manifest.generatedAt}, source fingerprint \`${manifest.source.digest}\` (${manifest.source.files} files), git commit \`${short(git.commit)}\` (dirty: ${git.dirty ?? 'unknown'}).`, '')
-out('The shipped source additionally contains this document, so the release run recorded in `RELEASE_MANIFEST.json` / `validation/v0.5-release/` was executed once more on that final source; it is the record of reference for the archive hashes and fingerprint. The gate does not compare runs with each other and fails none for differing from another: the same steps run, and each manifest records under `previousRun` whether its step list and per-step test counts equal those of the run it replaced (for the final run, the run quoted here); its timings are its own and may differ within noise.', '')
+out(`Every number below is copied by a script (\`scripts/validation-doc.mjs\`) from machine-readable results of the transparent orchestrator; nothing is hand-typed. Source of this page: the ${manifest.mode} run \`node ${gate} --${manifest.mode}\` recorded in \`${runDir}/manifest.json\` — status **${manifest.status}**, generated ${manifest.generatedAt}, source fingerprint \`${manifest.source.digest}\` (${manifest.source.files} files), git commit \`${short(git.commit)}\` (dirty: ${git.dirty ?? 'unknown'}).`, '')
+out(`The shipped source additionally contains this document, so the release run recorded in \`RELEASE_MANIFEST.json\` / \`${runDir}/\` was executed once more on that final source; it is the record of reference for the archive hashes and fingerprint. The gate does not compare runs with each other and fails none for differing from another: the same steps run, and each manifest records under \`previousRun\` whether its step list and per-step test counts equal those of the run it replaced (for the final run, the run quoted here); its timings are its own and may differ within noise.`, '')
 
 out('## Environment', '')
 out(`- Host: ${env.platform} ${env.release} ${env.arch}, ${env.cpu} × ${env.cpuCount}, ${Math.round(env.totalMemoryBytes / (1024 ** 3))} GiB`)
@@ -63,7 +66,7 @@ out('The `rebuild-*` steps ran inside a fresh directory created with `mkdtemp` i
 
 if (manifest.release) {
   out('## Release artefacts', '')
-  out(`The ${manifest.release.archives.length} source archives and ${manifest.release.packed.length} npm packages of the run this page was generated from are listed with sizes and SHA-256 digests in that run's \`SHA256SUMS.txt\` and under \`release\` in its \`manifest.json\`. They are not copied here: this page is part of the shipped source, so the run of reference (\`RELEASE_MANIFEST.json\`, \`validation/v0.5-release/SHA256SUMS.txt\`) is executed on a source that already contains it and its hashes are the ones to check. Rebuilt from \`${manifest.release.rebuiltFrom}\`. Consumer smoke result (last line of \`${runDir}/logs/consumer-run.log\`): \`${consumerLog.at(-1)}\`.`, '')
+  out(`The ${manifest.release.archives.length} source archives and ${manifest.release.packed.length} npm packages of the run this page was generated from are listed with sizes and SHA-256 digests in that run's \`SHA256SUMS.txt\` and under \`release\` in its \`manifest.json\`. They are not copied here: this page is part of the shipped source, so the run of reference (\`RELEASE_MANIFEST.json\`, \`${runDir}/SHA256SUMS.txt\`) is executed on a source that already contains it and its hashes are the ones to check. Rebuilt from \`${manifest.release.rebuiltFrom}\`. Consumer smoke result (last line of \`${runDir}/logs/consumer-run.log\`): \`${consumerLog.at(-1)}\`.`, '')
 }
 
 out(`## Micro-benchmarks (P01–P04, \`${runDir}/benchmark-v0.5.json\`)`, '')
@@ -95,6 +98,20 @@ out(`### Budgets (\`benchmarks/budgets.json\`) — all ok: ${benchmark.budgetsOk
 out('| budget | metric | max | value | result |', '|---|---|---:|---:|---|')
 for (const item of benchmark.budgets) out(`| ${item.budget} | ${item.metric} | ${item.max} | ${item.value.toFixed(3)} | ${item.ok ? 'ok' : 'FAILED'} |`)
 out('')
+
+if (comparison) {
+  out(`### v0.5.0 comparison on the same machine (\`${compareFile}\`)`, '')
+  const tolerance = Math.round(comparison.tolerance * 100)
+  const rows = comparison.rows
+  const equal = rows.filter(row => row.check === 'equal')
+  const timed = rows.filter(row => row.check !== 'equal')
+  out(`\`scripts/benchmark-compare.mjs compare\` ran \`benchmarks/v0.5-planning.mjs\` ${comparison.current.replace('median of ', '').replace(' fresh runs', '')} times on this host, took the element-wise median and compared it with \`${comparison.baseline}\` (the 0.5.0 median of 7 runs on the same machine): environment ${comparison.comparable ? 'identical' : 'DIFFERENT'} (${comparison.environment.map(row => `${row.key} ${row.current}`).join(', ')}); ${timed.filter(row => row.ok).length}/${timed.length} p50/p95/per-operation values within ±${tolerance} %; ${equal.filter(row => row.ok).length}/${equal.length} plan-cache counters and shape counts equal; overall ${comparison.ok ? 'OK' : 'FAILED'}.`, '')
+  out('| value | baseline | v0.6 | delta |', '|---|---:|---:|---:|')
+  for (const row of timed) out(`| ${row.path} | ${ms(row.baseline)} | ${ms(row.current)} | ${row.delta === null ? '—' : `${row.delta >= 0 ? '+' : ''}${(row.delta * 100).toFixed(1)} %`}${row.ok ? '' : ' (outside tolerance)'} |`)
+  out('')
+  const unequal = equal.filter(row => !row.ok)
+  out(unequal.length === 0 ? `Every one of the ${equal.length} plan-cache counters (hits, misses, entries, evictions) and shape counts is equal to the baseline.` : `Counters differing from the baseline: ${unequal.map(row => `${row.path} ${row.baseline} → ${row.current}`).join('; ')}.`, '')
+}
 
 out('### v0.4 comparison on the same machine (P03)', '')
 out('The v0.4.0 baseline archive (sha256 `e0f21a94765aeb9f8e9e7987d596844e4d1bf56fce3584c8de1358131f42a96c`) was rebuilt in a scratch directory and its own benchmark (`benchmarks/v0.4-planning.mjs`) was run unchanged (`benchmarks/results-v0.4.0-baseline-same-machine.json`); the same script was then run against the v0.5 core (`benchmarks/results-v0.4-workload-on-v0.5-same-machine.json`). Same workload, same host, same Node:', '')
@@ -135,8 +152,13 @@ if (existsSync(latencyFile)) {
 out('## Audit and review fixes covered by this run', '')
 out('The suites above include the regressions written for the independent audits and for the second and third review rounds (`docs/AUDIT.md`): `packages/core/tests/v05-audit-lifecycle.test.mjs`, `v05-audit-planning.test.mjs` and `v05-review-lifecycle.test.mjs` inside `core-tests` (the third round\'s core cases live in the `v05-*` files named in `work/v05/ISSUES.md` I-58…I-65), `apps/hyla-mini/tests/audit-app.test.mjs` and `apps/hyla-mini/tests/review-app.test.mjs` as their own steps, the site-manager, render and preflight cases of the third round inside their steps, and the repository-conformance cases (content version, domain claims and concurrent claims, tenant-scoped post identity, configuration validation) inside the filesystem and PostgreSQL suites. The demo steps are self-asserting: the Hyla-mini demo must print `demo: OK` and three `: 200` cells, and the `demos` step must print `demo: OK` once per core demo (each checks its own results); exit 0 alone is not enough. The `gate-self-tests` step covers the gate\'s own tooling (step process groups, cluster script signal forwarding).', '')
 
+out('## v0.6 API consolidation evidence in this run', '')
+const named = name => manifest.steps.find(step => step.name === name)
+const describe = name => { const step = named(name); return step ? (step.tests ? `${step.tests.pass}/${step.tests.tests} pass` : step.mustRun === false ? `recorded, not a test: ${step.note ?? ''}` : `exit ${step.exitCode}`) : 'not run' }
+out(`The zero-semantic-change claim of 0.6 rests on steps of this run: \`core-tests\` includes \`v06-snapshots.test.mjs\` (check/explain/inspect/catalog/error snapshots recorded on 0.5.0, identical apart from the renamed fields), \`reference-planner.test.mjs\` (brute-force planner differential) and the six \`v06-r*\` migration-equivalence suites; \`gate-self-tests\` (${describe('gate-self-tests')}) includes the deprecation list, the no-old-names scan of every application, benchmark and script, the README example compiled and run as printed, the public-API inventory assertions and the \`any\` budget; \`api-inventory\` (${describe('api-inventory')}) and \`api-inventory-diff\` (${describe('api-inventory-diff')}) record the public API of this source and its diff against the 0.5.0 record; \`any-count\` (${describe('any-count')}) checks every file against \`scripts/any-baseline-v0.5.0.json\`; \`benchmark-compare\` (${describe('benchmark-compare')}) is the same-machine comparison above.`, '')
+
 out('## What is not covered', '')
-out('- Coverage percentages are not a gate in v0.5; the adversarial and application suites are.')
+out('- Coverage percentages are not a gate in v0.6; the adversarial and application suites are.')
 out('- Benchmarks use empty setups; Hyla-mini request latency (section above) is reported end to end on this machine but is not a budget and not a cross-machine claim.')
 out('- The gate ran with no other workload on the machine; single-run timings still carry noise (see the v0.4 comparison for the spread between two runs of the same code).')
 
