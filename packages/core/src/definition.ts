@@ -8,7 +8,7 @@ import type {
   DependencyMap,
   DescriptorMetadata,
   EntryDefinition,
-  EntryDescriptor,
+  Entry,
   EntryParameter,
   EntryParameterMap,
   ForwardDependency,
@@ -440,7 +440,7 @@ export function definePackage(manifest: PackageManifest): PackageDefinitions {
     const family: ServiceFamily<PublicApi> = Object.freeze({
       kind: 'service-family',
       id: serviceId(name),
-      uniqueWithin: definition.uniqueWithin ?? 'none',
+      ...(definition.uniqueWithin === undefined ? {} : { uniqueWithin: definition.uniqueWithin }),
       metadata: mergeMetadata(packageDescriptor.metadata, definition.metadata),
     })
     const provides = Object.freeze([...(definition.provides ?? [])]) as readonly Contract[]
@@ -478,7 +478,7 @@ export function definePackage(manifest: PackageManifest): PackageDefinitions {
   >(
     first: string | EntryDefinition<Requires, Parameters>,
     second?: EntryDefinition<Requires, Parameters>,
-  ): EntryDescriptor<Requires, Parameters> {
+  ): Entry<Requires, Parameters> {
     const { name, definition } = definitionArguments(first, second)
     const parameters = freezeRecord((definition.parameters ?? {}) as Parameters)
     for (const [key, descriptor] of Object.entries(parameters)) {

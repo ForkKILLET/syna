@@ -16,11 +16,12 @@ import {
   type Contract,
   type ContractApi,
   type Input,
+  type InputValue,
   type EntryArguments,
   type EntryParameters,
   type RuntimePolicy,
   type RuntimePolicyContext,
-  type EnvHandle,
+  type Env,
   type ImplementationRef,
   type InputRef,
   type ReuseConstraints,
@@ -30,6 +31,8 @@ import {
   type ServiceFamily,
   type ServiceInstance,
   type ServiceRange,
+  type SlotState,
+  type UniquenessPolicy,
 } from '../src/index.js'
 
 const define = definePackage({
@@ -218,7 +221,7 @@ const typedRuntime: Runtime = runtime
 void typedRuntime.catalog.revisions('type-test.package/minimal')
 
 // R2 (v0.6): env.anchor(entry) creates an AnchoredEntry; a Service requiring an Entry receives one.
-declare const someEnv: EnvHandle
+declare const someEnv: Env
 const anchoredNoParams: AnchoredEntry<typeof NoParams> = someEnv.anchor(NoParams)
 // @ts-expect-error env.bind() is gone (removed in 0.7.0); env.anchor() is the one form.
 void someEnv.bind(NoParams)
@@ -441,3 +444,25 @@ import type { ScopeTarget } from '../src/index.js'
 import type { SynaRuntime } from '../src/index.js'
 declare const deletedNames: [BoundEntry, DependencyRef, DeriveOptions, DisposalOptions, InitializationOptions, PersistentImplementationRef, PlanCacheOptions, PlanningOptions, ScopeTarget, SynaRuntime]
 void deletedNames
+
+// v0.8 (T1–T5, the last rename before 1.0): the 0.7 type names are not exported any more.
+// @ts-expect-error EnvHandle → Env
+import type { EnvHandle } from '../src/index.js'
+// @ts-expect-error EntryDescriptor → Entry
+import type { EntryDescriptor } from '../src/index.js'
+// @ts-expect-error ImplementationDescriptor → ImplementationRecord
+import type { ImplementationDescriptor } from '../src/index.js'
+// @ts-expect-error NodeDisposition → NodePlacement
+import type { NodeDisposition } from '../src/index.js'
+// @ts-expect-error InputType → InputValue
+import type { InputType } from '../src/index.js'
+declare const renamedTypes: [EnvHandle, EntryDescriptor, ImplementationDescriptor, NodeDisposition, InputType]
+void renamedTypes
+// T6 (v0.8): the slot states are one public union. T7: `uniqueWithin` is `'lineage'` or absent.
+const slotState: SlotState = 'abandoned'
+const contextValue: InputValue<typeof Context> = { tenant: 'x' }
+const Unique = define.service('unique', { uniqueWithin: 'lineage', setup: () => ({}) })
+const uniquePolicy: UniquenessPolicy | undefined = Unique.family.uniqueWithin
+void [slotState, contextValue, uniquePolicy]
+// @ts-expect-error T7 (v0.8): 'none' is not a policy; a Family that declares none leaves `uniqueWithin` out.
+define.service('not-unique', { uniqueWithin: 'none', setup: () => ({}) })

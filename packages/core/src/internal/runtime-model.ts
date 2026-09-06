@@ -5,13 +5,14 @@ import type {
   Contract,
   Dependency,
   DescriptorMetadata,
-  EntryDescriptor,
+  Entry,
   ForkCause,
   Input,
   NormalizedServiceFailurePolicy,
   RuntimePolicyContext,
   ServiceFamily,
   ServiceRevision,
+  SlotState,
 } from '../descriptors.js'
 import type { LabeledGraphNode } from '../graph.js'
 
@@ -24,16 +25,6 @@ export class PolicyContext implements RuntimePolicyContext {
 }
 
 export type EnvState = 'activating' | 'ready' | 'disposing' | 'disposed'
-
-export type ServiceSlotState =
-  | 'dormant'
-  | 'starting'
-  | 'ready'
-  | 'failed'
-  | 'disposing'
-  | 'disposed'
-  /** A setup attempt was still pending when its owner's bounded close ended. */
-  | 'abandoned'
 
 export type NodeKind = 'service' | 'input' | 'binding' | 'all' | 'entry'
 
@@ -188,7 +179,7 @@ export interface ServiceSlot {
   readonly service: CompiledService
   readonly requires: Map<string, RuntimeSlot>
   ownerEnv?: SlotOwnerEnv
-  state: ServiceSlotState
+  state: SlotState
   instance?: unknown
   error?: unknown
   failedAt?: number
@@ -244,7 +235,7 @@ export interface AllPlanNode extends BasePlanNode {
 
 export interface AnchoredEntryPlanNode extends BasePlanNode {
   readonly kind: 'entry'
-  readonly entry: EntryDescriptor
+  readonly entry: Entry
   readonly dependencySite: string
   readonly anchorNodeId?: string
   readonly realm: ResolutionRealm

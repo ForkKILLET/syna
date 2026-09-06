@@ -4,7 +4,7 @@ import type {
   Input,
   RuntimePolicy,
   RuntimePolicyContext,
-  EntryDescriptor,
+  Entry,
   ServiceFamily,
   ServiceRevision,
 } from '../descriptors.js'
@@ -39,7 +39,7 @@ export interface GraphBuilderHost {
   registerContract(contract: Contract): void
   registerInput(input: Input): void
   registerBinding(binding: Binding): void
-  registerEntry(entry: EntryDescriptor): void
+  registerEntry(entry: Entry): void
   orderCandidates(
     candidates: readonly CompiledService[],
     order: (revisions: readonly ServiceRevision[]) => readonly ServiceRevision[],

@@ -3,7 +3,7 @@ import type {
   BindingAssignment,
   Contract,
   Dependency,
-  EntryDescriptor,
+  Entry,
   EntryExplanationSuccess,
   EntryArguments,
   ExplainedNode,
@@ -67,7 +67,7 @@ function graphSignature(
   return `${nodes.join(';')}#${selected.join(';')}`
 }
 
-export function entryDefinitionSignature(entry: EntryDescriptor): string {
+export function entryDefinitionSignature(entry: Entry): string {
   return stableJson({
     id: entry.id,
     apiVersion: entry.apiVersion,
@@ -183,7 +183,7 @@ export class EntryPlanner implements GraphBuilderHost {
     this.planTemplates.clear()
   }
 
-  plan<E extends EntryDescriptor<any, any>>(
+  plan<E extends Entry<any, any>>(
     parent: PlanningParent | undefined,
     descriptor: E,
     input: EntryArguments<E> | undefined,
@@ -301,7 +301,7 @@ export class EntryPlanner implements GraphBuilderHost {
 
   explain(
     plan: ResolvedPlan,
-    descriptor: EntryDescriptor,
+    descriptor: Entry,
     parent: PlanningParent | undefined,
   ): EntryExplanationSuccess {
     const nodes: ExplainedNode[] = []
@@ -433,7 +433,7 @@ export class EntryPlanner implements GraphBuilderHost {
     this.compiler.registerBinding(binding)
   }
 
-  registerEntry(entry: EntryDescriptor): void {
+  registerEntry(entry: Entry): void {
     this.compiler.registerEntry(entry)
   }
 
@@ -449,7 +449,7 @@ export class EntryPlanner implements GraphBuilderHost {
 
   private planTemplateKey(
     parent: PlanningParent | undefined,
-    descriptor: EntryDescriptor,
+    descriptor: Entry,
     parameters: ReadonlyMap<string, InputSlot>,
     bindings: ReadonlyMap<string, BindingChoiceSlot>,
     fresh: ScopeTargetSet,
@@ -854,7 +854,7 @@ export class EntryPlanner implements GraphBuilderHost {
     return { revisionKeys, familyIds }
   }
 
-  private prepareInputs<E extends EntryDescriptor<any, any>>(
+  private prepareInputs<E extends Entry<any, any>>(
     envId: string,
     parent: PlanningParent | undefined,
     descriptor: E,
@@ -890,7 +890,7 @@ export class EntryPlanner implements GraphBuilderHost {
     return { slots: result, providedIds, missing }
   }
 
-  private prepareBindings<E extends EntryDescriptor<any, any>>(
+  private prepareBindings<E extends Entry<any, any>>(
     envId: string,
     parent: PlanningParent | undefined,
     descriptor: E,

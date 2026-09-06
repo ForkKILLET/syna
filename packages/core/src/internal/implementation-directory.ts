@@ -2,7 +2,7 @@ import type {
   CandidateRef,
   Contract,
   ImplementationCandidate,
-  ImplementationDescriptor,
+  ImplementationRecord,
   ImplementationRef,
   RuntimeEvent,
   RuntimePolicy,
@@ -72,7 +72,7 @@ export class ImplementationDirectory {
     )
   }
 
-  implementations<C extends Contract<any>>(contract: C): readonly ImplementationDescriptor<C>[] {
+  implementations<C extends Contract<any>>(contract: C): readonly ImplementationRecord<C>[] {
     if (typeof contract !== 'object' || contract === null || contract.kind !== 'contract') {
       throw new SynaError('INVALID_DESCRIPTOR', 'catalog.implementations() expects a Contract descriptor.', { descriptor: 'Contract', problem: 'wrong-kind' })
     }
@@ -85,7 +85,7 @@ export class ImplementationDirectory {
     return Object.freeze(this.candidatesForFamily(familyId).map(revision => revision.version))
   }
 
-  resolveCatalog<C extends Contract<any>>(ref: ImplementationRef<C>): ImplementationDescriptor<C> {
+  resolveCatalog<C extends Contract<any>>(ref: ImplementationRef<C>): ImplementationRecord<C> {
     if (typeof ref !== 'object' || ref === null || ref.kind !== 'persistent-implementation-ref') {
       throw new SynaError('INVALID_DESCRIPTOR', 'catalog.resolve() expects a persistent implementation reference.', { descriptor: 'ImplementationRef', problem: 'wrong-kind' })
     }
@@ -108,7 +108,7 @@ export class ImplementationDirectory {
     contract: Pick<Contract, 'id'>,
     revision: CompiledService,
     persistentRef?: ImplementationRef<C>,
-  ): ImplementationDescriptor<C> {
+  ): ImplementationRecord<C> {
     return Object.freeze({
       contractId: contract.id,
       familyId: revision.family.id,

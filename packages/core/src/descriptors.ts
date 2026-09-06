@@ -2,8 +2,8 @@ import type { DiagnosticCode, SynaErrorCode } from './errors.js'
 
 export type Awaitable<T> = T | PromiseLike<T>
 
-/** Uniqueness constraints are relative to an Env lineage, never a process-global scope. */
-export type UniquenessPolicy = 'none' | 'lineage'
+/** Uniqueness constraints are relative to an Env lineage, never a process-global scope; a Family that declares none carries no `uniqueWithin`. */
+export type UniquenessPolicy = 'lineage'
 
 export type MetadataValue =
   | string
@@ -82,7 +82,7 @@ export interface Input<ValueType = unknown> {
   readonly __type?: ValueType
 }
 
-export type InputType<I> = I extends Input<infer T> ? T : never
+export type InputValue<I> = I extends Input<infer T> ? T : never
 
 /**
  * JSON-safe implementation preference (a Binding assignment, a catalog lookup);
@@ -108,7 +108,7 @@ export interface ImplementationRef<
 export interface ServiceFamily<PublicApi = unknown> {
   readonly kind: 'service-family'
   readonly id: string
-  readonly uniqueWithin: UniquenessPolicy
+  readonly uniqueWithin?: UniquenessPolicy
   readonly metadata: Readonly<DescriptorMetadata>
   readonly __type?: PublicApi
 }
@@ -187,8 +187,8 @@ export interface NormalizedServiceFailurePolicy {
  * Service that requires an Entry receives one anchored at the owner Env of its
  * slot; `env.anchor(entry)` creates one anchored at `env`.
  */
-export interface AnchoredEntry<E extends EntryDescriptor<any, any>> {
-  enter(...args: EntryCallArguments<E>): Promise<EnvHandle<E['requires']>>
+export interface AnchoredEntry<E extends Entry<any, any>> {
+  enter(...args: EntryCallArguments<E>): Promise<Env<E['requires']>>
   run<Result>(...args: EntryRunCallArguments<E, Result>): Promise<Result>
   check(...args: EntryCallArguments<E>): Promise<EntryCheck>
   explain(...args: EntryCallArguments<E>): Promise<EntryExplanation>
@@ -203,7 +203,7 @@ export type Dependency =
   | Binding<any>
   | AutoImplementation<any>
   | AllImplementations<any>
-  | EntryDescriptor<any, any>
+  | Entry<any, any>
   | ForwardDependency<any>
 
 export type DependencyMap = Readonly<Record<string, Dependency>>
@@ -226,7 +226,7 @@ export type DependencyOutput<D> =
               ? ContractApi<C>
               : UnwrapForward<D> extends AllImplementations<infer C>
                 ? ImplementationSet<C>
-                : UnwrapForward<D> extends EntryDescriptor<any, any>
+                : UnwrapForward<D> extends Entry<any, any>
                   ? AnchoredEntry<UnwrapForward<D>>
                   : never
 
@@ -338,7 +338,7 @@ export interface CandidateRef<C extends Contract<any> = Contract<any>> {
   readonly __type?: C
 }
 
-export interface ImplementationDescriptor<C extends Contract<any> = Contract<any>> {
+export interface ImplementationRecord<C extends Contract<any> = Contract<any>> {
   readonly contractId: string
   readonly familyId: string
   readonly version: string
@@ -354,7 +354,7 @@ export interface ImplementationDescriptor<C extends Contract<any> = Contract<any
  * is a real node of the current topology and can be loaded.
  */
 export interface ImplementationCandidate<C extends Contract<any> = Contract<any>>
-  extends ImplementationDescriptor<C> {
+  extends ImplementationRecord<C> {
   readonly ref: CandidateRef<C>
 }
 
@@ -408,7 +408,7 @@ export interface EntryOptions {
   readonly reuse?: ReuseConstraints
 }
 
-export interface EntryDescriptor<
+export interface Entry<
   Requires extends DependencyMap = DependencyMap,
   Parameters extends EntryParameterMap = EntryParameterMap,
 > {
@@ -423,28 +423,28 @@ export interface EntryDescriptor<
 }
 
 /** The declared parameter map of an Entry: the type of its `parameters` record. */
-export type EntryParameters<E extends EntryDescriptor<any, any>> = E['parameters']
+export type EntryParameters<E extends Entry<any, any>> = E['parameters']
 
 /** The call-time values record of an Entry: one value per declared parameter (Input payload or Binding assignment). */
-export type EntryArguments<E extends EntryDescriptor<any, any>> =
+export type EntryArguments<E extends Entry<any, any>> =
   EntryParameterValues<E['parameters']>
 
 /** The argument tuple of `enter`/`check`/`explain` (module-internal; not part of the package surface). */
-export type EntryCallArguments<E extends EntryDescriptor<any, any>> =
+export type EntryCallArguments<E extends Entry<any, any>> =
   keyof E['parameters'] extends never
     ? [parameters?: EntryArguments<E> | undefined, options?: EntryOptions | undefined]
     : [parameters: EntryArguments<E>, options?: EntryOptions | undefined]
 
-export type EntryDependencies<E extends EntryDescriptor<any, any>> =
+export type EntryDependencies<E extends Entry<any, any>> =
   DependencyRefs<E['requires']>
 
-export type EntryCallback<E extends EntryDescriptor<any, any>, Result> = (
+export type EntryCallback<E extends Entry<any, any>, Result> = (
   dependencies: EntryDependencies<E>,
-  env: EnvHandle<E['requires']>,
+  env: Env<E['requires']>,
 ) => Awaitable<Result>
 
 /** The argument tuple of `run` (module-internal; not part of the package surface). */
-export type EntryRunCallArguments<E extends EntryDescriptor<any, any>, Result> =
+export type EntryRunCallArguments<E extends Entry<any, any>, Result> =
   keyof E['parameters'] extends never
     ? | [callback: EntryCallback<E, Result>]
       | [parameters: EntryArguments<E> | undefined, callback: EntryCallback<E, Result>]
@@ -475,10 +475,10 @@ export interface RuntimePolicy {
 export interface RuntimeCatalog {
   implementations<C extends Contract<any>>(
     contract: C,
-  ): readonly ImplementationDescriptor<C>[]
+  ): readonly ImplementationRecord<C>[]
   resolve<C extends Contract<any>>(
     ref: ImplementationRef<C>,
-  ): ImplementationDescriptor<C>
+  ): ImplementationRecord<C>
   /** Publicly admitted exact revisions of one Service family, highest first. */
   revisions(familyId: string): readonly string[]
 }
@@ -761,13 +761,13 @@ export type ForkCause =
   | { readonly kind: 'anchor-dependency-mismatch'; readonly family: string; readonly via: string }
   | { readonly kind: 'dependency-forked'; readonly via: string; readonly dependency: string }
 
-export type NodeDisposition = 'inherited' | 'new' | 'forked'
+export type NodePlacement = 'inherited' | 'new' | 'forked'
 
 export interface ExplainedNode {
   readonly nodeId: string
   readonly kind: InspectionNodeKind
   readonly label: string
-  readonly disposition: NodeDisposition
+  readonly disposition: NodePlacement
   readonly eager: boolean
   readonly cause?: ForkCause
   /** Node ids from this node to the terminal cause. */
@@ -815,34 +815,40 @@ export type EntryExplanation = EntryExplanationSuccess | EntryExplanationFailure
 
 export type EnvState = 'activating' | 'ready' | 'disposing' | 'disposed'
 
-export interface EnvHandle<Requires extends DependencyMap = DependencyMap> {
+/**
+ * The states of a Service slot inside an Env. `abandoned` is a setup attempt that was still pending when its
+ * owner's bounded close ended.
+ */
+export type SlotState = 'dormant' | 'starting' | 'ready' | 'failed' | 'disposing' | 'disposed' | 'abandoned'
+
+export interface Env<Requires extends DependencyMap = DependencyMap> {
   readonly id: string
   readonly deps: DependencyRefs<Requires>
   readonly state: EnvState
 
-  enter<E extends EntryDescriptor<any, any>>(
+  enter<E extends Entry<any, any>>(
     entry: E,
     ...args: EntryCallArguments<E>
-  ): Promise<EnvHandle<E['requires']>>
+  ): Promise<Env<E['requires']>>
 
-  run<E extends EntryDescriptor<any, any>, Result>(
+  run<E extends Entry<any, any>, Result>(
     entry: E,
     ...args: EntryRunCallArguments<E, Result>
   ): Promise<Result>
 
-  check<E extends EntryDescriptor<any, any>>(
+  check<E extends Entry<any, any>>(
     entry: E,
     ...args: EntryCallArguments<E>
   ): Promise<EntryCheck>
 
-  explain<E extends EntryDescriptor<any, any>>(
+  explain<E extends Entry<any, any>>(
     entry: E,
     ...args: EntryCallArguments<E>
   ): Promise<EntryExplanation>
 
-  derive(reuse?: ReuseConstraints): Promise<EnvHandle<{}>>
+  derive(reuse?: ReuseConstraints): Promise<Env<{}>>
   /** An `AnchoredEntry` anchored at this Env (public authority). */
-  anchor<E extends EntryDescriptor>(entry: E): AnchoredEntry<E>
+  anchor<E extends Entry>(entry: E): AnchoredEntry<E>
   inspect(): EnvInspection
   dispose(): Promise<void>
   [Symbol.asyncDispose](): Promise<void>
@@ -851,22 +857,22 @@ export interface EnvHandle<Requires extends DependencyMap = DependencyMap> {
 export interface Runtime {
   readonly catalog: RuntimeCatalog
 
-  enter<E extends EntryDescriptor<any, any>>(
+  enter<E extends Entry<any, any>>(
     entry: E,
     ...args: EntryCallArguments<E>
-  ): Promise<EnvHandle<E['requires']>>
+  ): Promise<Env<E['requires']>>
 
-  run<E extends EntryDescriptor<any, any>, Result>(
+  run<E extends Entry<any, any>, Result>(
     entry: E,
     ...args: EntryRunCallArguments<E, Result>
   ): Promise<Result>
 
-  check<E extends EntryDescriptor<any, any>>(
+  check<E extends Entry<any, any>>(
     entry: E,
     ...args: EntryCallArguments<E>
   ): Promise<EntryCheck>
 
-  explain<E extends EntryDescriptor<any, any>>(
+  explain<E extends Entry<any, any>>(
     entry: E,
     ...args: EntryCallArguments<E>
   ): Promise<EntryExplanation>
@@ -938,7 +944,7 @@ export interface PackageDefinitions {
     const Parameters extends EntryParameterMap = {},
   >(
     definition: EntryDefinition<Requires, Parameters>,
-  ): EntryDescriptor<Requires, Parameters>
+  ): Entry<Requires, Parameters>
 
   entry<
     const Requires extends DependencyMap = {},
@@ -946,7 +952,7 @@ export interface PackageDefinitions {
   >(
     name: string,
     definition: EntryDefinition<Requires, Parameters>,
-  ): EntryDescriptor<Requires, Parameters>
+  ): Entry<Requires, Parameters>
 }
 
 export type { SynaErrorCode }

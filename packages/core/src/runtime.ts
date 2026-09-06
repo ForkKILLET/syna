@@ -8,13 +8,13 @@ import type {
   EntryCallArguments,
   EntryCallback,
   EntryCheck,
-  EntryDescriptor,
+  Entry,
   EntryExplanation,
   EntryOptions,
   EntryArguments,
   EntryRunCallArguments,
   ReuseConstraints,
-  EnvHandle,
+  Env,
   EnvInspection,
   UnsettledAttemptInspection,
   EnvInspectionNode,
@@ -64,7 +64,7 @@ const internalPackage = Object.freeze({
   metadata: Object.freeze({}),
 })
 
-const internalDeriveEntry: EntryDescriptor<{}, {}> = Object.freeze({
+const internalDeriveEntry: Entry<{}, {}> = Object.freeze({
   kind: 'entry' as const,
   package: internalPackage,
   id: '@syna/core/entry/derive/v1',
@@ -124,7 +124,7 @@ function withCall<T>(parameters: unknown, options: unknown, run: (call: EntryCal
 }
 
 /** `run(entry, [parameters, [options,]] callback)`: the callback is always last. */
-function runCall<E extends EntryDescriptor, Result>(
+function runCall<E extends Entry, Result>(
   args: EntryRunCallArguments<E, Result>,
 ): { readonly call: EntryCall; readonly callback: EntryCallback<E, Result> } {
   const list = args as readonly unknown[]
@@ -208,7 +208,7 @@ export const defaultRuntimePolicy: RuntimePolicy = Object.freeze({
   },
 })
 
-class EnvImpl<Requires extends DependencyMap> implements EnvHandle<Requires> {
+class EnvImpl<Requires extends DependencyMap> implements Env<Requires> {
   readonly children = new Set<EnvImpl<any>>()
   readonly deps: DependencyRefs<Requires>
   readonly abortController = new AbortController()
@@ -232,14 +232,14 @@ class EnvImpl<Requires extends DependencyMap> implements EnvHandle<Requires> {
     this.deps = Object.freeze(refs) as unknown as DependencyRefs<Requires>
   }
 
-  enter<E extends EntryDescriptor<any, any>>(
+  enter<E extends Entry<any, any>>(
     descriptor: E,
     ...args: EntryCallArguments<E>
-  ): Promise<EnvHandle<E['requires']>> {
+  ): Promise<Env<E['requires']>> {
     return withCall(args[0], args[1], call => this.runtime.enterFrom(this, descriptor, call, PUBLIC_REALM))
   }
 
-  async run<E extends EntryDescriptor<any, any>, Result>(
+  async run<E extends Entry<any, any>, Result>(
     descriptor: E,
     ...args: EntryRunCallArguments<E, Result>
   ): Promise<Result> {
@@ -248,25 +248,25 @@ class EnvImpl<Requires extends DependencyMap> implements EnvHandle<Requires> {
     return this.runtime.executeStructured(child, () => Promise.resolve(callback(child.deps, child)))
   }
 
-  check<E extends EntryDescriptor<any, any>>(
+  check<E extends Entry<any, any>>(
     descriptor: E,
     ...args: EntryCallArguments<E>
   ): Promise<EntryCheck> {
     return withCall(args[0], args[1], call => this.runtime.checkFrom(this, descriptor, call, PUBLIC_REALM))
   }
 
-  explain<E extends EntryDescriptor<any, any>>(
+  explain<E extends Entry<any, any>>(
     descriptor: E,
     ...args: EntryCallArguments<E>
   ): Promise<EntryExplanation> {
     return withCall(args[0], args[1], call => this.runtime.explainFrom(this, descriptor, call, PUBLIC_REALM))
   }
 
-  derive(reuse: ReuseConstraints = {}): Promise<EnvHandle<{}>> {
+  derive(reuse: ReuseConstraints = {}): Promise<Env<{}>> {
     return this.runtime.enterFrom(this, internalDeriveEntry, { parameters: undefined, reuse }, PUBLIC_REALM)
   }
 
-  anchor<E extends EntryDescriptor>(descriptor: E): AnchoredEntry<E> {
+  anchor<E extends Entry>(descriptor: E): AnchoredEntry<E> {
     return this.runtime.createAnchoredEntry(descriptor, this.id, PUBLIC_REALM)
   }
 
@@ -390,14 +390,14 @@ class RuntimeImpl implements Runtime, ImplementationViewHost {
     }
   }
 
-  enter<E extends EntryDescriptor<any, any>>(
+  enter<E extends Entry<any, any>>(
     descriptor: E,
     ...args: EntryCallArguments<E>
-  ): Promise<EnvHandle<E['requires']>> {
+  ): Promise<Env<E['requires']>> {
     return withCall(args[0], args[1], call => this.enterFrom(undefined, descriptor, call, PUBLIC_REALM))
   }
 
-  async run<E extends EntryDescriptor<any, any>, Result>(
+  async run<E extends Entry<any, any>, Result>(
     descriptor: E,
     ...args: EntryRunCallArguments<E, Result>
   ): Promise<Result> {
@@ -406,14 +406,14 @@ class RuntimeImpl implements Runtime, ImplementationViewHost {
     return this.executeStructured(env, () => Promise.resolve(callback(env.deps, env)))
   }
 
-  check<E extends EntryDescriptor<any, any>>(
+  check<E extends Entry<any, any>>(
     descriptor: E,
     ...args: EntryCallArguments<E>
   ): Promise<EntryCheck> {
     return withCall(args[0], args[1], call => this.checkFrom(undefined, descriptor, call, PUBLIC_REALM))
   }
 
-  explain<E extends EntryDescriptor<any, any>>(
+  explain<E extends Entry<any, any>>(
     descriptor: E,
     ...args: EntryCallArguments<E>
   ): Promise<EntryExplanation> {
@@ -464,7 +464,7 @@ class RuntimeImpl implements Runtime, ImplementationViewHost {
   }
 
   async executeStructured<Result>(
-    env: EnvHandle,
+    env: Env,
     callback: () => Promise<Result> | Result,
   ): Promise<Result> {
     let result: Result
@@ -498,14 +498,14 @@ class RuntimeImpl implements Runtime, ImplementationViewHost {
    * both bounded by the static definition set. It is allowed while the anchor
    * activates.
    */
-  createAnchoredEntry<E extends EntryDescriptor<any, any>>(
+  createAnchoredEntry<E extends Entry<any, any>>(
     descriptor: E,
     anchorEnvId: string,
     realm: ResolutionRealm,
   ): AnchoredEntry<E> {
     const anchor = (): EnvImpl<any> => this.requireEnv(anchorEnvId)
     // async: a dead anchor (`requireEnv`) rejects, as in 0.5, instead of throwing synchronously.
-    const enterAnchored = async (...args: EntryCallArguments<E>): Promise<EnvHandle<E['requires']>> =>
+    const enterAnchored = async (...args: EntryCallArguments<E>): Promise<Env<E['requires']>> =>
       withCall(args[0], args[1], call => this.enterFrom(anchor(), descriptor, call, realm))
 
     const runAnchored = async <Result>(...args: EntryRunCallArguments<E, Result>): Promise<Result> => {
@@ -524,7 +524,7 @@ class RuntimeImpl implements Runtime, ImplementationViewHost {
     })
   }
 
-  async checkFrom<E extends EntryDescriptor<any, any>>(
+  async checkFrom<E extends Entry<any, any>>(
     parent: EnvImpl<any> | undefined,
     descriptor: E,
     call: EntryCall,
@@ -541,7 +541,7 @@ class RuntimeImpl implements Runtime, ImplementationViewHost {
     }
   }
 
-  async explainFrom<E extends EntryDescriptor<any, any>>(
+  async explainFrom<E extends Entry<any, any>>(
     parent: EnvImpl<any> | undefined,
     descriptor: E,
     call: EntryCall,
@@ -566,7 +566,7 @@ class RuntimeImpl implements Runtime, ImplementationViewHost {
     }
   }
 
-  async enterFrom<E extends EntryDescriptor<any, any>>(
+  async enterFrom<E extends Entry<any, any>>(
     parent: EnvImpl<any> | undefined,
     descriptor: E,
     call: EntryCall,
@@ -634,7 +634,7 @@ class RuntimeImpl implements Runtime, ImplementationViewHost {
     return env
   }
 
-  private planEntry<E extends EntryDescriptor<any, any>>(
+  private planEntry<E extends Entry<any, any>>(
     parent: EnvImpl<any> | undefined,
     descriptor: E,
     call: EntryCall,
@@ -652,7 +652,7 @@ class RuntimeImpl implements Runtime, ImplementationViewHost {
 
   private assertEntryUsable(
     parent: EnvImpl<any> | undefined,
-    descriptor: EntryDescriptor,
+    descriptor: Entry,
     allowActivatingParent: boolean,
   ): void {
     if (this.disposed) throw new SynaError('RUNTIME_CLOSED', 'The Syna Runtime is disposed.')

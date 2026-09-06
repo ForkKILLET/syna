@@ -2,7 +2,7 @@ import type {
   Binding,
   Contract,
   DefinitionCounts,
-  EntryDescriptor,
+  Entry,
   Input,
   ServiceFamily,
   ServiceOverride,
@@ -64,7 +64,7 @@ export class DefinitionCompiler {
   constructor(
     services: readonly ServiceRevision[],
     overrides: readonly ServiceOverride[],
-    private readonly entrySignature: (entry: EntryDescriptor) => string,
+    private readonly entrySignature: (entry: Entry) => string,
   ) {
     if (!Array.isArray(services)) {
       throw new SynaError('INVALID_DESCRIPTOR', 'createRuntime() requires a services array.', { descriptor: 'CreateRuntimeOptions.services', problem: 'not-an-array' })
@@ -136,7 +136,7 @@ export class DefinitionCompiler {
     const cached = this.closures.get(key)
     if (cached) return cached
     const result = new Set<string>()
-    const visitEntry = (entry: EntryDescriptor, seenEntries: Set<string>): void => {
+    const visitEntry = (entry: Entry, seenEntries: Set<string>): void => {
       if (seenEntries.has(entry.id)) return
       seenEntries.add(entry.id)
       for (const dependencyInput of Object.values(entry.requires)) {
@@ -216,7 +216,7 @@ export class DefinitionCompiler {
     this.recordMetadataDrift('Binding', binding.id, binding.metadata, this.bindingMetadataSignatures)
   }
 
-  registerEntry(entry: EntryDescriptor): void {
+  registerEntry(entry: Entry): void {
     if (typeof entry !== 'object' || entry === null || entry.kind !== 'entry') {
       throw new SynaError('INVALID_DESCRIPTOR', 'Expected an Entry descriptor.', { descriptor: 'Entry', problem: 'wrong-kind' })
     }
@@ -379,7 +379,7 @@ export class DefinitionCompiler {
     }
   }
 
-  private collectEntryDefinitions(entry: EntryDescriptor): void {
+  private collectEntryDefinitions(entry: Entry): void {
     if (this.entrySignatures.has(entry.id)) {
       this.registerEntry(entry)
       return
