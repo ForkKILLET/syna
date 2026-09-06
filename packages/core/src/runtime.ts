@@ -47,7 +47,6 @@ import { ImplementationDirectory } from './internal/implementation-directory.js'
 import { EntryPlanner, entryDefinitionSignature } from './internal/entry-planner.js'
 import {
   createImplementationSet,
-  createSelector,
   type ImplementationViewHost,
 } from './internal/implementation-views.js'
 import { isBacktrackableTopologyError } from './internal/solve-errors.js'
@@ -80,8 +79,6 @@ interface EntryCall {
   readonly parameters: Readonly<Record<string, unknown>> | undefined
   readonly reuse: ReuseConstraints | undefined
 }
-
-const EMPTY_CALL: EntryCall = Object.freeze({ parameters: undefined, reuse: undefined })
 
 /**
  * Splits `(parameters?, options?)` into the parameter record and the reuse
@@ -445,10 +442,6 @@ class RuntimeImpl implements Runtime, ImplementationViewHost {
     return this.planner.activeRevisionKeys(this.envById.get(envId)?.plan)
   }
 
-  checkPlanOnly(anchorEnvId: string, descriptor: EntryDescriptor, realm: ResolutionRealm): Promise<EntryCheck> {
-    const anchor = this.requireEnv(anchorEnvId)
-    return this.checkFrom(anchor, descriptor, EMPTY_CALL, realm, true)
-  }
 
   loadSlot(slot: RuntimeSlot, options?: LoadOptions): Promise<unknown> {
     return this.materializer.load(slot, options)
@@ -676,10 +669,7 @@ class RuntimeImpl implements Runtime, ImplementationViewHost {
       if (slot.ownerEnvId !== env.id || slot.kind === 'service' || slot.kind === 'input' || slot.value !== undefined) {
         continue
       }
-      if (node.kind === 'selector') {
-        slot.value = await createSelector(this, node, slot, this.anchorEnvId(node.anchorNodeId, env))
-      }
-      else if (node.kind === 'all') slot.value = createImplementationSet(this, node, slot, env.id)
+      if (node.kind === 'all') slot.value = createImplementationSet(this, node, slot, env.id)
       else if (node.kind === 'entry') {
         slot.value = this.createAnchoredEntry(node.entry, this.anchorEnvId(node.anchorNodeId, env), node.realm)
       }

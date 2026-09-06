@@ -39,7 +39,7 @@ const applyRenames = value => {
 }
 
 // Descriptors that appear inside error details are recorded by kind and id only; everything else verbatim.
-const DESCRIPTOR_KINDS = new Set(['contract', 'input', 'binding', 'service-family', 'service-revision', 'entry', 'all-implementations', 'auto-implementation', 'forward', 'service-range', 'implementation-selector'])
+const DESCRIPTOR_KINDS = new Set(['contract', 'input', 'binding', 'service-family', 'service-revision', 'entry', 'all-implementations', 'auto-implementation', 'forward', 'service-range'])
 const plain = (value, seen = new Set()) => {
   if (Array.isArray(value)) return value.map(item => plain(item, seen))
   if (value === null || typeof value !== 'object') return typeof value === 'function' ? '[function]' : value

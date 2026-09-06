@@ -1,7 +1,7 @@
 /**
- * Every code a SynaError can carry. Diagnostics (`check()`, `explain()`,
- * candidate availability) use the same union plus `UNKNOWN_ERROR` for foreign
- * errors, so code, throw site and diagnostic schema never drift apart.
+ * Every code a SynaError can carry. Diagnostics (`check()`, `explain()`) use
+ * the same union plus `UNKNOWN_ERROR` for foreign errors, so code, throw site
+ * and diagnostic schema never drift apart.
  */
 export type SynaErrorCode =
   | 'AMBIGUOUS_IMPLEMENTATION'
@@ -24,7 +24,6 @@ export type SynaErrorCode =
   | 'ROLLBACK_FAILED'
   | 'RUNTIME_MISMATCH'
   | 'SHARE_CONSTRAINT_FAILED'
-  | 'UNAVAILABLE_IMPLEMENTATION'
   | 'UNSATISFIABLE_TOPOLOGY'
   | 'UNSETTLED_ATTEMPT'
 

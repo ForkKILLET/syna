@@ -165,52 +165,6 @@ test('an Entry dependency is bound to the owner Env of the Service slot', async 
   await runtime.dispose()
 })
 
-test('a selector freezes candidates but plans each candidate as an independent child world', async () => {
-  const define = makeDefine('test.selector-worlds')
-  const Capability = define.contract()
-  const RequiredInput = define.input('required')
-  let eagerStarts = 0
-
-  const Available = makeDefine('test.selector-available').service({
-    provides: [Capability],
-    eager: true,
-    setup() {
-      eagerStarts += 1
-      return { id: 'available' }
-    },
-  })
-  const Unavailable = makeDefine('test.selector-unavailable').service({
-    provides: [Capability],
-    requires: { required: RequiredInput },
-    setup: () => ({ id: 'unavailable' }),
-  })
-  const Panel = define.service('panel', {
-    requires: { selector: Capability.selector },
-    setup: ({ selector }) => ({ selector }),
-  })
-  const Entry = define.entry({ requires: { panel: Panel } })
-  const runtime = createRuntime({ services: [Panel, Available, Unavailable] })
-  const env = await runtime.enter(Entry)
-
-  assert.equal(eagerStarts, 0, 'selector discovery must not activate eager candidates')
-  const selector = await (await env.deps.panel.load()).selector.load()
-  const available = selector.candidates.find(item => item.familyId === Available.family.id)
-  const unavailable = selector.candidates.find(item => item.familyId === Unavailable.family.id)
-  assert.equal(available?.availability.status, 'available')
-  assert.equal(unavailable?.availability.status, 'unavailable')
-  assert.equal(unavailable?.availability.code, 'MISSING_INPUT')
-
-  await selector.run(available, async implementation => {
-    assert.equal((await implementation.load()).id, 'available')
-  })
-  assert.equal(eagerStarts, 1)
-  await assert.rejects(
-    selector.open(unavailable),
-    error => error.code === 'UNAVAILABLE_IMPLEMENTATION',
-  )
-  await runtime.dispose()
-})
-
 test('runtime.check validates topology without materializing eager services or publishing an Env', async () => {
   const define = makeDefine('test.preflight')
   const Required = define.input('required')
@@ -526,8 +480,8 @@ test('auto candidate backtracking includes lineage and slot-assignment constrain
   await runtime.dispose()
 })
 
-test('selector candidate preflight does not hide unexpected policy failures as unavailable candidates', async () => {
-  const define = makeDefine('test.selector-policy-error')
+test('a policy failure while planning a C.all candidate propagates as the policy error, never disguised', async () => {
+  const define = makeDefine('test.collection-policy-error')
   const Capability = define.contract()
   const DependencyV1 = makeDefine('test.selector-policy-dependency', '1.0.0').service({ setup: () => ({}) })
   const DependencyV2 = makeDefine('test.selector-policy-dependency', '2.0.0').service({ setup: () => ({}) })
@@ -537,8 +491,8 @@ test('selector candidate preflight does not hide unexpected policy failures as u
     setup: () => ({}),
   })
   const Panel = define.service('panel', {
-    requires: { selector: Capability.selector },
-    setup: ({ selector }) => ({ selector }),
+    requires: { implementations: Capability.all },
+    setup: ({ implementations }) => ({ implementations }),
   })
   const Entry = define.entry({ requires: { panel: Panel } })
   const runtime = createRuntime({
@@ -550,15 +504,18 @@ test('selector candidate preflight does not hide unexpected policy failures as u
     },
   })
   await assert.rejects(runtime.enter(Entry), error => {
-    assert.equal(error.code, 'ENTRY_ACTIVATION_FAILED')
-    assert.equal(error.cause instanceof TypeError, true)
-    assert.equal(error.cause.message, 'candidate policy exploded')
+    assert.equal(error instanceof TypeError, true)
+    assert.equal(error.message, 'candidate policy exploded')
     return true
   })
+  await assert.rejects(runtime.check(Entry), error => error instanceof TypeError)
 })
 
-test('selector persistent refs use the Runtime version policy and prefer an active ancestor revision', async () => {
-  const capabilityDefine = makeDefine('test.selector-version-policy')
+// With C.all every admitted revision of the family is active in this Env, so the version policy's
+// active-ancestor preference cannot single one out: the highest satisfying version wins. (The selector
+// form of this test, where only Provider12 was active, preferred 1.2.0; see docs/MIGRATION_V05_TO_V06.md.)
+test('C.all resolves a persistent ref with the Runtime version policy among the coexisting revisions', async () => {
+  const capabilityDefine = makeDefine('test.collection-version-policy')
   const Capability = capabilityDefine.contract()
   const Choice = capabilityDefine.binding('choice', Capability)
   const Provider12 = makeDefine('test.selector-version-provider', '1.2.0').service({
@@ -570,7 +527,7 @@ test('selector persistent refs use the Runtime version policy and prefer an acti
     setup: () => ({ version: '1.9.0' }),
   })
   const Panel = capabilityDefine.service('panel', {
-    requires: { providers: Capability.selector },
+    requires: { providers: Capability.all },
     setup: ({ providers }) => ({ providers }),
   })
   const Entry = capabilityDefine.entry({
@@ -578,9 +535,11 @@ test('selector persistent refs use the Runtime version policy and prefer an acti
   })
   const runtime = createRuntime({ services: [Panel, Provider12, Provider19] })
   const env = await runtime.enter(Entry)
-  const selector = await (await env.deps.panel.load()).providers.load()
-  const selected = selector.resolve(Choice.to(Provider12, '^1.0.0'))
-  assert.equal(selected.version, '1.2.0')
+  const providers = await (await env.deps.panel.load()).providers.load()
+  const selected = providers.resolve(Choice.to(Provider12, '^1.0.0'))
+  assert.equal(selected.version, '1.9.0')
+  assert.equal(providers.resolve(Choice.to(Provider12, '~1.2.0')).version, '1.2.0')
+  assert.deepEqual(providers.candidates.map(candidate => candidate.version), ['1.9.0', '1.2.0'])
   await runtime.dispose()
 })
 

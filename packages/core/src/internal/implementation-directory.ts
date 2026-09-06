@@ -1,5 +1,4 @@
 import type {
-  AvailableImplementationCandidate,
   CandidateRef,
   Contract,
   ImplementationCandidate,
@@ -8,25 +7,16 @@ import type {
   RuntimePolicy,
   ServiceRevision,
 } from '../descriptors.js'
-import type { DiagnosticCode } from '../errors.js'
 import { SynaError } from '../errors.js'
 import { createImplementationRef, familyIdOf, normalizeImplementationRef } from '../definition.js'
 import { caretRange, satisfiesVersion } from '../semver.js'
 import { PolicyContext, type CompiledService, type InternalCandidateRef } from './runtime-model.js'
 import { compareRevisionIdentity, providesContract } from './identity.js'
 
-export interface CandidateAvailabilityInput {
-  readonly status: 'available' | 'unavailable'
-  readonly code?: DiagnosticCode
-  readonly message?: string
-  readonly details?: Readonly<Record<string, unknown>>
-}
-
 export interface CandidateIndexOptions<C extends Contract<any>> {
   readonly contract: C
   readonly sourceSlotId: string
   readonly revisions: readonly CompiledService[]
-  readonly availabilityByRevision?: ReadonlyMap<string, CandidateAvailabilityInput>
   readonly sitePrefix: string
   readonly parentActiveRevisionKeys: ReadonlySet<string>
 }
@@ -34,8 +24,8 @@ export interface CandidateIndexOptions<C extends Contract<any>> {
 /**
  * Immutable read-only directory over the public admission set. It centralizes
  * candidate identity, durable-reference resolution, policy-order validation and
- * collection-local candidate views so `C.all`, the compatibility selector and
- * the catalog share one implementation.
+ * collection-local candidate views so `C.all` and the catalog share one
+ * implementation.
  */
 export class ImplementationDirectory {
   private readonly byFamily = new Map<string, readonly CompiledService[]>()
@@ -213,19 +203,10 @@ export class CandidateIndex<C extends Contract<any>> {
   ) {
     const values: ImplementationCandidate<C>[] = []
     for (const revision of options.revisions) {
-      const availability = options.availabilityByRevision?.get(revision.key)
-      const normalizedAvailability = availability?.status === 'unavailable'
-        ? Object.freeze({
-            status: 'unavailable' as const,
-            code: availability.code ?? 'UNKNOWN_ERROR',
-            message: availability.message ?? 'Implementation is unavailable.',
-            details: availability.details ?? Object.freeze({}),
-          })
-        : Object.freeze({ status: 'available' as const })
       const candidate = Object.freeze({
         ...directory.describe<C>(options.contract, revision),
         ref: this.createRef(revision),
-        availability: normalizedAvailability,
+        availability: Object.freeze({ status: 'available' as const }),
       }) as ImplementationCandidate<C>
       values.push(candidate)
       this.byRevisionKey.set(revision.key, candidate)
@@ -282,21 +263,11 @@ export class CandidateIndex<C extends Contract<any>> {
     return candidate
   }
 
-  requireAvailable(
+  /** The candidate this collection holds for `input` (a candidate, its CandidateRef or an ImplementationRef). */
+  require(
     input: ImplementationCandidate<C> | CandidateRef<C> | ImplementationRef<C>,
-  ): AvailableImplementationCandidate<C> {
-    const candidate = this.normalize(input)
-    if (candidate.availability.status === 'unavailable') {
-      throw new SynaError(
-        'UNAVAILABLE_IMPLEMENTATION',
-        `${candidate.familyId}@${candidate.version} is unavailable: ${candidate.availability.message}`,
-        {
-          candidate: `${candidate.familyId}@${candidate.version}`,
-          reason: candidate.availability,
-        },
-      )
-    }
-    return candidate as AvailableImplementationCandidate<C>
+  ): ImplementationCandidate<C> {
+    return this.normalize(input)
   }
 
   revisionKey(candidate: ImplementationCandidate<C>): string {

@@ -190,7 +190,6 @@ export class Materializer {
     switch (slot.kind) {
       case 'input': return Promise.resolve(slot.payload)
       case 'binding': return this.load(slot.requires.get('target')!, options, requester)
-      case 'selector':
       case 'all':
       case 'entry': return Promise.resolve(slot.value)
       case 'service': return this.loadService(slot, options, requester)

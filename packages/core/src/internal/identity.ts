@@ -61,7 +61,6 @@ export function dependencyIdentity(input: Dependency): string {
     case 'input': return `input:${dependency.id}`
     case 'binding': return `binding:${dependency.id}:${dependency.contract.id}`
     case 'auto-implementation': return `auto:${dependency.contract.id}`
-    case 'implementation-selector': return `selector:${dependency.contract.id}`
     case 'all-implementations': return `all:${dependency.contract.id}`
     case 'entry': return `entry:${dependency.id}`
     default:

@@ -51,17 +51,6 @@ export interface AutoImplementation<C extends Contract<any> = Contract<any>> {
   readonly contract: C
 }
 
-/**
- * Enumerate implementations as separately planned child worlds.
- * @deprecated Minimal compatibility surface; prefer `Contract.all` or an explicit Entry.
- */
-export interface ImplementationSelectorDependency<
-  C extends Contract<any> = Contract<any>,
-> {
-  readonly kind: 'implementation-selector'
-  readonly contract: C
-}
-
 /** Require all admitted implementations to coexist in the current Env topology. */
 export interface AllImplementations<C extends Contract<any> = Contract<any>> {
   readonly kind: 'all-implementations'
@@ -78,8 +67,6 @@ export interface Contract<Api = unknown> {
   readonly id: string
   readonly apiVersion: number
   readonly metadata: Readonly<DescriptorMetadata>
-  /** @deprecated Compatibility only. */
-  readonly selector: ImplementationSelectorDependency<Contract<Api>>
   readonly all: AllImplementations<Contract<Api>>
   readonly __api?: Api
 }
@@ -225,7 +212,6 @@ export type Dependency =
   | Input<any>
   | Binding<any>
   | AutoImplementation<any>
-  | ImplementationSelectorDependency<any>
   | AllImplementations<any>
   | EntryDescriptor<any, any>
   | ForwardDependency<any>
@@ -248,13 +234,11 @@ export type DependencyOutput<D> =
             ? ContractApi<C>
             : UnwrapForward<D> extends AutoImplementation<infer C>
               ? ContractApi<C>
-              : UnwrapForward<D> extends ImplementationSelectorDependency<infer C>
-                ? ImplementationSelector<C>
-                : UnwrapForward<D> extends AllImplementations<infer C>
-                  ? ImplementationSet<C>
-                  : UnwrapForward<D> extends EntryDescriptor<any, any>
-                    ? AnchoredEntry<UnwrapForward<D>>
-                    : never
+              : UnwrapForward<D> extends AllImplementations<infer C>
+                ? ImplementationSet<C>
+                : UnwrapForward<D> extends EntryDescriptor<any, any>
+                  ? AnchoredEntry<UnwrapForward<D>>
+                  : never
 
 export interface LoadOptions {
   /** Ends only this caller's wait. The shared setup attempt keeps running. */
@@ -394,34 +378,6 @@ export type AvailableImplementationCandidate<C extends Contract<any> = Contract<
   ImplementationCandidate<C> & {
     readonly availability: { readonly status: 'available' }
   }
-
-export interface ImplementationLease<C extends Contract<any> = Contract<any>> {
-  readonly env: EnvHandle
-  readonly implementation: ServiceRef<ContractApi<C>>
-  dispose(): Promise<void>
-  [Symbol.asyncDispose](): Promise<void>
-}
-
-/**
- * Candidate list whose members are materialized in isolated child Envs.
- * @deprecated Compatibility only; `open()`/`run()` require a Ready anchor Env.
- */
-export interface ImplementationSelector<C extends Contract<any> = Contract<any>>
-  extends Iterable<ImplementationCandidate<C>> {
-  readonly contract: C
-  readonly candidates: readonly ImplementationCandidate<C>[]
-  resolve(ref: ImplementationRef<C>): ImplementationCandidate<C>
-  open(
-    candidate: ImplementationCandidate<C> | CandidateRef<C> | ImplementationRef<C>,
-  ): Promise<ImplementationLease<C>>
-  run<Result>(
-    candidate: ImplementationCandidate<C> | CandidateRef<C> | ImplementationRef<C>,
-    callback: (
-      implementation: ServiceRef<ContractApi<C>>,
-      env: EnvHandle,
-    ) => Awaitable<Result>,
-  ): Promise<Result>
-}
 
 /** Same-Env collection: every candidate is a real node of the current topology. */
 export interface ImplementationSet<C extends Contract<any> = Contract<any>>
@@ -718,7 +674,6 @@ export type InspectionNodeKind =
   | 'service'
   | 'input'
   | 'binding'
-  | 'selector'
   | 'all'
   | 'entry'
 

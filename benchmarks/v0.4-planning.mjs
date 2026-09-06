@@ -91,11 +91,11 @@ async function requestChainCase(serviceCount, depth) {
   }
 }
 
-async function selectorCase() {
+async function collectionCase() {
   const define = definePackage({
-    name: '@benchmark/selector-request',
+    name: '@benchmark/collection-request',
     version: '1.0.0',
-    syna: { id: 'benchmark.selector-request' },
+    syna: { id: 'benchmark.collection-request' },
   })
   const CurrentRequest = define.input('current-request')
   const Provider = define.contract('provider')
@@ -104,7 +104,7 @@ async function selectorCase() {
     setup: () => ({ name }),
   }))
   const Panel = define.service('panel', {
-    requires: { request: CurrentRequest, providers: Provider.selector },
+    requires: { request: CurrentRequest, providers: Provider.all },
     setup: () => ({ ready: true }),
   })
   const Root = define.entry('root', {})
@@ -121,7 +121,7 @@ async function selectorCase() {
   const inspection = runtime.inspect()
   await runtime.dispose()
   return {
-    name: 'selector-request-3-candidates',
+    name: 'collection-request-3-candidates',
     candidateCount: providers.length,
     ...result,
     planCache: inspection.planCache,
@@ -196,7 +196,7 @@ const cases = [
   await requestChainCase(100, 6),
   await requestChainCase(300, 2),
   await requestChainCase(300, 6),
-  await selectorCase(),
+  await collectionCase(),
   await bindingCase(),
   await lruChurnCase(),
 ]
@@ -213,7 +213,7 @@ const result = {
   methodology: {
     warmSiblingEntry: 'enter + dispose; no explicit Service materialization',
     requestIterations: 500,
-    selectorAndBindingIterations: 1000,
+    collectionAndBindingIterations: 1000,
     note: 'Numbers are machine-specific; cache cardinality and non-linear growth checks are the portable assertions.',
   },
   cases,

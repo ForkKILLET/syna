@@ -90,7 +90,7 @@ const panel = await blogEnv.run(
   async ({ panel }) => {
     const providerPanel = await panel.load()
     const candidates = await providerPanel.list()
-    console.log('Selector exposes every admitted implementation revision:')
+    console.log('C.all exposes every admitted implementation revision:')
     for (const candidate of candidates) {
       console.log(`  - ${candidate.familyMetadata.displayName} @ ${candidate.version}`)
     }
@@ -102,7 +102,7 @@ const panel = await blogEnv.run(
     if (!legacyOpenAi) throw new Error('Expected OpenAI v1 candidate.')
     const completion = await providerPanel.run(
       legacyOpenAi.persistentRef,
-      'Run a provider selected from the canonical selector slot.',
+      'Run a provider chosen from the admitted set.',
     )
     console.log(completion)
     return {
@@ -123,7 +123,7 @@ const liveEnvs = runtime.inspect().liveEnvCount
 await runtime.dispose()
 
 // The demo checks what it printed (I-112): one pool shared down the Env tree, the Binding's
-// choice honoured per request world, every admitted LlmConnector revision visible to the selector.
+// choice honoured per request world, every admitted LlmConnector revision visible through C.all.
 assert.deepEqual(status, { databasePool: blogPool, databaseUrl: 'postgres://demo@localhost/hyla' })
 assert.equal(blogDescription, 'Scope-Aware Systems (blog-42)')
 assert.equal(providerA, 'OpenAI')
@@ -132,7 +132,7 @@ assert.equal(summaryA, `[openai@${OpenAIv2.version} request=request-a] Summarize
 assert.equal(summaryB, `[openai@${OpenAIv2.version} request=request-b] Summarize for Scope-Aware Systems (request-b): Bindings preserve a user-selected implementation.`)
 assert.notEqual(summarizerA, summarizerB)
 assert.deepEqual(panel.candidates, [OpenAIv1, OpenAIv2, Claude].map(revision => `${revision.family.id}@${revision.version}`).sort())
-assert.equal(panel.completion, `[openai@${OpenAIv1.version} request=provider-panel] Run a provider selected from the canonical selector slot.`)
+assert.equal(panel.completion, `[openai@${OpenAIv1.version} request=provider-panel] Run a provider chosen from the admitted set.`)
 assert.equal(catalog.length, 3)
 assert.equal(liveEnvs, 0)
 console.log('demo: OK')

@@ -367,7 +367,6 @@ export class DefinitionCompiler {
         case 'entry': this.collectEntryDefinitions(dependency); break
         case 'contract': this.registerContract(dependency); break
         case 'auto-implementation':
-        case 'implementation-selector':
         case 'all-implementations': this.registerContract(dependency.contract); break
         default:
           throw new SynaError(

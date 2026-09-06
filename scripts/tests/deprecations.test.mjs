@@ -23,10 +23,6 @@ const EXPECTED = [
   { path: 'ImplementationRef.implementationId', replacement: 'familyId' },
   // R6 RuntimePolicyContext.site → dependencySite
   { path: 'RuntimePolicyContext.site', replacement: 'dependencySite' },
-  // 0.5 deprecations that Phase C deletes (no removal version required until then)
-  { path: 'Contract.selector', legacy: true },
-  { path: 'ImplementationSelector', legacy: true },
-  { path: 'ImplementationSelectorDependency', legacy: true },
 ]
 
 test('every deprecated alias names its replacement and the 0.7.0 removal; nothing else is deprecated', () => {

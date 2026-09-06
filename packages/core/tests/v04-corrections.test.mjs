@@ -30,8 +30,8 @@ const withTimeout = async (promise, milliseconds = 1000) => {
   }
 }
 
-test('selector candidate plan templates are reused and the cache remains bounded', async () => {
-  const define = makeDefine('v04.selector-cache')
+test('C.all plan templates are reused across request Envs and the cache remains bounded', async () => {
+  const define = makeDefine('v04.collection-cache')
   const Capability = define.contract()
   const Request = define.input('request')
   const providers = [1, 2, 3].map(index => makeDefine(`v04.selector-provider-${index}`).service({
@@ -39,8 +39,8 @@ test('selector candidate plan templates are reused and the cache remains bounded
     setup: () => ({ index }),
   }))
   const Panel = define.service('panel', {
-    requires: { request: Request, selector: Capability.selector },
-    setup: ({ selector }) => ({ selector }),
+    requires: { request: Request, implementations: Capability.all },
+    setup: ({ implementations }) => ({ implementations }),
   })
   const Base = define.entry('base', {})
   const RequestEntry = define.entry('request', {
@@ -303,27 +303,16 @@ test('loadAll materializes named dependency refs concurrently and preserves keys
   await runtime.dispose()
 })
 
-test('Runtime, Env and implementation leases expose explicit async disposal', async () => {
+test('Runtime and Env expose explicit async disposal', async () => {
   const define = makeDefine('v04.async-dispose')
-  const Capability = define.contract()
   const Provider = define.service('provider', {
-    provides: [Capability],
     setup: () => ({ id: 'provider' }),
   })
-  const Consumer = define.service('consumer', {
-    requires: { selector: Capability.selector },
-    setup: dependencies => dependencies,
-  })
-  const Entry = define.entry({ requires: { consumer: Consumer } })
-  const runtime = createRuntime({ services: [Consumer, Provider] })
+  const Entry = define.entry({ requires: { provider: Provider } })
+  const runtime = createRuntime({ services: [Provider] })
   const env = await runtime.enter(Entry)
-  const selector = await (await env.deps.consumer.load()).selector.load()
-  const lease = await selector.open(selector.candidates[0])
-  assert.equal(typeof lease[Symbol.asyncDispose], 'function')
   assert.equal(typeof env[Symbol.asyncDispose], 'function')
   assert.equal(typeof runtime[Symbol.asyncDispose], 'function')
-  await lease[Symbol.asyncDispose]()
-  assert.equal(lease.env.state, 'disposed')
   await env[Symbol.asyncDispose]()
   assert.equal(env.state, 'disposed')
   await runtime[Symbol.asyncDispose]()

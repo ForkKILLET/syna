@@ -116,26 +116,26 @@ test('Contract.all exposes every admitted revision and shares canonical slots', 
   await env.dispose()
 })
 
-test('selector CandidateRefs are exact and scoped to their canonical selector slot', async () => {
-  const define = makeDefine('test.selector-ref')
+test('C.all CandidateRefs are exact and scoped to their own collection slot', async () => {
+  const define = makeDefine('test.collection-ref')
   const Capability = define.contract()
-  const Provider = makeDefine('test.selector-ref-provider').service({
+  const Provider = makeDefine('test.collection-ref-provider').service({
     provides: [Capability], setup: () => ({ id: {} }),
   })
   const Panel = define.service('panel', {
-    requires: { selector: Capability.selector },
-    setup({ selector }) { return { selector } },
+    requires: { implementations: Capability.all },
+    setup({ implementations }) { return { implementations } },
   })
   const Entry = define.entry({ requires: { panel: Panel } })
   const runtime = createRuntime({ services: [Panel, Provider] })
   const first = await runtime.enter(Entry)
   const second = await runtime.enter(Entry)
-  const firstSelector = await (await first.deps.panel.load()).selector.load()
-  const secondSelector = await (await second.deps.panel.load()).selector.load()
-  const candidate = firstSelector.candidates[0]
+  const firstSet = await (await first.deps.panel.load()).implementations.load()
+  const secondSet = await (await second.deps.panel.load()).implementations.load()
+  const candidate = firstSet.candidates[0]
   assert.ok(candidate)
   await assert.rejects(
-    secondSelector.open(candidate.ref),
+    secondSet.load(candidate.ref),
     error => error.code === 'CONSTRAINT_VIOLATION',
   )
   await runtime.dispose()
@@ -202,32 +202,6 @@ test('reassigning a Binding forks its synthetic slot and reverse dependency clos
   await parent.dispose()
 })
 
-test('selector candidate changes propagate through its canonical synthetic slot', async () => {
-  const define = makeDefine('test.selector-fresh')
-  const Capability = define.contract()
-  const Provider = makeDefine('test.selector-fresh-provider').service({
-    provides: [Capability], setup: () => ({ token: {} }),
-  })
-  const Panel = define.service('panel', {
-    requires: { selector: Capability.selector },
-    setup({ selector }) { return { selector } },
-  })
-  const Root = define.entry('root', { requires: { panel: Panel } })
-  const Child = define.entry('child', {
-    requires: { panel: Panel },
-    reuse: { fresh: [Panel] },
-  })
-  const runtime = createRuntime({ services: [Panel, Provider] })
-  const root = await runtime.enter(Root)
-  const child = await root.enter(Child)
-  assert.notEqual(
-    nodeByLabel(root, Capability.id).slotId,
-    nodeByLabel(child, Capability.id).slotId,
-  )
-  assert.notStrictEqual(await root.deps.panel.load(), await child.deps.panel.load())
-  await root.dispose()
-})
-
 test('Contract.all includes eager candidates and only eager ones materialize at activation', async () => {
   const define = makeDefine('test.selector-eager')
   const Capability = define.contract()
@@ -258,7 +232,7 @@ test('Contract.all includes eager candidates and only eager ones materialize at 
   await env.dispose()
 })
 
-test('selector fails when all advertised implementations cannot coexist', async () => {
+test('C.all fails when all advertised implementations cannot coexist', async () => {
   const define = makeDefine('test.selector-conflict')
   const Capability = define.contract()
   const Fixed1 = makeDefine('test.selector-fixed-dependency', '1.0.0').service({
@@ -283,7 +257,7 @@ test('selector fails when all advertised implementations cannot coexist', async 
     || error.code === 'UNSATISFIABLE_TOPOLOGY')
 })
 
-test('private transitive Contract implementations never leak into auto or selector candidates', async () => {
+test('private transitive Contract implementations never leak into auto or C.all candidates', async () => {
   const define = makeDefine('test.private-contract')
   const Capability = define.contract()
   const Public = makeDefine('test.private-contract-public').service({
@@ -296,15 +270,15 @@ test('private transitive Contract implementations never leak into auto or select
     requires: { private: Private }, setup: () => ({}),
   })
   const Consumer = define.service('consumer', {
-    requires: { automatic: Capability, selector: Capability.selector },
-    setup({ automatic, selector }) { return { automatic, selector } },
+    requires: { automatic: Capability, implementations: Capability.all },
+    setup({ automatic, implementations }) { return { automatic, implementations } },
   })
   const Entry = define.entry({ requires: { consumer: Consumer } })
   const runtime = createRuntime({ services: [Consumer, Public, Wrapper] })
   const env = await runtime.enter(Entry)
   const consumer = await env.deps.consumer.load()
   assert.equal((await consumer.automatic.load()).id, 'public')
-  assert.deepEqual((await consumer.selector.load()).candidates.map(item => item.familyId), [Public.family.id])
+  assert.deepEqual((await consumer.implementations.load()).candidates.map(item => item.familyId), [Public.family.id])
   await env.dispose()
 })
 

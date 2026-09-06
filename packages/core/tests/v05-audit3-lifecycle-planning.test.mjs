@@ -1,7 +1,7 @@
 // Regressions for the independent re-audit of the third review round (core line,
 // work/v05/audit-3/core-lifecycle-planning/REPORT.md, F-CL3-01 … F-CL3-09; ledger
 // work/v05/ISSUES.md I-85 …). Each case is the auditor's probe reduced to an assertion:
-//   F-CL3-01 selector candidate Entries are keyed by the physical revision, so two
+//   F-CL3-01 C.all candidates are keyed by the physical revision, so two
 //            Runtimes sharing a Contract object do not contaminate each other;
 //   F-CL3-02 setup drift is DUPLICATE_DEFINITION on a template hit too (enter/check/range family);
 //   F-CL3-03 the unreachable path runs the cleanups of an attempt whose Env handle was dropped;
@@ -43,10 +43,10 @@ const child = (flags, script) =>
   run(process.execPath, [...flags, '--input-type=module', '-e', script])
     .then(result => ({ code: 0, ...result }), error => ({ code: error.code, stdout: error.stdout, stderr: error.stderr }))
 
-test('F-CL3-01 selector candidates are keyed by the physical revision: two Runtimes sharing a Contract object do not contaminate each other', async () => {
-  const shared = makeDefine('v05.audit3.selector-contract')
+test('F-CL3-01 C.all candidates are keyed by the physical revision: two Runtimes sharing a Contract object do not contaminate each other', async () => {
+  const shared = makeDefine('v05.audit3.collection-contract')
   const Capability = shared.contract('cap')
-  const Panel = shared.service('panel', { requires: { selector: Capability.selector }, setup: ({ selector }) => ({ selector }) })
+  const Panel = shared.service('panel', { requires: { implementations: Capability.all }, setup: ({ implementations }) => ({ implementations }) })
   const Entry = shared.entry('main', { requires: { panel: Panel } })
   // Three honest physical copies of impl@1.0.0: two differ in the setup body, one only in metadata.
   const copy = (flavour, revisionMetadata) => makeDefine('v05.audit3.impl')
@@ -58,10 +58,8 @@ test('F-CL3-01 selector candidates are keyed by the physical revision: two Runti
   const expand = async (services) => {
     const runtime = createRuntime({ services })
     const env = await runtime.enter(Entry)
-    const selector = await (await env.deps.panel.load()).selector.load()
-    const lease = await selector.open(selector.candidates[0])
-    const { flavour } = await lease.implementation.load()
-    await lease.dispose()
+    const implementations = await (await env.deps.panel.load()).implementations.load()
+    const { flavour } = await implementations.load(implementations.candidates[0])
     await env.dispose()
     const warnings = runtime.inspect().definitionWarnings
     await runtime.dispose()

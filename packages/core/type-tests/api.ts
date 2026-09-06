@@ -66,10 +66,10 @@ const Consumer = define.service('consumer', {
   requires: {
     exact: Implementation,
     automatic: Capability,
-    selector: Capability.all,
+    implementations: Capability.all,
     configured: Selected,
   },
-  setup({ exact, automatic, selector, configured }) {
+  setup({ exact, automatic, implementations, configured }) {
     const exactRef: ServiceRef<Implementation> = exact
     const automaticRef: ServiceRef<Capability> = automatic
     // R4 (v0.6): the deprecated name is the union of both ref kinds; the loadable kind is ServiceRef.
@@ -82,9 +82,11 @@ const Consumer = define.service('consumer', {
         const exactResult: number = await (await exact.load()).run('a')
         const automaticResult: number = await (await automatic.load({ signal: AbortSignal.timeout(1000) })).run('b')
         const configuredResult: number = await (await configured.load()).run('c')
-        const implementations = await selector.load()
-        const candidate = implementations.candidates[0]!
-        const selectedResult: number = await (await implementations.load(candidate)).run('d')
+        const set = await implementations.load()
+        const candidate = set.candidates[0]!
+        const selectedResult: number = await (await set.load(candidate)).run('d')
+        // @ts-expect-error D3 (v0.6): the selector family is gone; C.all is the only collection form.
+        void Capability.selector
         const batch = await loadAll({ exact, automatic })
         const batchResult: number = await batch.exact.run('e')
         return exactResult + automaticResult + configuredResult + selectedResult + batchResult

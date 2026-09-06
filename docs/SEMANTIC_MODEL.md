@@ -26,7 +26,6 @@ The resolved graph contains:
 - Service nodes;
 - Input nodes;
 - Binding projection nodes;
-- Contract selector nodes;
 - strong all-implementations nodes;
 - owner-anchored Entry nodes.
 
@@ -68,8 +67,7 @@ A Contract has nominal runtime identity and compile-time API shape, but no insta
 
 - A naked Contract requires an unambiguous implementation family.
 - `auto(C)` creates an independent implementation choice site governed by explicit Runtime policy.
-- `C.all` requires all admitted implementation revisions to coexist in the current Env (recommended collection form).
-- `C.selector` is a deprecated compatibility form: candidates are pre-flighted as independent child plans; opening one needs a Ready anchor.
+- `C.all` requires all admitted implementation revisions to coexist in the current Env; it is the only collection form. Enumerating implementations as separately planned worlds is written as an explicit Entry per candidate.
 
 Private transitive Service definitions are not discoverable Contract candidates unless explicitly admitted.
 

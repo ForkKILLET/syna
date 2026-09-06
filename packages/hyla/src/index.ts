@@ -1,6 +1,6 @@
 import type {
   ImplementationCandidate,
-  PersistentImplementationRef,
+  ImplementationRef,
 } from '@syna/core'
 import {
   LlmCall,
@@ -116,14 +116,14 @@ export const ArticleSummarizer = define.service('article-summarizer', {
 export interface ProviderPanel {
   list(): Promise<readonly ImplementationCandidate<typeof LlmConnector>[]>
   run(
-    provider: PersistentImplementationRef<typeof LlmConnector>,
+    provider: ImplementationRef<typeof LlmConnector>,
     prompt: string,
   ): Promise<string>
 }
 
 export const ProviderPanel = define.service('provider-panel', {
   requires: {
-    providers: LlmConnector.selector,
+    providers: LlmConnector.all,
   },
   setup({ providers }): ProviderPanel {
     return {
@@ -131,11 +131,9 @@ export const ProviderPanel = define.service('provider-panel', {
         return (await providers.load()).candidates
       },
       async run(provider, prompt) {
-        const selector = await providers.load()
-        return selector.run(provider, async implementation => {
-          const connector: LlmConnectorApi = await implementation.load()
-          return connector.complete(prompt)
-        })
+        const implementations = await providers.load()
+        const connector: LlmConnectorApi = await implementations.load(provider)
+        return connector.complete(prompt)
       },
     }
   },

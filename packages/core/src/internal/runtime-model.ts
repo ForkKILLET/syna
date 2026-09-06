@@ -43,7 +43,7 @@ export type ServiceSlotState =
   /** A timed-out setup attempt never settled before disposal finished. */
   | 'abandoned'
 
-export type NodeKind = 'service' | 'input' | 'binding' | 'selector' | 'all' | 'entry'
+export type NodeKind = 'service' | 'input' | 'binding' | 'all' | 'entry'
 
 /**
  * Internal executable record for one nominal Service revision. Public code
@@ -111,7 +111,7 @@ export interface BindingChoiceSlot {
 }
 
 export interface SyntheticSlot {
-  readonly kind: 'binding' | 'selector' | 'all' | 'entry'
+  readonly kind: 'binding' | 'all' | 'entry'
   readonly id: string
   readonly ownerEnvId: string
   readonly state: 'ready'
@@ -199,15 +199,6 @@ export interface BindingPlanNode extends BasePlanNode {
   readonly revision: CompiledService
 }
 
-/** Candidate worlds are not inserted into the current Env. */
-export interface SelectorPlanNode extends BasePlanNode {
-  readonly kind: 'selector'
-  readonly contract: Contract
-  readonly candidates: readonly CompiledService[]
-  readonly dependencySite: string
-  readonly anchorNodeId?: string
-}
-
 /** Every candidate is a real dependency in the current Env. */
 export interface AllPlanNode extends BasePlanNode {
   readonly kind: 'all'
@@ -227,7 +218,6 @@ export type PlanNode =
   | ServicePlanNode
   | InputPlanNode
   | BindingPlanNode
-  | SelectorPlanNode
   | AllPlanNode
   | AnchoredEntryPlanNode
 

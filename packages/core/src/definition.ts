@@ -332,14 +332,9 @@ export function definePackage(manifest: PackageManifest): PackageDefinitions {
       id: contractId(name, apiVersion),
       apiVersion,
       metadata: mergeMetadata(packageDescriptor.metadata, options?.metadata),
-      selector: undefined as never,
       all: undefined as never,
     }
     const descriptor = mutable as Contract<Api>
-    mutable.selector = Object.freeze({
-      kind: 'implementation-selector',
-      contract: descriptor,
-    }) as never
     mutable.all = Object.freeze({
       kind: 'all-implementations',
       contract: descriptor,

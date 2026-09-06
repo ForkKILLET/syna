@@ -49,7 +49,7 @@ Increase `apiVersion` only when that descriptor’s own semantics or TypeScript 
 
 ## Public versus private Services
 
-A Runtime admits explicit top-level revisions. Their exact transitive dependencies are known internally, but are not automatically exposed as public Entry roots or Contract implementations. Packages may therefore use private helper Services without leaking them into host provider selectors.
+A Runtime admits explicit top-level revisions. Their exact transitive dependencies are known internally, but are not automatically exposed as public Entry roots or Contract implementations. Packages may therefore use private helper Services without leaking them into host provider collections (`C.all`, `auto(C)`).
 
 ## Inputs versus Services
 

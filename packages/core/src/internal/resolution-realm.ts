@@ -8,7 +8,7 @@ export const PUBLIC_REALM: ResolutionRealm = Object.freeze({
 /**
  * A Service-owned Entry resolves its roots with the authority of the owning
  * Service: exact and range roots may select revisions from that Service's
- * private transitive closure. Contract, auto, selector and all discovery
+ * private transitive closure. Contract, auto and all discovery
  * remain public. Realm identity depends only on the owner revision, so plan
  * templates for the same owner are shared.
  */

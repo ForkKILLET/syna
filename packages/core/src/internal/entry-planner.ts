@@ -1012,7 +1012,6 @@ export class EntryPlanner implements GraphBuilderHost {
           this.registerContract(dependency)
           break
         case 'auto-implementation':
-        case 'implementation-selector':
         case 'all-implementations':
           this.registerContract(dependency.contract)
           break

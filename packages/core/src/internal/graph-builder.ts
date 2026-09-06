@@ -22,7 +22,6 @@ import type {
   PlanNode,
   ResolutionRealm,
   RootSite,
-  SelectorPlanNode,
   ServicePlanNode,
 } from './runtime-model.js'
 import { NeedChoice, PolicyContext } from './runtime-model.js'
@@ -277,27 +276,6 @@ export class GraphBuilder {
           site,
         )
         return this.resolveChosenRevision(site, ordered, `auto(${dependency.contract.id})`)
-      }
-
-      case 'implementation-selector': {
-        const candidates = [...this.implementationCandidates(dependency.contract)]
-          .sort(compareRevisionIdentity)
-        const nodeId = `selector:${ownerNodeId ?? site}:${dependency.contract.id}`
-        const existing = this.nodes.get(nodeId)
-        if (existing) return existing.id
-        const node: SelectorPlanNode = {
-          id: nodeId,
-          kind: 'selector',
-          label: `${dependency.contract.id}[${candidates.map(item => item.key).join(',')}]@${ownerNodeId ?? site}`,
-          edges: new Map(),
-          contract: dependency.contract,
-          candidates,
-          dependencySite: site,
-          ...(ownerNodeId ? { anchorNodeId: ownerNodeId } : {}),
-        }
-        if (ownerNodeId) node.edges.set('anchor', ownerNodeId)
-        this.nodes.set(nodeId, node)
-        return nodeId
       }
 
       case 'all-implementations': {

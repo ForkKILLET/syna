@@ -27,7 +27,6 @@ requires: {
   strict: Storage,          // exactly one implementation family, else AMBIGUOUS_IMPLEMENTATION
   automatic: auto(Storage), // Runtime policy chooses; MISSING_AUTO_POLICY without a policy
   all: Storage.all,         // every admitted implementation revision coexists in this Env
-  legacy: Storage.selector, // @deprecated minimal compatibility; open() needs a Ready anchor
 }
 ```
 
@@ -220,7 +219,7 @@ if (explanation.ok) {
 
 ## Errors
 
-`SynaError` has `code` (`SynaErrorCode`) and `details`. Codes: `AMBIGUOUS_IMPLEMENTATION`, `CONSTRAINT_VIOLATION`, `DUPLICATE_DEFINITION`, `ENTRY_ACTIVATION_FAILED`, `INCOMPATIBLE_IMPLEMENTATION`, `INITIALIZATION_TIMEOUT`, `INVALID_DESCRIPTOR`, `INVALID_ENV_STATE`, `LINEAGE_UNIQUENESS_CONFLICT`, `LOAD_CANCELLED`, `MISSING_AUTO_POLICY`, `MISSING_BINDING`, `MISSING_IMPLEMENTATION`, `MISSING_INPUT`, `MISSING_SERVICE`, `OWNER_NOT_READY`, `PLANNING_BUDGET_EXCEEDED`, `ROLLBACK_FAILED`, `RUNTIME_MISMATCH`, `SHARE_CONSTRAINT_FAILED`, `UNAVAILABLE_IMPLEMENTATION`, `UNSATISFIABLE_TOPOLOGY`, `UNSETTLED_ATTEMPT`. Diagnostics (`check`, `explain`, candidate availability) use the same union plus `UNKNOWN_ERROR`. Policy exceptions, invalid descriptors and budget exhaustion are never disguised as `UNSATISFIABLE_TOPOLOGY`.
+`SynaError` has `code` (`SynaErrorCode`) and `details`. Codes: `AMBIGUOUS_IMPLEMENTATION`, `CONSTRAINT_VIOLATION`, `DUPLICATE_DEFINITION`, `ENTRY_ACTIVATION_FAILED`, `INCOMPATIBLE_IMPLEMENTATION`, `INITIALIZATION_TIMEOUT`, `INVALID_DESCRIPTOR`, `INVALID_ENV_STATE`, `LINEAGE_UNIQUENESS_CONFLICT`, `LOAD_CANCELLED`, `MISSING_AUTO_POLICY`, `MISSING_BINDING`, `MISSING_IMPLEMENTATION`, `MISSING_INPUT`, `MISSING_SERVICE`, `OWNER_NOT_READY`, `PLANNING_BUDGET_EXCEEDED`, `ROLLBACK_FAILED`, `RUNTIME_MISMATCH`, `SHARE_CONSTRAINT_FAILED`, `UNSATISFIABLE_TOPOLOGY`, `UNSETTLED_ATTEMPT`. Diagnostics (`check`, `explain`) use the same union plus `UNKNOWN_ERROR`. Policy exceptions, invalid descriptors and budget exhaustion are never disguised as `UNSATISFIABLE_TOPOLOGY`.
 
 ## Platform
 

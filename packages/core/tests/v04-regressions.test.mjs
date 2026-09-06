@@ -38,8 +38,8 @@ async function waitFor(predicate, timeoutMs = 500) {
   }
 }
 
-test('selector candidate planning is reusable and bounded across short-lived request Envs', async () => {
-  const define = defineFor('v04.selector-cache')
+test('C.all planning is reusable and bounded across short-lived request Envs', async () => {
+  const define = defineFor('v04.collection-cache')
   const Capability = define.contract()
   const Request = define.input('request')
   const ProviderA = defineFor('v04.selector-cache.a').service({
@@ -55,8 +55,8 @@ test('selector candidate planning is reusable and bounded across short-lived req
     setup: () => ({ id: 'c' }),
   })
   const Panel = define.service('panel', {
-    requires: { request: Request, selector: Capability.selector },
-    setup: ({ request, selector }) => ({ request, selector }),
+    requires: { request: Request, implementations: Capability.all },
+    setup: ({ request, implementations }) => ({ request, implementations }),
   })
   const Root = define.entry('root', {})
   const RequestEntry = define.entry('request', {
@@ -75,9 +75,9 @@ test('selector candidate planning is reusable and bounded across short-lived req
   }
 
   const cache = runtime.inspect().planCache
-  assert.ok(cache.hits > 500, `expected candidate-plan cache hits, received ${JSON.stringify(cache)}`)
-  assert.ok(cache.misses <= 8, `candidate plans should not miss per Env: ${JSON.stringify(cache)}`)
-  assert.ok(cache.entries <= 8, `candidate plan cache should remain bounded by semantic shapes: ${JSON.stringify(cache)}`)
+  assert.ok(cache.hits >= 199, `expected request-plan cache hits, received ${JSON.stringify(cache)}`)
+  assert.ok(cache.misses <= 8, `request plans should not miss per Env: ${JSON.stringify(cache)}`)
+  assert.ok(cache.entries <= 8, `plan cache should remain bounded by semantic shapes: ${JSON.stringify(cache)}`)
   await runtime.dispose()
 })
 
@@ -168,7 +168,7 @@ test('disposing an owner aborts an in-progress retry sequence and backoff', asyn
   await runtime.dispose()
 })
 
-test('definition override preserves source admission identity across exact, Contract, selector, all and scope constraints', async () => {
+test('definition override preserves source admission identity across exact, Contract, all and reuse constraints', async () => {
   const define = defineFor('v04.override')
   const Db = define.contract()
   const Real = define.service('postgres', {
@@ -183,7 +183,7 @@ test('definition override preserves source admission identity across exact, Cont
     setup: ({ db }) => ({ source: async () => (await db.load()).source }),
   })
   const ContractConsumer = define.service('contract-consumer', {
-    requires: { db: Db, selector: Db.selector, all: Db.all },
+    requires: { db: Db, all: Db.all },
     setup: dependencies => dependencies,
   })
   const Root = define.entry('root', {
@@ -210,14 +210,9 @@ test('definition override preserves source admission identity across exact, Cont
   assert.equal(await (await root.deps.exact.load()).source(), 'fake')
   const contract = await root.deps.contract.load()
   assert.equal((await contract.db.load()).source, 'fake')
-  const selector = await contract.selector.load()
-  assert.equal(selector.candidates.length, 1)
-  assert.equal(selector.candidates[0].familyId, Real.family.id)
-  await selector.run(selector.candidates[0], async implementation => {
-    assert.equal((await implementation.load()).source, 'fake')
-  })
   const all = await contract.all.load()
   assert.equal(all.candidates.length, 1)
+  assert.equal(all.candidates[0].familyId, Real.family.id)
   assert.equal((await all.load(all.candidates[0])).source, 'fake')
 
   const fresh = await root.enter(Fresh)
@@ -340,35 +335,4 @@ test('plan cache is capped and reports eviction rather than retaining unlimited 
   assert.equal(cache.entries, 4)
   assert.ok(cache.evictions >= 16)
   await runtime.dispose()
-})
-
-test('selector.open during the anchor Env activation is refused with OWNER_NOT_READY', async () => {
-  const define = defineFor('v04.selector-activation-cycle')
-  const Plugin = define.contract()
-  let Manager
-  const Candidate = define.service('candidate', {
-    eager: true,
-    provides: [Plugin],
-    requires: { manager: { kind: 'forward-dependency', get: () => Manager } },
-    async setup({ manager }) {
-      await manager.load()
-      return { id: 'candidate' }
-    },
-  })
-  Manager = define.service('manager', {
-    eager: true,
-    requires: { selector: Plugin.selector },
-    async setup({ selector }) {
-      const implementations = await selector.load()
-      await implementations.open(implementations.candidates[0])
-      return { id: 'manager' }
-    },
-  })
-  const Root = define.entry({ requires: { manager: Manager } })
-  const runtime = createRuntime({ services: [Manager, Candidate] })
-  await assert.rejects(
-    withTimeout(runtime.enter(Root)),
-    error => error.code === 'ENTRY_ACTIVATION_FAILED' && error.cause?.code === 'OWNER_NOT_READY',
-  )
-  await runtime.dispose().catch(() => undefined)
 })
