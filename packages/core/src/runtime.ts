@@ -3,16 +3,18 @@ import type {
   BoundEntry,
   Contract,
   CreateRuntimeOptions,
-  DeriveOptions,
   DependencyMap,
   DependencyRef,
   DependencyRefs,
   EntryArguments,
+  EntryCallback,
   EntryCheck,
   EntryDescriptor,
   EntryExplanation,
+  EntryOptions,
   EntryParameters,
   EntryRunArguments,
+  ReuseConstraints,
   EnvHandle,
   EnvInspection,
   EnvInspectionNode,
@@ -28,6 +30,7 @@ import type {
   ServiceRevision,
   SynaRuntime,
 } from './descriptors.js'
+import { withDeprecatedScope } from './definition.js'
 import { diagnosticFromError, SynaError } from './errors.js'
 import type {
   EnvState,
@@ -61,16 +64,78 @@ const internalPackage = Object.freeze({
   metadata: Object.freeze({}),
 })
 
-const internalDeriveEntry: EntryDescriptor<{}, {}> = Object.freeze({
-  kind: 'entry',
+const internalDeriveEntry: EntryDescriptor<{}, {}> = Object.freeze(withDeprecatedScope({
+  kind: 'entry' as const,
   package: internalPackage,
   id: '@syna/core/entry/derive/v1',
   apiVersion: 1,
   requires: Object.freeze({}),
   parameters: Object.freeze({}),
-  scope: Object.freeze({ fresh: Object.freeze([]), share: Object.freeze([]) }),
+  reuse: Object.freeze({ fresh: Object.freeze([]), share: Object.freeze([]) }),
   metadata: Object.freeze({}),
-})
+}))
+
+/** One Entry call after the public argument shapes are normalized. */
+interface EntryCall {
+  readonly parameters: Readonly<Record<string, unknown>> | undefined
+  readonly reuse: ReuseConstraints | undefined
+}
+
+const EMPTY_CALL: EntryCall = Object.freeze({ parameters: undefined, reuse: undefined })
+
+/**
+ * Splits `(parameters?, options?)` into the parameter record and the reuse
+ * constraints. The 0.5 form carried `scope` inside the parameter record (R1
+ * alias, removed in 0.7.0): it is lifted into the constraints and refused when
+ * the options argument is present as well, so one call never has two sources.
+ * `reuse` is never a parameter key. A non-object parameter value is passed on
+ * unchanged and rejected by the planner (`INVALID_DESCRIPTOR`) as before.
+ */
+function entryCall(parameters: unknown, options: unknown): EntryCall {
+  if (options !== undefined && (typeof options !== 'object' || options === null)) {
+    throw new TypeError('Entry call options must be an object.')
+  }
+  const reuse = (options as EntryOptions | undefined)?.reuse
+  if (typeof parameters !== 'object' || parameters === null) {
+    return { parameters: parameters as undefined, reuse }
+  }
+  const record = parameters as Readonly<Record<string, unknown>>
+  if ('reuse' in record) {
+    throw new TypeError('reuse is a call option, not a parameter: enter(entry, parameters, { reuse }).')
+  }
+  if (!('scope' in record)) return { parameters: record, reuse }
+  if (options !== undefined) {
+    throw new TypeError('Reuse constraints were given both as parameters.scope (deprecated) and as options.reuse; use options.reuse.')
+  }
+  const { scope, ...rest } = record
+  return { parameters: rest, reuse: scope as ReuseConstraints | undefined }
+}
+
+/**
+ * A malformed call shape is reported as a rejection, never as a synchronous
+ * throw: `enter`/`check`/`explain` returned Promises for every failure in 0.5
+ * and still do. A well-formed call keeps its synchronous planning prefix.
+ */
+function withCall<T>(parameters: unknown, options: unknown, run: (call: EntryCall) => Promise<T>): Promise<T> {
+  let call: EntryCall
+  try {
+    call = entryCall(parameters, options)
+  }
+  catch (error) {
+    return Promise.reject(error)
+  }
+  return run(call)
+}
+
+/** `run(entry, [parameters, [options,]] callback)`: the callback is always last. */
+function runCall<E extends EntryDescriptor, Result>(
+  args: EntryRunArguments<E, Result>,
+): { readonly call: EntryCall; readonly callback: EntryCallback<E, Result> } {
+  const list = args as readonly unknown[]
+  if (list.length === 1) return { call: entryCall({}, undefined), callback: list[0] as EntryCallback<E, Result> }
+  if (list.length === 2) return { call: entryCall(list[0], undefined), callback: list[1] as EntryCallback<E, Result> }
+  return { call: entryCall(list[0], list[1]), callback: list[2] as EntryCallback<E, Result> }
+}
 
 function addSuppressed(primary: unknown, cleanup: unknown): unknown {
   if (primary instanceof Error && Object.isExtensible(primary)) {
@@ -157,17 +222,15 @@ class EnvImpl<Requires extends DependencyMap> implements EnvHandle<Requires> {
     descriptor: E,
     ...args: EntryArguments<E>
   ): Promise<EnvHandle<E['requires']>> {
-    return this.runtime.enterFrom(this, descriptor, args[0] as EntryParameters<E> | undefined, PUBLIC_REALM)
+    return withCall(args[0], args[1], call => this.runtime.enterFrom(this, descriptor, call, PUBLIC_REALM))
   }
 
   async run<E extends EntryDescriptor<any, any>, Result>(
     descriptor: E,
     ...args: EntryRunArguments<E, Result>
   ): Promise<Result> {
-    const [input, callback] = args.length === 1
-      ? [{} as EntryParameters<E>, args[0]]
-      : args
-    const child = await this.runtime.enterFrom(this, descriptor, input, PUBLIC_REALM)
+    const { call, callback } = runCall(args)
+    const child = await this.runtime.enterFrom(this, descriptor, call, PUBLIC_REALM)
     return this.runtime.executeStructured(child, () => Promise.resolve(callback(child.deps, child)))
   }
 
@@ -175,18 +238,18 @@ class EnvImpl<Requires extends DependencyMap> implements EnvHandle<Requires> {
     descriptor: E,
     ...args: EntryArguments<E>
   ): Promise<EntryCheck> {
-    return this.runtime.checkFrom(this, descriptor, args[0] as EntryParameters<E> | undefined, PUBLIC_REALM)
+    return withCall(args[0], args[1], call => this.runtime.checkFrom(this, descriptor, call, PUBLIC_REALM))
   }
 
   explain<E extends EntryDescriptor<any, any>>(
     descriptor: E,
     ...args: EntryArguments<E>
   ): Promise<EntryExplanation> {
-    return this.runtime.explainFrom(this, descriptor, args[0] as EntryParameters<E> | undefined, PUBLIC_REALM)
+    return withCall(args[0], args[1], call => this.runtime.explainFrom(this, descriptor, call, PUBLIC_REALM))
   }
 
-  derive(options: DeriveOptions = {}): Promise<EnvHandle<{}>> {
-    return this.runtime.enterFrom(this, internalDeriveEntry, { scope: options }, PUBLIC_REALM)
+  derive(reuse: ReuseConstraints = {}): Promise<EnvHandle<{}>> {
+    return this.runtime.enterFrom(this, internalDeriveEntry, { parameters: undefined, reuse }, PUBLIC_REALM)
   }
 
   bind<E extends EntryDescriptor<any, any>>(descriptor: E): BoundEntry<E> {
@@ -313,17 +376,15 @@ class RuntimeImpl implements SynaRuntime, ImplementationViewHost {
     descriptor: E,
     ...args: EntryArguments<E>
   ): Promise<EnvHandle<E['requires']>> {
-    return this.enterFrom(undefined, descriptor, args[0] as EntryParameters<E> | undefined, PUBLIC_REALM)
+    return withCall(args[0], args[1], call => this.enterFrom(undefined, descriptor, call, PUBLIC_REALM))
   }
 
   async run<E extends EntryDescriptor<any, any>, Result>(
     descriptor: E,
     ...args: EntryRunArguments<E, Result>
   ): Promise<Result> {
-    const [input, callback] = args.length === 1
-      ? [{} as EntryParameters<E>, args[0]]
-      : args
-    const env = await this.enterFrom(undefined, descriptor, input, PUBLIC_REALM)
+    const { call, callback } = runCall(args)
+    const env = await this.enterFrom(undefined, descriptor, call, PUBLIC_REALM)
     return this.executeStructured(env, () => Promise.resolve(callback(env.deps, env)))
   }
 
@@ -331,14 +392,14 @@ class RuntimeImpl implements SynaRuntime, ImplementationViewHost {
     descriptor: E,
     ...args: EntryArguments<E>
   ): Promise<EntryCheck> {
-    return this.checkFrom(undefined, descriptor, args[0] as EntryParameters<E> | undefined, PUBLIC_REALM)
+    return withCall(args[0], args[1], call => this.checkFrom(undefined, descriptor, call, PUBLIC_REALM))
   }
 
   explain<E extends EntryDescriptor<any, any>>(
     descriptor: E,
     ...args: EntryArguments<E>
   ): Promise<EntryExplanation> {
-    return this.explainFrom(undefined, descriptor, args[0] as EntryParameters<E> | undefined, PUBLIC_REALM)
+    return withCall(args[0], args[1], call => this.explainFrom(undefined, descriptor, call, PUBLIC_REALM))
   }
 
   dispose(): Promise<void> {
@@ -381,7 +442,7 @@ class RuntimeImpl implements SynaRuntime, ImplementationViewHost {
 
   checkPlanOnly(anchorEnvId: string, descriptor: EntryDescriptor, realm: ResolutionRealm): Promise<EntryCheck> {
     const anchor = this.requireEnv(anchorEnvId)
-    return this.checkFrom(anchor, descriptor, {}, realm, true)
+    return this.checkFrom(anchor, descriptor, EMPTY_CALL, realm, true)
   }
 
   loadSlot(slot: RuntimeSlot, options?: LoadOptions): Promise<unknown> {
@@ -429,36 +490,34 @@ class RuntimeImpl implements SynaRuntime, ImplementationViewHost {
     realm: ResolutionRealm,
   ): BoundEntry<E> {
     const anchor = (): EnvImpl<any> => this.requireEnv(anchorEnvId)
-    const enterBound = async (...args: EntryArguments<E>): Promise<EnvHandle<E['requires']>> =>
-      this.enterFrom(anchor(), descriptor, args[0] as EntryParameters<E> | undefined, realm)
+    const enterBound = (...args: EntryArguments<E>): Promise<EnvHandle<E['requires']>> =>
+      withCall(args[0], args[1], call => this.enterFrom(anchor(), descriptor, call, realm))
 
     const runBound = async <Result>(...args: EntryRunArguments<E, Result>): Promise<Result> => {
-      const [input, callback] = args.length === 1
-        ? [{} as EntryParameters<E>, args[0]]
-        : args
-      const child = await this.enterFrom(anchor(), descriptor, input, realm)
+      const { call, callback } = runCall(args)
+      const child = await this.enterFrom(anchor(), descriptor, call, realm)
       return this.executeStructured(child, () => Promise.resolve(callback(child.deps, child)))
     }
 
     return Object.freeze({
       enter: enterBound,
       run: runBound,
-      check: async (...args: EntryArguments<E>) =>
-        this.checkFrom(anchor(), descriptor, args[0] as EntryParameters<E> | undefined, realm, true),
-      explain: async (...args: EntryArguments<E>) =>
-        this.explainFrom(anchor(), descriptor, args[0] as EntryParameters<E> | undefined, realm, true),
+      check: (...args: EntryArguments<E>) =>
+        withCall(args[0], args[1], call => this.checkFrom(anchor(), descriptor, call, realm, true)),
+      explain: (...args: EntryArguments<E>) =>
+        withCall(args[0], args[1], call => this.explainFrom(anchor(), descriptor, call, realm, true)),
     })
   }
 
   async checkFrom<E extends EntryDescriptor<any, any>>(
     parent: EnvImpl<any> | undefined,
     descriptor: E,
-    input: EntryParameters<E> | undefined,
+    call: EntryCall,
     realm: ResolutionRealm = PUBLIC_REALM,
     allowActivatingParent = false,
   ): Promise<EntryCheck> {
     try {
-      const { plan } = this.planEntry(parent, descriptor, input, true, allowActivatingParent, realm)
+      const { plan } = this.planEntry(parent, descriptor, call, true, allowActivatingParent, realm)
       return Object.freeze({ ok: true, inspection: this.planner.inspect(plan) })
     }
     catch (error) {
@@ -470,12 +529,12 @@ class RuntimeImpl implements SynaRuntime, ImplementationViewHost {
   async explainFrom<E extends EntryDescriptor<any, any>>(
     parent: EnvImpl<any> | undefined,
     descriptor: E,
-    input: EntryParameters<E> | undefined,
+    call: EntryCall,
     realm: ResolutionRealm = PUBLIC_REALM,
     allowActivatingParent = false,
   ): Promise<EntryExplanation> {
     try {
-      const { plan } = this.planEntry(parent, descriptor, input, true, allowActivatingParent, realm)
+      const { plan } = this.planEntry(parent, descriptor, call, true, allowActivatingParent, realm)
       return this.planner.explain(plan, descriptor, parent)
     }
     catch (error) {
@@ -495,10 +554,10 @@ class RuntimeImpl implements SynaRuntime, ImplementationViewHost {
   async enterFrom<E extends EntryDescriptor<any, any>>(
     parent: EnvImpl<any> | undefined,
     descriptor: E,
-    input: EntryParameters<E> | undefined,
+    call: EntryCall,
     realm: ResolutionRealm = PUBLIC_REALM,
   ): Promise<EnvImpl<E['requires']>> {
-    const { envId, plan, rootSiteByEntryKey } = this.planEntry(parent, descriptor, input, false, false, realm)
+    const { envId, plan, rootSiteByEntryKey } = this.planEntry(parent, descriptor, call, false, false, realm)
     const env = new EnvImpl<E['requires']>(this, envId, parent, plan, rootSiteByEntryKey)
     this.envById.set(env.id, env)
 
@@ -563,7 +622,7 @@ class RuntimeImpl implements SynaRuntime, ImplementationViewHost {
   private planEntry<E extends EntryDescriptor<any, any>>(
     parent: EnvImpl<any> | undefined,
     descriptor: E,
-    parameters: EntryParameters<E> | undefined,
+    call: EntryCall,
     checking: boolean,
     allowActivatingParent: boolean,
     realm: ResolutionRealm,
@@ -573,7 +632,7 @@ class RuntimeImpl implements SynaRuntime, ImplementationViewHost {
     readonly rootSiteByEntryKey: ReadonlyMap<string, string>
   } {
     this.assertEntryUsable(parent, descriptor, allowActivatingParent)
-    return this.planner.plan(parent, descriptor, parameters, checking, realm)
+    return this.planner.plan(parent, descriptor, call.parameters as EntryParameters<E> | undefined, call.reuse, checking, realm)
   }
 
   private assertEntryUsable(

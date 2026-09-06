@@ -20,6 +20,7 @@ import type {
   PackageManifest,
   PersistentImplementationRef,
   ProvidedShape,
+  ReuseConstraints,
   ServiceDefinition,
   ServiceFamily,
   ServiceInstance,
@@ -207,11 +208,14 @@ function normalizeDeadline(value: number | undefined): number | undefined {
   return value
 }
 
+/** Parameter keys that name call-time reuse constraints (`reuse`, and its deprecated 0.5 form `scope`). */
+const RESERVED_PARAMETER_KEYS: ReadonlySet<string> = new Set(['reuse', 'scope'])
+
 function assertUniqueParameterIds(parameters: EntryParameterMap): void {
   const keyByIdentity = new Map<string, string>()
   for (const [key, descriptor] of Object.entries(parameters)) {
-    if (key === 'scope') {
-      throw new TypeError('Entry parameter name "scope" is reserved by Syna.')
+    if (RESERVED_PARAMETER_KEYS.has(key)) {
+      throw new TypeError(`Entry parameter name "${key}" is reserved by Syna.`)
     }
     const identity = `${descriptor.kind}:${descriptor.id}`
     const previous = keyByIdentity.get(identity)
@@ -428,8 +432,12 @@ export function definePackage(manifest: PackageManifest): PackageDefinitions {
     }
     assertUniqueParameterIds(parameters)
     const apiVersion = assertApiVersion(definition.apiVersion)
+    if (definition.reuse !== undefined && definition.scope !== undefined) {
+      throw new TypeError(`Entry ${entryId(name, apiVersion)} defines both reuse and its deprecated alias scope; use reuse.`)
+    }
+    const constraints = definition.reuse ?? definition.scope
 
-    return Object.freeze({
+    return Object.freeze(withDeprecatedScope({
       kind: 'entry',
       package: packageDescriptor,
       id: entryId(name, apiVersion),
@@ -437,11 +445,11 @@ export function definePackage(manifest: PackageManifest): PackageDefinitions {
       metadata: freezeMetadata(definition.metadata),
       requires: freezeRecord((definition.requires ?? {}) as Requires),
       parameters,
-      scope: Object.freeze({
-        fresh: Object.freeze([...(definition.scope?.fresh ?? [])]),
-        share: Object.freeze([...(definition.scope?.share ?? [])]),
+      reuse: Object.freeze({
+        fresh: Object.freeze([...(constraints?.fresh ?? [])]),
+        share: Object.freeze([...(constraints?.share ?? [])]),
       }),
-    })
+    }))
   }
 
   return Object.freeze({
@@ -452,6 +460,23 @@ export function definePackage(manifest: PackageManifest): PackageDefinitions {
     service: defineService,
     entry: defineEntry,
   }) as PackageDefinitions
+}
+
+/**
+ * R1 alias (0.6): `descriptor.scope` reads `descriptor.reuse` — the same frozen
+ * object — through a non-enumerable property, so a descriptor serializes and
+ * enumerates with one name. Removed in 0.7.0.
+ */
+export function withDeprecatedScope<E extends Omit<EntryDescriptor, 'scope'>>(
+  descriptor: E,
+): E & { readonly scope: Readonly<ReuseConstraints> } {
+  Object.defineProperty(descriptor, 'scope', {
+    value: descriptor.reuse,
+    enumerable: false,
+    writable: false,
+    configurable: false,
+  })
+  return descriptor as E & { readonly scope: Readonly<ReuseConstraints> }
 }
 
 export function serviceRange<S extends ServiceRevision<any, any>>(

@@ -379,11 +379,11 @@ test('fresh and share may target a Service Family rather than one exact revision
   const Root = define.entry('root', { requires: { consumer: Consumer } })
   const Fresh = define.entry('fresh', {
     requires: { consumer: Consumer },
-    scope: { fresh: [State.family] },
+    reuse: { fresh: [State.family] },
   })
   const Impossible = define.entry('impossible', {
     requires: { consumer: Consumer },
-    scope: { fresh: [State.family], share: [State.family] },
+    reuse: { fresh: [State.family], share: [State.family] },
   })
   const runtime = createRuntime({ services: [Consumer, State] })
   const root = await runtime.enter(Root)

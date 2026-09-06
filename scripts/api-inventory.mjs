@@ -66,7 +66,7 @@ const unionMembers = typeNode => {
   return []
 }
 
-const inventory = () => {
+export const inventory = () => {
   const configFile = ts.findConfigFile(corePackage, ts.sys.fileExists, 'tsconfig.json')
   const config = ts.readConfigFile(configFile, ts.sys.readFile)
   if (config.error) throw new Error(ts.flattenDiagnosticMessageText(config.error.messageText, '\n'))
@@ -246,7 +246,10 @@ const write = (file, content) => {
   writeFileSync(file, content.endsWith('\n') ? content : content + '\n')
 }
 
-if (args.includes('--diff')) {
+const isMain = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)
+if (!isMain) {
+  // imported as a module (scripts/tests/deprecations.test.mjs): no CLI side effects
+} else if (args.includes('--diff')) {
   const index = args.indexOf('--diff')
   const beforePath = path.resolve(root, args[index + 1])
   const afterPath = path.resolve(root, args[index + 2])

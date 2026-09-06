@@ -87,8 +87,8 @@ const buildWorld = () => {
     setup: () => ({}),
   })
   const Root = define.entry('root', { requires: { app: App, storage: Picker }, parameters: { tenant: Tenant, flag: Flag, picker: Picker } })
-  const Child = define.entry('child', { requires: { app: App }, parameters: { flag: Flag }, scope: { fresh: [Cache] } })
-  const Shared = define.entry('shared', { requires: { app: App }, scope: { share: [Db1] } })
+  const Child = define.entry('child', { requires: { app: App }, parameters: { flag: Flag }, reuse: { fresh: [Cache] } })
+  const Shared = define.entry('shared', { requires: { app: App }, reuse: { share: [Db1] } })
   const Chooser = define.entry('chooser', { requires: { storage: auto(Storage) } })
   const runtime = createRuntime({ services: [Config, Db1, Db2, Cache, Memory, Files, PluginA, PluginB, Host, App], planCache: { maxEntries: 8 } })
   return { Storage, Plugin, Picker, Memory, Db1, Db2, Cache, Config, Root, Child, Shared, Chooser, runtime }
@@ -115,9 +115,9 @@ const recordWorld = async () => {
   record.rootInspect = root.inspect()
   record.explainChild = await root.explain(Child, { flag: true })
   record.explainShared = await root.explain(Shared)
-  record.checkChildFreshInactive = await root.check(Child, { flag: true, scope: { fresh: [Db2] } })
-  record.checkChildShareForked = await root.check(Child, { flag: true, scope: { share: [Cache] } })
-  record.explainChildShareConfig = await root.explain(Child, { flag: true, scope: { share: [Config] } })
+  record.checkChildFreshInactive = await root.check(Child, { flag: true }, { reuse: { fresh: [Db2] } })
+  record.checkChildShareForked = await root.check(Child, { flag: true }, { reuse: { share: [Cache] } })
+  record.explainChildShareConfig = await root.explain(Child, { flag: true }, { reuse: { share: [Config] } })
   const child = await root.enter(Child, { flag: true })
   record.childInspect = child.inspect()
   record.inspectLive = runtime.inspect()

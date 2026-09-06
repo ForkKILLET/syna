@@ -4,9 +4,14 @@ import {
   loadAll,
   serviceRange,
   type DependencyRef,
+  type DeriveOptions,
   type EntryExplanation,
+  type EntryOptions,
   type EntryParameters,
   type InputRef,
+  type ReuseConstraints,
+  type ReuseTarget,
+  type ScopeTarget,
   type ServiceFamily,
   type ServiceInstance,
   type ServiceRange,
@@ -141,6 +146,39 @@ const wrongInput: EntryParameters<typeof Root> = {
   selected: Selected.to(Implementation),
 }
 void wrongInput
+
+// R1 (v0.6): reuse constraints at definition time and per call; the deprecated 0.5 forms still compile.
+const Scoped = define.entry('scoped', { requires: { minimal: Minimal }, reuse: { fresh: [Minimal], share: [Minimal.family] } })
+const constraints: ReuseConstraints = Scoped.reuse
+const legacyConstraints: DeriveOptions = constraints
+const target: ReuseTarget = Minimal.family
+const legacyTarget: ScopeTarget = target
+const options: EntryOptions = { reuse: constraints }
+void [legacyConstraints, legacyTarget]
+void runtime.enter(Scoped)
+void runtime.enter(Scoped, {}, options)
+void runtime.enter(Scoped, undefined, { reuse: { fresh: [Minimal] } })
+void runtime.enter(Root, validInput, { reuse: { share: [Implementation] } })
+void runtime.check(Root, validInput, options)
+void runtime.explain(Root, validInput, options)
+void runtime.run(Scoped, async ({ minimal }) => (await minimal.load()).ping())
+void runtime.run(Scoped, {}, options, async ({ minimal }) => (await minimal.load()).ping())
+void runtime.run(Root, validInput, options, async ({ consumer }) => (await consumer.load()).test())
+void runtime.run(Root, validInput, undefined, async ({ consumer }) => (await consumer.load()).test())
+const LegacyScoped = define.entry('legacy-scoped', { requires: { minimal: Minimal }, scope: { fresh: [Minimal] } })
+const legacyDescriptorScope: ReuseConstraints = LegacyScoped.scope
+void legacyDescriptorScope
+void runtime.enter(LegacyScoped, { scope: { fresh: [Minimal] } })
+void runtime.enter(Root, { ...validInput, scope: { share: [Implementation] } })
+void runtime.run(Root, { ...validInput, scope: { fresh: [Implementation] } }, async ({ consumer }) => (await consumer.load()).test())
+void runtime.run(LegacyScoped, { scope: { fresh: [Minimal] } }, async ({ minimal }) => (await minimal.load()).ping())
+// @ts-expect-error `reuse` is a call option, never a parameter key.
+void runtime.enter(Root, { ...validInput, reuse: { fresh: [Implementation] } })
+// @ts-expect-error The parameter values type no longer admits `scope`.
+const scopedValues: EntryParameters<typeof Root> = { ...validInput, scope: { fresh: [Implementation] } }
+void scopedValues
+// @ts-expect-error Options carry only `reuse`.
+void runtime.enter(Scoped, {}, { fresh: [Minimal] })
 
 // Input refs have no preload(); loadAll() therefore rejects them at compile time.
 const InputConsumer = define.service('input-consumer', {

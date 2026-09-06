@@ -215,7 +215,7 @@ test('selector candidate changes propagate through its canonical synthetic slot'
   const Root = define.entry('root', { requires: { panel: Panel } })
   const Child = define.entry('child', {
     requires: { panel: Panel },
-    scope: { fresh: [Panel] },
+    reuse: { fresh: [Panel] },
   })
   const runtime = createRuntime({ services: [Panel, Provider] })
   const root = await runtime.enter(Root)

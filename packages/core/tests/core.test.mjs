@@ -120,11 +120,11 @@ test('fresh forks a slot and all dependants; share is a hard constraint', async 
   const Root = define.entry('root', { requires: { a: A, b: B } })
   const Fresh = define.entry('fresh', {
     requires: { a: A, b: B },
-    scope: { fresh: [B] },
+    reuse: { fresh: [B] },
   })
   const Impossible = define.entry('impossible', {
     requires: { b: B },
-    scope: { fresh: [B], share: [B] },
+    reuse: { fresh: [B], share: [B] },
   })
 
   const runtime = createRuntime({ services: [A, B] })
@@ -173,7 +173,7 @@ test('freshening one member of a structural SCC forks the whole SCC', async () =
   const Root = define.entry('root', { requires: { a: A, b: B } })
   const Child = define.entry('child', {
     requires: { a: A, b: B },
-    scope: { fresh: [A] },
+    reuse: { fresh: [A] },
   })
   const runtime = createRuntime({ services: [A, B] })
   const root = await runtime.enter(Root)

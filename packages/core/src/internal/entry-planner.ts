@@ -10,8 +10,9 @@ import type {
   ForkCause,
   Input,
   PlannedEnvInspection,
+  ReuseConstraints,
+  ReuseTarget,
   RuntimePolicy,
-  ScopeTarget,
   ServiceFamily,
   ServiceRevision,
 } from '../descriptors.js'
@@ -80,23 +81,24 @@ export function entryDefinitionSignature(entry: EntryDescriptor): string {
         .sort(([a], [b]) => a.localeCompare(b))
         .map(([key, value]) => [key, `${value.kind}:${value.id}`]),
     ),
+    // The key is named after the 0.5 field on purpose: plan-template keys are unchanged by the rename.
     scope: {
-      fresh: (entry.scope.fresh ?? []).map(scopeTargetIdentity).sort(),
-      share: (entry.scope.share ?? []).map(scopeTargetIdentity).sort(),
+      fresh: (entry.reuse.fresh ?? []).map(scopeTargetIdentity).sort(),
+      share: (entry.reuse.share ?? []).map(scopeTargetIdentity).sort(),
     },
   })
 }
 
-function scopeTargetIdentity(target: ScopeTarget): string {
+function scopeTargetIdentity(target: ReuseTarget): string {
   if (typeof target !== 'object' || target === null) {
-    throw new SynaError('INVALID_DESCRIPTOR', 'Scope targets must be Service revisions or families.')
+    throw new SynaError('INVALID_DESCRIPTOR', 'Reuse targets must be Service revisions or families.')
   }
   return target.kind === 'service-revision'
     ? `revision:${target.key}`
     : `family:${target.id}`
 }
 
-function scopeTargetSet(targets: readonly ScopeTarget[] | undefined): ScopeTargetSet {
+function scopeTargetSet(targets: readonly ReuseTarget[] | undefined): ScopeTargetSet {
   const revisionKeys = new Set<string>()
   const familyIds = new Set<string>()
   for (const target of targets ?? []) {
@@ -185,6 +187,7 @@ export class EntryPlanner implements GraphBuilderHost {
     parent: PlanningParent | undefined,
     descriptor: E,
     input: EntryParameters<E> | undefined,
+    reuse: ReuseConstraints | undefined,
     checking: boolean,
     realm: ResolutionRealm,
   ): PlannedEntry {
@@ -234,8 +237,8 @@ export class EntryPlanner implements GraphBuilderHost {
       rootSiteByEntryKey.set(key, rootSite.id)
     }
 
-    const fresh = this.mergeScopeTargets(descriptor.scope.fresh, normalizedInput.scope?.fresh)
-    const share = this.mergeScopeTargets(descriptor.scope.share, normalizedInput.scope?.share)
+    const fresh = this.mergeScopeTargets(descriptor.reuse.fresh, reuse?.fresh)
+    const share = this.mergeScopeTargets(descriptor.reuse.share, reuse?.share)
     const planInput: PlanEntryParameters = {
       envId,
       checking,
@@ -840,8 +843,8 @@ export class EntryPlanner implements GraphBuilderHost {
   }
 
   private mergeScopeTargets(
-    first: readonly ScopeTarget[] | undefined,
-    second: readonly ScopeTarget[] | undefined,
+    first: readonly ReuseTarget[] | undefined,
+    second: readonly ReuseTarget[] | undefined,
   ): ScopeTargetSet {
     const left = scopeTargetSet(first)
     const right = scopeTargetSet(second)

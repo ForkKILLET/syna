@@ -190,7 +190,7 @@ test('definition override preserves source admission identity across exact, Cont
   })
   const Fresh = define.entry('fresh', {
     requires: { exact: ExactConsumer },
-    scope: { fresh: [Real] },
+    reuse: { fresh: [Real] },
   })
   const runtime = createRuntime({
     services: [ExactConsumer, ContractConsumer, Real],

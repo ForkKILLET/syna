@@ -164,7 +164,7 @@ test('R19 SCC members fork together and dispose in reverse completion order; a l
     setup: ({ late }, { onDispose }) => { onDispose(() => events.push('user')); return { useLate: () => late.load() } },
   })
   const Root = define.entry('root', { requires: { user: User, x: X, y: Y } })
-  const Child = define.entry('child', { requires: { user: User }, scope: { fresh: [Y] } })
+  const Child = define.entry('child', { requires: { user: User }, reuse: { fresh: [Y] } })
   const runtime = createRuntime({ services: [User, Late, X, Y] })
   const root = await runtime.enter(Root)
   const user = await root.deps.user.load()      // materializes user, x, y (y via x's structural edge is lazy: only x)

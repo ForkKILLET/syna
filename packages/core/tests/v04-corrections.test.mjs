@@ -144,7 +144,7 @@ test('definition override is coherent for exact, Contract, all and scope targeti
   const Root = define.entry('root', { requires: { consumer: Consumer } })
   const Fresh = define.entry('fresh', {
     requires: { consumer: Consumer },
-    scope: { fresh: [Real] },
+    reuse: { fresh: [Real] },
   })
   const runtime = createRuntime({ services: [Consumer, Real], overrides: [override(Real, Fake)] })
   const root = await runtime.enter(Root)

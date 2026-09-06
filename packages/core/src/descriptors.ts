@@ -435,11 +435,30 @@ export type EntryParameterValues<Parameters extends EntryParameterMap> = {
   readonly [Key in keyof Parameters]: EntryParameterValue<Parameters[Key]>
 }
 
-export type ScopeTarget = ServiceRevision<any> | ServiceFamily<any>
+/** A Service revision or family named by a reuse constraint. */
+export type ReuseTarget = ServiceRevision<any> | ServiceFamily<any>
 
-export interface DeriveOptions {
-  readonly fresh?: readonly ScopeTarget[]
-  readonly share?: readonly ScopeTarget[]
+/** @deprecated Use `ReuseTarget`. Removed in 0.7.0. */
+export type ScopeTarget = ReuseTarget
+
+/**
+ * Reuse constraints of an Entry or of one call. `fresh` targets never reuse the
+ * parent's slot (their reverse dependency closure is forked); `share` targets
+ * must reuse it (`SHARE_CONSTRAINT_FAILED` otherwise). Targets that are not
+ * active in the parent world fail with `CONSTRAINT_VIOLATION`.
+ */
+export interface ReuseConstraints {
+  readonly fresh?: readonly ReuseTarget[]
+  readonly share?: readonly ReuseTarget[]
+}
+
+/** @deprecated Use `ReuseConstraints`. Removed in 0.7.0. */
+export type DeriveOptions = ReuseConstraints
+
+/** Call-time options of `enter`, `run`, `check` and `explain`. */
+export interface EntryOptions {
+  /** Per-call reuse constraints, merged with the Entry's own `reuse`. */
+  readonly reuse?: ReuseConstraints
 }
 
 export interface EntryDescriptor<
@@ -452,17 +471,28 @@ export interface EntryDescriptor<
   readonly apiVersion: number
   readonly requires: Requires
   readonly parameters: Parameters
-  readonly scope: Readonly<DeriveOptions>
+  readonly reuse: Readonly<ReuseConstraints>
+  /** @deprecated Use `reuse` (the same object). Removed in 0.7.0. */
+  readonly scope: Readonly<ReuseConstraints>
   readonly metadata: Readonly<DescriptorMetadata>
 }
 
 export type EntryParameters<E extends EntryDescriptor<any, any>> =
-  EntryParameterValues<E['parameters']> & { readonly scope?: DeriveOptions }
+  EntryParameterValues<E['parameters']>
+
+/** The 0.5 call form: reuse constraints inside the parameter record. */
+type ScopedEntryParameters<E extends EntryDescriptor> =
+  EntryParameterValues<E['parameters']> & {
+    /** @deprecated Pass `{ reuse }` as the separate options argument. Removed in 0.7.0. */
+    readonly scope: ReuseConstraints
+  }
 
 export type EntryArguments<E extends EntryDescriptor<any, any>> =
   keyof E['parameters'] extends never
-    ? [parameters?: EntryParameters<E>]
-    : [parameters: EntryParameters<E>]
+    ? | [parameters?: EntryParameters<E> | undefined, options?: EntryOptions | undefined]
+      | [parameters: ScopedEntryParameters<E>]
+    : | [parameters: EntryParameters<E>, options?: EntryOptions | undefined]
+      | [parameters: ScopedEntryParameters<E>]
 
 export type EntryDependencies<E extends EntryDescriptor<any, any>> =
   DependencyRefs<E['requires']>
@@ -475,8 +505,12 @@ export type EntryCallback<E extends EntryDescriptor<any, any>, Result> = (
 export type EntryRunArguments<E extends EntryDescriptor<any, any>, Result> =
   keyof E['parameters'] extends never
     ? | [callback: EntryCallback<E, Result>]
-      | [parameters: EntryParameters<E>, callback: EntryCallback<E, Result>]
-    : [parameters: EntryParameters<E>, callback: EntryCallback<E, Result>]
+      | [parameters: EntryParameters<E> | undefined, callback: EntryCallback<E, Result>]
+      | [parameters: EntryParameters<E> | undefined, options: EntryOptions | undefined, callback: EntryCallback<E, Result>]
+      | [parameters: ScopedEntryParameters<E>, callback: EntryCallback<E, Result>]
+    : | [parameters: EntryParameters<E>, callback: EntryCallback<E, Result>]
+      | [parameters: EntryParameters<E>, options: EntryOptions | undefined, callback: EntryCallback<E, Result>]
+      | [parameters: ScopedEntryParameters<E>, callback: EntryCallback<E, Result>]
 
 export interface RuntimePolicyContext {
   readonly site: string
@@ -792,7 +826,7 @@ export interface EnvHandle<Requires extends DependencyMap = DependencyMap> {
     ...args: EntryArguments<E>
   ): Promise<EntryExplanation>
 
-  derive(options?: DeriveOptions): Promise<EnvHandle<{}>>
+  derive(reuse?: ReuseConstraints): Promise<EnvHandle<{}>>
   bind<E extends EntryDescriptor<any, any>>(entry: E): BoundEntry<E>
   inspect(): EnvInspection
   dispose(): Promise<void>
@@ -849,7 +883,9 @@ export interface EntryDefinition<
 > extends DefinitionOptions {
   readonly requires?: Requires
   readonly parameters?: Parameters
-  readonly scope?: DeriveOptions
+  readonly reuse?: ReuseConstraints
+  /** @deprecated Use `reuse`. Removed in 0.7.0. */
+  readonly scope?: ReuseConstraints
 }
 
 export interface PackageDefinitions {

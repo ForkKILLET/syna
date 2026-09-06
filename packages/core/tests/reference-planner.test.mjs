@@ -55,7 +55,7 @@ function generate(seed) {
   const Child = define.entry('child', {
     requires: Object.fromEntries(childRoots.map(service => [service.family.id.split('/').at(-1), service])),
     parameters,
-    scope: { fresh: freshTargets },
+    reuse: { fresh: freshTargets },
   })
   return { seed, define, inputs, specs, services, Root, Child, reprovide, freshTargets }
 }

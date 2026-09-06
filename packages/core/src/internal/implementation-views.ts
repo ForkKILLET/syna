@@ -22,6 +22,7 @@ import type {
   SelectorPlanNode,
   SyntheticSlot,
 } from './runtime-model.js'
+import { withDeprecatedScope } from '../definition.js'
 import { PUBLIC_REALM } from './resolution-realm.js'
 
 /** The subset of Runtime behaviour the collection views need. */
@@ -64,16 +65,16 @@ export function candidateEntry(
   }
   const existing = byContract.get(contract.id)
   if (existing) return existing
-  const entry = Object.freeze({
+  const entry = Object.freeze(withDeprecatedScope({
     kind: 'entry' as const,
     package: host.internalPackage,
     id: `@syna/core/entry/candidate/${contract.id}/${revision.key}/v1`,
     apiVersion: 1,
     requires: Object.freeze({ implementation: revision.source }),
     parameters: Object.freeze({}),
-    scope: Object.freeze({ fresh: Object.freeze([]), share: Object.freeze([]) }),
+    reuse: Object.freeze({ fresh: Object.freeze([]), share: Object.freeze([]) }),
     metadata: Object.freeze({}),
-  })
+  }))
   byContract.set(contract.id, entry)
   return entry
 }

@@ -110,11 +110,11 @@ const { database, logger } = await loadAll({ database, logger })   // Service re
 const RequestEntry = define.entry('request', {
   requires: { handler: RequestHandler },
   parameters: { request: CurrentRequest, provider: SummaryLlm },
-  scope: { fresh: [RequestCache.family], share: [Database] },
+  reuse: { fresh: [RequestCache.family], share: [Database] },
 })
 ```
 
-`requires` is the typed surface the caller receives (`env.deps`). `parameters` are Input provisions and Binding assignments. `scope.fresh`/`share` accept exact revisions or families; the planner computes the reverse dependency closure. Conflicts fail explicitly (`SHARE_CONSTRAINT_FAILED`, `CONSTRAINT_VIOLATION`).
+`requires` is the typed surface the caller receives (`env.deps`). `parameters` are Input provisions and Binding assignments. `reuse.fresh`/`share` accept exact revisions or families (`ReuseTarget`); the planner computes the reverse dependency closure. The same constraints can be given per call as the separate options argument — `env.enter(RequestEntry, { request, provider }, { reuse: { fresh: [RequestCache.family] } })` — and definition-time and call-time targets are merged. Conflicts fail explicitly (`SHARE_CONSTRAINT_FAILED`, `CONSTRAINT_VIOLATION`). `reuse` and `scope` are reserved parameter names. `scope` — in the definition, on the descriptor (`entry.scope === entry.reuse`) and as a key inside the parameter record — is the deprecated 0.5 form, removed in 0.7.0; one call may use one form, not both.
 
 ## Runtime
 
@@ -141,10 +141,10 @@ const runtime = createRuntime({
 Methods:
 
 ```ts
-runtime.enter(entry, parameters?)     // Promise<EnvHandle>
-runtime.run(entry, parameters?, callback)
-runtime.check(entry, parameters?)     // Promise<EntryCheck>  (plan only)
-runtime.explain(entry, parameters?)   // Promise<EntryExplanation> (plan only)
+runtime.enter(entry, parameters?, options?)          // Promise<EnvHandle>; options: { reuse?: ReuseConstraints }
+runtime.run(entry, parameters?, options?, callback)  // the callback is always the last argument
+runtime.check(entry, parameters?, options?)          // Promise<EntryCheck>  (plan only)
+runtime.explain(entry, parameters?, options?)        // Promise<EntryExplanation> (plan only)
 runtime.inspect()                     // admitted/internal/overridden services, root/live env counts, plan cache stats, warnings,
                                       // unsettledAttempts: attempts timed out, abandoned, rolling back or settling late, held until they settle
                                       // (retention is bounded by the caller's own setup Promise; its collection closes the attempt as unreachable)
@@ -158,8 +158,8 @@ runtime.dispose(); await runtime[Symbol.asyncDispose]()
 env.id; env.deps; env.state            // 'activating' | 'ready' | 'disposing' | 'disposed'
                                        // 'disposed' only once every attempt abandoned by this Env's close has settled
                                        // (its own and those of the descendants that close took down with it)
-env.enter(entry, parameters?); env.run(...); env.check(...); env.explain(...)
-env.derive({ fresh, share })
+env.enter(entry, parameters?, options?); env.run(...); env.check(...); env.explain(...)
+env.derive(reuse)                      // a child world with only reuse constraints ({ fresh, share })
 env.bind(entry)                        // BoundEntry anchored at this Env, public authority
 env.inspect()                          // nodes with slot ids, owners and slot states
 env.dispose(); await env[Symbol.asyncDispose]()
@@ -223,3 +223,14 @@ if (explanation.ok) {
 ## Platform
 
 Node ≥ 22 (validated on 22/24 in CI configuration and 26 locally), TypeScript 5.9 strict with `exactOptionalPropertyTypes`, `lib: ES2022 + ESNext.Disposable`, real `@types/node`. `Symbol.asyncDispose` is used natively; no ambient async_hooks typing is involved because v0.5 uses no AsyncLocalStorage.
+
+## Deprecated in 0.6, removed in 0.7.0
+
+Every 0.5 name below still works in 0.6.x exactly as before (same object or a forwarding alias, same checks) and is flagged `@deprecated` in the type declarations. `docs/MIGRATION_V05_TO_V06.md` gives the reason for each rename; `docs/API_STABILITY.md` states the deprecation policy.
+
+| 0.5 | 0.6 | Notes |
+|---|---|---|
+| `EntryDefinition.scope`, `EntryDescriptor.scope` | `reuse` | `descriptor.scope` is a non-enumerable alias of `descriptor.reuse`; a definition may not give both |
+| `scope` inside the parameter record of `enter`/`run`/`check`/`explain` | the separate options argument `{ reuse }` | one call may use one form, not both; `reuse` is never a parameter key |
+| `DeriveOptions` | `ReuseConstraints` | type alias |
+| `ScopeTarget` | `ReuseTarget` | type alias |
