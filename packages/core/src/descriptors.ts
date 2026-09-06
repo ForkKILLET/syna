@@ -87,20 +87,19 @@ export type InputValue<I> = I extends Input<infer T> ? T : never
 /**
  * JSON-safe implementation preference (a Binding assignment, a catalog lookup);
  * never an Env-local slot reference. Serializes as
- * `{ kind, contractId, familyId, version }`. Persisted data compatibility:
- * `parse()` and every Runtime read path permanently accept the 0.5 key (`implementationId`)
- * the 0.5 line wrote for `familyId`, and report each such read as a
- * `legacy-implementation-ref` diagnostics event; `kind` is the stable
- * on-disk discriminator (its value dates from 0.4 and never changes).
+ * `{ kind, contractId, familyId, range }`: the one shape `parse()` and every
+ * Runtime read path accept; anything else is refused with `INVALID_DESCRIPTOR`.
+ * `kind` is the on-disk discriminator.
  */
 export interface ImplementationRef<
   C extends Contract<any> = Contract<any>,
 > {
-  readonly kind: 'persistent-implementation-ref'
+  readonly kind: 'implementation-ref'
   readonly contractId: string
   /** The implementation family (`ServiceFamily.id`). */
   readonly familyId: string
-  readonly version: string
+  /** The version range the reference asks for. */
+  readonly range: string
   readonly __type?: C
 }
 
@@ -149,7 +148,7 @@ export interface Binding<C extends Contract<any> = Contract<any>> {
 
   to<S extends ServiceRevision<any, any>>(
     service: ServiceInstance<S> extends ContractApi<C> ? S : never,
-    version?: string,
+    range?: string,
   ): ImplementationRef<C>
 
   parse(input: unknown): ImplementationRef<C>
@@ -290,8 +289,8 @@ export interface ServiceDefinition<
    * itself keeps running (its result is adopted while the owner Env is ready).
    * `Infinity` disables it.
    */
-  readonly setupDeadlineMs?: number
-  readonly metadata?: DescriptorMetadata
+  readonly loadTimeoutMs?: number
+  readonly familyMetadata?: DescriptorMetadata
   readonly revisionMetadata?: DescriptorMetadata
   readonly setup: (
     dependencies: DependencyRefs<Requires>,
@@ -311,19 +310,19 @@ export interface ServiceRevision<Instance = unknown, PublicApi = unknown> {
   readonly package: PackageDescriptor
   readonly family: ServiceFamily<PublicApi>
   readonly version: string
-  readonly key: string
+  readonly id: string
   readonly requires: DependencyMap
   readonly provides: readonly Contract[]
   readonly eager: boolean
   readonly failure: NormalizedServiceFailurePolicy
-  readonly setupDeadlineMs: number | undefined
-  readonly metadata: Readonly<DescriptorMetadata>
+  readonly loadTimeoutMs: number | undefined
+  readonly revisionMetadata: Readonly<DescriptorMetadata>
   setup(
     dependencies: DependencyRefs<DependencyMap>,
     lifecycle: ServiceLifecycle,
   ): SetupResult<Instance>
   /** A compatible-revision reference; it loads the Contract view of this revision, see `ServiceRange`. */
-  range(version?: string): ServiceRange<ServiceFamily<PublicApi>>
+  range(range?: string): ServiceRange<ServiceFamily<PublicApi>>
 }
 
 export type ServiceInstance<S> =
@@ -345,17 +344,17 @@ export interface ImplementationRecord<C extends Contract<any> = Contract<any>> {
   readonly eager: boolean
   readonly familyMetadata: Readonly<DescriptorMetadata>
   readonly revisionMetadata: Readonly<DescriptorMetadata>
-  readonly persistentRef: ImplementationRef<C>
+  readonly implementationRef: ImplementationRef<C>
 }
 
 /**
  * One candidate of a same-Env collection: the descriptor of an admitted
- * revision plus the Env-local `ref` that `set.load()` accepts. Every candidate
+ * revision plus the Env-local `candidateRef` that `set.load()` accepts. Every candidate
  * is a real node of the current topology and can be loaded.
  */
 export interface ImplementationCandidate<C extends Contract<any> = Contract<any>>
   extends ImplementationRecord<C> {
-  readonly ref: CandidateRef<C>
+  readonly candidateRef: CandidateRef<C>
 }
 
 /** Same-Env collection: every candidate is a real node of the current topology. */
@@ -455,7 +454,7 @@ export type EntryRunCallArguments<E extends Entry<any, any>, Result> =
 export interface RuntimePolicyContext {
   /** The dependency site being resolved. */
   readonly dependencySite: string
-  readonly parentActiveRevisionKeys: ReadonlySet<string>
+  readonly parentActiveRevisionIds: ReadonlySet<string>
 }
 
 export interface RuntimePolicy {
@@ -493,7 +492,7 @@ export interface ServiceOverride<
 }
 
 /**
- * Runtime limits. Defaults: `setupDeadlineMs` 30_000, `disposalGraceMs` 2_000,
+ * Runtime limits. Defaults: `loadTimeoutMs` 30_000, `disposalGraceMs` 2_000,
  * `planningBudget` 10_000, `planCacheEntries` 512.
  */
 export interface RuntimeLimits {
@@ -503,7 +502,7 @@ export interface RuntimeLimits {
    * the attempt: a late success is adopted while the owner Env is ready and
    * discarded only by a close. Never proves a deadlock.
    */
-  readonly setupDeadlineMs?: number
+  readonly loadTimeoutMs?: number
   /**
    * How long disposal waits, in milliseconds (2_000), after broadcasting the
    * stop signal, for each in-flight setup attempt of the closing Env (overdue
@@ -532,7 +531,7 @@ export type RuntimeEvent =
       readonly slot: string
       readonly revision: string
       readonly env: string
-      readonly attempt: number
+      readonly attemptNumber: number
       readonly deadlineMs: number
       readonly elapsedMs: number
     }
@@ -612,21 +611,6 @@ export type RuntimeEvent =
       readonly revision: string
       readonly env: string
     }
-  | {
-      /**
-       * The Runtime read an implementation reference whose family was given
-       * under the 0.5 serialized key `implementationId` (a raw object carrying
-       * only that key, or a ref `parse()` produced from one). The reference is
-       * accepted permanently; the event is reported once per read so stored
-       * documents can be rewritten to the `familyId` form at leisure.
-       */
-      readonly type: 'legacy-implementation-ref'
-      readonly contractId: string
-      readonly familyId: string
-      readonly version: string
-      /** Where the reference was read: a Binding site, `catalog.resolve()` or an `ImplementationSet` site. */
-      readonly site: string
-    }
 
 export interface DiagnosticsOptions {
   readonly onEvent?: (event: RuntimeEvent) => void
@@ -642,7 +626,7 @@ export interface CreateRuntimeOptions {
 
 /** A setup attempt whose raw Promise is still pending after a waiter's deadline passed or its owner Env closed. */
 export interface UnsettledAttemptInspection {
-  readonly attempt: number
+  readonly attemptNumber: number
   readonly slot: string
   readonly revision: string
   readonly env: string
@@ -655,7 +639,7 @@ export interface UnsettledAttemptInspection {
    * unreachable and the late cleanups are running.
    */
   readonly state: 'timed-out' | 'abandoned' | 'rolling-back' | 'settling'
-  readonly runningForMs: number
+  readonly elapsedMs: number
 }
 
 /**
@@ -674,7 +658,7 @@ export interface DefinitionCounts {
 
 export interface RuntimeInspection {
   readonly admittedServices: readonly string[]
-  readonly internalServices: readonly string[]
+  readonly privateServices: readonly string[]
   readonly overriddenServices: readonly string[]
   readonly definitions: DefinitionCounts
   /** Root Envs that have not completed their bounded close. */
@@ -694,7 +678,7 @@ export interface RuntimeInspection {
     readonly misses: number
     readonly entries: number
     readonly evictions: number
-    readonly maxEntries: number
+    readonly limit: number
   }
   readonly definitionWarnings: readonly string[]
 }
@@ -767,7 +751,7 @@ export interface ExplainedNode {
   readonly nodeId: string
   readonly kind: InspectionNodeKind
   readonly label: string
-  readonly disposition: NodePlacement
+  readonly placement: NodePlacement
   readonly eager: boolean
   readonly cause?: ForkCause
   /** Node ids from this node to the terminal cause. */
@@ -787,7 +771,7 @@ export interface EntryExplanationSuccess {
   readonly parameters: {
     readonly inputsProvided: readonly string[]
     readonly inputsInherited: readonly string[]
-    readonly bindingsResolved: Readonly<Record<string, string>>
+    readonly bindingsAssigned: Readonly<Record<string, string>>
     readonly bindingsInherited: Readonly<Record<string, string>>
   }
   readonly services: ExplainCounts & {

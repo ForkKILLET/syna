@@ -26,7 +26,8 @@ import type {
   ServiceRevision,
   ServiceOverride,
 } from './descriptors.js'
-import { assertValidRange, caretRange, normalizeVersion } from './semver.js'
+import { SynaError } from './errors.js'
+import { assertValidRange, caretRange, isValidRange, normalizeVersion } from './semver.js'
 
 function assertId(id: string, kind: string): void {
   if (id.trim().length === 0) throw new TypeError(`${kind} id must not be empty.`)
@@ -97,106 +98,54 @@ function mergeMetadata(
   })
 }
 
-/**
- * Marks a ref `parseImplementationRef()` produced from a document that named
- * the family under the 0.5 serialized key. Symbol-keyed and non-enumerable:
- * invisible to JSON, `Object.keys()` and object spread, and not part of the
- * public type. Runtime read paths report such refs once per read as a
- * `legacy-implementation-ref` diagnostics event.
- */
-const LEGACY_KEY_MARKER: unique symbol = Symbol('syna.legacy-implementation-key')
-
-/** The 0.5 serialized key of `familyId`; read permanently (persisted data compatibility), never written. */
-const LEGACY_FAMILY_KEY = 'implementationId' // syna-v05-compat: the 0.5 serialized key is read permanently
-
-/** A raw implementation reference as a caller may hand it over: the serialized shape, possibly under the 0.5 key. */
-interface RawImplementationRef {
-  readonly familyId?: unknown
-  readonly [LEGACY_FAMILY_KEY]?: unknown
-}
-
-/**
- * The family an implementation reference names: the `familyId` key, or, for a
- * raw (unparsed) object written by the 0.5 line, the 0.5 key. Accepted
- * permanently; `isLegacyImplementationRef()` tells whether the read must be
- * reported.
- */
-export function familyIdOf(ref: RawImplementationRef): string {
-  const id = ref.familyId ?? ref[LEGACY_FAMILY_KEY]
-  return typeof id === 'string' ? id : String(id)
-}
-
-/**
- * Whether a Runtime read of `ref` is reported as `legacy-implementation-ref`:
- * the ref was parsed from a document carrying the 0.5 key only, or is a raw
- * object that names its family under that key only. A document carrying both
- * keys (equal) is read through `familyId` and is not legacy.
- */
-export function isLegacyImplementationRef(ref: object): boolean {
-  if ((ref as { readonly [LEGACY_KEY_MARKER]?: true })[LEGACY_KEY_MARKER] === true) return true
-  const raw = ref as RawImplementationRef
-  return typeof raw.familyId !== 'string' && typeof raw[LEGACY_FAMILY_KEY] === 'string'
-}
-
-/**
- * A ref in the serialized shape for a raw object that may carry the 0.5 key:
- * what the catalog reports as `persistentRef` after resolving a caller's
- * reference. No validation — the reference has already resolved — and no
- * legacy marker: the reported ref is the Runtime's own.
- */
-export function normalizeImplementationRef<C extends Contract>(ref: ImplementationRef<C>): ImplementationRef<C> {
-  if (!isLegacyImplementationRef(ref) && !(LEGACY_FAMILY_KEY in ref)) return ref
-  return createImplementationRef(ref, familyIdOf(ref), ref.version)
-}
-
 export function createImplementationRef<C extends Contract<any>>(
   contract: Pick<ImplementationRef, 'contractId'> | Pick<Contract, 'id'>,
   familyId: string,
-  version: string,
-  options: { readonly legacyKey?: boolean } = {},
+  range: string,
 ): ImplementationRef<C> {
   assertId(familyId, 'Implementation')
-  if (version.trim().length === 0) {
-    throw new TypeError('Implementation version intent must not be empty.')
+  if (range.trim().length === 0) {
+    throw new TypeError('Implementation range must not be empty.')
   }
-  assertValidRange(version, `Implementation version intent for ${familyId}`)
-  const ref = {
-    kind: 'persistent-implementation-ref' as const,
+  assertValidRange(range, `Implementation range for ${familyId}`)
+  return Object.freeze({
+    kind: 'implementation-ref' as const,
     contractId: 'contractId' in contract ? contract.contractId : contract.id,
     familyId,
-    version,
-  }
-  if (options.legacyKey) {
-    Object.defineProperty(ref, LEGACY_KEY_MARKER, { value: true, enumerable: false, writable: false, configurable: false })
-  }
-  return Object.freeze(ref) as unknown as ImplementationRef<C>
+    range,
+  }) as unknown as ImplementationRef<C>
 }
 
+/**
+ * The one read path of a serialized implementation reference: a plain object
+ * `{ kind: 'implementation-ref', contractId, familyId, range }` naming this
+ * Contract, a non-empty family and a valid version range. Anything else — another
+ * `kind` (the pre-0.8 kind included), another Contract, a missing or empty family
+ * or range, a range that does not parse — is refused with `INVALID_DESCRIPTOR`
+ * (`problem`: `not-an-object`, `wrong-kind` or `malformed-implementation-ref`).
+ */
 export function parseImplementationRef<C extends Contract<any>>(
   contract: C,
   input: unknown,
 ): ImplementationRef<C> {
   if (typeof input !== 'object' || input === null) {
-    throw new TypeError('A persistent implementation reference must be an object.')
+    throw new SynaError('INVALID_DESCRIPTOR', 'An implementation reference must be an object.', { descriptor: 'ImplementationRef', problem: 'not-an-object' })
   }
   const value = input as Readonly<Record<string, unknown>>
-  const hasFamilyId = typeof value.familyId === 'string'
-  const hasLegacyId = typeof value[LEGACY_FAMILY_KEY] === 'string'
-  const familyId = hasFamilyId ? value.familyId as string : hasLegacyId ? value[LEGACY_FAMILY_KEY] as string : undefined
-  if (
-    value.kind !== 'persistent-implementation-ref'
-    || value.contractId !== contract.id
-    || familyId === undefined
-    || familyId.trim().length === 0
-    || (hasFamilyId && hasLegacyId && value.familyId !== value[LEGACY_FAMILY_KEY])
-    || typeof value.version !== 'string'
-    || value.version.trim().length === 0
-  ) {
-    throw new TypeError(
-      `Invalid persistent implementation reference for Contract ${contract.id}.`,
-    )
+  if (value.kind !== 'implementation-ref') {
+    throw new SynaError('INVALID_DESCRIPTOR', `Invalid implementation reference for Contract ${contract.id}: kind must be "implementation-ref".`, { descriptor: 'ImplementationRef', problem: 'wrong-kind' })
   }
-  return createImplementationRef(contract, familyId, value.version, { legacyKey: !hasFamilyId })
+  if (
+    value.contractId !== contract.id
+    || typeof value.familyId !== 'string'
+    || value.familyId.trim().length === 0
+    || typeof value.range !== 'string'
+    || value.range.trim().length === 0
+    || !isValidRange(value.range)
+  ) {
+    throw new SynaError('INVALID_DESCRIPTOR', `Invalid implementation reference for Contract ${contract.id}.`, { descriptor: 'ImplementationRef', problem: 'malformed-implementation-ref' })
+  }
+  return createImplementationRef(contract, value.familyId, value.range)
 }
 
 export function auto<C extends Contract<any>>(contract: C): AutoImplementation<C> {
@@ -258,7 +207,7 @@ function normalizeFailure(
 function normalizeDeadline(value: number | undefined): number | undefined {
   if (value === undefined) return undefined
   if (Number.isNaN(value) || value <= 0) {
-    throw new TypeError('setupDeadlineMs must be a positive number or Infinity.')
+    throw new TypeError('loadTimeoutMs must be a positive number or Infinity.')
   }
   return value
 }
@@ -402,16 +351,16 @@ export function definePackage(manifest: PackageManifest): PackageDefinitions {
       apiVersion,
       contract,
       metadata: freezeMetadata(options?.metadata),
-      to(service, version = caretRange(service.version)) {
+      to(service, range = caretRange(service.version)) {
         if (!service.provides.some((provided: Contract) => provided.id === contract.id)) {
           throw new TypeError(
-            `${service.key} does not explicitly provide Contract ${contract.id}.`,
+            `${service.id} does not explicitly provide Contract ${contract.id}.`,
           )
         }
         return createImplementationRef(
           contract,
           service.family.id,
-          version,
+          range,
         )
       },
       parse(input) {
@@ -441,7 +390,7 @@ export function definePackage(manifest: PackageManifest): PackageDefinitions {
       kind: 'service-family',
       id: serviceId(name),
       ...(definition.uniqueWithin === undefined ? {} : { uniqueWithin: definition.uniqueWithin }),
-      metadata: mergeMetadata(packageDescriptor.metadata, definition.metadata),
+      metadata: mergeMetadata(packageDescriptor.metadata, definition.familyMetadata),
     })
     const provides = Object.freeze([...(definition.provides ?? [])]) as readonly Contract[]
     const requiredContractIds = Object.freeze(provides.map(contract => contract.id))
@@ -450,20 +399,20 @@ export function definePackage(manifest: PackageManifest): PackageDefinitions {
       package: packageDescriptor,
       family,
       version: packageDescriptor.version,
-      key: `${family.id}@${packageDescriptor.version}`,
+      id: `${family.id}@${packageDescriptor.version}`,
       requires: freezeRecord((definition.requires ?? {}) as Requires),
       provides,
       eager: definition.eager ?? false,
       failure: normalizeFailure(definition.failure),
-      setupDeadlineMs: normalizeDeadline(definition.setupDeadlineMs),
-      metadata: freezeMetadata(definition.revisionMetadata),
+      loadTimeoutMs: normalizeDeadline(definition.loadTimeoutMs),
+      revisionMetadata: freezeMetadata(definition.revisionMetadata),
       setup: definition.setup as ServiceRevision<Instance, PublicApi>['setup'],
-      range(version = '*') {
-        assertValidRange(version, `Range for ${family.id}`)
+      range(range = '*') {
+        assertValidRange(range, `Range for ${family.id}`)
         return Object.freeze({
           kind: 'service-range' as const,
           family,
-          range: version,
+          range,
           origin: revision,
           requiredContractIds,
         })

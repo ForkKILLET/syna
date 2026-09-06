@@ -4,12 +4,11 @@ import type {
   ImplementationCandidate,
   ImplementationRecord,
   ImplementationRef,
-  RuntimeEvent,
   RuntimePolicy,
   ServiceRevision,
 } from '../descriptors.js'
 import { SynaError } from '../errors.js'
-import { createImplementationRef, familyIdOf, isLegacyImplementationRef, normalizeImplementationRef } from '../definition.js'
+import { createImplementationRef } from '../definition.js'
 import { caretRange, satisfiesVersion } from '../semver.js'
 import { PolicyContext, type CompiledService, type InternalCandidateRef } from './runtime-model.js'
 import { compareRevisionIdentity, providesContract } from './identity.js'
@@ -19,7 +18,7 @@ export interface CandidateIndexOptions<C extends Contract<any>> {
   readonly sourceSlotId: string
   readonly revisions: readonly CompiledService[]
   readonly sitePrefix: string
-  readonly parentActiveRevisionKeys: ReadonlySet<string>
+  readonly parentActiveRevisionIds: ReadonlySet<string>
 }
 
 /**
@@ -34,7 +33,6 @@ export class ImplementationDirectory {
   constructor(
     private readonly admitted: readonly CompiledService[],
     private readonly policy: RuntimePolicy,
-    private readonly onEvent: (event: RuntimeEvent) => void = () => undefined,
   ) {
     const mutable = new Map<string, CompiledService[]>()
     for (const revision of admitted) {
@@ -49,19 +47,6 @@ export class ImplementationDirectory {
 
   candidatesForFamily(familyId: string): readonly CompiledService[] {
     return this.byFamily.get(familyId) ?? Object.freeze([])
-  }
-
-  /**
-   * The family a caller's implementation reference names. A reference in the
-   * 0.5 serialized form (family under the old key, or parsed from such a
-   * document) is accepted and reported once per read as `legacy-implementation-ref`.
-   */
-  familyOf(ref: ImplementationRef, site: string): string {
-    const familyId = familyIdOf(ref)
-    if (isLegacyImplementationRef(ref)) {
-      this.onEvent({ type: 'legacy-implementation-ref', contractId: ref.contractId, familyId, version: ref.version, site })
-    }
-    return familyId
   }
 
   candidatesForContract(contract: Pick<Contract, 'id'>): readonly CompiledService[] {
@@ -86,18 +71,18 @@ export class ImplementationDirectory {
   }
 
   resolveCatalog<C extends Contract<any>>(ref: ImplementationRef<C>): ImplementationRecord<C> {
-    if (typeof ref !== 'object' || ref === null || ref.kind !== 'persistent-implementation-ref') {
-      throw new SynaError('INVALID_DESCRIPTOR', 'catalog.resolve() expects a persistent implementation reference.', { descriptor: 'ImplementationRef', problem: 'wrong-kind' })
+    if (typeof ref !== 'object' || ref === null || ref.kind !== 'implementation-ref') {
+      throw new SynaError('INVALID_DESCRIPTOR', 'catalog.resolve() expects an implementation reference.', { descriptor: 'ImplementationRef', problem: 'wrong-kind' })
     }
     const contract = { id: ref.contractId }
     const revision = this.resolvePersistentRevision(
       contract,
       this.candidatesForContract(contract),
       ref,
-      `catalog:${ref.contractId}:${familyIdOf(ref)}`,
+      `catalog:${ref.contractId}:${ref.familyId}`,
       new Set(),
     )
-    return this.describe<C>(contract, revision, normalizeImplementationRef(ref))
+    return this.describe<C>(contract, revision, ref)
   }
 
   createIndex<C extends Contract<any>>(options: CandidateIndexOptions<C>): CandidateIndex<C> {
@@ -107,7 +92,7 @@ export class ImplementationDirectory {
   describe<C extends Contract<any>>(
     contract: Pick<Contract, 'id'>,
     revision: CompiledService,
-    persistentRef?: ImplementationRef<C>,
+    implementationRef?: ImplementationRef<C>,
   ): ImplementationRecord<C> {
     return Object.freeze({
       contractId: contract.id,
@@ -116,7 +101,7 @@ export class ImplementationDirectory {
       eager: revision.eager,
       familyMetadata: revision.family.metadata,
       revisionMetadata: revision.metadata,
-      persistentRef: persistentRef ?? createImplementationRef<C>(contract, revision.family.id, caretRange(revision.version)),
+      implementationRef: implementationRef ?? createImplementationRef<C>(contract, revision.family.id, caretRange(revision.version)),
     })
   }
 
@@ -125,7 +110,7 @@ export class ImplementationDirectory {
     allowed: readonly CompiledService[],
     ref: ImplementationRef<any>,
     site: string,
-    parentActiveRevisionKeys: ReadonlySet<string>,
+    parentActiveRevisionIds: ReadonlySet<string>,
   ): CompiledService {
     if (ref.contractId !== contract.id) {
       throw new SynaError(
@@ -135,27 +120,27 @@ export class ImplementationDirectory {
       )
     }
     const allowedKeys = new Set(allowed.map(candidate => candidate.key))
-    const familyId = this.familyOf(ref, site)
+    const familyId = ref.familyId
     const family = this.candidatesForFamily(familyId)
     if (family.length === 0) {
       throw new SynaError(
         'MISSING_IMPLEMENTATION',
         `Implementation family ${familyId} is not admitted by this Runtime; no supplier substitution is attempted.`,
-        { contract: contract.id, implementation: familyId, version: ref.version, available: [] },
+        { contract: contract.id, implementation: familyId, version: ref.range, available: [] },
       )
     }
     const matching = family
       .filter(candidate => allowedKeys.has(candidate.key))
       .filter(candidate => providesContract(candidate, contract))
-      .filter(candidate => satisfiesVersion(candidate.version, ref.version))
+      .filter(candidate => satisfiesVersion(candidate.version, ref.range))
     if (matching.length === 0) {
       throw new SynaError(
         'MISSING_IMPLEMENTATION',
-        `No ${familyId} candidate for ${contract.id} satisfies ${ref.version}.`,
+        `No ${familyId} candidate for ${contract.id} satisfies ${ref.range}.`,
         {
           contract: contract.id,
           implementation: familyId,
-          version: ref.version,
+          version: ref.range,
           available: family.map(candidate => candidate.version),
         },
       )
@@ -165,7 +150,7 @@ export class ImplementationDirectory {
       revisions => this.policy.orderVersionCandidates(
         matching[0]!.family,
         revisions,
-        new PolicyContext(site, parentActiveRevisionKeys),
+        new PolicyContext(site, parentActiveRevisionIds),
       ),
       site,
     )
@@ -223,7 +208,7 @@ export class CandidateIndex<C extends Contract<any>> {
     for (const revision of options.revisions) {
       const candidate = Object.freeze({
         ...directory.describe<C>(options.contract, revision),
-        ref: this.createRef(revision),
+        candidateRef: this.createRef(revision),
       }) as ImplementationCandidate<C>
       values.push(candidate)
       this.byRevisionKey.set(revision.key, candidate)
@@ -232,15 +217,15 @@ export class CandidateIndex<C extends Contract<any>> {
   }
 
   resolve(ref: ImplementationRef<C>): ImplementationCandidate<C> {
-    if (typeof ref !== 'object' || ref === null || ref.kind !== 'persistent-implementation-ref') {
-      throw new SynaError('INVALID_DESCRIPTOR', 'resolve() expects a persistent implementation reference.', { descriptor: 'ImplementationRef', problem: 'wrong-kind' })
+    if (typeof ref !== 'object' || ref === null || ref.kind !== 'implementation-ref') {
+      throw new SynaError('INVALID_DESCRIPTOR', 'resolve() expects an implementation reference.', { descriptor: 'ImplementationRef', problem: 'wrong-kind' })
     }
     const selected = this.directory.resolvePersistentRevision(
       this.options.contract,
       this.options.revisions,
       ref,
-      `${this.options.sitePrefix}/persistent:${familyIdOf(ref)}`,
-      this.options.parentActiveRevisionKeys,
+      `${this.options.sitePrefix}/persistent:${ref.familyId}`,
+      this.options.parentActiveRevisionIds,
     )
     return this.byRevisionKey.get(selected.key)!
   }
@@ -249,13 +234,13 @@ export class CandidateIndex<C extends Contract<any>> {
     input: ImplementationCandidate<C> | CandidateRef<C> | ImplementationRef<C>,
   ): ImplementationCandidate<C> {
     if (typeof input !== 'object' || input === null) {
-      throw new SynaError('INVALID_DESCRIPTOR', 'Expected a candidate, candidate ref or persistent ref.', { descriptor: 'ImplementationCandidate', problem: 'not-an-object' })
+      throw new SynaError('INVALID_DESCRIPTOR', 'Expected a candidate, candidate ref or implementation ref.', { descriptor: 'ImplementationCandidate', problem: 'not-an-object' })
     }
-    if ('kind' in input && input.kind === 'persistent-implementation-ref') {
+    if ('kind' in input && input.kind === 'implementation-ref') {
       return this.resolve(input)
     }
 
-    const ref = ('ref' in input ? input.ref : input) as Partial<InternalCandidateRef>
+    const ref = ('candidateRef' in input ? input.candidateRef : input) as Partial<InternalCandidateRef>
     if (ref.kind !== 'candidate-ref' || typeof ref.sourceSlotId !== 'string' || typeof ref.revisionKey !== 'string' || !REVISION_KEY.test(ref.revisionKey)) {
       throw new SynaError('INVALID_DESCRIPTOR', 'Expected a CandidateRef created by this Runtime.', { descriptor: 'CandidateRef', problem: 'not-from-this-runtime' })
     }
@@ -299,7 +284,7 @@ export class CandidateIndex<C extends Contract<any>> {
   }
 
   revisionKey(candidate: ImplementationCandidate<C>): string {
-    return (candidate.ref as InternalCandidateRef).revisionKey
+    return (candidate.candidateRef as InternalCandidateRef).revisionKey
   }
 
   private createRef(revision: CompiledService): InternalCandidateRef {

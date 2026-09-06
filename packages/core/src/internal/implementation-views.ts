@@ -25,7 +25,7 @@ export function createImplementationSet(
     sourceSlotId: slot.id,
     revisions: node.candidates,
     sitePrefix: `all:${node.contract.id}`,
-    parentActiveRevisionKeys: host.activeRevisionKeys(envId),
+    parentActiveRevisionIds: host.activeRevisionKeys(envId),
   })
   const implementationSet: ImplementationSet<any> = {
     contract: node.contract,

@@ -279,12 +279,12 @@ export class Materializer {
     for (const record of this.unsettled.values()) {
       if (!include(record)) continue
       views.push(Object.freeze({
-        attempt: record.id,
+        attemptNumber: record.id,
         slot: record.slot,
         revision: record.revision,
         env: record.env,
         state: record.state,
-        runningForMs: now - record.startedAt,
+        elapsedMs: now - record.startedAt,
       }))
     }
     return Object.freeze(views)
@@ -341,7 +341,7 @@ export class Materializer {
    * Gives every in-flight attempt of the given slots at most `limits.disposalGraceMs`
    * to settle after the owner's stop signal: running sequences, overdue or
    * not. Slots are waited for concurrently, so the whole step is bounded by
-   * one grace period regardless of the per-service `setupDeadlineMs` (even
+   * one grace period regardless of the per-service `loadTimeoutMs` (even
    * `Infinity`). Attempts that do not settle in time are abandoned: their slot
    * is marked `abandoned`, the attempt stays registered as `unsettledAttempt`
    * and in the ledger, `attempt-abandoned` is reported, and its late result is
@@ -535,7 +535,7 @@ export class Materializer {
 
   /** Starts (or restarts) the waiter's deadline for the given running attempt. `Infinity` arms nothing. */
   private arm(waiter: SetupWaiter, slot: ServiceSlot, attempt: SetupAttempt): void {
-    const deadlineMs = slot.service.setupDeadlineMs ?? this.options.deadlineMs
+    const deadlineMs = slot.service.loadTimeoutMs ?? this.options.deadlineMs
     if (!Number.isFinite(deadlineMs)) {
       deadlines.remove(waiter)
       return
@@ -572,7 +572,7 @@ export class Materializer {
         slot: slot.id,
         revision: slot.service.key,
         env: owner.id,
-        attempt: attempt.id,
+        attemptNumber: attempt.id,
         deadlineMs,
         elapsedMs: attempt.overdueAt - attempt.startedAt,
       })
@@ -730,7 +730,7 @@ export class Materializer {
           throw new SynaError(
             'LIFECYCLE_MISUSE',
             `onDispose() for ${slot.service.key} may only be called while its setup attempt is still executing.`,
-            { slot: slot.id, revision: slot.service.key, attempt: attempt.id, state: attempt.state },
+            { slot: slot.id, revision: slot.service.key, attemptNumber: attempt.id, state: attempt.state },
           )
         }
         attempt.cleanups.push(cleanup)
@@ -1094,7 +1094,7 @@ export class Materializer {
         slot: slot.id,
         revision: slot.service.key,
         env: owner.id,
-        attempt: attempt.id,
+        attemptNumber: attempt.id,
         deadlineMs,
         elapsedMs: now - attempt.startedAt,
         pendingLoads,

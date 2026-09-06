@@ -52,7 +52,7 @@ import {
 } from './internal/implementation-views.js'
 import { isBacktrackableTopologyError } from './internal/solve-errors.js'
 
-const DEFAULT_SETUP_DEADLINE_MS = 30_000
+const DEFAULT_LOAD_TIMEOUT_MS = 30_000
 const DEFAULT_DISPOSAL_GRACE_MS = 2_000
 const DEFAULT_PLANNING_BUDGET = 10_000
 const DEFAULT_PLAN_CACHE_ENTRIES = 512
@@ -160,7 +160,7 @@ function positiveNumber(value: number | undefined, fallback: number, name: strin
 /** The 0.5 nested option records, each of which named one limit; refused since 0.7.0 so an old call is never silently unlimited. */
 const REMOVED_LIMIT_RECORDS: ReadonlyMap<string, keyof RuntimeLimits> = new Map([
   ['planCache', 'planCacheEntries'],
-  ['initialization', 'setupDeadlineMs'],
+  ['initialization', 'loadTimeoutMs'],
   ['disposal', 'disposalGraceMs'],
   ['planning', 'planningBudget'],
 ])
@@ -175,7 +175,7 @@ function resolveLimits(options: CreateRuntimeOptions): Required<RuntimeLimits> {
   const limits = options.limits ?? {}
   if (typeof limits !== 'object' || limits === null) throw new TypeError('limits must be an object.')
   return {
-    setupDeadlineMs: positiveNumber(limits.setupDeadlineMs, DEFAULT_SETUP_DEADLINE_MS, 'limits.setupDeadlineMs'),
+    loadTimeoutMs: positiveNumber(limits.loadTimeoutMs, DEFAULT_LOAD_TIMEOUT_MS, 'limits.loadTimeoutMs'),
     disposalGraceMs: positiveNumber(limits.disposalGraceMs, DEFAULT_DISPOSAL_GRACE_MS, 'limits.disposalGraceMs'),
     planningBudget: limits.planningBudget ?? DEFAULT_PLANNING_BUDGET,
     planCacheEntries: limits.planCacheEntries ?? DEFAULT_PLAN_CACHE_ENTRIES,
@@ -196,7 +196,7 @@ export const defaultRuntimePolicy: RuntimePolicy = Object.freeze({
         { contract: contract.id, site: context.dependencySite, families: [...families].sort() },
       )
     }
-    return defaultVersionOrder(candidates, context.parentActiveRevisionKeys)
+    return defaultVersionOrder(candidates, context.parentActiveRevisionIds)
   },
 
   orderVersionCandidates(
@@ -204,7 +204,7 @@ export const defaultRuntimePolicy: RuntimePolicy = Object.freeze({
     candidates: readonly ServiceRevision[],
     context: RuntimePolicyContext,
   ) {
-    return defaultVersionOrder(candidates, context.parentActiveRevisionKeys)
+    return defaultVersionOrder(candidates, context.parentActiveRevisionIds)
   },
 })
 
@@ -350,7 +350,7 @@ class RuntimeImpl implements Runtime, ImplementationViewHost {
       options.overrides ?? [],
       entryDefinitionSignature,
     )
-    this.directory = new ImplementationDirectory(this.compiler.admitted, this.policy, this.onEvent)
+    this.directory = new ImplementationDirectory(this.compiler.admitted, this.policy)
     this.planner = new EntryPlanner(
       this.compiler,
       this.directory,
@@ -360,7 +360,7 @@ class RuntimeImpl implements Runtime, ImplementationViewHost {
     )
     this.disposalGraceMs = limits.disposalGraceMs
     this.materializer = new Materializer({
-      deadlineMs: limits.setupDeadlineMs,
+      deadlineMs: limits.loadTimeoutMs,
       disposalGraceMs: this.disposalGraceMs,
       onEvent: this.onEvent,
     })
@@ -379,7 +379,7 @@ class RuntimeImpl implements Runtime, ImplementationViewHost {
     const definitions = this.compiler.inspect()
     return {
       admittedServices: definitions.admittedServices,
-      internalServices: definitions.internalServices,
+      privateServices: definitions.privateServices,
       overriddenServices: definitions.overriddenServices,
       definitions: definitions.definitions,
       rootEnvCount: [...this.roots].filter(root => root.state !== 'disposed').length,
@@ -695,11 +695,11 @@ class RuntimeImpl implements Runtime, ImplementationViewHost {
 
   private anchorEnvId(anchorNodeId: string | undefined, fallback: EnvImpl<any>): string {
     if (!anchorNodeId) return fallback.id
-    const anchorSlot = fallback.plan.slotsByNode.get(anchorNodeId)
-    if (!anchorSlot) {
+    const anchorNodeSlot = fallback.plan.slotsByNode.get(anchorNodeId)
+    if (!anchorNodeSlot) {
       throw new Error(`Syna internal invariant: missing anchor node ${anchorNodeId}.`)
     }
-    return anchorSlot.ownerEnvId
+    return anchorNodeSlot.ownerEnvId
   }
 
   /** Ready means every eager slot owned by this Env is Ready; inherited eager slots are already Ready in their owner. */

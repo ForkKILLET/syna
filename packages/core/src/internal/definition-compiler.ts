@@ -22,7 +22,7 @@ import {
 
 export interface DefinitionInspection {
   readonly admittedServices: readonly string[]
-  readonly internalServices: readonly string[]
+  readonly privateServices: readonly string[]
   readonly overriddenServices: readonly string[]
   readonly warnings: readonly string[]
   readonly definitions: DefinitionCounts
@@ -36,7 +36,7 @@ export interface DefinitionInspection {
  *
  * Decision table for overrides:
  *   identity / key / family / version / provides / eager / uniqueWithin / metadata → Source
- *   requires / setup / failure / setupDeadlineMs                                     → Fake
+ *   requires / setup / failure / loadTimeoutMs                                     → Fake
  *   Fake's private dependencies enter the internal closure; Fake is not admitted
  *   unless the deployer admits it separately (then it is its own candidate).
  *   Chains resolve to the final target; duplicate sources and cycles are errors.
@@ -84,7 +84,7 @@ export class DefinitionCompiler {
   inspect(): DefinitionInspection {
     return Object.freeze({
       admittedServices: Object.freeze([...this.admittedSources.keys()].sort()),
-      internalServices: Object.freeze([...this.internalSources.keys()].sort()),
+      privateServices: Object.freeze([...this.internalSources.keys()].sort()),
       overriddenServices: Object.freeze([...this.overrideTargets.keys()].sort()),
       warnings: Object.freeze([...this.definitionWarnings].sort()),
       definitions: Object.freeze({
@@ -119,16 +119,16 @@ export class DefinitionCompiler {
    * metadata drift is a warning.
    */
   compiledExact(revision: ServiceRevision): CompiledService {
-    const canonical = this.internalSources.get(revision.key)
+    const canonical = this.internalSources.get(revision.id)
     if (!canonical) {
       throw new SynaError(
         'MISSING_SERVICE',
-        `${revision.key} is not known to this Runtime.`,
-        { revision: revision.key },
+        `${revision.id} is not known to this Runtime.`,
+        { revision: revision.id },
       )
     }
     this.recordDefinitionWarning(assertEquivalentRevisionDefinitions(canonical, revision))
-    return this.compiledByKeyMap.get(revision.key)!
+    return this.compiledByKeyMap.get(revision.id)!
   }
 
   /** Transitive exact closure reachable from one compiled service through its executable manifest. */
@@ -141,8 +141,8 @@ export class DefinitionCompiler {
       seenEntries.add(entry.id)
       for (const dependencyInput of Object.values(entry.requires)) {
         const dependency = unwrapDependency(dependencyInput)
-        if (dependency.kind === 'service-revision') visit(dependency.key)
-        else if (dependency.kind === 'service-range') visit(dependency.origin.key)
+        if (dependency.kind === 'service-revision') visit(dependency.id)
+        else if (dependency.kind === 'service-range') visit(dependency.origin.id)
         else if (dependency.kind === 'entry') visitEntry(dependency, seenEntries)
       }
     }
@@ -156,8 +156,8 @@ export class DefinitionCompiler {
         // A range's origin is part of the closure like an exact reference: it is
         // the revision the author held when writing the range, so it (and what it
         // requires) is always a candidate the private realm may pick.
-        if (dependency.kind === 'service-revision') visit(dependency.key)
-        else if (dependency.kind === 'service-range') visit(dependency.origin.key)
+        if (dependency.kind === 'service-revision') visit(dependency.id)
+        else if (dependency.kind === 'service-range') visit(dependency.origin.id)
         else if (dependency.kind === 'entry') visitEntry(dependency, new Set())
       }
     }
@@ -234,12 +234,12 @@ export class DefinitionCompiler {
   }
 
   private compile(source: ServiceRevision): CompiledService {
-    const existing = this.compiledByKeyMap.get(source.key)
+    const existing = this.compiledByKeyMap.get(source.id)
     if (existing) return existing
-    const target = this.overrideTargets.get(source.key)
+    const target = this.overrideTargets.get(source.id)
     const executable = target ?? source
     const compiled: CompiledService = Object.freeze({
-      key: source.key,
+      key: source.id,
       family: source.family,
       version: source.version,
       source,
@@ -248,12 +248,12 @@ export class DefinitionCompiler {
       requires: executable.requires,
       setup: executable.setup,
       failure: executable.failure,
-      setupDeadlineMs: executable.setupDeadlineMs,
-      metadata: source.metadata,
+      loadTimeoutMs: executable.loadTimeoutMs,
+      metadata: source.revisionMetadata,
       overriddenBy: target,
-      admitted: this.admittedSources.has(source.key),
+      admitted: this.admittedSources.has(source.id),
     })
-    this.compiledByKeyMap.set(source.key, compiled)
+    this.compiledByKeyMap.set(source.id, compiled)
     return compiled
   }
 
@@ -291,31 +291,31 @@ export class DefinitionCompiler {
         )
       }
       this.recordDefinitionWarning(assertEquivalentRevisionDefinitions(source, item.from))
-      if (targets.has(source.key)) {
+      if (targets.has(source.id)) {
         throw new SynaError(
           'DUPLICATE_DEFINITION',
-          `Service ${source.key} is overridden more than once.`,
-          { revision: source.key },
+          `Service ${source.id} is overridden more than once.`,
+          { revision: source.id },
         )
       }
       const target = this.internalSources.get(item.to.key)!
       this.recordDefinitionWarning(assertEquivalentRevisionDefinitions(target, item.to))
-      targets.set(source.key, target)
+      targets.set(source.id, target)
     }
 
     const finalTarget = (sourceKey: string): ServiceRevision => {
       const seen = new Set<string>([sourceKey])
       let target = targets.get(sourceKey)!
-      while (targets.has(target.key)) {
-        if (seen.has(target.key)) {
+      while (targets.has(target.id)) {
+        if (seen.has(target.id)) {
           throw new SynaError(
             'INVALID_DESCRIPTOR',
-            `Runtime service overrides contain a cycle at ${target.key}.`,
-            { descriptor: target.key, problem: 'override-cycle', path: [...seen, target.key] },
+            `Runtime service overrides contain a cycle at ${target.id}.`,
+            { descriptor: target.id, problem: 'override-cycle', path: [...seen, target.id] },
           )
         }
-        seen.add(target.key)
-        target = targets.get(target.key)!
+        seen.add(target.id)
+        target = targets.get(target.id)!
       }
       return target
     }
@@ -330,12 +330,12 @@ export class DefinitionCompiler {
       throw new SynaError('INVALID_DESCRIPTOR', 'Runtime services must be ServiceRevision descriptors.', { descriptor: 'ServiceRevision', problem: 'wrong-kind' })
     }
     parseVersion(revision.version)
-    const existing = this.admittedSources.get(revision.key)
+    const existing = this.admittedSources.get(revision.id)
     if (existing) {
       this.recordDefinitionWarning(assertEquivalentRevisionDefinitions(existing, revision))
       return
     }
-    this.admittedSources.set(revision.key, revision)
+    this.admittedSources.set(revision.id, revision)
     this.registerFamily(revision.family)
   }
 
@@ -343,12 +343,12 @@ export class DefinitionCompiler {
     if (!isServiceRevision(revision)) {
       throw new SynaError('INVALID_DESCRIPTOR', 'A Service dependency must be a ServiceRevision descriptor.', { descriptor: 'ServiceRevision', problem: 'wrong-kind' })
     }
-    const existing = this.internalSources.get(revision.key)
+    const existing = this.internalSources.get(revision.id)
     if (existing) {
       this.recordDefinitionWarning(assertEquivalentRevisionDefinitions(existing, revision))
       return
     }
-    this.internalSources.set(revision.key, revision)
+    this.internalSources.set(revision.id, revision)
     this.registerFamily(revision.family)
     for (const contract of revision.provides) this.registerContract(contract)
     this.collectDependencies(Object.values(revision.requires))

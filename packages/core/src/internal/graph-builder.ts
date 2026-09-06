@@ -55,7 +55,7 @@ export interface GraphBuilderHost {
 export class GraphBuilder {
   private readonly nodes = new Map<string, PlanNode>()
   private readonly rootNodeBySite = new Map<string, string>()
-  private readonly parentActiveRevisionKeys: ReadonlySet<string>
+  private readonly parentActiveRevisionIds: ReadonlySet<string>
 
   constructor(
     private readonly host: GraphBuilderHost,
@@ -65,7 +65,7 @@ export class GraphBuilder {
     private readonly choices: ReadonlyMap<string, string>,
     parent?: EnvPlanView,
   ) {
-    this.parentActiveRevisionKeys = new Set(
+    this.parentActiveRevisionIds = new Set(
       parent
         ? [...parent.plan.nodes.values()]
           .filter((node): node is ServicePlanNode => node.kind === 'service')
@@ -83,7 +83,7 @@ export class GraphBuilder {
   }
 
   private resolutionContext(dependencySite: string): RuntimePolicyContext {
-    return new PolicyContext(dependencySite, this.parentActiveRevisionKeys)
+    return new PolicyContext(dependencySite, this.parentActiveRevisionIds)
   }
 
   private implementationCandidates(contract: Contract): readonly CompiledService[] {
@@ -131,13 +131,13 @@ export class GraphBuilder {
         if (candidates.length === 0) {
           throw new SynaError(
             'INCOMPATIBLE_IMPLEMENTATION',
-            `No revision of ${dependency.family.id} visible at ${site} satisfies ${dependency.range} and provides the Contracts of ${dependency.origin.key} (${required.join(', ')}).`,
+            `No revision of ${dependency.family.id} visible at ${site} satisfies ${dependency.range} and provides the Contracts of ${dependency.origin.id} (${required.join(', ')}).`,
             {
               family: dependency.family.id,
               range: dependency.range,
               site,
               realm: realm.id,
-              origin: dependency.origin.key,
+              origin: dependency.origin.id,
               required,
               candidates: visible.map(revision => ({ revision: revision.key, provides: revision.provides.map(contract => contract.id) })),
             },
@@ -313,14 +313,14 @@ export class GraphBuilder {
     candidates: readonly CompiledService[],
     description: string,
   ): string {
-    const selectedKey = this.choices.get(site)
-    if (selectedKey) {
-      const selected = candidates.find(candidate => candidate.key === selectedKey)
+    const selectedRevision = this.choices.get(site)
+    if (selectedRevision) {
+      const selected = candidates.find(candidate => candidate.key === selectedRevision)
       if (!selected) {
         throw new SynaError(
           'INVALID_INHERITED_CHOICE',
-          `The inherited resolution ${selectedKey} is no longer valid at ${site}.`,
-          { site, selectedKey, candidates: candidates.map(candidate => candidate.key) },
+          `The inherited resolution ${selectedRevision} is no longer valid at ${site}.`,
+          { site, selectedRevision, candidates: candidates.map(candidate => candidate.key) },
         )
       }
       return this.resolveService(selected)

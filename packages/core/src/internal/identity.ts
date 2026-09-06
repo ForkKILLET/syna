@@ -7,7 +7,6 @@ import { SynaError } from '../errors.js'
 import { compareVersions } from '../semver.js'
 
 export interface RevisionLike {
-  readonly key: string
   readonly version: string
   readonly family: { readonly id: string }
   readonly provides: readonly Contract[]
@@ -56,8 +55,8 @@ export function providesContract(
 export function dependencyIdentity(input: Dependency): string {
   const dependency = unwrapDependency(input)
   switch (dependency.kind) {
-    case 'service-revision': return `service:${dependency.key}`
-    case 'service-range': return `range:${dependency.family.id}@${dependency.range}#${dependency.origin.key}`
+    case 'service-revision': return `service:${dependency.id}`
+    case 'service-range': return `range:${dependency.family.id}@${dependency.range}#${dependency.origin.id}`
     case 'contract': return `strict-contract:${dependency.id}`
     case 'input': return `input:${dependency.id}`
     case 'binding': return `binding:${dependency.id}:${dependency.contract.id}`
@@ -119,11 +118,11 @@ export function revisionStructuralSignature(revision: ServiceRevision): string {
     .join(';')
   const contracts = revision.provides.map(contract => contract.id).sort().join(',')
   return [
-    revision.key,
+    revision.id,
     `uniqueWithin=${revision.family.uniqueWithin}`,
     `eager=${revision.eager}`,
     `failure=${stableJson(revision.failure)}`,
-    `deadline=${String(revision.setupDeadlineMs)}`,
+    `deadline=${String(revision.loadTimeoutMs)}`,
     `provides=${contracts}`,
     `deps=${dependencies}`,
     `setup=${compactDigest(String(revision.setup))}`,
@@ -133,7 +132,7 @@ export function revisionStructuralSignature(revision: ServiceRevision): string {
 export function revisionMetadataSignature(revision: ServiceRevision): string {
   return stableJson({
     family: revision.family.metadata,
-    revision: revision.metadata,
+    revision: revision.revisionMetadata,
   })
 }
 
@@ -148,8 +147,8 @@ export function assertEquivalentRevisionDefinitions(
   if (expected !== actual) {
     throw new SynaError(
       'DUPLICATE_DEFINITION',
-      `Service Revision ${received.key} has conflicting structural manifests.`,
-      { revision: received.key, expected, actual },
+      `Service Revision ${received.id} has conflicting structural manifests.`,
+      { revision: received.id, expected, actual },
     )
   }
 
@@ -157,7 +156,7 @@ export function assertEquivalentRevisionDefinitions(
   const actualMetadata = revisionMetadataSignature(received)
   return expectedMetadata === actualMetadata
     ? undefined
-    : `Service Revision ${received.key} was loaded with different non-semantic metadata.`
+    : `Service Revision ${received.id} was loaded with different non-semantic metadata.`
 }
 
 /** Family id ascending, then version descending. */
@@ -171,13 +170,13 @@ export function compareRevisionIdentity(
 }
 
 /** Prefer an already active exact revision, then the highest compatible version. */
-export function defaultVersionOrder<T extends RevisionLike>(
+export function defaultVersionOrder<T extends RevisionLike & { readonly id: string }>(
   candidates: readonly T[],
-  parentActiveRevisionKeys: ReadonlySet<string>,
+  parentActiveRevisionIds: ReadonlySet<string>,
 ): readonly T[] {
   return [...candidates].sort((left, right) => {
-    const leftInherited = parentActiveRevisionKeys.has(left.key) ? 1 : 0
-    const rightInherited = parentActiveRevisionKeys.has(right.key) ? 1 : 0
+    const leftInherited = parentActiveRevisionIds.has(left.id) ? 1 : 0
+    const rightInherited = parentActiveRevisionIds.has(right.id) ? 1 : 0
     if (leftInherited !== rightInherited) return rightInherited - leftInherited
     return compareVersions(right.version, left.version)
   })

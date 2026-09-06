@@ -6,6 +6,14 @@ import {
   loadAll,
   SynaError,
   type AnchoredEntry,
+  type CandidateRef,
+  type DescriptorMetadata,
+  type ExplainedNode,
+  type ImplementationCandidate,
+  type ImplementationRecord,
+  type NodePlacement,
+  type RuntimeInspection,
+  type UnsettledAttemptInspection,
   type DiagnosticCode,
   type EnvState,
   type SynaErrorCode,
@@ -131,7 +139,7 @@ void minimalInstance
 const NoParams = define.entry('no-params', { requires: { minimal: Minimal } })
 const runtime = createRuntime({
   services: [Implementation, Consumer, Minimal],
-  limits: { setupDeadlineMs: 5_000 },
+  limits: { loadTimeoutMs: 5_000 },
   diagnostics: { onEvent: event => { void event.type } },
 })
 void runtime.run(NoParams, async ({ minimal }) => (await minimal.load()).ping())
@@ -204,16 +212,15 @@ void scopedValues
 // @ts-expect-error Options carry only `reuse`.
 void runtime.enter(Scoped, {}, { fresh: [Minimal] })
 
-// R5 (v0.6, alias removed in 0.7): Binding.to()/parse() produce an ImplementationRef whose family is `familyId`.
+// R5 (v0.6) / F9, F19 (v0.8): Binding.to()/parse() produce an ImplementationRef of the one shape
+// `{ kind: 'implementation-ref', contractId, familyId, range }`.
 const implementationRef: ImplementationRef<typeof Capability> = Selected.to(Implementation)
 const familyId: string = implementationRef.familyId
-// @ts-expect-error the 0.6 alias getter is gone (removed in 0.7.0); the family is `familyId`.
-const familyByOldName: string = implementationRef.implementationId
-void familyByOldName
-const plainRef: ImplementationRef<typeof Capability> = { kind: 'persistent-implementation-ref', contractId: Capability.id, familyId, version: '^1.0.0' }
-// @ts-expect-error a ref written in code carries `familyId`; the 0.5 serialized key is accepted by parse() only.
-const refByOldKey: ImplementationRef<typeof Capability> = { kind: 'persistent-implementation-ref', contractId: Capability.id, implementationId: familyId, version: '^1.0.0' }
-void [plainRef, refByOldKey, familyId, Selected.parse({ kind: 'persistent-implementation-ref', contractId: Capability.id, familyId, version: '^1.0.0' })]
+const requestedRange: string = implementationRef.range
+const plainRef: ImplementationRef<typeof Capability> = { kind: 'implementation-ref', contractId: Capability.id, familyId, range: '^1.0.0' }
+// @ts-expect-error F9 (v0.8): a reference carries `range`; `version` is not a member.
+const refByOldKey: ImplementationRef<typeof Capability> = { kind: 'implementation-ref', contractId: Capability.id, familyId, version: '^1.0.0' }
+void [plainRef, refByOldKey, familyId, requestedRange, Selected.parse({ kind: 'implementation-ref', contractId: Capability.id, familyId, range: '^1.0.0' })]
 void runtime.catalog.resolve(implementationRef)
 
 // R3 (v0.6, alias removed in 0.7): createRuntime() returns a Runtime.
@@ -288,29 +295,29 @@ const policy: RuntimePolicy = {
     return candidates.filter(() => site.length > 0)
   },
   orderVersionCandidates(_family, candidates, context) {
-    const keys: ReadonlySet<string> = context.parentActiveRevisionKeys
+    const keys: ReadonlySet<string> = context.parentActiveRevisionIds
     void keys
     return candidates
   },
 }
 void policy
-const policyContext: RuntimePolicyContext = { dependencySite: 'x', parentActiveRevisionKeys: new Set() }
+const policyContext: RuntimePolicyContext = { dependencySite: 'x', parentActiveRevisionIds: new Set() }
 void policyContext
 // @ts-expect-error `site` is not a member of the context.
-const contextByOldName: RuntimePolicyContext = { dependencySite: 'x', site: 'x', parentActiveRevisionKeys: new Set() }
+const contextByOldName: RuntimePolicyContext = { dependencySite: 'x', site: 'x', parentActiveRevisionIds: new Set() }
 void contextByOldName
 // @ts-expect-error `dependencySite` is required.
-const partialContext: RuntimePolicyContext = { parentActiveRevisionKeys: new Set() }
+const partialContext: RuntimePolicyContext = { parentActiveRevisionIds: new Set() }
 void partialContext
 
 // M1 (v0.6, nested records removed in 0.7): one `limits` record.
-const limited: Runtime = createRuntime({ services: [Implementation], limits: { setupDeadlineMs: 5_000, disposalGraceMs: 1_000, planningBudget: 100, planCacheEntries: 8 } })
+const limited: Runtime = createRuntime({ services: [Implementation], limits: { loadTimeoutMs: 5_000, disposalGraceMs: 1_000, planningBudget: 100, planCacheEntries: 8 } })
 void limited
 // @ts-expect-error the old key names do not exist inside `limits`.
 createRuntime({ services: [Implementation], limits: { deadlineMs: 5_000 } })
 // @ts-expect-error the 0.5 nested records are gone (removed in 0.7.0): the plan cache size is limits.planCacheEntries.
 createRuntime({ services: [Implementation], planCache: { maxEntries: 8 } })
-// @ts-expect-error the setup deadline is limits.setupDeadlineMs.
+// @ts-expect-error the load timeout is limits.loadTimeoutMs.
 createRuntime({ services: [Implementation], initialization: { deadlineMs: 5_000 } })
 // @ts-expect-error the disposal grace is limits.disposalGraceMs.
 createRuntime({ services: [Implementation], disposal: { graceMs: 1_000 } })
@@ -430,7 +437,7 @@ import type { DependencyRef } from '../src/index.js'
 import type { DeriveOptions } from '../src/index.js'
 // @ts-expect-error DisposalOptions → RuntimeLimits.disposalGraceMs
 import type { DisposalOptions } from '../src/index.js'
-// @ts-expect-error InitializationOptions → RuntimeLimits.setupDeadlineMs
+// @ts-expect-error InitializationOptions → RuntimeLimits.loadTimeoutMs
 import type { InitializationOptions } from '../src/index.js'
 // @ts-expect-error PersistentImplementationRef → ImplementationRef
 import type { PersistentImplementationRef } from '../src/index.js'
@@ -466,3 +473,41 @@ const uniquePolicy: UniquenessPolicy | undefined = Unique.family.uniqueWithin
 void [slotState, contextValue, uniquePolicy]
 // @ts-expect-error T7 (v0.8): 'none' is not a policy; a Family that declares none leaves `uniqueWithin` out.
 define.service('not-unique', { uniqueWithin: 'none', setup: () => ({}) })
+
+// v0.8 (§2.2): the field names.
+const revisionId: string = Implementation.id
+const revisionMetadata: Readonly<DescriptorMetadata> = Implementation.revisionMetadata
+const familyMetadata: Readonly<DescriptorMetadata> = Implementation.family.metadata
+const loadTimeout: number | undefined = Implementation.loadTimeoutMs
+void [revisionId, revisionMetadata, familyMetadata, loadTimeout]
+// @ts-expect-error F1 (v0.8): `ServiceRevision.key` → `id`.
+void Implementation.key
+// @ts-expect-error F5 (v0.8): `ServiceRevision.metadata` → `revisionMetadata` (the family's stays `family.metadata`).
+void Implementation.metadata
+// @ts-expect-error F4 (v0.8): a definition's family metadata is `familyMetadata`.
+define.service('with-metadata', { metadata: { displayName: 'x' }, setup: () => ({}) })
+const WithMetadata = define.service('with-family-metadata', { familyMetadata: { displayName: 'x' }, revisionMetadata: { description: 'y' }, loadTimeoutMs: 100, setup: () => ({}) })
+void WithMetadata
+declare const inspection: RuntimeInspection
+const privateServices: readonly string[] = inspection.privateServices
+const planCacheLimit: number = inspection.planCache.limit
+void [privateServices, planCacheLimit]
+// @ts-expect-error F10 (v0.8): `internalServices` → `privateServices`.
+void inspection.internalServices
+// @ts-expect-error F11 (v0.8): `planCache.maxEntries` → `planCache.limit`.
+void inspection.planCache.maxEntries
+const ledgerEntry: UnsettledAttemptInspection = { attemptNumber: 1, slot: 's', revision: 'r@1.0.0', env: 'e', state: 'abandoned', elapsedMs: 0 }
+void ledgerEntry
+declare const record: ImplementationRecord
+const recordRef: ImplementationRef = record.implementationRef
+declare const candidate: ImplementationCandidate
+const candidateRef: CandidateRef = candidate.candidateRef
+declare const explained: ExplainedNode
+const placement: NodePlacement = explained.placement
+void [recordRef, candidateRef, placement]
+// @ts-expect-error F6/F7 (v0.8): `ref` → `candidateRef`, `persistentRef` → `implementationRef`.
+void [candidate.ref, record.persistentRef]
+const inheritedChoice: SynaErrorDetails['INVALID_INHERITED_CHOICE'] = { site: 's', selectedRevision: 'r@1.0.0', candidates: [] }
+const lineageConflict: SynaErrorDetails['LINEAGE_UNIQUENESS_CONFLICT'] = { family: 'f', pinnedRevision: 'r@1.0.0', pinnedSlot: 's', attempted: [] }
+const lifecycleMisuse: SynaErrorDetails['LIFECYCLE_MISUSE'] = { slot: 's', revision: 'r@1.0.0', attemptNumber: 1, state: 'succeeded' }
+void [inheritedChoice, lineageConflict, lifecycleMisuse]

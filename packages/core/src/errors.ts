@@ -90,7 +90,7 @@ export type SynaErrorDetails = {
         readonly candidates: readonly { readonly revision: string; readonly provides: readonly string[] }[]
       }
   /**
-   * One `load()` waited `deadlineMs` on the attempt named by `attempt` (running
+   * One `load()` waited `deadlineMs` on the attempt named by `attemptNumber` (running
    * for `elapsedMs`) without it settling. The attempt keeps running
    * (`attemptStillRunning`): its result is adopted if the owner Env is still
    * ready and discarded only if the owner closes.
@@ -99,7 +99,7 @@ export type SynaErrorDetails = {
     readonly slot: string
     readonly revision: string
     readonly env: string
-    readonly attempt: number
+    readonly attemptNumber: number
     readonly deadlineMs: number
     readonly elapsedMs: number
     readonly pendingLoads: readonly PendingLoad[]
@@ -114,7 +114,8 @@ export type SynaErrorDetails = {
    * `empty-contract-id`, `self-override`, `override-cycle`, `forward-cycle`,
    * `not-service-revisions`, `parameters-not-an-object`, `invalid-assignment`,
    * `not-from-this-runtime`, `policy-result-not-an-array`,
-   * `policy-result-not-a-permutation`); `site` where a dependency site exists,
+   * `policy-result-not-a-permutation`, `malformed-implementation-ref`); `site`
+   * where a dependency site exists,
    * `path` where a chain (an override cycle) exists.
    */
   readonly INVALID_DESCRIPTOR: {
@@ -123,14 +124,14 @@ export type SynaErrorDetails = {
     readonly site?: string
     readonly path?: readonly string[]
   }
-  readonly INVALID_INHERITED_CHOICE: { readonly site: string; readonly selectedKey: string; readonly candidates: readonly string[] }
+  readonly INVALID_INHERITED_CHOICE: { readonly site: string; readonly selectedRevision: string; readonly candidates: readonly string[] }
   /** `onDispose()` called on a lifecycle whose setup attempt already settled; `state` is the attempt's. */
-  readonly LIFECYCLE_MISUSE: { readonly slot: string; readonly revision: string; readonly attempt: number; readonly state: string }
+  readonly LIFECYCLE_MISUSE: { readonly slot: string; readonly revision: string; readonly attemptNumber: number; readonly state: string }
   readonly LINEAGE_UNIQUENESS_CONFLICT:
     | {
         readonly family: string
-        readonly anchorRevision: string
-        readonly anchorSlot: string
+        readonly pinnedRevision: string
+        readonly pinnedSlot: string
         readonly attempted: readonly { readonly revision: string; readonly slot: string; readonly cause: ForkCause | undefined; readonly path: readonly string[] }[]
       }
     | { readonly family: string; readonly slots: readonly string[] }

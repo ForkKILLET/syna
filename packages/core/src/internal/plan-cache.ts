@@ -3,7 +3,7 @@ export interface CacheStats {
   readonly misses: number
   readonly entries: number
   readonly evictions: number
-  readonly maxEntries: number
+  readonly limit: number
 }
 
 /**
@@ -16,8 +16,8 @@ export class PlanTemplateCache<Value> {
   private missCount = 0
   private evictionCount = 0
 
-  constructor(readonly maxEntries: number) {
-    if (!Number.isSafeInteger(maxEntries) || maxEntries < 1) {
+  constructor(readonly limit: number) {
+    if (!Number.isSafeInteger(limit) || limit < 1) {
       throw new TypeError('limits.planCacheEntries must be a positive safe integer.')
     }
   }
@@ -38,7 +38,7 @@ export class PlanTemplateCache<Value> {
   set(key: string, value: Value): void {
     if (this.values.has(key)) this.values.delete(key)
     this.values.set(key, value)
-    while (this.values.size > this.maxEntries) {
+    while (this.values.size > this.limit) {
       const oldest = this.values.keys().next().value as string | undefined
       if (oldest === undefined) break
       this.values.delete(oldest)
@@ -52,7 +52,7 @@ export class PlanTemplateCache<Value> {
       misses: this.missCount,
       entries: this.values.size,
       evictions: this.evictionCount,
-      maxEntries: this.maxEntries,
+      limit: this.limit,
     })
   }
 

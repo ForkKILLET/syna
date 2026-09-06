@@ -20,7 +20,7 @@ import type { LabeledGraphNode } from '../graph.js'
 export class PolicyContext implements RuntimePolicyContext {
   constructor(
     readonly dependencySite: string,
-    readonly parentActiveRevisionKeys: ReadonlySet<string>,
+    readonly parentActiveRevisionIds: ReadonlySet<string>,
   ) {}
 }
 
@@ -43,7 +43,7 @@ export interface CompiledService {
   readonly requires: DependencyMap
   readonly setup: ServiceRevision['setup']
   readonly failure: NormalizedServiceFailurePolicy
-  readonly setupDeadlineMs: number | undefined
+  readonly loadTimeoutMs: number | undefined
   readonly metadata: Readonly<DescriptorMetadata>
   readonly overriddenBy: ServiceRevision | undefined
   readonly admitted: boolean
@@ -249,7 +249,7 @@ export type PlanNode =
   | AnchoredEntryPlanNode
 
 export interface NodeExplanation {
-  readonly disposition: 'inherited' | 'new' | 'forked'
+  readonly placement: 'inherited' | 'new' | 'forked'
   readonly cause: ForkCause | undefined
 }
 

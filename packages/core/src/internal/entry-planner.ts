@@ -94,7 +94,7 @@ function scopeTargetIdentity(target: ReuseTarget): string {
     throw new SynaError('INVALID_DESCRIPTOR', 'Reuse targets must be Service revisions or families.', { descriptor: 'ReuseTarget', problem: 'not-an-object' })
   }
   return target.kind === 'service-revision'
-    ? `revision:${target.key}`
+    ? `revision:${target.id}`
     : `family:${target.id}`
 }
 
@@ -103,7 +103,7 @@ function scopeTargetSet(targets: readonly ReuseTarget[] | undefined): ScopeTarge
   const familyIds = new Set<string>()
   for (const target of targets ?? []) {
     scopeTargetIdentity(target)
-    if (target.kind === 'service-revision') revisionKeys.add(target.key)
+    if (target.kind === 'service-revision') revisionKeys.add(target.id)
     else familyIds.add(target.id)
   }
   return { revisionKeys, familyIds }
@@ -322,18 +322,18 @@ export class EntryPlanner implements GraphBuilderHost {
         nodeId: node.id,
         kind: node.kind,
         label: node.label,
-        disposition: explanation.disposition,
+        placement: explanation.placement,
         eager: node.kind === 'service' && node.revision.eager,
         ...(explanation.cause ? { cause: explanation.cause } : {}),
-        path: Object.freeze(explanation.disposition === 'inherited' ? [node.id] : pathFor(node.id)),
+        path: Object.freeze(explanation.placement === 'inherited' ? [node.id] : pathFor(node.id)),
       }))
     }
     const count = (predicate: (node: ExplainedNode) => boolean) => {
       const selected = nodes.filter(predicate)
       return {
-        inherited: selected.filter(node => node.disposition === 'inherited').length,
-        new: selected.filter(node => node.disposition === 'new').length,
-        forked: selected.filter(node => node.disposition === 'forked').length,
+        inherited: selected.filter(node => node.placement === 'inherited').length,
+        new: selected.filter(node => node.placement === 'new').length,
+        forked: selected.filter(node => node.placement === 'forked').length,
       }
     }
     const services = count(node => node.kind === 'service')
@@ -350,16 +350,16 @@ export class EntryPlanner implements GraphBuilderHost {
         .filter((parameter): parameter is Binding => parameter.kind === 'binding')
         .map(parameter => parameter.id),
     )
-    const bindingsResolved: Record<string, string> = {}
+    const bindingsAssigned: Record<string, string> = {}
     const bindingsInherited: Record<string, string> = {}
     for (const node of bindingNodes) {
       if (node.kind !== 'binding') continue
-      const target = ownBindingIds.has(node.binding.id) ? bindingsResolved : bindingsInherited
+      const target = ownBindingIds.has(node.binding.id) ? bindingsAssigned : bindingsInherited
       target[node.binding.id] = node.revision.key
     }
     for (const [bindingId, choice] of plan.bindingChoices) {
-      if (ownBindingIds.has(bindingId) && !(bindingId in bindingsResolved)) {
-        bindingsResolved[bindingId] = choice.revision.key
+      if (ownBindingIds.has(bindingId) && !(bindingId in bindingsAssigned)) {
+        bindingsAssigned[bindingId] = choice.revision.key
       }
     }
 
@@ -371,26 +371,26 @@ export class EntryPlanner implements GraphBuilderHost {
         inputsProvided: Object.freeze([...providedInputIds].sort()),
         inputsInherited: Object.freeze(
           inputNodes
-            .filter(node => node.disposition === 'inherited')
+            .filter(node => node.placement === 'inherited')
             .map(node => node.label)
             .sort(),
         ),
-        bindingsResolved: Object.freeze(bindingsResolved),
+        bindingsAssigned: Object.freeze(bindingsAssigned),
         bindingsInherited: Object.freeze(bindingsInherited),
       }),
       services: Object.freeze({
         ...services,
-        eagerToStart: nodes.filter(node => node.kind === 'service' && node.eager && node.disposition !== 'inherited').length,
-        eagerInherited: nodes.filter(node => node.kind === 'service' && node.eager && node.disposition === 'inherited').length,
+        eagerToStart: nodes.filter(node => node.kind === 'service' && node.eager && node.placement !== 'inherited').length,
+        eagerInherited: nodes.filter(node => node.kind === 'service' && node.eager && node.placement === 'inherited').length,
       }),
       inputs: Object.freeze({
-        inherited: inputNodes.filter(node => node.disposition === 'inherited').length,
-        provided: inputNodes.filter(node => node.disposition !== 'inherited').length,
+        inherited: inputNodes.filter(node => node.placement === 'inherited').length,
+        provided: inputNodes.filter(node => node.placement !== 'inherited').length,
       }),
       synthetic: Object.freeze(count(node => node.kind !== 'service' && node.kind !== 'input')),
       choices: Object.freeze(Object.fromEntries(plan.choices)),
       nodes: Object.freeze(nodes),
-      forks: Object.freeze(nodes.filter(node => node.disposition !== 'inherited')),
+      forks: Object.freeze(nodes.filter(node => node.placement !== 'inherited')),
     })
   }
 
@@ -754,11 +754,11 @@ export class EntryPlanner implements GraphBuilderHost {
         if (divergent.length > 0) {
           throw new SynaError(
             'LINEAGE_UNIQUENESS_CONFLICT',
-            `Lineage-unique Service Family ${familyId} cannot diverge below its anchor ${anchor.service.key} (slot ${anchor.id}).`,
+            `Lineage-unique Service Family ${familyId} cannot diverge below its pinned revision ${anchor.service.key} (slot ${anchor.id}).`,
             {
               family: familyId,
-              anchorRevision: anchor.service.key,
-              anchorSlot: anchor.id,
+              pinnedRevision: anchor.service.key,
+              pinnedSlot: anchor.id,
               attempted: divergent.map(node => ({
                 revision: node.revision.key,
                 slot: (slotsByNode.get(node.id) as ServiceSlot).id,
@@ -786,16 +786,16 @@ export class EntryPlanner implements GraphBuilderHost {
       const cause = causes.get(node.id)
       if (node.kind === 'input') {
         explanations.set(node.id, cause
-          ? { disposition: 'new', cause }
-          : { disposition: 'inherited', cause: undefined })
+          ? { placement: 'new', cause }
+          : { placement: 'inherited', cause: undefined })
         continue
       }
       if (reusable.has(node.id)) {
-        explanations.set(node.id, { disposition: 'inherited', cause: undefined })
+        explanations.set(node.id, { placement: 'inherited', cause: undefined })
         continue
       }
-      const disposition = cause?.kind === 'root' || cause?.kind === 'not-in-parent' ? 'new' : 'forked'
-      explanations.set(node.id, { disposition, cause })
+      const placement = cause?.kind === 'root' || cause?.kind === 'not-in-parent' ? 'new' : 'forked'
+      explanations.set(node.id, { placement, cause })
     }
 
     return {
@@ -949,7 +949,7 @@ export class EntryPlanner implements GraphBuilderHost {
       revision = compiled
     }
     else {
-      if (typeof assignment !== 'object' || assignment === null || assignment.kind !== 'persistent-implementation-ref') {
+      if (typeof assignment !== 'object' || assignment === null || assignment.kind !== 'implementation-ref') {
         throw new SynaError('INVALID_DESCRIPTOR', `Invalid assignment for Binding ${binding.id}.`, { descriptor: binding.id, problem: 'invalid-assignment' })
       }
       if (assignment.contractId !== binding.contract.id) {
@@ -960,19 +960,19 @@ export class EntryPlanner implements GraphBuilderHost {
         )
       }
       const site = `binding:${binding.id}`
-      const familyId = this.directory.familyOf(assignment, site)
+      const familyId = assignment.familyId
       const candidates = this.directory
         .candidatesForFamily(familyId)
-        .filter(candidate => satisfiesVersion(candidate.version, assignment.version))
+        .filter(candidate => satisfiesVersion(candidate.version, assignment.range))
         .filter(candidate => providesContract(candidate, binding.contract))
       if (candidates.length === 0) {
         throw new SynaError(
           'MISSING_IMPLEMENTATION',
-          `No admitted ${familyId} revision satisfies ${assignment.version} and ${binding.contract.id}.`,
+          `No admitted ${familyId} revision satisfies ${assignment.range} and ${binding.contract.id}.`,
           {
             binding: binding.id,
             implementation: familyId,
-            version: assignment.version,
+            version: assignment.range,
             available: this.directory.revisions(familyId),
           },
         )
