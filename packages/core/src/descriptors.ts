@@ -269,16 +269,6 @@ export interface LoadOptions {
  */
 export interface ServiceRef<T> {
   load(options?: LoadOptions): Promise<T>
-  /**
-   * Start materialization of the real slot without waiting. Failures follow
-   * the slot's normal failure policy and are visible to later `load()` calls.
-   *
-   * @deprecated Since v0.5 an un-awaited `load()` is already a background
-   * operation; `preload()` is `void ref.load().catch(() => undefined)` and is
-   * kept only as the structural discriminator that keeps Input refs out of
-   * `loadAll()`.
-   */
-  preload(): void
 }
 
 /** Synchronous access to an Input payload. The payload is returned exactly as provided. */

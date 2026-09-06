@@ -103,7 +103,7 @@ B = define.service('b', {
 })
 ```
 
-Runtime method cycles are legal after setup. Setup-time waits are ordinary Promises: `load()` returns a plain Promise, only what you `await` blocks your setup, and an un-awaited `load()` is a background operation the Runtime neither waits for nor tracks (K07, `packages/core/tests/v05-promises.test.mjs`). Do not form a cycle of awaited setup loads: it cannot complete, the setup deadline ends it (`INITIALIZATION_TIMEOUT`, with the observed `load()` cycle named in the diagnostic). `preload()` is deprecated; it is `void ref.load().catch(() => undefined)`.
+Runtime method cycles are legal after setup. Setup-time waits are ordinary Promises: `load()` returns a plain Promise, only what you `await` blocks your setup, and an un-awaited `load()` is a background operation the Runtime neither waits for nor tracks (K07, `packages/core/tests/v05-promises.test.mjs`). Do not form a cycle of awaited setup loads: it cannot complete, the setup deadline ends it (`INITIALIZATION_TIMEOUT`, with the observed `load()` cycle named in the diagnostic).
 
 ## Failure and cleanup
 

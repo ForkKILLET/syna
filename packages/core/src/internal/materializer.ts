@@ -174,7 +174,6 @@ export class Materializer {
   createRef<T>(slot: RuntimeSlot, requester?: SetupAttempt): ServiceRef<T> {
     return Object.freeze({
       load: (options?: LoadOptions) => this.load(slot, options, requester) as Promise<T>,
-      preload: () => { void this.load(slot, undefined, undefined).catch(() => undefined) },
     })
   }
 

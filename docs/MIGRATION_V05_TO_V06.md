@@ -31,4 +31,5 @@ v0.6 只收束 API 的名字与类型。语义——默认值、错误触发条�
 
 | # | 删除 | 替代 | 改写的测试 | 删除的测试 |
 |---|---|---|---|---|
+| D1 | `ServiceRef.preload()` | `void ref.load().catch(() => undefined)`：0.5 起 `preload()` 的实现就是这一行（M-06），删除后没有第二种"后台启动"形式 | v04-corrections、v04-regressions、v05-audit-lifecycle、v05-review-lifecycle（子进程脚本）、v04-finalization 里的 `preload()` 改为未 await 的 `load()`；这些测试覆盖的是后台启动、粘性失败与"不制造假 setup 环"的行为，保持不变 | 无 |
 | D2 | `InputRef.load()` | `ref.read()`：同步，原载荷按身份返回 | contracts、core、hardening（2 处）、v04-adversarial（2 处）、v04-finalization、v04-regressions 里对 Input ref 的 `load()` 改为 `read()`；`apps/minimal-demo` | v05-promises R05 中"旧形式 await thenable 载荷"的断言：该行为随 `load()` 一起消失，`read()` 的身份保持断言保留 |

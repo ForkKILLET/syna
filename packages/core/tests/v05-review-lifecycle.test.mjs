@@ -249,7 +249,7 @@ test('R-1/R-4 a caught cancellation never leaves an unhandled rejection, on ever
       await sleep(10)
       await runtime.dispose()
     }
-    // H: pre-aborted signals on dormant, failed and Ready slots; preload afterwards.
+    // H: pre-aborted signals on dormant, failed and Ready slots; a background load afterwards.
     {
       const Svc = define.service('h', { async setup() { throw new Error('boom') } })
       const Ok = define.service('h-ok', { async setup() { return {} } })
@@ -261,7 +261,7 @@ test('R-1/R-4 a caught cancellation never leaves an unhandled rejection, on ever
       await caught(env.deps.svc.load())
       await caught(env.deps.svc.load({ signal: aborted }))
       await caught(env.deps.ok.load({ signal: aborted }))
-      env.deps.svc.preload()
+      void env.deps.svc.load().catch(() => undefined)
       await sleep(10)
       await runtime.dispose()
     }

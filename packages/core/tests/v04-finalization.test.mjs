@@ -120,7 +120,7 @@ test('owner-bound Entry context is explicit: app-owned capabilities do not inher
   await runtime.dispose()
 })
 
-test('preload failure does not fail the caller setup, but remains observable on explicit load', async () => {
+test('a background load failure does not fail the caller setup, but remains observable on explicit load', async () => {
   const define = defineFor('preload-failure')
   let attempts = 0
   const Failing = define.service('failing', {
@@ -132,7 +132,7 @@ test('preload failure does not fail the caller setup, but remains observable on 
   const Caller = define.service('caller', {
     requires: { failing: Failing },
     setup({ failing }) {
-      failing.preload()
+      void failing.load().catch(() => undefined)
       return { ready: true, failing }
     },
   })

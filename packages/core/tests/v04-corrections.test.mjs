@@ -63,9 +63,10 @@ test('selector candidate plan templates are reused and the cache remains bounded
   await runtime.dispose()
 })
 
-// v0.5 (MIGRATION M-06): preload() and an un-awaited load() are both plain
-// background operations; neither adds a completion barrier or a cycle.
-test('preload and un-awaited load are both non-blocking and never create a false setup cycle', async () => {
+// v0.5 (MIGRATION M-06): an un-awaited load() is a plain background operation;
+// it adds no completion barrier and no cycle. (v0.6 D1: preload() is gone; its
+// body was exactly this un-awaited load with a swallowing catch.)
+test('an un-awaited load is non-blocking and never creates a false setup cycle', async () => {
   const define = makeDefine('v04.preload')
   let A
   let B
@@ -74,7 +75,7 @@ test('preload and un-awaited load are both non-blocking and never create a false
   A = define.service('a', {
     requires: { c: forward(() => C) },
     setup({ c }) {
-      return { preloadC: () => c.preload() }
+      return { preloadC: () => { void c.load().catch(() => undefined) } }
     },
   })
   B = define.service('b', {

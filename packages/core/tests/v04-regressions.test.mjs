@@ -82,7 +82,8 @@ test('selector candidate planning is reusable and bounded across short-lived req
 })
 
 // v0.5 (MIGRATION M-06): both forms are background operations; neither blocks B.
-test('preload and un-awaited load are both non-blocking background operations', async () => {
+// v0.6 D1: the former preload() form is the same un-awaited load with a swallowing catch.
+test('an un-awaited load, with or without a swallowing catch, is a non-blocking background operation', async () => {
   const define = defineFor('v04.materialization-protocol')
   let A
   let B
@@ -105,7 +106,7 @@ test('preload and un-awaited load are both non-blocking background operations', 
     requires: { c: C },
     setup({ c }) {
       return {
-        prewarm: () => c.preload(),
+        prewarm: () => { void c.load().catch(() => undefined) },
         strong: () => { void c.load() },
       }
     },

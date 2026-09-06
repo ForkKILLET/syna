@@ -25,7 +25,6 @@ const EXPECTED = [
   { path: 'RuntimePolicyContext.site', replacement: 'dependencySite' },
   // 0.5 deprecations that Phase C deletes (no removal version required until then)
   { path: 'Contract.selector', legacy: true },
-  { path: 'ServiceRef.preload', legacy: true },
   { path: 'ImplementationSelector', legacy: true },
   { path: 'ImplementationSelectorDependency', legacy: true },
 ]

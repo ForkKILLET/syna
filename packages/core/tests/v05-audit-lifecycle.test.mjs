@@ -79,7 +79,7 @@ test('F-PL-01 setupDeadlineMs: Infinity cannot turn a stuck setup into a hanging
   assert.match(entering.error.cause.message, /eager boom/)
   assert.ok(entering.elapsedMs < 1_000, `enter() took ${entering.elapsedMs} ms`)
 
-  const running = await timed(() => runtime.run(Plain, ({ stuck }) => { stuck.preload(); return 'done' }))
+  const running = await timed(() => runtime.run(Plain, ({ stuck }) => { void stuck.load().catch(() => undefined); return 'done' }))
   assert.equal(running.ok, false, 'run() reports the abandoned attempt instead of hiding it')
   assert.ok(running.elapsedMs < 1_000, `run() took ${running.elapsedMs} ms`)
   await runtime.dispose().catch(() => undefined)

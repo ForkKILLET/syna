@@ -88,12 +88,10 @@ Options: `requires`, `provides`, `eager`, `uniqueWithin: 'lineage'`, `failure`, 
 ```ts
 interface ServiceRef<T> {
   load(options?: { signal?: AbortSignal }): Promise<T>
-  /** @deprecated equals `void ref.load().catch(() => undefined)` */
-  preload(): void
 }
 ```
 
-`load()` materializes the already-planned slot and returns a **plain Promise**. The Runtime attaches no barrier, no completion tracking and no obligation to the caller: `catch` for degraded mode, `Promise.race` fallbacks and un-awaited background loads behave as JavaScript defines. `signal` ends only this caller's wait (`LOAD_CANCELLED`); the shared attempt continues for other waiters. `preload()` (**deprecated**) is `void ref.load().catch(() => undefined)`: it starts the real slot in the background, its failure follows the slot's failure policy and is visible to later `load()` calls; it is kept as the structural discriminator that keeps Input refs out of `loadAll()`. A ref is never thenable: `Promise.resolve(ref)` yields the ref.
+`load()` materializes the already-planned slot and returns a **plain Promise**. The Runtime attaches no barrier, no completion tracking and no obligation to the caller: `catch` for degraded mode, `Promise.race` fallbacks and un-awaited background loads behave as JavaScript defines. `signal` ends only this caller's wait (`LOAD_CANCELLED`); the shared attempt continues for other waiters. A background start is an un-awaited `load()` (`void ref.load().catch(() => undefined)`): it starts the real slot, its failure follows the slot's failure policy and is visible to later `load()` calls. A ref is never thenable: `Promise.resolve(ref)` yields the ref.
 
 ```ts
 const { database, logger } = await loadAll({ database, logger })   // Service refs only; a catchable batch
