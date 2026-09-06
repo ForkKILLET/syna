@@ -543,6 +543,9 @@ export type EntryRunArguments<E extends EntryDescriptor<any, any>, Result> =
       | [parameters: ScopedEntryParameters<E>, callback: EntryCallback<E, Result>]
 
 export interface RuntimePolicyContext {
+  /** The dependency site being resolved. */
+  readonly dependencySite: string
+  /** @deprecated Use `dependencySite`. Removed in 0.7.0. */
   readonly site: string
   readonly parentActiveRevisionKeys: ReadonlySet<string>
 }

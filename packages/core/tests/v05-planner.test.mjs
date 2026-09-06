@@ -202,7 +202,7 @@ test('R15 an auto choice site is stable along a lineage, independent per edge; b
     policy: {
       orderAutoCandidates(_contract, candidates, context) {
         const byKey = key => candidates.find(candidate => candidate.key === key)
-        return context.site.endsWith('dependency:first')
+        return context.dependencySite.endsWith('dependency:first')
           ? [byKey(V2.key), byKey(V1.key), byKey(Other.key)]
           : [byKey(Other.key), byKey(V2.key), byKey(V1.key)]
       },

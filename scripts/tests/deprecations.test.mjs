@@ -21,6 +21,8 @@ const EXPECTED = [
   // R5 PersistentImplementationRef → ImplementationRef; implementationId → familyId
   { path: 'PersistentImplementationRef', replacement: 'ImplementationRef' },
   { path: 'ImplementationRef.implementationId', replacement: 'familyId' },
+  // R6 RuntimePolicyContext.site → dependencySite
+  { path: 'RuntimePolicyContext.site', replacement: 'dependencySite' },
   // 0.5 deprecations that Phase C deletes (no removal version required until then)
   { path: 'Contract.selector', legacy: true },
   { path: 'ServiceRef.preload', legacy: true },

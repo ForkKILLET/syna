@@ -12,7 +12,7 @@ import type { DiagnosticCode } from '../errors.js'
 import { SynaError } from '../errors.js'
 import { createImplementationRef, familyIdOf, normalizeImplementationRef } from '../definition.js'
 import { caretRange, satisfiesVersion } from '../semver.js'
-import type { CompiledService, InternalCandidateRef } from './runtime-model.js'
+import { PolicyContext, type CompiledService, type InternalCandidateRef } from './runtime-model.js'
 import { compareRevisionIdentity, providesContract } from './identity.js'
 
 export interface CandidateAvailabilityInput {
@@ -160,7 +160,7 @@ export class ImplementationDirectory {
       revisions => this.policy.orderVersionCandidates(
         matching[0]!.family,
         revisions,
-        { site, parentActiveRevisionKeys },
+        new PolicyContext(site, parentActiveRevisionKeys),
       ),
       site,
     )

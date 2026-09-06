@@ -10,6 +10,8 @@ import {
   type EntryExplanation,
   type EntryOptions,
   type EntryParameters,
+  type RuntimePolicy,
+  type RuntimePolicyContext,
   type EnvHandle,
   type ImplementationRef,
   type InputRef,
@@ -261,3 +263,25 @@ const viaHelper: ServiceRange<ServiceFamily<Capability>> = serviceRange(Implemen
 void viaHelper
 const exactStillFull: DependencyRef<Implementation> = null as unknown as DependencyRef<ServiceInstance<typeof Implementation>>
 void exactStillFull
+
+// R6 (v0.6): the policy context names the dependency site as `dependencySite`; `site` is the deprecated 0.5 name
+// and reads the same string.
+const policy: RuntimePolicy = {
+  orderAutoCandidates(_contract, candidates, context) {
+    const site: string = context.dependencySite
+    const legacy: string = context.site
+    void legacy
+    return candidates.filter(() => site.length > 0)
+  },
+  orderVersionCandidates(_family, candidates, context) {
+    const keys: ReadonlySet<string> = context.parentActiveRevisionKeys
+    void keys
+    return candidates
+  },
+}
+void policy
+const policyContext: RuntimePolicyContext = { dependencySite: 'x', site: 'x', parentActiveRevisionKeys: new Set() }
+void policyContext
+// @ts-expect-error `dependencySite` is required.
+const partialContext: RuntimePolicyContext = { parentActiveRevisionKeys: new Set() }
+void partialContext

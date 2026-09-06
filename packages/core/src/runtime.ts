@@ -172,7 +172,7 @@ export const defaultRuntimePolicy: RuntimePolicy = Object.freeze({
       throw new SynaError(
         'MISSING_AUTO_POLICY',
         `auto(${contract.id}) has multiple implementation families, but this Runtime has no explicit auto-selection policy.`,
-        { contract: contract.id, site: context.site, families: [...families].sort() },
+        { contract: contract.id, site: context.dependencySite, families: [...families].sort() },
       )
     }
     return defaultVersionOrder(candidates, context.parentActiveRevisionKeys)

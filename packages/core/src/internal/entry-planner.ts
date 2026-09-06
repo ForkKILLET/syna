@@ -41,7 +41,7 @@ import type {
   ServiceSlot,
   SyntheticSlot,
 } from './runtime-model.js'
-import { NeedChoice } from './runtime-model.js'
+import { NeedChoice, PolicyContext } from './runtime-model.js'
 import {
   compactDigest,
   dependencyIdentity,
@@ -982,10 +982,7 @@ export class EntryPlanner implements GraphBuilderHost {
         revisions => this.policy.orderVersionCandidates(
           candidates[0]!.family,
           revisions,
-          {
-            site,
-            parentActiveRevisionKeys: this.activeRevisionKeys(parentPlan),
-          },
+          new PolicyContext(site, this.activeRevisionKeys(parentPlan)),
         ),
         site,
       )[0]!

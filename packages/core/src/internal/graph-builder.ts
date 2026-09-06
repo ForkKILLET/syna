@@ -25,7 +25,7 @@ import type {
   SelectorPlanNode,
   ServicePlanNode,
 } from './runtime-model.js'
-import { NeedChoice } from './runtime-model.js'
+import { NeedChoice, PolicyContext } from './runtime-model.js'
 import { compareRevisionIdentity, providesContract, unwrapDependency } from './identity.js'
 import { realmAllows } from './resolution-realm.js'
 
@@ -83,8 +83,8 @@ export class GraphBuilder {
     return { nodes: this.nodes, rootNodeBySite: this.rootNodeBySite }
   }
 
-  private resolutionContext(site: string): RuntimePolicyContext {
-    return { site, parentActiveRevisionKeys: this.parentActiveRevisionKeys }
+  private resolutionContext(dependencySite: string): RuntimePolicyContext {
+    return new PolicyContext(dependencySite, this.parentActiveRevisionKeys)
   }
 
   private implementationCandidates(contract: Contract): readonly CompiledService[] {

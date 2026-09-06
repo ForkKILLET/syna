@@ -61,7 +61,7 @@ test('auto Contract choices are independent per dependency edge', async () => {
     services: [Consumer, A, B],
     policy: {
       orderAutoCandidates(_contract, candidates, context) {
-        return context.site.endsWith('dependency:first')
+        return context.dependencySite.endsWith('dependency:first')
           ? [A, B]
           : [B, A]
       },

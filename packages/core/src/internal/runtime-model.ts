@@ -9,10 +9,27 @@ import type {
   ForkCause,
   Input,
   NormalizedServiceFailurePolicy,
+  RuntimePolicyContext,
   ServiceFamily,
   ServiceRevision,
 } from '../descriptors.js'
 import type { LabeledGraphNode } from '../graph.js'
+
+/**
+ * The context handed to Runtime policies. `site` is the 0.5 name of `dependencySite`: a prototype getter, so
+ * it reads the same value without being an own enumerable key (removed in 0.7.0).
+ */
+export class PolicyContext implements RuntimePolicyContext {
+  constructor(
+    readonly dependencySite: string,
+    readonly parentActiveRevisionKeys: ReadonlySet<string>,
+  ) {}
+
+  /** @deprecated Use `dependencySite`. Removed in 0.7.0. */
+  get site(): string {
+    return this.dependencySite
+  }
+}
 
 export type EnvState = 'activating' | 'ready' | 'disposing' | 'disposed'
 
