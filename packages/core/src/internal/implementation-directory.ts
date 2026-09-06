@@ -141,7 +141,7 @@ export class ImplementationDirectory {
       throw new SynaError(
         'MISSING_IMPLEMENTATION',
         `Implementation family ${familyId} is not admitted by this Runtime; no supplier substitution is attempted.`,
-        { contract: contract.id, implementation: familyId, version: ref.version },
+        { contract: contract.id, implementation: familyId, version: ref.version, available: [] },
       )
     }
     const matching = family
@@ -207,6 +207,9 @@ export class ImplementationDirectory {
   }
 }
 
+/** A revision key as every Runtime writes it: `family@version` (the version carries no `@`). */
+const REVISION_KEY = /^.+@[^@]+$/
+
 /** One canonical collection-local view over exact candidate revisions. */
 export class CandidateIndex<C extends Contract<any>> {
   readonly candidates: readonly ImplementationCandidate<C>[]
@@ -253,7 +256,7 @@ export class CandidateIndex<C extends Contract<any>> {
     }
 
     const ref = ('ref' in input ? input.ref : input) as Partial<InternalCandidateRef>
-    if (ref.kind !== 'candidate-ref' || typeof ref.sourceSlotId !== 'string' || typeof ref.revisionKey !== 'string') {
+    if (ref.kind !== 'candidate-ref' || typeof ref.sourceSlotId !== 'string' || typeof ref.revisionKey !== 'string' || !REVISION_KEY.test(ref.revisionKey)) {
       throw new SynaError('INVALID_DESCRIPTOR', 'Expected a CandidateRef created by this Runtime.', { descriptor: 'CandidateRef', problem: 'not-from-this-runtime' })
     }
     if (ref.sourceSlotId !== this.options.sourceSlotId) {
@@ -268,10 +271,21 @@ export class CandidateIndex<C extends Contract<any>> {
     }
     const candidate = this.byRevisionKey.get(ref.revisionKey)
     if (!candidate) {
+      // A CandidateRef of another Runtime whose slot ids coincide: its key names a
+      // revision this collection does not hold. The key is `family@version`.
+      const separator = ref.revisionKey.lastIndexOf('@')
+      const implementation = ref.revisionKey.slice(0, separator)
       throw new SynaError(
         'MISSING_IMPLEMENTATION',
         'Candidate does not belong to this implementation collection.',
-        { revision: ref.revisionKey },
+        {
+          contract: this.options.contract.id,
+          implementation,
+          version: ref.revisionKey.slice(separator + 1),
+          available: this.options.revisions
+            .filter(revision => revision.family.id === implementation)
+            .map(revision => revision.version),
+        },
       )
     }
     return candidate

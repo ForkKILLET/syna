@@ -143,11 +143,17 @@ export type SynaErrorDetails = {
   readonly MISSING_BINDING:
     | { readonly binding: string; readonly site: string; readonly missing: readonly string[] }
     | EntryParametersMissing
+  /**
+   * A Binding assignment (the planner), a bare Contract or `auto()` site with no
+   * implementer (the graph builder), or an implementation reference / candidate
+   * naming a family, version or candidate the Runtime or the collection does not
+   * hold (the catalog and `C.all`). `available` lists the versions of the named
+   * family that are admitted (or held by the collection): `[]` for an unknown family.
+   */
   readonly MISSING_IMPLEMENTATION:
     | { readonly binding: string; readonly implementation: string; readonly version: string; readonly available: readonly string[] }
     | { readonly contract: string; readonly site: string }
-    | { readonly contract: string; readonly implementation: string; readonly version: string; readonly available?: readonly string[] }
-    | { readonly revision: string | undefined }
+    | { readonly contract: string; readonly implementation: string; readonly version: string; readonly available: readonly string[] }
   readonly MISSING_INPUT:
     | { readonly input: string; readonly site: string; readonly missing: readonly string[] }
     | EntryParametersMissing

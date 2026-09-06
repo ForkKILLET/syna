@@ -41,9 +41,15 @@ Task book: `SYNA_V07_EXECUTION_PROMPT.md` (untracked at the workspace root; neve
 - Tests: new `v07-s7-env-state.test.mjs` (12 tests: every reachable site, each key asserted; the abandoned-slot and pending-at-close cases tolerate today's `UNSETTLED_ATTEMPT` rejection of `dispose()` — Phase E revisits them) and `v07-s7-invalid-descriptor.test.mjs` (table of 28 rows, the throwing module asserted from the stack, the compiled sources counted: exactly 28 sites, each passing `descriptor` and `problem`; site 3 exercised on `DefinitionCompiler` directly since the planner meets the Runtime's own Entry check first). Updated: `v05-attempts`, `v05-audit-lifecycle`, `v05-review-lifecycle`, `v05-cache-cleanup`, `core`, `v05-definitions`, `v06-t1-errors` (27 codes, exact details), `v07-expired-forms`, `type-tests/api.ts`, Hyla-mini `site-manager` F-AP3-04 (`cause.code` is `ENV_CLOSED`), `api-inventory` (removed + 4 added codes, count 27), `no-old-names` (pattern + sample).
 - Docs: `API_REFERENCE` (error table: four new rows, the descriptor row with the vocabulary, the two sentences), `SEMANTIC_MODEL` §anchored Entry, `API_STABILITY` kept-codes sentence, `DEFERRED` S7 row removed, `MIGRATION_V06_TO_V07` §3 S7 (both tables, key mapping), `CHANGELOG`.
 
-### C3 — S8 — NEXT
+### C3 — S8: `MISSING_IMPLEMENTATION` three shapes, every field required — DONE (this commit)
 
-`MISSING_IMPLEMENTATION` six sites → three shapes, every field required (`details.revision` never `undefined`): A `{ binding, implementation, version, available }` (planner Binding assignment), B `{ contract, site }` (graph builder ×2), C `{ contract, implementation, version, available }` (directory: unknown family, unknown version — add `available: []` / the versions — and the `set.load()` candidate-not-in-collection case, parsed from `revisionKey`). Then C4 (S10 `asSynaError`).
+- Shapes: A `{ binding, implementation, version, available }` (planner Binding assignment, unchanged), B `{ contract, site }` (graph builder ×2, unchanged), C `{ contract, implementation, version, available }` (directory: the unknown-family site gains `available: []`; the version site unchanged; the `set.load()` candidate-not-in-collection site parses `family@version` from the key and lists the collection's versions of that family). The `{ revision: string | undefined }` member is gone from `SynaErrorDetails`. `CandidateIndex.normalize` also requires the key to be `family@version` (`REVISION_KEY`), so a malformed key is `INVALID_DESCRIPTOR` at S7's site 27 and site 6 never sees an empty version.
+- Tests: new `v07-s8-missing-implementation.test.mjs` (six sites, exact details, the cross-Runtime CandidateRef with coinciding slot ids, no undefined field, six compiled sites); `v07-s7-invalid-descriptor` gains the malformed-key cases. The 0.5 snapshots record only the planner and the version site (both already carried `available`), so `v06-snapshots` needs no mapping.
+- Docs: `API_REFERENCE` row, `DEFERRED` S8 row removed, `MIGRATION_V06_TO_V07` §3 S8, `CHANGELOG`.
+
+### C4 — S10 — NEXT
+
+`asSynaError()` (unexported, uncalled): wrap a non-SynaError with `cause` = the original value and `details = { ...siteDetails, cause: { name, message } }`; return type `SynaErrorOf<Code> & { readonly details: { readonly cause: { readonly name: string; readonly message: string } } }`; unit test through `dist/errors.js`; no new public export; `SynaErrorDetails` unchanged (the wrapper adds `cause` on top of the site's shape).
 
 ## Later phases
 

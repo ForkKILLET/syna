@@ -291,11 +291,13 @@ test('INVALID_DESCRIPTOR: the CandidateRef check covers revisionKey (Q8) and a f
   const foreign = await capture(() => set.load({ kind: 'candidate-ref', sourceSlotId: 'slot-0', revisionKey: A.key }))
   assert.equal(foreign.code, 'FOREIGN_CANDIDATE_REF')
   const own = foreign.details.expectedSourceSlot
-  for (const revisionKey of [undefined, 7, null]) {
+  // Not a string, or not the `family@version` key every Runtime writes: not a CandidateRef of any Runtime.
+  for (const revisionKey of [undefined, 7, null, 'no-version', '@1.0.0', 'family@']) {
     const error = await capture(() => set.load({ kind: 'candidate-ref', sourceSlotId: own, revisionKey }))
-    assert.equal(error.code, 'INVALID_DESCRIPTOR')
+    assert.equal(error.code, 'INVALID_DESCRIPTOR', String(revisionKey))
     assert.deepEqual(error.details, { descriptor: 'CandidateRef', problem: 'not-from-this-runtime' })
   }
+  // A well-formed key this collection does not hold is a missing implementation (S8 has the details).
   const unknown = await capture(() => set.load({ kind: 'candidate-ref', sourceSlotId: own, revisionKey: 'nobody@1.0.0' }))
   assert.equal(unknown.code, 'MISSING_IMPLEMENTATION')
   assert.equal((await set.load({ kind: 'candidate-ref', sourceSlotId: own, revisionKey: A.key })).id, 'a')

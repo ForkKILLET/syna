@@ -77,7 +77,21 @@ v0.7 做三件事：删除 0.6 宣布到期的全部 23 个别名与 0.5 调用�
 
 测试：`packages/core/tests/v07-s7-env-state.test.mjs`（每个可达位点一例，`details` 逐键断言）与 `v07-s7-invalid-descriptor.test.mjs`（28 个位点的表驱动测试，按抛出模块核对，并计数编译产物里的抛出点）。
 
-（S8、S10 随各自提交填写。）
+### S8 `MISSING_IMPLEMENTATION`：六个抛出点、三种形状、字段全部必填
+
+码不变。0.6 的 `details` 有四种形状，其中目录里"family 未被接纳"的位点缺 `available`，`set.load()` 里"候选不属于本集合"的位点只有 `{ revision }` 且 `revision` 可能是 `undefined`。0.7 收成三种，字段全部必填：
+
+| 抛出点 | 0.6 `details` | 0.7 `details` |
+|---|---|---|
+| Binding 赋值：没有被接纳的修订满足引用的版本意图与 Contract（规划器） | `{ binding, implementation, version, available }` | 不变 |
+| 裸 Contract / `auto()` 位点没有实现者（图构建器，两处） | `{ contract, site }` | 不变 |
+| 实现引用指向未被接纳的 family（`catalog.resolve()`、`set.resolve()`、`Binding.parse()` 后的规划） | `{ contract, implementation, version }` | `{ contract, implementation, version, available: [] }` |
+| 实现引用的版本意图没有候选满足 | `{ contract, implementation, version, available }` | 不变 |
+| `set.load()` 收到本集合没有的候选（另一个 Runtime 的 `CandidateRef`，slot id 恰好相同） | `{ revision }`（可能 `undefined`） | `{ contract, implementation, version, available }`：从键 `family@version` 解析，`available` 是本集合持有的该 family 的版本 |
+
+`revisionKey` 不是 `family@version` 形式的 `CandidateRef` 不可能来自任何 Runtime，`set.load()` 以 `INVALID_DESCRIPTOR { descriptor: 'CandidateRef', problem: 'not-from-this-runtime' }` 拒绝（S7 的第 27 个位点）。测试：`packages/core/tests/v07-s8-missing-implementation.test.mjs`（六个位点各一例，`details` 逐键断言，编译产物里的抛出点计数为 6）。
+
+（S10 随其提交填写。）
 
 ## §4 语义修订 S1 / S2
 
