@@ -8,6 +8,7 @@ import {
   type DeriveOptions,
   type EntryExplanation,
   type EntryOptions,
+  type EntryArguments,
   type EntryParameters,
   type RuntimePolicy,
   type RuntimePolicyContext,
@@ -102,13 +103,13 @@ const Root = define.entry({
 const validInput = {
   context: { tenant: 'demo' },
   selected: Selected.to(Implementation),
-} satisfies EntryParameters<typeof Root>
+} satisfies EntryArguments<typeof Root>
 void validInput
 
 const exactInput = {
   context: { tenant: 'demo' },
   selected: Implementation,
-} satisfies EntryParameters<typeof Root>
+} satisfies EntryArguments<typeof Root>
 void exactInput
 
 const Minimal = define.service('minimal', {
@@ -151,10 +152,10 @@ const OtherService = define.service('other-service', {
 Selected.to(OtherService)
 
 // @ts-expect-error Missing required Entry parameter "selected".
-const missingBinding: EntryParameters<typeof Root> = { context: { tenant: 'x' } }
+const missingBinding: EntryArguments<typeof Root> = { context: { tenant: 'x' } }
 void missingBinding
 
-const wrongInput: EntryParameters<typeof Root> = {
+const wrongInput: EntryArguments<typeof Root> = {
   // @ts-expect-error Input payload has the wrong type.
   context: { tenant: 123 },
   selected: Selected.to(Implementation),
@@ -189,7 +190,7 @@ void runtime.run(LegacyScoped, { scope: { fresh: [Minimal] } }, async ({ minimal
 // @ts-expect-error `reuse` is a call option, never a parameter key.
 void runtime.enter(Root, { ...validInput, reuse: { fresh: [Implementation] } })
 // @ts-expect-error The parameter values type no longer admits `scope`.
-const scopedValues: EntryParameters<typeof Root> = { ...validInput, scope: { fresh: [Implementation] } }
+const scopedValues: EntryArguments<typeof Root> = { ...validInput, scope: { fresh: [Implementation] } }
 void scopedValues
 // @ts-expect-error Options carry only `reuse`.
 void runtime.enter(Scoped, {}, { fresh: [Minimal] })
@@ -296,3 +297,12 @@ const legacyLimited: Runtime = createRuntime({ services: [Implementation], planC
 void [limited, legacyLimited]
 // @ts-expect-error the old key names do not exist inside `limits`.
 createRuntime({ services: [Implementation], limits: { deadlineMs: 5_000 } })
+
+// M2 (v0.6): `EntryParameters<E>` is the declared parameter map; `EntryArguments<E>` the call-time values record.
+const declaredParameters: EntryParameters<typeof Root> = { context: Context, selected: Selected }
+void declaredParameters
+// @ts-expect-error a values record is not the declared parameter map.
+const notTheDeclaredMap: EntryParameters<typeof Root> = { context: { tenant: 'x' }, selected: Implementation }
+void notTheDeclaredMap
+const callValues: EntryArguments<typeof Root> = { context: { tenant: 'x' }, selected: Implementation }
+void callValues

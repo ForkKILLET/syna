@@ -5,7 +5,7 @@ import type {
   Dependency,
   EntryDescriptor,
   EntryExplanationSuccess,
-  EntryParameters,
+  EntryArguments,
   ExplainedNode,
   ForkCause,
   Input,
@@ -187,7 +187,7 @@ export class EntryPlanner implements GraphBuilderHost {
   plan<E extends EntryDescriptor<any, any>>(
     parent: PlanningParent | undefined,
     descriptor: E,
-    input: EntryParameters<E> | undefined,
+    input: EntryArguments<E> | undefined,
     reuse: ReuseConstraints | undefined,
     checking: boolean,
     realm: ResolutionRealm,
@@ -198,7 +198,7 @@ export class EntryPlanner implements GraphBuilderHost {
     }
 
     const envId = checking ? `check-${this.nextCheckNumber++}` : `env-${this.nextEnvNumber++}`
-    const normalizedInput = (input ?? {}) as EntryParameters<E>
+    const normalizedInput = (input ?? {}) as EntryArguments<E>
     const inputs = this.prepareInputs(envId, parent, descriptor, normalizedInput)
     const bindings = this.prepareBindings(envId, parent, descriptor, normalizedInput)
     if (inputs.missing.length > 0 || bindings.missing.length > 0) {
@@ -858,7 +858,7 @@ export class EntryPlanner implements GraphBuilderHost {
     envId: string,
     parent: PlanningParent | undefined,
     descriptor: E,
-    input: EntryParameters<E>,
+    input: EntryArguments<E>,
   ): {
     readonly slots: ReadonlyMap<string, InputSlot>
     readonly providedIds: ReadonlySet<string>
@@ -894,7 +894,7 @@ export class EntryPlanner implements GraphBuilderHost {
     envId: string,
     parent: PlanningParent | undefined,
     descriptor: E,
-    input: EntryParameters<E>,
+    input: EntryArguments<E>,
   ): {
     readonly choices: ReadonlyMap<string, BindingChoiceSlot>
     readonly changedIds: ReadonlySet<string>

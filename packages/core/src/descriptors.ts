@@ -195,10 +195,10 @@ export interface NormalizedServiceFailurePolicy {
  * slot; `env.anchor(entry)` creates one anchored at `env`.
  */
 export interface AnchoredEntry<E extends EntryDescriptor<any, any>> {
-  enter(...args: EntryArguments<E>): Promise<EnvHandle<E['requires']>>
-  run<Result>(...args: EntryRunArguments<E, Result>): Promise<Result>
-  check(...args: EntryArguments<E>): Promise<EntryCheck>
-  explain(...args: EntryArguments<E>): Promise<EntryExplanation>
+  enter(...args: EntryCallArguments<E>): Promise<EnvHandle<E['requires']>>
+  run<Result>(...args: EntryRunCallArguments<E, Result>): Promise<Result>
+  check(...args: EntryCallArguments<E>): Promise<EntryCheck>
+  explain(...args: EntryCallArguments<E>): Promise<EntryExplanation>
 }
 
 /** @deprecated Use `AnchoredEntry`. Removed in 0.7.0. */
@@ -451,7 +451,11 @@ export interface EntryDescriptor<
   readonly metadata: Readonly<DescriptorMetadata>
 }
 
-export type EntryParameters<E extends EntryDescriptor<any, any>> =
+/** The declared parameter map of an Entry: the type of its `parameters` record. */
+export type EntryParameters<E extends EntryDescriptor<any, any>> = E['parameters']
+
+/** The call-time values record of an Entry: one value per declared parameter (Input payload or Binding assignment). */
+export type EntryArguments<E extends EntryDescriptor<any, any>> =
   EntryParameterValues<E['parameters']>
 
 /** The 0.5 call form: reuse constraints inside the parameter record. */
@@ -461,11 +465,12 @@ type ScopedEntryParameters<E extends EntryDescriptor> =
     readonly scope: ReuseConstraints
   }
 
-export type EntryArguments<E extends EntryDescriptor<any, any>> =
+/** The argument tuple of `enter`/`check`/`explain` (module-internal; not part of the package surface). */
+export type EntryCallArguments<E extends EntryDescriptor<any, any>> =
   keyof E['parameters'] extends never
-    ? | [parameters?: EntryParameters<E> | undefined, options?: EntryOptions | undefined]
+    ? | [parameters?: EntryArguments<E> | undefined, options?: EntryOptions | undefined]
       | [parameters: ScopedEntryParameters<E>]
-    : | [parameters: EntryParameters<E>, options?: EntryOptions | undefined]
+    : | [parameters: EntryArguments<E>, options?: EntryOptions | undefined]
       | [parameters: ScopedEntryParameters<E>]
 
 export type EntryDependencies<E extends EntryDescriptor<any, any>> =
@@ -476,14 +481,15 @@ export type EntryCallback<E extends EntryDescriptor<any, any>, Result> = (
   env: EnvHandle<E['requires']>,
 ) => Awaitable<Result>
 
-export type EntryRunArguments<E extends EntryDescriptor<any, any>, Result> =
+/** The argument tuple of `run` (module-internal; not part of the package surface). */
+export type EntryRunCallArguments<E extends EntryDescriptor<any, any>, Result> =
   keyof E['parameters'] extends never
     ? | [callback: EntryCallback<E, Result>]
-      | [parameters: EntryParameters<E> | undefined, callback: EntryCallback<E, Result>]
-      | [parameters: EntryParameters<E> | undefined, options: EntryOptions | undefined, callback: EntryCallback<E, Result>]
+      | [parameters: EntryArguments<E> | undefined, callback: EntryCallback<E, Result>]
+      | [parameters: EntryArguments<E> | undefined, options: EntryOptions | undefined, callback: EntryCallback<E, Result>]
       | [parameters: ScopedEntryParameters<E>, callback: EntryCallback<E, Result>]
-    : | [parameters: EntryParameters<E>, callback: EntryCallback<E, Result>]
-      | [parameters: EntryParameters<E>, options: EntryOptions | undefined, callback: EntryCallback<E, Result>]
+    : | [parameters: EntryArguments<E>, callback: EntryCallback<E, Result>]
+      | [parameters: EntryArguments<E>, options: EntryOptions | undefined, callback: EntryCallback<E, Result>]
       | [parameters: ScopedEntryParameters<E>, callback: EntryCallback<E, Result>]
 
 export interface RuntimePolicyContext {
@@ -810,22 +816,22 @@ export interface EnvHandle<Requires extends DependencyMap = DependencyMap> {
 
   enter<E extends EntryDescriptor<any, any>>(
     entry: E,
-    ...args: EntryArguments<E>
+    ...args: EntryCallArguments<E>
   ): Promise<EnvHandle<E['requires']>>
 
   run<E extends EntryDescriptor<any, any>, Result>(
     entry: E,
-    ...args: EntryRunArguments<E, Result>
+    ...args: EntryRunCallArguments<E, Result>
   ): Promise<Result>
 
   check<E extends EntryDescriptor<any, any>>(
     entry: E,
-    ...args: EntryArguments<E>
+    ...args: EntryCallArguments<E>
   ): Promise<EntryCheck>
 
   explain<E extends EntryDescriptor<any, any>>(
     entry: E,
-    ...args: EntryArguments<E>
+    ...args: EntryCallArguments<E>
   ): Promise<EntryExplanation>
 
   derive(reuse?: ReuseConstraints): Promise<EnvHandle<{}>>
@@ -843,22 +849,22 @@ export interface Runtime {
 
   enter<E extends EntryDescriptor<any, any>>(
     entry: E,
-    ...args: EntryArguments<E>
+    ...args: EntryCallArguments<E>
   ): Promise<EnvHandle<E['requires']>>
 
   run<E extends EntryDescriptor<any, any>, Result>(
     entry: E,
-    ...args: EntryRunArguments<E, Result>
+    ...args: EntryRunCallArguments<E, Result>
   ): Promise<Result>
 
   check<E extends EntryDescriptor<any, any>>(
     entry: E,
-    ...args: EntryArguments<E>
+    ...args: EntryCallArguments<E>
   ): Promise<EntryCheck>
 
   explain<E extends EntryDescriptor<any, any>>(
     entry: E,
-    ...args: EntryArguments<E>
+    ...args: EntryCallArguments<E>
   ): Promise<EntryExplanation>
 
   inspect(): RuntimeInspection

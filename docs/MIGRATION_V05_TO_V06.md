@@ -33,6 +33,8 @@ v0.6 只收束 API 的名字与类型。语义——默认值、错误触发条�
 |---|---|---|---|---|
 | M1 | `planCache: { maxEntries }`、`initialization: { deadlineMs }`、`disposal: { graceMs }`、`planning: { searchBudget }`（类型 `PlanCacheOptions`、`InitializationOptions`、`DisposalOptions`、`PlanningOptions`） | `limits: { setupDeadlineMs, disposalGraceMs, planningBudget, planCacheEntries }`（`RuntimeLimits`）。默认值逐字不变：30_000 / 2_000 / 10_000 / 512（`packages/core/tests/v06-m1-limits.test.mjs` 锁定源码常量、类型声明注释与 API_REFERENCE 示例）。每个旧键映射到唯一的新键；同一限制同时以两种形式给出是 `TypeError`；无效值的校验消息改称新键（触发条件不变）。`inspect().planCache.maxEntries` 是检视字段，不改名 | (3) 四个各只有一个键的记录说的是同一件事：Runtime 的上限 | 0.7.0 |
 
+| M2 | `EntryParameters<E>` = 调用期取值记录；`EntryArguments<E>` = `enter/check/explain` 的参数元组；从包入口导出的辅助类型 `EntryParameter`、`EntryParameterMap`、`EntryParameterValue`、`EntryParameterValues`、`EntryRunArguments`、`DependencyOutput`、`NormalizedServiceFailurePolicy`、`SetupResult` | `EntryParameters<E>` = Entry 声明的参数映射类型（`E['parameters']`）；`EntryArguments<E>` = 调用期取值记录；`LoadedDependencies<Refs>`（`loadAll` 的结果）保留；其余不再从包入口导出。含义变化无法用别名过渡，对照：`EntryParameterValues<E['parameters']>` → `EntryArguments<E>`；`E['parameters']` → `EntryParameters<E>`；`DependencyOutput<D>` → 直接标注实例类型或 `Awaited<ReturnType<ServiceRef<T>['load']>>`；`SetupResult<T>` → `T \| Promise<T>`；`NormalizedServiceFailurePolicy` → `Required<ServiceFailurePolicy>` 形状（只在内部使用） | (3) 同一概念（调用期取值）两个名字，且 `EntryParameters` 字面上就是"参数声明" | 无别名（含义变化，0.6 直接生效） |
+
 ## 删除（无别名）
 
 | # | 删除 | 替代 | 改写的测试 | 删除的测试 |
