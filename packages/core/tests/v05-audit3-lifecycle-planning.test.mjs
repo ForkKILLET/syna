@@ -147,7 +147,7 @@ test('F-CL3-03 an attempt whose Env handle was dropped is still closed as unreac
     const droppedId = dropped.id
     void dropped.deps.stuck.load().catch(() => undefined)
     await sleep(5)
-    await dropped.dispose().catch(() => undefined)
+    await dropped.dispose()
     const droppedRef = new WeakRef(dropped)
     dropped = undefined
     let kept
@@ -157,7 +157,7 @@ test('F-CL3-03 an attempt whose Env handle was dropped is still closed as unreac
       kept = await root.enter(Child)
       void kept.deps.stuck.load().catch(() => undefined)
       await sleep(5)
-      await kept.dispose().catch(() => undefined)
+      await kept.dispose()
     }
     for (let round = 0; round < 15; round += 1) { globalThis.gc(); await sleep(20) }
     await sleep(50)
@@ -166,10 +166,9 @@ test('F-CL3-03 an attempt whose Env handle was dropped is still closed as unreac
       droppedCleanup: cleanups.includes('dropped'),
       droppedEvent: events.includes('attempt-unreachable:' + droppedId),
       keptCleanup: kept ? cleanups.includes('kept') : null,
-      keptState: kept ? kept.state : null,
       ledger: runtime.inspect().unsettledAttempts.length,
     }))
-    await runtime.dispose().catch(() => undefined)
+    await runtime.dispose()
   `
   for (const variant of ['single-yield', 'pair']) {
     const result = await child(['--expose-gc', '--unhandled-rejections=strict'], script(variant))
@@ -178,10 +177,8 @@ test('F-CL3-03 an attempt whose Env handle was dropped is still closed as unreac
     assert.equal(outcome.droppedCollected, true, `${variant}: the dropped Env was collected`)
     assert.equal(outcome.droppedCleanup, true, `${variant}: the dropped Env's cleanup ran`)
     assert.equal(outcome.droppedEvent, true, `${variant}: attempt-unreachable named the dropped Env`)
-    if (variant === 'pair') {
-      assert.equal(outcome.keptCleanup, true)
-      assert.equal(outcome.keptState, 'disposed')
-    }
+    // 0.7 (S2): the 0.6 assertion "the kept Env is 'disposed' after the collection" is withdrawn: no state depends on GC.
+    if (variant === 'pair') assert.equal(outcome.keptCleanup, true)
     assert.equal(outcome.ledger, 0, `${variant}: ledger empty afterwards`)
   }
 })
@@ -247,7 +244,7 @@ test('F-CL3-04 plans do not depend on the insertion order of requires keys, on t
   }
 })
 
-test('F-CL3-05a a failed setup whose rollback outlives the grace is reported as rolling back, listed in the ledger, and its slot ends disposed', async () => {
+test('F-CL3-05a a failed setup whose rollback outlives the grace is abandoned as rolling back (event phase, ledger state), and its slot ends disposed', async () => {
   const define = makeDefine('v05.audit3.slow-rollback')
   const rollbackGate = deferred()
   const events = []
@@ -263,32 +260,29 @@ test('F-CL3-05a a failed setup whose rollback outlives the grace is reported as 
   const load = env.deps.failing.load()
   void load.catch(() => undefined)
   await waitFor(() => events.includes('rollback-start'))
-  const error = await env.dispose().catch(e => e)
-  assert.ok(error instanceof AggregateError)
-  const report = error.errors.find(item => item.code === 'UNSETTLED_ATTEMPT')
-  assert.ok(report, 'the bounded close reports the outstanding rollback')
-  assert.match(report.message, /were still rolling back/)
-  assert.doesNotMatch(report.message, /still running/)
-  assert.equal(report.details.slots[0].phase, 'rollback')
-  assert.ok(events.includes('attempt-abandoned:rollback'))
-  assert.equal(env.state, 'disposing')
+  // 0.7 (S2): the 0.6 assertions "dispose() rejects ('were still rolling back', details.slots[].phase)" and
+  // "state stays 'disposing'" are withdrawn: the phase is on the attempt-abandoned event, the attempt on the ledger.
+  await env.dispose()
+  assert.ok(events.includes('attempt-abandoned:rollback'), 'the bounded close reports the outstanding rollback')
+  assert.equal(env.state, 'disposed')
   const ledger = runtime.inspect().unsettledAttempts
   assert.equal(ledger.length, 1)
   assert.equal(ledger[0].state, 'rolling-back')
   assert.equal(ledger[0].env, env.id)
-  await assert.rejects(runtime.dispose(), error => error.errors.some(item => item.code === 'UNSETTLED_ATTEMPT'))
+  assert.deepEqual(env.inspect().abandonedAttempts.map(item => item.state), ['rolling-back'])
+  await runtime.dispose()
+  assert.ok(events.includes('attempts-outstanding'), 'runtime.dispose() reports the rollback still outstanding, once')
   rollbackGate.resolve()
-  await waitFor(() => env.state === 'disposed')
+  await waitFor(() => runtime.inspect().unsettledAttempts.length === 0)
   assert.equal(env.inspect().nodes[0].state, 'disposed', 'the slot leaves abandoned once its rollback finished')
-  assert.equal(runtime.inspect().unsettledAttempts.length, 0)
+  assert.deepEqual(env.inspect().abandonedAttempts, [])
   assert.ok(events.includes('rollback-end'))
   const outcome = await settle(load)
   assert.equal(outcome.status, 'rejected')
   assert.equal(outcome.error.message, 'setup failed')
-  await runtime.dispose().catch(() => undefined)
 })
 
-test('F-CL3-05b during a late cleanup the ledger still lists the attempt as settling and runtime.dispose() reports it', async () => {
+test('F-CL3-05b during a late cleanup the ledger still lists the attempt as settling and runtime.dispose() reports it once', async () => {
   const define = makeDefine('v05.audit3.late-cleanup')
   const setupGate = deferred()
   const cleanupGate = deferred()
@@ -305,22 +299,24 @@ test('F-CL3-05b during a late cleanup the ledger still lists the attempt as sett
   const env = await runtime.enter(Entry)
   void env.deps.stuck.load().catch(() => undefined)
   await sleep(5)
-  await env.dispose().catch(() => undefined)
-  assert.equal(env.state, 'disposing')
+  await env.dispose()
+  assert.equal(env.state, 'disposed') // 0.7 (S2): the 0.6 'disposing' assertions of this case are withdrawn
   assert.deepEqual(runtime.inspect().unsettledAttempts.map(item => item.state), ['abandoned'])
   setupGate.resolve() // late settlement; the late cleanup now blocks on cleanupGate
   await waitFor(() => events.includes('late-cleanup-start'))
-  assert.equal(env.state, 'disposing')
+  assert.equal(env.state, 'disposed')
   assert.deepEqual(runtime.inspect().unsettledAttempts.map(item => item.state), ['settling'], 'the ledger keeps the attempt while its late cleanup runs')
-  await assert.rejects(runtime.dispose(), error => error.errors.some(item => item.code === 'UNSETTLED_ATTEMPT'), 'runtime.dispose() does not fulfil silently while a late cleanup runs')
+  assert.deepEqual(env.inspect().abandonedAttempts.map(item => item.state), ['settling'])
+  await runtime.dispose()
+  assert.deepEqual(events.filter(event => event === 'attempts-outstanding'), ['attempts-outstanding'], 'runtime.dispose() does not fulfil silently while a late cleanup runs: it reports the settling attempt once')
   cleanupGate.resolve()
-  await waitFor(() => env.state === 'disposed')
-  assert.equal(runtime.inspect().unsettledAttempts.length, 0)
+  await waitFor(() => runtime.inspect().unsettledAttempts.length === 0)
   assert.equal(env.inspect().nodes[0].state, 'disposed')
   assert.ok(events.includes('late-cleanup-end'))
   assert.ok(events.includes('late-setup-result'))
-  // A Runtime closes once: the report of that close is final and is what a later call sees.
-  await assert.rejects(runtime.dispose(), error => error.errors.some(item => item.code === 'UNSETTLED_ATTEMPT'))
+  // A Runtime closes once: a later call returns the same close and reports nothing again.
+  await runtime.dispose()
+  assert.equal(events.filter(event => event === 'attempts-outstanding').length, 1)
 })
 
 test('F-CL3-05c runtime.dispose() waits within the grace for a settling attempt instead of reporting a cleanup that is about to finish', async () => {
@@ -334,36 +330,38 @@ test('F-CL3-05c runtime.dispose() waits within the grace for a settling attempt 
     },
   })
   const Entry = define.entry({ requires: { stuck: Stuck } })
-  const runtime = createRuntime({ services: [Stuck], limits: { disposalGraceMs: 200, setupDeadlineMs: 20 } })
+  const events = []
+  const runtime = createRuntime({ services: [Stuck], limits: { disposalGraceMs: 200, setupDeadlineMs: 20 }, diagnostics: { onEvent: event => events.push(event.type) } })
   const env = await runtime.enter(Entry)
   await assert.rejects(env.deps.stuck.load(), error => error.code === 'INITIALIZATION_TIMEOUT')
-  // The Env's own close reports the timed-out attempt (its raw Promise is still pending).
-  await assert.rejects(env.dispose(), error => error.errors.some(item => item.code === 'UNSETTLED_ATTEMPT'))
-  assert.equal(env.state, 'disposing')
+  // The Env's own close abandons the overdue attempt (its raw Promise is still pending).
+  await env.dispose()
+  assert.equal(env.state, 'disposed')
   assert.deepEqual(runtime.inspect().unsettledAttempts.map(item => item.state), ['abandoned'])
   setupGate.resolve() // late settlement: the cleanup takes 30 ms, well inside the 200 ms grace
   await waitFor(() => runtime.inspect().unsettledAttempts[0]?.state === 'settling')
   await runtime.dispose()
   assert.equal(runtime.inspect().unsettledAttempts.length, 0)
-  assert.equal(env.state, 'disposed')
+  assert.deepEqual(events, ['attempt-overdue', 'attempt-abandoned', 'late-setup-result'], 'the close waited for the settling attempt: nothing outstanding to report')
 })
 
 test('F-CL3-08 run() keeps a successful business result on the close error', async () => {
   const define = makeDefine('v05.audit3.run-result')
-  const Stuck = define.service('stuck', { async setup() { await new Promise(() => undefined) } })
-  const Entry = define.entry({ requires: { stuck: Stuck } })
-  const runtime = createRuntime({ services: [Stuck], limits: { disposalGraceMs: 20 } })
+  // 0.7 (S2): an abandoned attempt is no longer an error of the close (run() then returns the result: see
+  // v07-s2-state-and-ledger), so the close error of this case is a cleanup that throws.
+  const Throwing = define.service('throwing', { setup: (_deps, { onDispose }) => { onDispose(() => { throw new Error('cleanup failed') }); return {} } })
+  const Entry = define.entry({ requires: { throwing: Throwing } })
+  const runtime = createRuntime({ services: [Throwing] })
   const outcome = await settle(runtime.run(Entry, async deps => {
-    void deps.stuck.load().catch(() => undefined)
-    await sleep(5)
+    await deps.throwing.load()
     return 'business result'
   }))
   assert.equal(outcome.status, 'rejected')
   assert.ok(outcome.error instanceof AggregateError)
-  assert.ok(outcome.error.errors.some(item => item.code === 'UNSETTLED_ATTEMPT'))
+  assert.ok(outcome.error.errors.some(item => item instanceof AggregateError && item.errors.some(inner => inner.message === 'cleanup failed')))
   assert.equal(outcome.error.result, 'business result')
   assert.equal(Object.keys(outcome.error).includes('result'), false, 'the result rides along without changing the error\'s enumerable shape')
-  await runtime.dispose().catch(() => undefined)
+  await runtime.dispose()
 })
 
 test('F-CL3-09 check() and explain() consume no slot ids: the first real Env is numbered from slot-1', async () => {

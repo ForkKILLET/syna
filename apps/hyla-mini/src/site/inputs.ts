@@ -57,10 +57,11 @@ export interface SiteManagerSettings {
   readonly shutdownTimeoutMs: number
   /**
    * Receives the failure when closing a SiteEnv rejects (a Service cleanup
-   * threw, or a setup attempt ignored the stop signal past the disposal grace
-   * and is reported as `UNSETTLED_ATTEMPT`). The record is already released
-   * and its capacity handed on; the failure is counted in `stats().disposalFailures`.
-   * Defaults to `console.error`.
+   * threw). A setup attempt that ignored the stop signal past the disposal
+   * grace is not a failure of the close: it is reported by the Runtime's
+   * `attempt-abandoned` event and listed in `runtime.inspect().unsettledAttempts`.
+   * The record is already released and its capacity handed on; the failure is
+   * counted in `stats().disposalFailures`. Defaults to `console.error`.
    */
   readonly onDisposalError: (error: unknown, record: SiteRecordSummary) => void
 }

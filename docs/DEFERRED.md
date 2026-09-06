@@ -17,7 +17,6 @@ Things noticed during the v0.6 API consolidation that were **not** changed, beca
 
 | # | Where | Observation | Not done because |
 |---|---|---|---|
-| S2 | `env.state` vs GC, `inspect().unsettledAttempts` | An Env with an abandoned attempt stays `disposing` until the attempt settles; the ledger keeps every unsettled attempt. Whether a collected Env should leave the ledger is open. | §3.6. |
 | S3 | `provides: [primary(C)]` | A default-implementation declaration (the `@Primary` counterpart) would remove most `MISSING_AUTO_POLICY` cases. | §3.6: no default implementations. |
 | S4 | `C.all` coexistence | Every candidate is a real node of the current Env; a candidate whose setup fails still fails the collection's caller. | §3.6: no relaxation. |
 | S5 | New dependency forms, Entry capabilities, Runtime options | Including `ServiceFamily.range()` (Phase A finding F2): `serviceRange(revision, range)` took a **revision** as the range's origin; a Family-level `range()` would be a range without an origin and would change private-realm resolution (0.5 third round C1/C2). | §3.6; D4 deleted `serviceRange` and added nothing. |

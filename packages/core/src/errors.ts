@@ -1,4 +1,4 @@
-import type { EnvState, ForkCause, UnsettledAttemptInspection } from './descriptors.js'
+import type { EnvState, ForkCause } from './descriptors.js'
 
 /**
  * Every code a SynaError can carry. Diagnostics (`check()`, `explain()`) use
@@ -32,7 +32,6 @@ export type SynaErrorCode =
   | 'SHARE_CONSTRAINT_FAILED'
   | 'SLOT_NOT_LOADABLE'
   | 'UNSATISFIABLE_TOPOLOGY'
-  | 'UNSETTLED_ATTEMPT'
 
 export type DiagnosticCode = SynaErrorCode | 'UNKNOWN_ERROR'
 
@@ -50,16 +49,6 @@ type PendingLoad = {
   readonly slot: string
   readonly state: string
   readonly waitingMs: number
-}
-
-/** A setup attempt an Env close stopped waiting for. */
-type AbandonedSlot = {
-  readonly slot: string
-  readonly revision: string
-  readonly attempt: number
-  /** `rollback`: the setup already settled; its cleanups are what outlived the grace. */
-  readonly phase: 'setup' | 'rollback'
-  readonly dependencies: readonly { readonly dependency: string; readonly slot: string; readonly revision: string; readonly state: string }[]
 }
 
 /**
@@ -182,10 +171,6 @@ export type SynaErrorDetails = {
     readonly candidates: readonly string[]
     readonly failures: readonly { readonly code: SynaErrorCode; readonly message: string; readonly details: Readonly<Record<string, unknown>> }[]
   }
-  readonly UNSETTLED_ATTEMPT:
-    | { readonly attempts: readonly UnsettledAttemptInspection[] }
-    | { readonly env: string; readonly state: EnvState; readonly slots: readonly AbandonedSlot[] }
-    | { readonly slot: string; readonly revision: string; readonly attempt: number; readonly runningForMs: number }
 }
 
 /** A SynaError of one code: `details` has that code's shape. */

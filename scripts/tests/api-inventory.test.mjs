@@ -43,7 +43,7 @@ const DELETED_MEMBERS_07 = ['CreateRuntimeOptions.disposal', 'CreateRuntimeOptio
 // 0.7 (§2.3): error codes split or removed — each code is one inventory item, its SynaErrorCode union member
 // (DiagnosticCode is the union alias plus UNKNOWN_ERROR; SynaErrorDetails is a mapped type; neither has per-code items).
 const codeItems = code => [`SynaErrorCode['${code}']`]
-const DELETED_CODES_07 = ['FRESH_CONSTRAINT_FAILED', 'INVALID_ENV_STATE'].flatMap(codeItems)
+const DELETED_CODES_07 = ['FRESH_CONSTRAINT_FAILED', 'INVALID_ENV_STATE', 'UNSETTLED_ATTEMPT'].flatMap(codeItems)
 const NEW_CODES_07 = ['ENV_CLOSED', 'FOREIGN_CANDIDATE_REF', 'INACTIVE_REUSE_TARGET', 'INVALID_INHERITED_CHOICE', 'LIFECYCLE_MISUSE', 'RUNTIME_CLOSED', 'SLOT_NOT_LOADABLE'].flatMap(codeItems)
 const DELETED_07_OWNED = ['DisposalOptions.graceMs', 'InitializationOptions.deadlineMs', 'PlanCacheOptions.maxEntries', 'PlanningOptions.searchBudget']
 // Names the 0.6 consolidation introduced; every one of them stays.
@@ -55,8 +55,8 @@ const KEPT = [
   "SynaErrorCode['SHARE_CONSTRAINT_FAILED']", "DiagnosticCode['UNKNOWN_ERROR']",
 ]
 // Names 0.7 adds to the public API (registered phase by phase: S6/S7 error codes and details, S1 inspection fields).
-const NEW_07 = [...NEW_CODES_07, 'EnvInspectionNode.overdueMs']
-const ERROR_CODE_COUNT = 27
+const NEW_07 = [...NEW_CODES_07, 'EnvInspectionNode.overdueMs', 'EnvInspection.abandonedAttempts']
+const ERROR_CODE_COUNT = 26
 
 const deleted = [...DELETED_06, ...DELETED_07]
 const deletedMembers = [...DELETED_MEMBERS_06, ...DELETED_MEMBERS_07, ...DELETED_07_OWNED, ...DELETED_CODES_07]

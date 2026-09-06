@@ -16,6 +16,7 @@ import type {
   ReuseConstraints,
   EnvHandle,
   EnvInspection,
+  UnsettledAttemptInspection,
   EnvInspectionNode,
   InputRef,
   LoadOptions,
@@ -211,14 +212,8 @@ class EnvImpl<Requires extends DependencyMap> implements EnvHandle<Requires> {
   readonly children = new Set<EnvImpl<any>>()
   readonly deps: DependencyRefs<Requires>
   readonly abortController = new AbortController()
+  /** Advanced only by Runtime actions: `activating → ready → disposing → disposed`; `disposed` at the end of the bounded close. */
   state: EnvState = 'activating'
-  /**
-   * Resolves when the Env reaches `disposed`: every owned attempt settled and
-   * every descendant finalized. Only a parent that is itself closing waits on
-   * it; the Runtime holds no reference to an Env after its bounded close.
-   */
-  readonly finalized: Promise<void>
-  markFinalized: () => void = () => undefined
   private disposePromise?: Promise<void>
 
   constructor(
@@ -228,7 +223,6 @@ class EnvImpl<Requires extends DependencyMap> implements EnvHandle<Requires> {
     readonly plan: ResolvedPlan,
     rootSiteByEntryKey: ReadonlyMap<string, string>,
   ) {
-    this.finalized = new Promise<void>(resolve => { this.markFinalized = resolve })
     const refs: Record<string, ServiceRef<unknown> | InputRef<unknown>> = {}
     for (const [key, rootSiteId] of rootSiteByEntryKey) {
       const nodeId = plan.rootNodeBySite.get(rootSiteId)!
@@ -300,6 +294,7 @@ class EnvImpl<Requires extends DependencyMap> implements EnvHandle<Requires> {
       id: this.id,
       ...(this.parent ? { parentId: this.parent.id } : {}),
       state: this.state,
+      abandonedAttempts: this.runtime.abandonedAttemptsOf(this.id),
       nodes,
     }
   }
@@ -436,21 +431,21 @@ class RuntimeImpl implements Runtime, ImplementationViewHost {
       // Envs that completed their bounded close earlier are no longer roots, but an
       // attempt they abandoned may still be pending, or its late close (cleanups)
       // may be running: give the latter the grace, then report whatever is still
-      // outstanding instead of fulfilling as if everything had settled.
+      // outstanding — once, as a diagnostic — instead of fulfilling silently.
+      // Attempts that ignored the stop signal are not an error of this close.
       await this.materializer.awaitSettling(this.disposalGraceMs)
       const outstanding = this.materializer.unsettledAttempts()
-      if (outstanding.length > 0) {
-        errors.push(new SynaError(
-          'UNSETTLED_ATTEMPT',
-          `The Runtime closed while ${outstanding.length} setup attempt(s) were still running, rolling back or being cleaned up; their resources are not under Syna control.`,
-          { attempts: outstanding },
-        ))
-      }
+      if (outstanding.length > 0) this.onEvent({ type: 'attempts-outstanding', attempts: outstanding })
       if (errors.length > 0) {
         throw new AggregateError(errors, 'One or more Syna root Envs failed to dispose.')
       }
     })()
     return this.disposePromise
+  }
+
+  /** The ledger entries an Env's close left behind (`env.inspect().abandonedAttempts`). */
+  abandonedAttemptsOf(envId: string): readonly UnsettledAttemptInspection[] {
+    return this.materializer.abandonedAttemptsOf(envId)
   }
 
   [Symbol.asyncDispose](): Promise<void> {
@@ -735,16 +730,15 @@ class RuntimeImpl implements Runtime, ImplementationViewHost {
    * independent), give owned attempts the disposal grace period, then dispose
    * owned Ready slots dependant-first over the SCC condensation.
    *
-   * That much is bounded by the grace period, and at its end the Env leaves the
-   * tree and the Runtime's registries whatever is still pending: its parent no
-   * longer waits for it and the Runtime never retains a closed Env. The Env's
-   * *state* reaches `disposed` only once everything this close abandoned has
-   * settled: its own attempts and those of the descendants closed by this same
-   * call (a descendant that completed its own bounded close earlier has already
-   * left the tree and holds nothing here). Until then dispose() has reported
-   * the attempts (`UNSETTLED_ATTEMPT`) and the Env stays `disposing`. The
-   * attempts themselves are listed in `inspect().unsettledAttempts` and are kept
-   * alive only by the user's own pending setup Promise.
+   * That much is bounded by the grace period, and at its end the close is
+   * complete: the Env leaves the tree and the Runtime's registries and its
+   * state is `disposed`, whatever is still pending. An attempt that ignored the
+   * stop signal past the grace is abandoned — reported by `attempt-abandoned`,
+   * listed in `inspect().unsettledAttempts` and in this Env's
+   * `inspect().abandonedAttempts` until it settles late or is found
+   * unreachable — and is kept alive only by the user's own pending setup
+   * Promise. dispose() rejects only for errors of the close itself (a cleanup
+   * that threw).
    */
   async disposeEnv(env: EnvImpl<any>): Promise<void> {
     if (env.state === 'disposed') return
@@ -757,71 +751,26 @@ class RuntimeImpl implements Runtime, ImplementationViewHost {
     const ownedServiceSlots = [...new Set(env.plan.slotsByNode.values())]
       .filter((slot): slot is ServiceSlot => slot.kind === 'service' && slot.ownerEnvId === env.id)
 
-    const abandoned = await this.materializer.settleSlots(ownedServiceSlots)
+    await this.materializer.settleSlots(ownedServiceSlots)
     errors.push(...await this.materializer.disposeServiceSlots(ownedServiceSlots))
 
     for (const slot of ownedServiceSlots) {
       if (slot.state === 'dormant' || slot.state === 'failed') slot.state = 'disposed'
     }
 
-    const pending: Promise<unknown>[] = [
-      ...abandoned.map(item => item.attempt.settled),
-      ...children.filter(child => child.state !== 'disposed').map(child => child.finalized),
-    ]
     this.detachEnv(env)
-    if (pending.length === 0) {
-      this.finalizeEnv(env)
-    }
-    else {
-      void Promise.all(pending).then(() => this.finalizeEnv(env))
-    }
+    env.state = 'disposed'
 
-    if (abandoned.length > 0) {
-      const phases = new Set(abandoned.map(item => (item.attempt.rawSettled ? 'rollback' : 'setup')))
-      const activity = phases.size === 2 ? 'still running or rolling back' : phases.has('rollback') ? 'still rolling back' : 'still running'
-      errors.push(new SynaError(
-        'UNSETTLED_ATTEMPT',
-        `Env ${env.id} closed while ${abandoned.length} setup attempt(s) were ${activity}; their resources are not under Syna control. The Env stays disposing until they settle.`,
-        {
-          env: env.id,
-          state: env.state,
-          slots: abandoned.map(item => ({
-            slot: item.slot.id,
-            revision: item.slot.service.key,
-            attempt: item.attempt.id,
-            // `rollback`: the setup already settled; its cleanups are what outlived the grace.
-            phase: item.attempt.rawSettled ? 'rollback' as const : 'setup' as const,
-            // The attempt ignored the stop signal past the grace period; the slots it
-            // depends on were closed in the normal order regardless (the Runtime cannot
-            // revoke an instance it already handed out), which is acknowledged here.
-            dependencies: [...item.slot.requires.entries()]
-              .filter((entry): entry is [string, ServiceSlot] => entry[1].kind === 'service')
-              .map(([dependency, target]) => ({
-                dependency,
-                slot: target.id,
-                revision: target.service.key,
-                state: target.state,
-              })),
-          })),
-        },
-      ))
-    }
     if (errors.length > 0) {
       throw new AggregateError(errors, `Env ${env.id} failed to dispose cleanly.`)
     }
   }
 
-  /** Bounded close complete: the Runtime forgets the Env even if it is not yet `disposed`. */
+  /** Bounded close complete: the Runtime forgets the Env. */
   private detachEnv(env: EnvImpl<any>): void {
     env.parent?.children.delete(env)
     this.roots.delete(env)
     this.envById.delete(env.id)
-  }
-
-  private finalizeEnv(env: EnvImpl<any>): void {
-    if (env.state === 'disposed') return
-    env.state = 'disposed'
-    env.markFinalized()
   }
 }
 

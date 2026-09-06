@@ -292,9 +292,10 @@ test('S7 close() reports a failing site-manager shutdown instead of swallowing i
 
 test('R-2/R-3 close() returns attempts that never settled and disposal errors instead of rejecting; the Runtime retains only the ledger', async () => {
   const reported = []
+  const events = []
   const harness = await createFilesystemApp({ app: {
     extraServices: [StubbornAuth],
-    runtime: { limits: { disposalGraceMs: 20 } },
+    runtime: { limits: { disposalGraceMs: 20 }, diagnostics: { onEvent: event => events.push(event.type) } },
     // The shutdown gives up waiting for the creating record long before the stubborn setup ends.
     siteManager: { capacity: 2, idleTtlMs: 60_000, shutdownTimeoutMs: 30, onDisposalError: error => reported.push(error) },
   } })
@@ -308,13 +309,15 @@ test('R-2/R-3 close() returns attempts that never settled and disposal errors in
   const started = Date.now()
   const report = await harness.app.close()
   assert.ok(Date.now() - started < 300, 'close() is bounded by the shutdown timeout plus the disposal grace, not by the stubborn setup')
-  assert.equal(reported.length, 1, 'the manager reported the SiteEnv close that abandoned the attempt')
-  assert.equal(reported[0].errors.find(error => error.code === 'UNSETTLED_ATTEMPT').details.slots.length, 1)
+  // 0.7 (S2): the 0.6 assertions "the manager reported the SiteEnv close (unsettled-attempt error, details.slots)"
+  // and "the Runtime re-reported it as an error of close()" are withdrawn: the close fulfils, the attempt is on the ledger.
+  assert.deepEqual(reported, [], 'a SiteEnv close that abandons an attempt is not a disposal error')
   assert.equal(report.unreleasedLeases.length, 1, 'the creator\'s hold on the creating record is reported as unreleased')
   assert.equal(report.unsettledAttempts.length, 1)
   assert.match(report.unsettledAttempts[0].revision, /stubborn/)
   assert.equal(report.unsettledAttempts[0].state, 'abandoned')
-  assert.ok(report.errors.some(error => error.code === 'UNSETTLED_ATTEMPT'), 'the Runtime re-reported the outstanding attempt when it closed')
+  assert.deepEqual(report.errors, [], 'the outstanding attempt is reported in unsettledAttempts, not as an error')
+  assert.deepEqual(events.filter(type => type === 'attempt-abandoned' || type === 'attempts-outstanding'), ['attempt-abandoned', 'attempts-outstanding'], 'the Runtime reported the outstanding attempt once when it closed')
   assert.equal(harness.app.runtime.inspect().liveEnvCount, 0, 'no Env is retained: the closed SiteEnv left the registries')
   assert.ok((await acquiring) instanceof Error)
 

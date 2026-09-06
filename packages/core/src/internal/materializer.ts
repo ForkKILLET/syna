@@ -51,12 +51,6 @@ type RaceResult =
   | { readonly kind: 'abandoned' }
   | { readonly kind: 'unreachable' }
 
-/** A slot whose setup attempt was still pending when its owner Env closed. */
-export interface AbandonedAttempt {
-  readonly slot: ServiceSlot
-  readonly attempt: SetupAttempt
-}
-
 /**
  * Ledger entry for an attempt the Runtime is still waiting on: its raw Promise
  * is pending after a waiter's deadline (`timed-out`: the attempt is overdue and
@@ -142,9 +136,19 @@ export class Materializer {
 
   /** Every attempt the Runtime is still waiting on, oldest first. */
   unsettledAttempts(): readonly UnsettledAttemptInspection[] {
+    return this.ledgerView(() => true)
+  }
+
+  /** The attempts an Env's close left behind: its own slots' attempts that are abandoned, rolling back or settling. */
+  abandonedAttemptsOf(envId: string): readonly UnsettledAttemptInspection[] {
+    return this.ledgerView(record => record.env === envId && record.state !== 'timed-out')
+  }
+
+  private ledgerView(include: (record: UnsettledRecord) => boolean): readonly UnsettledAttemptInspection[] {
     const now = Date.now()
     const views: UnsettledAttemptInspection[] = []
     for (const record of this.unsettled.values()) {
+      if (!include(record)) continue
       views.push(Object.freeze({
         attempt: record.id,
         slot: record.slot,
@@ -210,16 +214,16 @@ export class Materializer {
    * not. Slots are waited for concurrently, so the whole step is bounded by
    * one grace period regardless of the per-service `setupDeadlineMs` (even
    * `Infinity`). Attempts that do not settle in time are abandoned: their slot
-   * is marked `abandoned`, the attempt stays registered as `unsettledAttempt`,
-   * and its late result is still discarded, cleaned up and reported when it
-   * eventually arrives.
+   * is marked `abandoned`, the attempt stays registered as `unsettledAttempt`
+   * and in the ledger, `attempt-abandoned` is reported, and its late result is
+   * still discarded, cleaned up and reported when it eventually arrives. The
+   * owner's close does not wait for that: its state is the Runtime's to set.
    */
-  async settleSlots(slots: readonly ServiceSlot[]): Promise<readonly AbandonedAttempt[]> {
-    const outcomes = await Promise.all(slots.map(slot => this.settleSlot(slot)))
-    return outcomes.filter((item): item is AbandonedAttempt => item !== undefined)
+  async settleSlots(slots: readonly ServiceSlot[]): Promise<void> {
+    await Promise.all(slots.map(slot => this.settleSlot(slot)))
   }
 
-  private async settleSlot(slot: ServiceSlot): Promise<AbandonedAttempt | undefined> {
+  private async settleSlot(slot: ServiceSlot): Promise<void> {
     const graceMs = this.options.disposalGraceMs
     const startedAt = Date.now()
     if (slot.state === 'starting' && slot.sequence) {
@@ -239,21 +243,19 @@ export class Materializer {
           this.registerRollingBack(running, slot)
         }
         const attempt = slot.unsettledAttempt ?? running
-        if (!attempt) return undefined
-        this.reportAbandoned(slot, attempt)
-        return { slot, attempt }
+        if (attempt) this.reportAbandoned(slot, attempt)
+        return
       }
       // The sequence settled inside the grace: the attempt settled (its result
       // discarded by this close, or failed) and its cleanups ran. A deadline
       // never settles a sequence, so nothing of it is still running here.
     }
     const attempt = slot.unsettledAttempt
-    if (!attempt) return undefined
+    if (!attempt) return
     const remainingMs = Number.isFinite(graceMs) ? Math.max(0, graceMs - (Date.now() - startedAt)) : graceMs
-    if (await settlesWithin(attempt.settled, remainingMs)) return undefined
+    if (await settlesWithin(attempt.settled, remainingMs)) return
     slot.state = 'abandoned'
     this.reportAbandoned(slot, attempt)
-    return { slot, attempt }
   }
 
   private reportAbandoned(slot: ServiceSlot, attempt: SetupAttempt): void {
@@ -266,6 +268,16 @@ export class Materializer {
       revision: slot.service.key,
       env: slot.ownerEnvId,
       elapsedMs: Date.now() - attempt.startedAt,
+      // The slots it depends on are closed in the normal order regardless (the
+      // Runtime cannot revoke an instance it already handed out).
+      dependencies: [...slot.requires.entries()]
+        .filter((entry): entry is [string, ServiceSlot] => entry[1].kind === 'service')
+        .map(([dependency, target]) => ({
+          dependency,
+          slot: target.id,
+          revision: target.service.key,
+          state: target.state,
+        })),
     })
   }
 
@@ -496,24 +508,14 @@ export class Materializer {
   }
 
   /**
-   * Guard kept for the `UNSETTLED_ATTEMPT` meaning "recovery requested while
-   * an attempt is unsettled". Since 0.7 an unsettled attempt always belongs to
-   * an abandoned slot, which refuses `load()` with `SLOT_NOT_LOADABLE` before
-   * a sequence could start, so no public call reaches this refusal.
+   * Attempts of one slot never overlap. An unsettled attempt always belongs
+   * to an abandoned slot, which refuses `load()` with `SLOT_NOT_LOADABLE`
+   * before a sequence could start, so this cannot be reached by a caller.
    */
   private assertNoUnsettledAttempt(slot: ServiceSlot): void {
     const unsettled = slot.unsettledAttempt
     if (!unsettled) return
-    throw new SynaError(
-      'UNSETTLED_ATTEMPT',
-      `A previous setup attempt of ${slot.service.key} has not settled yet; a new attempt would overlap it.`,
-      {
-        slot: slot.id,
-        revision: slot.service.key,
-        attempt: unsettled.id,
-        runningForMs: Date.now() - unsettled.startedAt,
-      },
-    )
+    throw new Error(`Syna internal invariant: setup attempt ${unsettled.id} of ${slot.service.key} has not settled; a new attempt would overlap it.`)
   }
 
   private async runSequence(slot: ServiceSlot, owner: SlotOwnerEnv): Promise<unknown> {

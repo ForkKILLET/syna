@@ -42,11 +42,12 @@ export interface HylaShutdownReport {
   readonly unreleasedLeases: readonly string[]
   /**
    * Setup attempts that ignored the stop signal past the disposal grace and are
-   * still pending when `close()` returns (from `runtime.inspect().unsettledAttempts`).
-   * Their resources are outside Syna control; the Runtime retains only this ledger.
+   * still pending when `close()` returns (from `runtime.inspect().unsettledAttempts`;
+   * the Runtime also reports them once as `attempts-outstanding`). Their
+   * resources are outside Syna control; the Runtime retains only this ledger.
    */
   readonly unsettledAttempts: readonly UnsettledAttemptInspection[]
-  /** Errors raised while disposing the Runtime (Service cleanups that threw, unsettled attempts). Empty on a clean close. */
+  /** Errors raised while disposing the Runtime (Service cleanups that threw). Empty on a clean close. */
   readonly errors: readonly unknown[]
 }
 

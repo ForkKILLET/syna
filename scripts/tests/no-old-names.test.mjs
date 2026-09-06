@@ -47,6 +47,7 @@ const OLD_NAMES = [
   [/\bFRESH_CONSTRAINT_FAILED\b/, 'INACTIVE_REUSE_TARGET (inactive fresh/share target), INVALID_INHERITED_CHOICE or FOREIGN_CANDIDATE_REF'],
   // 0.7 (§2.3 S7): the code split by meaning
   [/\bINVALID_ENV_STATE\b/, 'ENV_CLOSED (closing or closed Env), RUNTIME_CLOSED (disposed Runtime), SLOT_NOT_LOADABLE (closed slot) or LIFECYCLE_MISUSE (stale onDispose)'],
+  [/\bUNSETTLED_ATTEMPT\b/, 'no error: an abandoned attempt is a ledger entry (runtime.inspect().unsettledAttempts, env.inspect().abandonedAttempts) reported by the attempt-abandoned and attempts-outstanding events'],
 ]
 
 const CODE_ROOTS = ['apps', 'benchmarks', 'scripts', '.github', 'packages/core/tests', 'packages/core/type-tests']
@@ -186,6 +187,7 @@ test('the scanner recognises every old name it is meant to catch', () => {
     'const usable: AvailableImplementationCandidate[] = []',
     'if (error.code === "FRESH_CONSTRAINT_FAILED") {}',
     'if (error.code === "INVALID_ENV_STATE") {}',
+    'if (error.code === "UNSETTLED_ATTEMPT") {}',
   ]
   for (const sample of samples) {
     assert.ok(OLD_NAMES.some(([pattern]) => pattern.test(sample)), `not caught: ${sample}`)

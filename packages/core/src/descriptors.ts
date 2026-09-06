@@ -506,12 +506,13 @@ export interface RuntimeLimits {
   readonly setupDeadlineMs?: number
   /**
    * How long disposal waits, in milliseconds (2_000), after broadcasting the
-   * stop signal, for each in-flight setup attempt of the closing Env (running
-   * or already timed out) to settle before abandoning it. Bounds the close:
-   * once it passes, owned Ready slots are disposed, the Env leaves the
-   * Runtime's registries and `dispose()` settles. An abandoned attempt keeps
-   * only itself alive (via the user's own pending Promise); it is listed in
-   * `inspect().unsettledAttempts`.
+   * stop signal, for each in-flight setup attempt of the closing Env (overdue
+   * or not) to settle before abandoning it. Bounds the close: once it passes,
+   * owned Ready slots are disposed, the Env leaves the Runtime's registries,
+   * its `state` is `disposed` and `dispose()` fulfils. An abandoned attempt is
+   * reported (`attempt-abandoned`), listed in `inspect().unsettledAttempts` and
+   * `env.inspect().abandonedAttempts`, and keeps only itself alive (via the
+   * user's own pending Promise).
    */
   readonly disposalGraceMs?: number
   /** Maximum candidate-choice expansions per Entry plan before PLANNING_BUDGET_EXCEEDED (10_000). */
@@ -559,6 +560,11 @@ export type RuntimeEvent =
       readonly cleanupErrors: readonly unknown[]
     }
   | {
+      /**
+       * The owner's bounded close gave up waiting for this attempt; the Env is
+       * `disposed` regardless and the attempt stays in the ledger until it
+       * settles late or is found unreachable.
+       */
       readonly type: 'attempt-abandoned'
       /** `setup`: the raw Promise is still pending. `rollback`: the setup settled but its cleanups outlived the grace. */
       readonly phase: 'setup' | 'rollback'
@@ -566,6 +572,26 @@ export type RuntimeEvent =
       readonly revision: string
       readonly env: string
       readonly elapsedMs: number
+      /**
+       * The Service slots the attempt depends on, closed in the normal order
+       * regardless (the Runtime cannot revoke an instance it handed out): an
+       * attempt that keeps running past the grace may observe them closed.
+       */
+      readonly dependencies: readonly {
+        readonly dependency: string
+        readonly slot: string
+        readonly revision: string
+        readonly state: string
+      }[]
+    }
+  | {
+      /**
+       * `runtime.dispose()` ended with attempts still in the ledger (abandoned,
+       * rolling back or settling late); their resources are outside Syna
+       * control. Once per Runtime close, after the grace given to late cleanups.
+       */
+      readonly type: 'attempts-outstanding'
+      readonly attempts: readonly UnsettledAttemptInspection[]
     }
   | {
       /**
@@ -656,9 +682,11 @@ export interface RuntimeInspection {
   /** Envs (any depth) that have not completed their bounded close. */
   readonly liveEnvCount: number
   /**
-   * Attempts the Runtime is still waiting on: timed out while their owner is
-   * alive, or abandoned by a closed owner. Their Envs are no longer counted
-   * above; the Runtime retains no Env graph for them, only this ledger.
+   * Attempts the Runtime is still waiting on: overdue under a live owner
+   * (`timed-out`), abandoned by a closed owner, rolling back or settling late.
+   * A closed owner is `disposed` and no longer counted above; the Runtime
+   * retains no Env graph for it, only this ledger, which holds each attempt
+   * until it settles (or its setup Promise is collected: `attempt-unreachable`).
    */
   readonly unsettledAttempts: readonly UnsettledAttemptInspection[]
   readonly planCache: {
@@ -695,6 +723,13 @@ export interface EnvInspection {
   readonly parentId?: string
   readonly state: string
   readonly nodes: readonly EnvInspectionNode[]
+  /**
+   * The ledger entries this Env's close left behind: attempts of its own
+   * slots that are abandoned, rolling back or settling late (a descendant's
+   * attempts are listed by that descendant). Empty while the Env is open and
+   * once every attempt settled.
+   */
+  readonly abandonedAttempts: readonly UnsettledAttemptInspection[]
 }
 
 export interface PlannedEnvInspection {

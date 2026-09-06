@@ -44,11 +44,12 @@ test('F-PL-01 dispose() of a non-cooperative setup is bounded by limits.disposal
   void env.deps.stuck.load().catch(() => undefined)
   await sleep(5)
   const disposal = await timed(() => env.dispose())
-  assert.equal(disposal.ok, false)
-  assert.ok(disposal.error instanceof AggregateError)
-  assert.ok(disposal.error.errors.some(error => error.code === 'UNSETTLED_ATTEMPT'))
+  // 0.7 (S2): "dispose() rejects with the unsettled-attempt code" is withdrawn; the close fulfils and abandons the attempt.
+  assert.equal(disposal.ok, true)
+  assert.equal(env.state, 'disposed')
+  assert.deepEqual(runtime.inspect().unsettledAttempts.map(item => item.state), ['abandoned'])
   assert.ok(disposal.elapsedMs < 1_000, `dispose() took ${disposal.elapsedMs} ms; the 5 s deadline must not apply`)
-  await runtime.dispose().catch(() => undefined)
+  await runtime.dispose()
 })
 
 test('F-PL-01 setupDeadlineMs: Infinity cannot turn a stuck setup into a hanging dispose(), enter() or run()', async () => {
@@ -69,7 +70,8 @@ test('F-PL-01 setupDeadlineMs: Infinity cannot turn a stuck setup into a hanging
   const env = await runtime.enter(Plain)
   void env.deps.stuck.load().catch(() => undefined)
   const disposal = await timed(() => env.dispose())
-  assert.equal(disposal.ok, false)
+  assert.equal(disposal.ok, true) // 0.7 (S2): the abandoned attempt is a ledger entry, not a close error
+  assert.equal(env.state, 'disposed')
   assert.ok(disposal.elapsedMs < 1_000, `dispose() took ${disposal.elapsedMs} ms`)
 
   const entering = await timed(() => runtime.enter(WithEager))
@@ -79,9 +81,10 @@ test('F-PL-01 setupDeadlineMs: Infinity cannot turn a stuck setup into a hanging
   assert.ok(entering.elapsedMs < 1_000, `enter() took ${entering.elapsedMs} ms`)
 
   const running = await timed(() => runtime.run(Plain, ({ stuck }) => { void stuck.load().catch(() => undefined); return 'done' }))
-  assert.equal(running.ok, false, 'run() reports the abandoned attempt instead of hiding it')
+  assert.deepEqual([running.ok, running.value], [true, 'done'], '0.7 (S2): run() returns the result; the abandoned attempt is on the ledger')
   assert.ok(running.elapsedMs < 1_000, `run() took ${running.elapsedMs} ms`)
-  await runtime.dispose().catch(() => undefined)
+  assert.equal(runtime.inspect().unsettledAttempts.length, 3, 'the plain Env, the rolled-back eager Env and the run() Env each left one attempt')
+  await runtime.dispose()
 })
 
 test('F-PL-01 control: a cooperative setup that unwinds within the grace period disposes cleanly', async () => {
@@ -154,7 +157,7 @@ test('F-PL-02 onDispose() registered after the owner closed mid-setup is still r
   const env = await runtime.enter(Entry)
   void env.deps.slow.load().catch(() => undefined)
   await sleep(5)
-  await assert.rejects(env.dispose(), error => error.errors.some(item => item.code === 'UNSETTLED_ATTEMPT'))
+  await env.dispose() // 0.7 (S2): fulfils; the attempt is abandoned onto the ledger
   gate.resolve()
   await sleep(10)
   assert.deepEqual(closed, ['late-resource'])
@@ -238,7 +241,7 @@ test('F-PL-03 runtime.dispose() closes independent roots concurrently, bounded b
   assert.equal(runtime.inspect().liveEnvCount, 0)
 })
 
-test('F-PL-04 an Env with an abandoned attempt stays disposing (and counted) until the late result is cleaned up', async () => {
+test('F-PL-04 an Env whose close abandoned an attempt is disposed and uncounted; the ledger accounts for the attempt until its late result is cleaned up', async () => {
   const define = makeDefine('v05.audit.honest-state')
   const gate = deferred()
   const events = []
@@ -258,10 +261,13 @@ test('F-PL-04 an Env with an abandoned attempt stays disposing (and counted) unt
   })
   const env = await runtime.enter(Entry)
   await assert.rejects(env.deps.slow.load(), error => error.code === 'INITIALIZATION_TIMEOUT')
-  await assert.rejects(env.dispose(), error => error.errors.some(item => item.code === 'UNSETTLED_ATTEMPT'))
+  // 0.7 (S2): the 0.6 assertions "dispose() rejects with the unsettled-attempt code" and "state stays
+  // 'disposing' until the late result is cleaned up" are withdrawn (docs/SEMANTIC_CHANGES_V07.md §撤回).
+  await env.dispose()
 
-  assert.equal(env.state, 'disposing', 'not claimed fully disposed while a resource is outstanding')
+  assert.equal(env.state, 'disposed', 'the bounded close is complete; the outstanding resource is on the ledger')
   assert.equal(env.inspect().nodes[0].state, 'abandoned')
+  assert.deepEqual(env.inspect().abandonedAttempts.map(item => item.state), ['abandoned'])
   // Second review round: the bounded close is also the end of the Runtime's hold on
   // the Env. It leaves the registries; the outstanding attempt is accounted for in
   // the ledger instead (env id, slot, revision, state, running time).
@@ -275,23 +281,23 @@ test('F-PL-04 an Env with an abandoned attempt stays disposing (and counted) unt
   assert.equal(outstanding.env, env.id)
   assert.equal(outstanding.state, 'abandoned')
   assert.match(outstanding.revision, /honest-state/)
-  await assert.rejects(runtime.dispose(), error => {
-    const report = error.errors.find(item => item.code === 'UNSETTLED_ATTEMPT')
-    return report !== undefined && report.details.attempts.length === 1 && report.details.attempts[0].env === env.id
-  }, 'runtime.dispose() re-reports the outstanding attempt from the ledger instead of fulfilling silently')
+  await runtime.dispose()
+  // runtime.dispose() fulfils and reports the outstanding attempt from the ledger once, as a diagnostic.
+  assert.deepEqual(events.filter(event => event !== 'cleanup'), ['attempt-overdue', 'attempt-abandoned', 'attempts-outstanding'])
 
   gate.resolve()
   await sleep(10)
   assert.equal(env.state, 'disposed')
   assert.equal(env.inspect().nodes[0].state, 'disposed')
+  assert.deepEqual(env.inspect().abandonedAttempts, [])
   // 0.7 (S1): the waiter's timeout marked the attempt overdue before the close abandoned it.
-  assert.deepEqual(events.filter(event => event !== 'cleanup'), ['attempt-overdue', 'attempt-abandoned', 'late-setup-result'])
+  assert.deepEqual(events.filter(event => event !== 'cleanup'), ['attempt-overdue', 'attempt-abandoned', 'attempts-outstanding', 'late-setup-result'])
   assert.ok(events.includes('cleanup'))
   assert.equal(runtime.inspect().liveEnvCount, 0)
   assert.equal(runtime.inspect().unsettledAttempts.length, 0)
 })
 
-test('F-PL-04 a parent whose child holds an abandoned attempt is disposing until the child finalizes', async () => {
+test('F-PL-04 a parent whose child abandoned an attempt: both are disposed at the end of their bounded close; only the child lists the attempt', async () => {
   const define = makeDefine('v05.audit.parent-honest')
   const gate = deferred()
   const Slow = define.service({
@@ -304,15 +310,17 @@ test('F-PL-04 a parent whose child holds an abandoned attempt is disposing until
   const child = await root.enter(Child)
   void child.deps.slow.load().catch(() => undefined)
   await sleep(5)
-  await assert.rejects(root.dispose())
-  assert.deepEqual([root.state, child.state], ['disposing', 'disposing'])
+  await root.dispose() // 0.7 (S2): fulfils; the 0.6 assertion "both stay 'disposing'" is withdrawn
+  assert.deepEqual([root.state, child.state], ['disposed', 'disposed'])
+  assert.deepEqual([root.inspect().abandonedAttempts.length, child.inspect().abandonedAttempts.length], [0, 1])
   assert.equal(runtime.inspect().liveEnvCount, 0, 'both completed their bounded close and left the registries')
   assert.equal(runtime.inspect().unsettledAttempts.length, 1)
   gate.resolve()
   await sleep(10)
   assert.deepEqual([root.state, child.state], ['disposed', 'disposed'])
   assert.equal(runtime.inspect().unsettledAttempts.length, 0)
-  await runtime.dispose().catch(() => undefined)
+  assert.deepEqual(child.inspect().abandonedAttempts, [])
+  await runtime.dispose()
 })
 
 test('F-PL-05 disposal order follows a dependency that passes through a never-started slot', async () => {

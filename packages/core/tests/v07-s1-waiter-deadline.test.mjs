@@ -135,7 +135,7 @@ test('2. the same setup with the owner disposed at 150 ms: the result is discard
     assert.equal(error.code, 'INITIALIZATION_TIMEOUT')
     const node = nodeOf(env, Slow)
     await sleep(50) // t ≈ 150 ms
-    await env.dispose().catch(() => undefined) // 0.6 rejects with UNSETTLED_ATTEMPT; S2 (Phase E) makes it fulfil
+    await env.dispose() // S2: the close fulfils; the overdue attempt is abandoned onto the ledger
     assert.equal(nodeOf(env, Slow).state, 'abandoned')
     assert.deepEqual(runtime.inspect().unsettledAttempts.map(item => item.state), ['abandoned'])
     await waitFor(() => events.some(event => event.type === 'late-setup-result'))
@@ -144,7 +144,7 @@ test('2. the same setup with the owner disposed at 150 ms: the result is discard
     assert.deepEqual(log, ['cleanup'], 'only a close discards a late success, and then its cleanup runs')
     assert.equal(nodeOf(env, Slow).state, 'disposed')
     assert.deepEqual(runtime.inspect().unsettledAttempts, [])
-    await runtime.dispose().catch(() => undefined)
+    await runtime.dispose()
   }
   // (b) The default grace: the close waits for the attempt, which settles inside the grace and is discarded there.
   {
@@ -223,7 +223,7 @@ test('4. eager: an eager slot that succeeds after the deadline fails the activat
   assert.deepEqual(log, ['cleanup'])
   assert.deepEqual(runtime.inspect().unsettledAttempts, [])
   assert.equal(setups(), 1)
-  await runtime.dispose().catch(() => undefined)
+  await runtime.dispose()
 })
 
 test('5. a timeout consumes no attempt and triggers no backoff (attempts 2, delayMs 200): adopted on attempt 1; control: a failing first attempt still retries with the backoff and the waiter\'s window restarts with the new attempt', async () => {

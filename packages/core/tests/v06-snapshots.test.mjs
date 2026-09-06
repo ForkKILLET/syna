@@ -34,6 +34,8 @@ const RENAMED = {
 const ADDED = [
   // S6 (0.7): INACTIVE_REUSE_TARGET details carry the constraint kind; every recorded case is a `fresh` target.
   { when: object => object.code === 'CONSTRAINT_VIOLATION' && typeof object.details === 'object', key: 'details', value: details => ({ constraint: 'fresh', ...details }) },
+  // S2 (0.7): env.inspect() lists the attempts its close left behind; every recorded Env is open or closed cleanly.
+  { when: object => typeof object.id === 'string' && typeof object.state === 'string' && Array.isArray(object.nodes), key: 'abandonedAttempts', value: () => [] },
 ]
 
 const applyRenames = value => {

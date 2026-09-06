@@ -314,7 +314,11 @@ test('R-3 the bounded close ends the Runtime\'s hold on an Env: abandoned attemp
   const Big = define.service('big', { async setup() { return { payload: new Uint8Array(1 << 16) } } })
   const Root = define.entry('root', {})
   const Child = define.entry('child', { requires: { stuck: Stuck, big: Big } })
-  const runtime = createRuntime({ services: [Stuck, Big], limits: { disposalGraceMs: 10 }, diagnostics: { onEvent: event => events.push(event.type) } })
+  const runtime = createRuntime({
+    services: [Stuck, Big],
+    limits: { disposalGraceMs: 10 },
+    diagnostics: { onEvent: event => events.push(event.type === 'attempts-outstanding' ? `attempts-outstanding:${event.attempts.length}` : event.type) },
+  })
   const root = await runtime.enter(Root)
   const children = []
   for (let index = 0; index < 20; index += 1) {
@@ -324,10 +328,11 @@ test('R-3 the bounded close ends the Runtime\'s hold on an Env: abandoned attemp
     children.push(env)
   }
   const started = Date.now()
-  await Promise.all(children.map(env => env.dispose().catch(() => undefined)))
+  await Promise.all(children.map(env => env.dispose()))
   assert.ok(Date.now() - started < 500, 'closing 20 Envs with stuck setups is bounded by the grace period')
   assert.equal(events.filter(event => event === 'attempt-abandoned').length, 20)
-  assert.ok(children.every(env => env.state === 'disposing'), 'not claimed disposed while an attempt is outstanding (K08)')
+  // 0.7 (S2): the 0.6 assertion "not claimed disposed while an attempt is outstanding" is withdrawn.
+  assert.ok(children.every(env => env.state === 'disposed'), 'the bounded close is complete; the outstanding attempts are on the ledger')
   assert.equal(runtime.inspect().liveEnvCount, 1, 'only the root is still held by the Runtime')
   assert.equal(runtime.inspect().rootEnvCount, 1)
   const ledger = runtime.inspect().unsettledAttempts
@@ -346,26 +351,24 @@ test('R-3 the bounded close ends the Runtime\'s hold on an Env: abandoned attemp
 
   // The root closes promptly too and re-reports what is outstanding beneath it.
   const rootStarted = Date.now()
-  await root.dispose().catch(() => undefined)
+  await root.dispose()
   assert.ok(Date.now() - rootStarted < 200)
   // The children left the tree at the end of their own bounded close, so the root's close is complete:
-  // nothing the root owns is outstanding. The children themselves still say 'disposing', and the ledger lists them.
+  // nothing the root owns is outstanding. The children are disposed as well, and the ledger lists their attempts.
   assert.equal(root.state, 'disposed', 'the root\'s own close is complete; detached children do not hold it')
-  assert.ok(children.every(env => env.state === 'disposing'))
+  assert.ok(children.every(env => env.state === 'disposed'))
   assert.deepEqual([runtime.inspect().rootEnvCount, runtime.inspect().liveEnvCount], [0, 0])
-  await assert.rejects(runtime.dispose(), error => {
-    const report = error.errors.find(item => item.code === 'UNSETTLED_ATTEMPT' && Array.isArray(item.details.attempts))
-    return report !== undefined && report.details.attempts.length === 20
-  }, 'runtime.dispose() re-reports the ledger instead of fulfilling silently')
+  await runtime.dispose()
+  assert.deepEqual(events.filter(event => event.startsWith('attempts-outstanding')), ['attempts-outstanding:20'], 'runtime.dispose() fulfils and reports the ledger once instead of silently')
 
   for (const gate of gates) gate.resolve()
   await waitFor(() => runtime.inspect().unsettledAttempts.length === 0)
-  await waitFor(() => children.every(env => env.state === 'disposed') && root.state === 'disposed')
+  assert.ok(children.every(env => env.state === 'disposed') && root.state === 'disposed')
   assert.equal(events.filter(event => event === 'late-setup-result').length, 20)
   assert.equal(events.filter(event => event === 'cleanup').length, 21)
 })
 
-test('R-3 retention is bounded by the user\'s own Promise: a setup that can never settle is collected and its attempt closed as unreachable', async () => {
+test('R-3 retention is bounded by the user\'s own Promise: a setup that can never settle is collected and its attempt closed as unreachable (ledger and event only: no state depends on GC)', async () => {
   const script = `
     import { createRuntime, definePackage } from ${JSON.stringify(DIST)}
     const define = definePackage({ name: '@v05/review-unreachable', version: '1.0.0', syna: { id: 'v05.review.unreachable' } })
@@ -383,21 +386,21 @@ test('R-3 retention is bounded by the user\'s own Promise: a setup that can neve
     const droppedId = dropped.id
     void dropped.deps.stuck.load().catch(() => undefined)
     await sleep(2)
-    await dropped.dispose().catch(() => undefined)
+    await dropped.dispose()
     const droppedRef = new WeakRef(dropped)
     dropped = undefined
     // Env 2: the handle is kept; the attempt must still be closed once its Promise is dead.
     const kept = await root.enter(Child)
     void kept.deps.stuck.load().catch(() => undefined)
     await sleep(2)
-    await kept.dispose().catch(() => undefined)
-    const before = { ledger: runtime.inspect().unsettledAttempts.length, keptState: kept.state }
+    await kept.dispose()
+    const before = { ledger: runtime.inspect().unsettledAttempts.length }
     gate = undefined // the setups' continuations are now unreachable
     // Note: WeakRef.deref() keeps its target alive until the end of the current job,
-    // so the loop only watches the kept Env and derefs the dropped one once, afterwards.
+    // so the loop only watches the ledger and derefs the dropped Env once, afterwards.
     const deadline = Date.now() + 5_000
     let rounds = 0
-    while (Date.now() < deadline && (kept.state !== 'disposed' || rounds < 5)) {
+    while (Date.now() < deadline && (runtime.inspect().unsettledAttempts.length > 0 || rounds < 5)) {
       globalThis.gc()
       rounds += 1
       await sleep(20)
@@ -405,22 +408,20 @@ test('R-3 retention is bounded by the user\'s own Promise: a setup that can neve
     console.log(JSON.stringify({
       before,
       droppedCollected: droppedRef.deref() === undefined,
-      keptState: kept.state,
-      keptSlot: kept.inspect().nodes.find(node => node.kind === 'service').state,
       cleanups,
       ledger: runtime.inspect().unsettledAttempts.length,
       unreachableEvents: events.filter(event => event.startsWith('attempt-unreachable:')).length,
       droppedEnvClosed: events.includes('attempt-unreachable:' + droppedId),
     }))
-    await runtime.dispose().catch(() => undefined)
+    await runtime.dispose()
   `
   const result = await child(['--expose-gc', '--unhandled-rejections=strict'], script)
   assert.equal(result.code, 0, result.stderr)
   const outcome = JSON.parse(result.stdout.trim().split('\n').at(-1))
-  assert.deepEqual(outcome.before, { ledger: 2, keptState: 'disposing' })
+  // 0.7 (S2): the 0.6 assertions on `kept.state` ('disposing' before, 'disposed' after the collection) are
+  // withdrawn: the state never depends on garbage collection, only the ledger shrinks (docs/SEMANTIC_MODEL.md §13).
+  assert.deepEqual(outcome.before, { ledger: 2 })
   assert.equal(outcome.droppedCollected, true, 'nothing in the Runtime keeps a closed Env alive')
-  assert.equal(outcome.keptState, 'disposed', 'a dead attempt is closed, so the Env no longer stays disposing forever')
-  assert.equal(outcome.keptSlot, 'disposed')
   // Both attempts, the dropped Env's included: the ledger holds the attempt itself, so
   // the unreachable path can still run its cleanups after the Env graph is gone (audit 3, F-CL3-03).
   assert.equal(outcome.cleanups, 2, 'cleanups of both dead attempts were run')
@@ -454,14 +455,21 @@ test('R-4 the dependencies of an abandoned attempt are closed in the normal orde
     },
   })
   const Entry = define.entry({ requires: { slow: Slow, dep: Dep } })
-  const runtime = createRuntime({ services: [Dep, Slow], limits: { disposalGraceMs: 20 }, diagnostics: { onEvent: event => events.push(event.type) } })
+  let abandoned
+  const runtime = createRuntime({
+    services: [Dep, Slow],
+    limits: { disposalGraceMs: 20 },
+    diagnostics: { onEvent: event => { events.push(event.type); if (event.type === 'attempt-abandoned') abandoned = event } },
+  })
   const env = await runtime.enter(Entry)
   void env.deps.slow.load().catch(() => undefined)
   await sleep(5)
-  const error = await env.dispose().catch(error => error)
-  const report = error.errors.find(item => item.code === 'UNSETTLED_ATTEMPT')
-  assert.deepEqual(report.details.slots[0].dependencies.map(item => [item.dependency, item.revision.includes('/dep@'), item.state]), [['dep', true, 'disposed']])
+  // 0.7 (S2): the report is the attempt-abandoned event (dispose() fulfils); it names the dependencies as they
+  // were at the abandonment, and they are closed in the normal order right after it.
+  await env.dispose()
+  assert.deepEqual(abandoned.dependencies.map(item => [item.dependency, item.revision.includes('/dep@'), item.state]), [['dep', true, 'ready']])
   assert.deepEqual(events, ['attempt-abandoned', 'dep-closed'], 'the dependency is closed after the grace; the abandoned attempt is not waited for')
+  assert.equal(env.state, 'disposed')
   assert.equal(env.inspect().nodes.find(node => node.label.includes('slow')).state, 'abandoned')
 
   gate.resolve()
@@ -473,11 +481,12 @@ test('R-4 the dependencies of an abandoned attempt are closed in the normal orde
   await runtime.dispose()
 })
 
-test('R-5 a setup deadline that fires inside the disposal grace does not hide the attempt: the close reports it, the Env stays disposing until it settles', async () => {
+test('R-5 a setup deadline that fires inside the disposal grace does not hide the attempt: it gets the whole grace and is then abandoned onto the ledger', async () => {
   // Third review round (C4): dispose() issued before the deadline. 0.7 (S1): the
   // deadline is the waiter's, so the waiter times out inside the grace while the
-  // sequence keeps running; the attempt gets the whole grace and is then reported
-  // like any other abandoned attempt.
+  // sequence keeps running; the attempt gets the whole grace and is then abandoned
+  // like any other. 0.7 (S2): the close fulfils and the Env is disposed; the 0.6
+  // assertions "rejects with the unsettled-attempt code" and "stays disposing" are withdrawn.
   const define = makeDefine('v05.review.deadline-in-grace')
   const gate = deferred()
   const started = deferred()
@@ -498,25 +507,25 @@ test('R-5 a setup deadline that fires inside the disposal grace does not hide th
   void load.catch(() => undefined)
   await started.promise
   const closedAt = Date.now()
-  const error = await env.dispose().catch(error => error)
+  await env.dispose()
   await assert.rejects(load, error => error.code === 'INITIALIZATION_TIMEOUT')
   assert.ok(Date.now() - closedAt >= 390, 'the attempt got the whole grace: the waiter\'s timeout did not settle the sequence')
-  assert.ok(error instanceof AggregateError && error.errors.some(item => item.code === 'UNSETTLED_ATTEMPT'), `the close reports the attempt that outlived it: ${String(error)}`)
-  assert.equal(env.state, 'disposing')
+  assert.equal(env.state, 'disposed')
+  assert.deepEqual(env.inspect().abandonedAttempts.map(item => item.state), ['abandoned'], 'the close reports the attempt that outlived it')
   assert.equal(env.inspect().nodes[0].state, 'abandoned')
   assert.ok(events.includes('attempt-abandoned'))
   assert.deepEqual([runtime.inspect().liveEnvCount, runtime.inspect().unsettledAttempts.length], [0, 1])
   assert.equal(runtime.inspect().unsettledAttempts[0].state, 'abandoned')
 
   gate.resolve()
-  await waitFor(() => env.state === 'disposed')
+  await waitFor(() => runtime.inspect().unsettledAttempts.length === 0)
   assert.ok(events.includes('cleanup'))
   assert.equal(env.inspect().nodes[0].state, 'disposed')
   assert.equal(runtime.inspect().unsettledAttempts.length, 0)
   await runtime.dispose()
 
   // Control: a deadline longer than the grace takes the running-attempt path and
-  // yields the same report shape.
+  // yields the same ledger entry.
   const control = makeDefine('v05.review.deadline-after-grace')
   const controlGate = deferred()
   const controlEvents = []
@@ -529,12 +538,12 @@ test('R-5 a setup deadline that fires inside the disposal grace does not hide th
   const controlEnv = await controlRuntime.enter(ControlEntry)
   void controlEnv.deps.slow.load().catch(() => undefined)
   await sleep(2)
-  const controlError = await controlEnv.dispose().catch(error => error)
-  assert.ok(controlError.errors.some(item => item.code === 'UNSETTLED_ATTEMPT'))
-  assert.equal(controlEnv.state, 'disposing')
+  await controlEnv.dispose()
+  assert.equal(controlEnv.state, 'disposed')
+  assert.deepEqual(controlEnv.inspect().abandonedAttempts.map(item => item.state), ['abandoned'])
   assert.ok(controlEvents.includes('attempt-abandoned'))
   controlGate.resolve()
-  await waitFor(() => controlEnv.state === 'disposed')
+  await waitFor(() => controlRuntime.inspect().unsettledAttempts.length === 0)
   assert.ok(controlEvents.includes('cleanup'))
   await controlRuntime.dispose()
 })

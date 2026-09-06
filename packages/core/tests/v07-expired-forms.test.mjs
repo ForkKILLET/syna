@@ -330,8 +330,8 @@ test('limits: each key sets exactly one limit', async () => {
     const runtime = createRuntime({ services: [Stuck], limits: { setupDeadlineMs: 30, disposalGraceMs: 10 } })
     const env = await runtime.enter(Entry)
     await assert.rejects(env.deps.stuck.load(), error => error.code === 'INITIALIZATION_TIMEOUT' && error.details.deadlineMs === 30)
-    await env.dispose().catch(() => undefined)
-    await runtime.dispose().catch(() => undefined)
+    await env.dispose()
+    await runtime.dispose()
   }
 
   {
@@ -340,11 +340,12 @@ test('limits: each key sets exactly one limit', async () => {
     const env = await runtime.enter(Entry)
     void env.deps.stuck.load().catch(() => undefined)
     const started = Date.now()
-    // dispose() reports the abandoned attempt (directly or inside the AggregateError of a partial close).
-    await assert.rejects(env.dispose(), error => error.code === 'UNSETTLED_ATTEMPT' || (error.errors ?? []).some(inner => inner.code === 'UNSETTLED_ATTEMPT'))
+    // dispose() fulfils (S2) and abandons the attempt onto the ledger.
+    await env.dispose()
     assert.ok(Date.now() - started < 1_000, 'the close is bounded by the grace, not by the setup deadline')
+    assert.equal(env.state, 'disposed')
     assert.equal(runtime.inspect().unsettledAttempts.length, 1)
-    await runtime.dispose().catch(() => undefined)
+    await runtime.dispose()
   }
 
   // Budget: a world that needs more than two candidate expansions.

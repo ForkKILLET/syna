@@ -112,7 +112,7 @@ test('R09 owner disposal cancels retry backoff; a rollback failure ends the sequ
 })
 
 test('R09 a waiter\'s timeout leaves the attempt running: a second load() joins it and the late success is adopted; recovery after a failing attempt starts exactly one new sequence', async () => {
-  // 0.7 (S1): the 0.6 assertions "a second load() is refused with UNSETTLED_ATTEMPT while the timed-out attempt
+  // 0.7 (S1): the 0.6 assertions "a second load() is refused (unsettled attempt) while the timed-out attempt
   // runs" and "the late value is discarded and cleaned up, recovery makes attempt 2" are withdrawn
   // (docs/SEMANTIC_CHANGES_V07.md §撤回): the deadline ends one wait, the attempt keeps running and is adopted.
   const define = makeDefine('v05.recovery')
@@ -192,7 +192,7 @@ test('K08 a Ready instance is never swapped by a later load; concurrent waiters 
   await runtime.dispose()
 })
 
-test('K08 disposal reports an attempt that never settles as UNSETTLED_ATTEMPT and marks the slot abandoned', async () => {
+test('K08 disposal abandons an attempt that never settles: the slot is abandoned, the attempt is on the ledger and the Env is disposed', async () => {
   const define = makeDefine('v05.abandoned')
   const events = []
   const Stuck = define.service({
@@ -207,18 +207,17 @@ test('K08 disposal reports an attempt that never settles as UNSETTLED_ATTEMPT an
   })
   const env = await runtime.enter(Entry)
   await assert.rejects(env.deps.stuck.load(), error => error.code === 'INITIALIZATION_TIMEOUT')
-  await assert.rejects(env.dispose(), error => {
-    assert.ok(error instanceof AggregateError)
-    const unsettled = error.errors.find(item => item.code === 'UNSETTLED_ATTEMPT')
-    assert.ok(unsettled)
-    assert.equal(unsettled.details.slots.length, 1)
-    return true
-  })
-  // Audit F-PL-04: the Env is not claimed fully disposed while an attempt it owns is outstanding.
-  assert.equal(env.state, 'disposing')
-  assert.ok(events.includes('attempt-abandoned'))
+  // 0.7 (S2): the 0.6 assertions "dispose() rejects with the unsettled-attempt code (details.slots)" and
+  // "env.state stays 'disposing'" are withdrawn (docs/SEMANTIC_CHANGES_V07.md §撤回): the bounded close is
+  // complete, and the attempt is a ledger entry plus a diagnostic, not an error of the close.
+  await env.dispose()
+  assert.equal(env.state, 'disposed')
+  assert.deepEqual(events, ['attempt-overdue', 'attempt-abandoned'])
   assert.equal(env.inspect().nodes[0].state, 'abandoned')
-  await runtime.dispose().catch(() => undefined)
+  assert.deepEqual(env.inspect().abandonedAttempts.map(item => item.state), ['abandoned'])
+  assert.equal(runtime.inspect().unsettledAttempts.length, 1)
+  await runtime.dispose()
+  assert.deepEqual(events, ['attempt-overdue', 'attempt-abandoned', 'attempts-outstanding'])
 })
 
 test('K08 a setup that completes after the owner started closing is discarded and cleaned up', async () => {

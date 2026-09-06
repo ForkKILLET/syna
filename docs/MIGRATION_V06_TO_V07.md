@@ -91,6 +91,18 @@ v0.7 做三件事：删除 0.6 宣布到期的全部 23 个别名与 0.5 调用�
 
 `revisionKey` 不是 `family@version` 形式的 `CandidateRef` 不可能来自任何 Runtime，`set.load()` 以 `INVALID_DESCRIPTOR { descriptor: 'CandidateRef', problem: 'not-from-this-runtime' }` 拒绝（S7 的第 27 个位点）。测试：`packages/core/tests/v07-s8-missing-implementation.test.mjs`（六个位点各一例，`details` 逐键断言，编译产物里的抛出点计数为 6）。
 
+### S2 `UNSETTLED_ATTEMPT` → 无抛出点，从 `SynaErrorCode` 移除
+
+0.6 的三个抛出点在 S1 与 S2 之后都不存在：deadline 到期不再把 slot 判 `failed`（同一 slot 的 `load()` 加入运行中的 attempt，恢复路径的守卫因此不可达，改为内部不变量 `Error('Syna internal invariant: …')`）；`env.dispose()` / `runtime.dispose()` 不再因用户代码不响应取消而拒绝。没有抛出点的码不保留（与 S6/S7 的处理一致；评审批准 PROPOSAL §12 Q6 (b)）。替代物是账本与事件：
+
+| 抛出点 | 0.6 `details` | 0.7 | 替代 |
+|---|---|---|---|
+| `env.dispose()` 结束时仍有 attempt 在运行或回滚 | `{ env, state, slots: { slot, revision, attempt, phase, dependencies }[] }` | 不再拒绝；`env.state === 'disposed'` | 每个 attempt 一条 `attempt-abandoned { phase, slot, revision, env, elapsedMs, dependencies }`（`dependencies` 即原 `details.slots[].dependencies`）；`env.inspect().abandonedAttempts`、`runtime.inspect().unsettledAttempts` |
+| `runtime.dispose()` 结束时账本非空 | `{ attempts }` | 不再拒绝 | 一次 `attempts-outstanding { attempts }`（`attempts` 与 `runtime.inspect().unsettledAttempts` 同形） |
+| 恢复（`recover` / 新序列）时上一 attempt 未兑现 | `{ slot, revision, attempt, runningForMs }` | 不可达：未兑现的 attempt 只属于 `abandoned` 的 slot，`load()` 先以 `SLOT_NOT_LOADABLE` 拒绝 | 内部不变量（无公开码） |
+
+`dispose()` 仍会拒绝的只有关闭自身的错误：某个 cleanup 抛出时的 `AggregateError`（`Runtime → Env → Service` 嵌套不变），其中不再有带 `code` 的成员。
+
 ### S10 `asSynaError()`：包装外来错误时 `details.cause` 固定为 `{ name, message }`
 
 `asSynaError()` 是核心内部的辅助函数（`packages/core/src/errors.ts`，不在 `index.ts` 的导出里，仓库内目前没有调用方），公开 API 不变。0.6 只把 `Error` 实例放进 `cause`，非 `Error` 值丢失。0.7：`SynaError` 原样通过（不论码）；其他任何值都被包装——`details` = 抛出位点的 `details` 加上固定的 `cause: { name, message }`（`Error` 取 `name` / `message`；其他值取 `typeof` 与 `String()`），原值不论类型都放在 `cause`；不再从外来对象上读任何别的东西（`code`、`details`、`cause` 都不读）。返回类型是 `SynaError | (SynaErrorOf<Code> & { details: { cause: { name, message } } })`。测试：`packages/core/tests/v07-s10-as-syna-error.test.mjs`（直接从 `dist/errors.js` 导入；同时断言 `dist/index.d.ts` 不导出它）。
@@ -112,9 +124,20 @@ v0.7 做三件事：删除 0.6 宣布到期的全部 23 个别名与 0.5 调用�
 - 监听 `late-setup-result` 的诊断代码：新字段 `adopted` 区分接纳与丢弃；新增事件 `attempt-overdue`；`EnvInspectionNode` 新增可选字段 `overdueMs`。
 - 断言超时后 `env.inspect().nodes[i].state === 'failed'`、或 `load()` 在超时后得到 `UNSETTLED_ATTEMPT` 的测试：现在分别是 `'starting'`（带 `overdueMs`）与加入 attempt。
 
-### S2 `env.state` 与账本
+### S2 `env.state` 只由 Runtime 动作推进；账本与 GC 解耦；`dispose()` 不再因用户代码不响应取消而拒绝
 
-（Phase E 填写。）
+0.6：有界关闭结束后，若有 attempt 被放弃，`dispose()` 以 `UNSETTLED_ATTEMPT` 拒绝，`env.state` 保持 `'disposing'`，直到该 attempt 迟到兑现或其 setup Promise 被 GC 回收（`attempt-unreachable`）才变为 `'disposed'`；父 Env 的 `state` 同样等待后代的 attempt；`runtime.dispose()` 账本非空时以 `UNSETTLED_ATTEMPT` 拒绝；`run()` 在回调成功但关闭放弃了 attempt 时拒绝（结果挂在错误的不可枚举 `result` 上）。
+
+0.7：`env.state` 只由 Runtime 的动作推进：`activating → ready → disposing → disposed`。有界关闭完成（后代已关、cleanup 已执行或 grace 已到）时，无论是否还有被放弃的 attempt，`state = 'disposed'`，Env 离开树与注册表（`liveEnvCount` / `rootEnvCount` 减少），之后任何事件（迟到兑现、GC）都不再改变它。被放弃的 attempt 记录在 `runtime.inspect().unsettledAttempts` 与新增的 `env.inspect().abandonedAttempts`（该 Env 拥有的 slot 的账本项；父 Env 不列出后代的）；attempt 兑现（成功或失败，都因 owner 已关闭而被丢弃并 cleanup）时从账本移除并发出原有的 `late-setup-result { adopted: false }` / `late-setup-failure`。`FinalizationRegistry` 只用于账本的额外收缩与 `attempt-unreachable` 事件。`dispose()` 不再因用户代码不响应取消而拒绝：被放弃的 attempt 由 `attempt-abandoned` 事件（新增字段 `dependencies`，即 0.6 报告里的依赖列表）与账本报告；`env.dispose()` / `runtime.dispose()` 只在关闭自身出错（cleanup 抛出）时以 `AggregateError` 拒绝；`runtime.dispose()` 结束时若账本非空，发出一次 `attempts-outstanding { attempts }`（仍先给正在结算的 cleanup 最多一个 grace）。`run()` 在只有 attempt 被放弃时以回调结果兑现；关闭出错时错误上的不可枚举 `result` 不变。`UNSETTLED_ATTEMPT` 从 `SynaErrorCode` 移除（§3）。
+
+需要检查的用户代码：
+
+- `await env.dispose().catch(…)` / `runtime.dispose().catch(…)` 里按 `code === 'UNSETTLED_ATTEMPT'` 分支的代码：该拒绝不再发生；改为订阅 `attempt-abandoned` / `attempts-outstanding`，或在关闭后读 `runtime.inspect().unsettledAttempts` / `env.inspect().abandonedAttempts`。仍需处理的拒绝只有 cleanup 抛出的 `AggregateError`。
+- 轮询 `env.state === 'disposing'` 以等待迟到 attempt 结算的代码：`state` 在有界关闭结束时即为 `'disposed'`；要等待结算，改为等待 `runtime.inspect().unsettledAttempts` 变空（或对应的 `late-setup-*` / `attempt-unreachable` 事件）。
+- 把 `state === 'disposed'` 当作"所有资源已释放"的代码：被放弃的 attempt 迟到兑现时其 cleanup 才执行；账本为空才是资源全部释放的信号。
+- `run()` 的调用方：回调成功且关闭只放弃了 attempt时得到结果本身，不再是带 `result` 的错误。
+- 依赖 `--expose-gc` 断言 `state` 的测试：0.7 中没有任何 `state` 断言依赖 GC；GC 相关断言只剩账本收缩与 `attempt-unreachable`。
+- Hyla-mini：`SiteManagerSettings.onDisposalError` 不再因被放弃的 attempt 被调用；`HylaApp.close()` 的 `errors` 只含 cleanup 错误，`unsettledAttempts` 仍来自账本。
 
 ## §5 迁移步骤
 

@@ -189,12 +189,12 @@ test('site 6 SLOT_NOT_LOADABLE { slot, revision, state }: load() on a disposed, 
     const env = await runtime.enter(Root)
     const slot = slotOf(env, Stuck)
     assert.equal((await rejection(env.deps.stuck.load())).code, 'INITIALIZATION_TIMEOUT')
-    await env.dispose().catch(() => undefined) // the close report of an attempt that ignores cancellation is not the point here
+    await env.dispose() // the attempt that ignores cancellation is abandoned onto the ledger (S2)
     const error = await rejection(env.deps.stuck.load())
     assert.equal(error.code, 'SLOT_NOT_LOADABLE')
     assert.equal(error.message, `Service slot ${slot} (${Stuck.key}) is abandoned.`)
     assert.deepEqual(error.details, { slot, revision: Stuck.key, state: 'abandoned' })
-    await runtime.dispose().catch(() => undefined)
+    await runtime.dispose()
   }
 })
 
@@ -244,13 +244,13 @@ test('site 11 ENV_CLOSED { env, state, slot, revision }: a setup still pending w
   const slot = slotOf(env, Stuck)
   const loading = env.deps.stuck.load().catch(error => error)
   await sleep(5)
-  await env.dispose().catch(() => undefined)
+  await env.dispose()
   expectClosed(
     await loading,
     `Setup of ${Stuck.key} was still pending when owner Env ${env.id} closed; its eventual result will be discarded.`,
     { env: env.id, state: 'disposing', slot, revision: Stuck.key },
   )
-  await runtime.dispose().catch(() => undefined)
+  await runtime.dispose()
 })
 
 test('site 12 ENV_CLOSED { env, state, slot, revision }: a setup that completed after its owner began closing is discarded and cleaned up', async () => {
@@ -384,5 +384,7 @@ test('the four codes are declared and the compiled sources spell neither the 0.6
   const codes = readFileSync(path.join(dist, 'errors.d.ts'), 'utf8')
   for (const code of ['ENV_CLOSED', 'LIFECYCLE_MISUSE', 'RUNTIME_CLOSED', 'SLOT_NOT_LOADABLE']) assert.match(codes, new RegExp(`'${code}'`))
   const internal = readFileSync(path.join(dist, 'internal/materializer.js'), 'utf8') + readFileSync(path.join(dist, 'runtime.js'), 'utf8')
-  assert.equal([...internal.matchAll(/Syna internal invariant: /g)].length, 4, 'the four unreachable sites are internal invariants (Q7)')
+  // Four from S7 (Q7) plus the recovery-path guard of S2: an unsettled attempt always belongs to an abandoned slot,
+  // which refuses load() with SLOT_NOT_LOADABLE, so the former error code of that guard has no site.
+  assert.equal([...internal.matchAll(/Syna internal invariant: /g)].length, 5, 'the five unreachable sites are internal invariants (Q7)')
 })
