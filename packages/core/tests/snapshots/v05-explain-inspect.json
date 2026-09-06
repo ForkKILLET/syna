@@ -1,0 +1,1445 @@
+{
+  "inspectInitial": {
+    "admittedServices": [
+      "snap-db@1.0.0",
+      "snap-db@2.0.0",
+      "snap-files@1.2.3",
+      "snap-memory@1.0.0",
+      "snap-plugin-a@1.0.0",
+      "snap-plugin-b@1.1.0",
+      "snap/app@1.0.0",
+      "snap/cache@1.0.0",
+      "snap/config@1.0.0",
+      "snap/host@1.0.0"
+    ],
+    "internalServices": [
+      "snap-db@1.0.0",
+      "snap-db@2.0.0",
+      "snap-files@1.2.3",
+      "snap-memory@1.0.0",
+      "snap-plugin-a@1.0.0",
+      "snap-plugin-b@1.1.0",
+      "snap/app@1.0.0",
+      "snap/cache@1.0.0",
+      "snap/config@1.0.0",
+      "snap/host@1.0.0"
+    ],
+    "overriddenServices": [],
+    "definitions": {
+      "entries": 0,
+      "inputs": 2,
+      "bindings": 1,
+      "contracts": 2,
+      "families": 9
+    },
+    "rootEnvCount": 0,
+    "liveEnvCount": 0,
+    "unsettledAttempts": [],
+    "planCache": {
+      "hits": 0,
+      "misses": 0,
+      "entries": 0,
+      "evictions": 0,
+      "maxEntries": 8
+    },
+    "definitionWarnings": []
+  },
+  "catalogStorage": [
+    {
+      "contractId": "snap/storage/v1",
+      "familyId": "snap-files",
+      "version": "1.2.3",
+      "eager": true,
+      "familyMetadata": {},
+      "revisionMetadata": {},
+      "persistentRef": {
+        "kind": "persistent-implementation-ref",
+        "contractId": "snap/storage/v1",
+        "implementationId": "snap-files",
+        "version": "^1.2.3"
+      }
+    },
+    {
+      "contractId": "snap/storage/v1",
+      "familyId": "snap-memory",
+      "version": "1.0.0",
+      "eager": false,
+      "familyMetadata": {},
+      "revisionMetadata": {},
+      "persistentRef": {
+        "kind": "persistent-implementation-ref",
+        "contractId": "snap/storage/v1",
+        "implementationId": "snap-memory",
+        "version": "^1.0.0"
+      }
+    }
+  ],
+  "catalogPlugin": [
+    {
+      "contractId": "snap/plugin/v1",
+      "familyId": "snap-plugin-a",
+      "version": "1.0.0",
+      "eager": false,
+      "familyMetadata": {},
+      "revisionMetadata": {},
+      "persistentRef": {
+        "kind": "persistent-implementation-ref",
+        "contractId": "snap/plugin/v1",
+        "implementationId": "snap-plugin-a",
+        "version": "^1.0.0"
+      }
+    },
+    {
+      "contractId": "snap/plugin/v1",
+      "familyId": "snap-plugin-b",
+      "version": "1.1.0",
+      "eager": false,
+      "familyMetadata": {},
+      "revisionMetadata": {},
+      "persistentRef": {
+        "kind": "persistent-implementation-ref",
+        "contractId": "snap/plugin/v1",
+        "implementationId": "snap-plugin-b",
+        "version": "^1.1.0"
+      }
+    }
+  ],
+  "revisionsDb": [
+    "2.0.0",
+    "1.0.0"
+  ],
+  "pickerRef": {
+    "kind": "persistent-implementation-ref",
+    "contractId": "snap/storage/v1",
+    "implementationId": "snap-memory",
+    "version": "^1.0.0"
+  },
+  "pickerRefJson": "{\"kind\":\"persistent-implementation-ref\",\"contractId\":\"snap/storage/v1\",\"implementationId\":\"snap-memory\",\"version\":\"^1.0.0\"}",
+  "pickerParsed": {
+    "kind": "persistent-implementation-ref",
+    "contractId": "snap/storage/v1",
+    "implementationId": "snap-memory",
+    "version": "^1.0.0"
+  },
+  "catalogResolve": {
+    "contractId": "snap/storage/v1",
+    "familyId": "snap-memory",
+    "version": "1.0.0",
+    "eager": false,
+    "familyMetadata": {},
+    "revisionMetadata": {},
+    "persistentRef": {
+      "kind": "persistent-implementation-ref",
+      "contractId": "snap/storage/v1",
+      "implementationId": "snap-memory",
+      "version": "^1.0.0"
+    }
+  },
+  "checkRootOk": {
+    "ok": true,
+    "inspection": {
+      "nodeCount": 12,
+      "ownedSlotCount": 12,
+      "reusedSlotCount": 0,
+      "eagerServiceCount": 0,
+      "selectedRevisions": {
+        "service:snap/cache@1.0.0/dependency:db": "snap-db@1.0.0"
+      }
+    }
+  },
+  "checkRootMissing": {
+    "ok": false,
+    "error": {
+      "code": "MISSING_INPUT",
+      "message": "Entry snap/entry/root/v1 is missing input snap/input/flag/v1, binding snap/binding/picker/v1.",
+      "details": {
+        "entry": "snap/entry/root/v1",
+        "missing": [
+          "snap/input/flag/v1",
+          "snap/binding/picker/v1"
+        ],
+        "missingInputs": [
+          "snap/input/flag/v1"
+        ],
+        "missingBindings": [
+          "snap/binding/picker/v1"
+        ]
+      }
+    }
+  },
+  "explainRoot": {
+    "ok": true,
+    "entry": "snap/entry/root/v1",
+    "parameters": {
+      "inputsProvided": [
+        "snap/input/flag/v1",
+        "snap/input/tenant/v1"
+      ],
+      "inputsInherited": [],
+      "bindingsResolved": {
+        "snap/binding/picker/v1": "snap-memory@1.0.0"
+      },
+      "bindingsInherited": {}
+    },
+    "services": {
+      "inherited": 0,
+      "new": 8,
+      "forked": 0,
+      "eagerToStart": 0,
+      "eagerInherited": 0
+    },
+    "inputs": {
+      "inherited": 0,
+      "provided": 2
+    },
+    "synthetic": {
+      "inherited": 0,
+      "new": 2,
+      "forked": 0
+    },
+    "choices": {
+      "service:snap/cache@1.0.0/dependency:db": "snap-db@1.0.0"
+    },
+    "nodes": [
+      {
+        "nodeId": "all:snap/plugin/v1",
+        "kind": "all",
+        "label": "snap/plugin/v1[snap-plugin-a@1.0.0,snap-plugin-b@1.1.0]",
+        "disposition": "new",
+        "eager": false,
+        "cause": {
+          "kind": "root"
+        },
+        "path": [
+          "all:snap/plugin/v1"
+        ]
+      },
+      {
+        "$descriptor": "binding",
+        "id": null
+      },
+      {
+        "$descriptor": "input",
+        "id": null
+      },
+      {
+        "$descriptor": "input",
+        "id": null
+      },
+      {
+        "nodeId": "service:snap-db@1.0.0",
+        "kind": "service",
+        "label": "snap-db@1.0.0",
+        "disposition": "new",
+        "eager": false,
+        "cause": {
+          "kind": "root"
+        },
+        "path": [
+          "service:snap-db@1.0.0"
+        ]
+      },
+      {
+        "nodeId": "service:snap-memory@1.0.0",
+        "kind": "service",
+        "label": "snap-memory@1.0.0",
+        "disposition": "new",
+        "eager": false,
+        "cause": {
+          "kind": "root"
+        },
+        "path": [
+          "service:snap-memory@1.0.0"
+        ]
+      },
+      {
+        "nodeId": "service:snap-plugin-a@1.0.0",
+        "kind": "service",
+        "label": "snap-plugin-a@1.0.0",
+        "disposition": "new",
+        "eager": false,
+        "cause": {
+          "kind": "root"
+        },
+        "path": [
+          "service:snap-plugin-a@1.0.0"
+        ]
+      },
+      {
+        "nodeId": "service:snap-plugin-b@1.1.0",
+        "kind": "service",
+        "label": "snap-plugin-b@1.1.0",
+        "disposition": "new",
+        "eager": false,
+        "cause": {
+          "kind": "root"
+        },
+        "path": [
+          "service:snap-plugin-b@1.1.0"
+        ]
+      },
+      {
+        "nodeId": "service:snap/app@1.0.0",
+        "kind": "service",
+        "label": "snap/app@1.0.0",
+        "disposition": "new",
+        "eager": false,
+        "cause": {
+          "kind": "root"
+        },
+        "path": [
+          "service:snap/app@1.0.0"
+        ]
+      },
+      {
+        "nodeId": "service:snap/cache@1.0.0",
+        "kind": "service",
+        "label": "snap/cache@1.0.0",
+        "disposition": "new",
+        "eager": false,
+        "cause": {
+          "kind": "root"
+        },
+        "path": [
+          "service:snap/cache@1.0.0"
+        ]
+      },
+      {
+        "nodeId": "service:snap/config@1.0.0",
+        "kind": "service",
+        "label": "snap/config@1.0.0",
+        "disposition": "new",
+        "eager": false,
+        "cause": {
+          "kind": "root"
+        },
+        "path": [
+          "service:snap/config@1.0.0"
+        ]
+      },
+      {
+        "nodeId": "service:snap/host@1.0.0",
+        "kind": "service",
+        "label": "snap/host@1.0.0",
+        "disposition": "new",
+        "eager": false,
+        "cause": {
+          "kind": "root"
+        },
+        "path": [
+          "service:snap/host@1.0.0"
+        ]
+      }
+    ],
+    "forks": [
+      {
+        "nodeId": "all:snap/plugin/v1",
+        "kind": "all",
+        "label": "snap/plugin/v1[snap-plugin-a@1.0.0,snap-plugin-b@1.1.0]",
+        "disposition": "new",
+        "eager": false,
+        "cause": {
+          "kind": "root"
+        },
+        "path": [
+          "all:snap/plugin/v1"
+        ]
+      },
+      {
+        "$descriptor": "binding",
+        "id": null
+      },
+      {
+        "$descriptor": "input",
+        "id": null
+      },
+      {
+        "$descriptor": "input",
+        "id": null
+      },
+      {
+        "nodeId": "service:snap-db@1.0.0",
+        "kind": "service",
+        "label": "snap-db@1.0.0",
+        "disposition": "new",
+        "eager": false,
+        "cause": {
+          "kind": "root"
+        },
+        "path": [
+          "service:snap-db@1.0.0"
+        ]
+      },
+      {
+        "nodeId": "service:snap-memory@1.0.0",
+        "kind": "service",
+        "label": "snap-memory@1.0.0",
+        "disposition": "new",
+        "eager": false,
+        "cause": {
+          "kind": "root"
+        },
+        "path": [
+          "service:snap-memory@1.0.0"
+        ]
+      },
+      {
+        "nodeId": "service:snap-plugin-a@1.0.0",
+        "kind": "service",
+        "label": "snap-plugin-a@1.0.0",
+        "disposition": "new",
+        "eager": false,
+        "cause": {
+          "kind": "root"
+        },
+        "path": [
+          "service:snap-plugin-a@1.0.0"
+        ]
+      },
+      {
+        "nodeId": "service:snap-plugin-b@1.1.0",
+        "kind": "service",
+        "label": "snap-plugin-b@1.1.0",
+        "disposition": "new",
+        "eager": false,
+        "cause": {
+          "kind": "root"
+        },
+        "path": [
+          "service:snap-plugin-b@1.1.0"
+        ]
+      },
+      {
+        "nodeId": "service:snap/app@1.0.0",
+        "kind": "service",
+        "label": "snap/app@1.0.0",
+        "disposition": "new",
+        "eager": false,
+        "cause": {
+          "kind": "root"
+        },
+        "path": [
+          "service:snap/app@1.0.0"
+        ]
+      },
+      {
+        "nodeId": "service:snap/cache@1.0.0",
+        "kind": "service",
+        "label": "snap/cache@1.0.0",
+        "disposition": "new",
+        "eager": false,
+        "cause": {
+          "kind": "root"
+        },
+        "path": [
+          "service:snap/cache@1.0.0"
+        ]
+      },
+      {
+        "nodeId": "service:snap/config@1.0.0",
+        "kind": "service",
+        "label": "snap/config@1.0.0",
+        "disposition": "new",
+        "eager": false,
+        "cause": {
+          "kind": "root"
+        },
+        "path": [
+          "service:snap/config@1.0.0"
+        ]
+      },
+      {
+        "nodeId": "service:snap/host@1.0.0",
+        "kind": "service",
+        "label": "snap/host@1.0.0",
+        "disposition": "new",
+        "eager": false,
+        "cause": {
+          "kind": "root"
+        },
+        "path": [
+          "service:snap/host@1.0.0"
+        ]
+      }
+    ]
+  },
+  "explainRootMissing": {
+    "ok": false,
+    "entry": "snap/entry/root/v1",
+    "error": {
+      "code": "MISSING_INPUT",
+      "message": "Entry snap/entry/root/v1 is missing input snap/input/tenant/v1, input snap/input/flag/v1, binding snap/binding/picker/v1.",
+      "details": {
+        "entry": "snap/entry/root/v1",
+        "missing": [
+          "snap/input/tenant/v1",
+          "snap/input/flag/v1",
+          "snap/binding/picker/v1"
+        ],
+        "missingInputs": [
+          "snap/input/tenant/v1",
+          "snap/input/flag/v1"
+        ],
+        "missingBindings": [
+          "snap/binding/picker/v1"
+        ]
+      }
+    },
+    "missingInputs": [
+      "snap/input/flag/v1",
+      "snap/input/tenant/v1"
+    ],
+    "missingBindings": [
+      "snap/binding/picker/v1"
+    ]
+  },
+  "rootInspect": {
+    "id": "env-1",
+    "state": "ready",
+    "nodes": [
+      {
+        "nodeId": "all:snap/plugin/v1",
+        "kind": "all",
+        "label": "snap/plugin/v1[snap-plugin-a@1.0.0,snap-plugin-b@1.1.0]",
+        "slotId": "slot-9",
+        "ownerEnvId": "env-1",
+        "state": "ready",
+        "dependencies": {
+          "snap-plugin-a@1.0.0": "slot-10",
+          "snap-plugin-b@1.1.0": "slot-11"
+        }
+      },
+      {
+        "$descriptor": "binding",
+        "id": null
+      },
+      {
+        "$descriptor": "input",
+        "id": null
+      },
+      {
+        "$descriptor": "input",
+        "id": null
+      },
+      {
+        "nodeId": "service:snap-db@1.0.0",
+        "kind": "service",
+        "label": "snap-db@1.0.0",
+        "slotId": "slot-6",
+        "ownerEnvId": "env-1",
+        "state": "dormant",
+        "dependencies": {}
+      },
+      {
+        "nodeId": "service:snap-memory@1.0.0",
+        "kind": "service",
+        "label": "snap-memory@1.0.0",
+        "slotId": "slot-13",
+        "ownerEnvId": "env-1",
+        "state": "dormant",
+        "dependencies": {}
+      },
+      {
+        "nodeId": "service:snap-plugin-a@1.0.0",
+        "kind": "service",
+        "label": "snap-plugin-a@1.0.0",
+        "slotId": "slot-10",
+        "ownerEnvId": "env-1",
+        "state": "dormant",
+        "dependencies": {}
+      },
+      {
+        "nodeId": "service:snap-plugin-b@1.1.0",
+        "kind": "service",
+        "label": "snap-plugin-b@1.1.0",
+        "slotId": "slot-11",
+        "ownerEnvId": "env-1",
+        "state": "dormant",
+        "dependencies": {}
+      },
+      {
+        "nodeId": "service:snap/app@1.0.0",
+        "kind": "service",
+        "label": "snap/app@1.0.0",
+        "slotId": "slot-4",
+        "ownerEnvId": "env-1",
+        "state": "dormant",
+        "dependencies": {
+          "cache": "slot-5",
+          "config": "slot-7",
+          "db": "slot-6",
+          "host": "slot-8",
+          "storage": "slot-12"
+        }
+      },
+      {
+        "nodeId": "service:snap/cache@1.0.0",
+        "kind": "service",
+        "label": "snap/cache@1.0.0",
+        "slotId": "slot-5",
+        "ownerEnvId": "env-1",
+        "state": "dormant",
+        "dependencies": {
+          "db": "slot-6"
+        }
+      },
+      {
+        "nodeId": "service:snap/config@1.0.0",
+        "kind": "service",
+        "label": "snap/config@1.0.0",
+        "slotId": "slot-7",
+        "ownerEnvId": "env-1",
+        "state": "dormant",
+        "dependencies": {
+          "flag": "slot-2",
+          "tenant": "slot-1"
+        }
+      },
+      {
+        "nodeId": "service:snap/host@1.0.0",
+        "kind": "service",
+        "label": "snap/host@1.0.0",
+        "slotId": "slot-8",
+        "ownerEnvId": "env-1",
+        "state": "dormant",
+        "dependencies": {
+          "plugins": "slot-9"
+        }
+      }
+    ]
+  },
+  "explainChild": {
+    "ok": true,
+    "entry": "snap/entry/child/v1",
+    "parent": "env-1",
+    "parameters": {
+      "inputsProvided": [
+        "snap/input/flag/v1"
+      ],
+      "inputsInherited": [
+        "snap/input/tenant/v1"
+      ],
+      "bindingsResolved": {},
+      "bindingsInherited": {
+        "snap/binding/picker/v1": "snap-memory@1.0.0"
+      }
+    },
+    "services": {
+      "inherited": 5,
+      "new": 0,
+      "forked": 3,
+      "eagerToStart": 0,
+      "eagerInherited": 0
+    },
+    "inputs": {
+      "inherited": 1,
+      "provided": 1
+    },
+    "synthetic": {
+      "inherited": 2,
+      "new": 0,
+      "forked": 0
+    },
+    "choices": {
+      "service:snap/cache@1.0.0/dependency:db": "snap-db@1.0.0"
+    },
+    "nodes": [
+      {
+        "nodeId": "all:snap/plugin/v1",
+        "kind": "all",
+        "label": "snap/plugin/v1[snap-plugin-a@1.0.0,snap-plugin-b@1.1.0]",
+        "disposition": "inherited",
+        "eager": false,
+        "path": [
+          "all:snap/plugin/v1"
+        ]
+      },
+      {
+        "$descriptor": "binding",
+        "id": null
+      },
+      {
+        "$descriptor": "input",
+        "id": null
+      },
+      {
+        "$descriptor": "input",
+        "id": null
+      },
+      {
+        "nodeId": "service:snap-db@1.0.0",
+        "kind": "service",
+        "label": "snap-db@1.0.0",
+        "disposition": "inherited",
+        "eager": false,
+        "path": [
+          "service:snap-db@1.0.0"
+        ]
+      },
+      {
+        "nodeId": "service:snap-memory@1.0.0",
+        "kind": "service",
+        "label": "snap-memory@1.0.0",
+        "disposition": "inherited",
+        "eager": false,
+        "path": [
+          "service:snap-memory@1.0.0"
+        ]
+      },
+      {
+        "nodeId": "service:snap-plugin-a@1.0.0",
+        "kind": "service",
+        "label": "snap-plugin-a@1.0.0",
+        "disposition": "inherited",
+        "eager": false,
+        "path": [
+          "service:snap-plugin-a@1.0.0"
+        ]
+      },
+      {
+        "nodeId": "service:snap-plugin-b@1.1.0",
+        "kind": "service",
+        "label": "snap-plugin-b@1.1.0",
+        "disposition": "inherited",
+        "eager": false,
+        "path": [
+          "service:snap-plugin-b@1.1.0"
+        ]
+      },
+      {
+        "nodeId": "service:snap/app@1.0.0",
+        "kind": "service",
+        "label": "snap/app@1.0.0",
+        "disposition": "forked",
+        "eager": false,
+        "cause": {
+          "kind": "dependency-forked",
+          "via": "cache",
+          "dependency": "service:snap/cache@1.0.0"
+        },
+        "path": [
+          "service:snap/app@1.0.0",
+          "service:snap/cache@1.0.0"
+        ]
+      },
+      {
+        "nodeId": "service:snap/cache@1.0.0",
+        "kind": "service",
+        "label": "snap/cache@1.0.0",
+        "disposition": "forked",
+        "eager": false,
+        "cause": {
+          "kind": "fresh",
+          "target": "snap/cache@1.0.0"
+        },
+        "path": [
+          "service:snap/cache@1.0.0"
+        ]
+      },
+      {
+        "nodeId": "service:snap/config@1.0.0",
+        "kind": "service",
+        "label": "snap/config@1.0.0",
+        "disposition": "forked",
+        "eager": false,
+        "cause": {
+          "kind": "dependency-forked",
+          "via": "flag",
+          "dependency": "input:snap/input/flag/v1"
+        },
+        "path": [
+          "service:snap/config@1.0.0",
+          "input:snap/input/flag/v1"
+        ]
+      },
+      {
+        "nodeId": "service:snap/host@1.0.0",
+        "kind": "service",
+        "label": "snap/host@1.0.0",
+        "disposition": "inherited",
+        "eager": false,
+        "path": [
+          "service:snap/host@1.0.0"
+        ]
+      }
+    ],
+    "forks": [
+      {
+        "$descriptor": "input",
+        "id": null
+      },
+      {
+        "nodeId": "service:snap/app@1.0.0",
+        "kind": "service",
+        "label": "snap/app@1.0.0",
+        "disposition": "forked",
+        "eager": false,
+        "cause": {
+          "kind": "dependency-forked",
+          "via": "cache",
+          "dependency": "service:snap/cache@1.0.0"
+        },
+        "path": [
+          "service:snap/app@1.0.0",
+          "service:snap/cache@1.0.0"
+        ]
+      },
+      {
+        "nodeId": "service:snap/cache@1.0.0",
+        "kind": "service",
+        "label": "snap/cache@1.0.0",
+        "disposition": "forked",
+        "eager": false,
+        "cause": {
+          "kind": "fresh",
+          "target": "snap/cache@1.0.0"
+        },
+        "path": [
+          "service:snap/cache@1.0.0"
+        ]
+      },
+      {
+        "nodeId": "service:snap/config@1.0.0",
+        "kind": "service",
+        "label": "snap/config@1.0.0",
+        "disposition": "forked",
+        "eager": false,
+        "cause": {
+          "kind": "dependency-forked",
+          "via": "flag",
+          "dependency": "input:snap/input/flag/v1"
+        },
+        "path": [
+          "service:snap/config@1.0.0",
+          "input:snap/input/flag/v1"
+        ]
+      }
+    ]
+  },
+  "explainShared": {
+    "ok": true,
+    "entry": "snap/entry/shared/v1",
+    "parent": "env-1",
+    "parameters": {
+      "inputsProvided": [],
+      "inputsInherited": [
+        "snap/input/flag/v1",
+        "snap/input/tenant/v1"
+      ],
+      "bindingsResolved": {},
+      "bindingsInherited": {
+        "snap/binding/picker/v1": "snap-memory@1.0.0"
+      }
+    },
+    "services": {
+      "inherited": 8,
+      "new": 0,
+      "forked": 0,
+      "eagerToStart": 0,
+      "eagerInherited": 0
+    },
+    "inputs": {
+      "inherited": 2,
+      "provided": 0
+    },
+    "synthetic": {
+      "inherited": 2,
+      "new": 0,
+      "forked": 0
+    },
+    "choices": {
+      "service:snap/cache@1.0.0/dependency:db": "snap-db@1.0.0"
+    },
+    "nodes": [
+      {
+        "nodeId": "all:snap/plugin/v1",
+        "kind": "all",
+        "label": "snap/plugin/v1[snap-plugin-a@1.0.0,snap-plugin-b@1.1.0]",
+        "disposition": "inherited",
+        "eager": false,
+        "path": [
+          "all:snap/plugin/v1"
+        ]
+      },
+      {
+        "$descriptor": "binding",
+        "id": null
+      },
+      {
+        "$descriptor": "input",
+        "id": null
+      },
+      {
+        "$descriptor": "input",
+        "id": null
+      },
+      {
+        "nodeId": "service:snap-db@1.0.0",
+        "kind": "service",
+        "label": "snap-db@1.0.0",
+        "disposition": "inherited",
+        "eager": false,
+        "path": [
+          "service:snap-db@1.0.0"
+        ]
+      },
+      {
+        "nodeId": "service:snap-memory@1.0.0",
+        "kind": "service",
+        "label": "snap-memory@1.0.0",
+        "disposition": "inherited",
+        "eager": false,
+        "path": [
+          "service:snap-memory@1.0.0"
+        ]
+      },
+      {
+        "nodeId": "service:snap-plugin-a@1.0.0",
+        "kind": "service",
+        "label": "snap-plugin-a@1.0.0",
+        "disposition": "inherited",
+        "eager": false,
+        "path": [
+          "service:snap-plugin-a@1.0.0"
+        ]
+      },
+      {
+        "nodeId": "service:snap-plugin-b@1.1.0",
+        "kind": "service",
+        "label": "snap-plugin-b@1.1.0",
+        "disposition": "inherited",
+        "eager": false,
+        "path": [
+          "service:snap-plugin-b@1.1.0"
+        ]
+      },
+      {
+        "nodeId": "service:snap/app@1.0.0",
+        "kind": "service",
+        "label": "snap/app@1.0.0",
+        "disposition": "inherited",
+        "eager": false,
+        "path": [
+          "service:snap/app@1.0.0"
+        ]
+      },
+      {
+        "nodeId": "service:snap/cache@1.0.0",
+        "kind": "service",
+        "label": "snap/cache@1.0.0",
+        "disposition": "inherited",
+        "eager": false,
+        "path": [
+          "service:snap/cache@1.0.0"
+        ]
+      },
+      {
+        "nodeId": "service:snap/config@1.0.0",
+        "kind": "service",
+        "label": "snap/config@1.0.0",
+        "disposition": "inherited",
+        "eager": false,
+        "path": [
+          "service:snap/config@1.0.0"
+        ]
+      },
+      {
+        "nodeId": "service:snap/host@1.0.0",
+        "kind": "service",
+        "label": "snap/host@1.0.0",
+        "disposition": "inherited",
+        "eager": false,
+        "path": [
+          "service:snap/host@1.0.0"
+        ]
+      }
+    ],
+    "forks": []
+  },
+  "checkChildFreshInactive": {
+    "ok": false,
+    "error": {
+      "code": "CONSTRAINT_VIOLATION",
+      "message": "fresh targets inactive Service Revision snap-db@2.0.0.",
+      "details": {
+        "env": "check-7",
+        "revision": "snap-db@2.0.0"
+      }
+    }
+  },
+  "checkChildShareForked": {
+    "ok": false,
+    "error": {
+      "code": "SHARE_CONSTRAINT_FAILED",
+      "message": "snap/cache@1.0.0 cannot reuse its parent-visible slot in Env check-8.",
+      "details": {
+        "revision": "snap/cache@1.0.0",
+        "env": "check-8",
+        "cause": {
+          "kind": "fresh",
+          "target": "snap/cache@1.0.0"
+        },
+        "path": [
+          "service:snap/cache@1.0.0"
+        ]
+      }
+    }
+  },
+  "explainChildShareConfig": {
+    "ok": false,
+    "entry": "snap/entry/child/v1",
+    "parent": "env-1",
+    "error": {
+      "code": "SHARE_CONSTRAINT_FAILED",
+      "message": "snap/config@1.0.0 cannot reuse its parent-visible slot in Env check-9.",
+      "details": {
+        "revision": "snap/config@1.0.0",
+        "env": "check-9",
+        "cause": {
+          "kind": "dependency-forked",
+          "via": "flag",
+          "dependency": "input:snap/input/flag/v1"
+        },
+        "path": [
+          "service:snap/config@1.0.0",
+          "input:snap/input/flag/v1"
+        ]
+      }
+    },
+    "missingInputs": [],
+    "missingBindings": []
+  },
+  "childInspect": {
+    "id": "env-2",
+    "parentId": "env-1",
+    "state": "ready",
+    "nodes": [
+      {
+        "nodeId": "all:snap/plugin/v1",
+        "kind": "all",
+        "label": "snap/plugin/v1[snap-plugin-a@1.0.0,snap-plugin-b@1.1.0]",
+        "slotId": "slot-9",
+        "ownerEnvId": "env-1",
+        "state": "ready",
+        "dependencies": {
+          "snap-plugin-a@1.0.0": "slot-10",
+          "snap-plugin-b@1.1.0": "slot-11"
+        }
+      },
+      {
+        "$descriptor": "binding",
+        "id": null
+      },
+      {
+        "$descriptor": "input",
+        "id": null
+      },
+      {
+        "$descriptor": "input",
+        "id": null
+      },
+      {
+        "nodeId": "service:snap-db@1.0.0",
+        "kind": "service",
+        "label": "snap-db@1.0.0",
+        "slotId": "slot-6",
+        "ownerEnvId": "env-1",
+        "state": "dormant",
+        "dependencies": {}
+      },
+      {
+        "nodeId": "service:snap-memory@1.0.0",
+        "kind": "service",
+        "label": "snap-memory@1.0.0",
+        "slotId": "slot-13",
+        "ownerEnvId": "env-1",
+        "state": "dormant",
+        "dependencies": {}
+      },
+      {
+        "nodeId": "service:snap-plugin-a@1.0.0",
+        "kind": "service",
+        "label": "snap-plugin-a@1.0.0",
+        "slotId": "slot-10",
+        "ownerEnvId": "env-1",
+        "state": "dormant",
+        "dependencies": {}
+      },
+      {
+        "nodeId": "service:snap-plugin-b@1.1.0",
+        "kind": "service",
+        "label": "snap-plugin-b@1.1.0",
+        "slotId": "slot-11",
+        "ownerEnvId": "env-1",
+        "state": "dormant",
+        "dependencies": {}
+      },
+      {
+        "nodeId": "service:snap/app@1.0.0",
+        "kind": "service",
+        "label": "snap/app@1.0.0",
+        "slotId": "slot-15",
+        "ownerEnvId": "env-2",
+        "state": "dormant",
+        "dependencies": {
+          "cache": "slot-16",
+          "config": "slot-17",
+          "db": "slot-6",
+          "host": "slot-8",
+          "storage": "slot-12"
+        }
+      },
+      {
+        "nodeId": "service:snap/cache@1.0.0",
+        "kind": "service",
+        "label": "snap/cache@1.0.0",
+        "slotId": "slot-16",
+        "ownerEnvId": "env-2",
+        "state": "dormant",
+        "dependencies": {
+          "db": "slot-6"
+        }
+      },
+      {
+        "nodeId": "service:snap/config@1.0.0",
+        "kind": "service",
+        "label": "snap/config@1.0.0",
+        "slotId": "slot-17",
+        "ownerEnvId": "env-2",
+        "state": "dormant",
+        "dependencies": {
+          "flag": "slot-14",
+          "tenant": "slot-1"
+        }
+      },
+      {
+        "nodeId": "service:snap/host@1.0.0",
+        "kind": "service",
+        "label": "snap/host@1.0.0",
+        "slotId": "slot-8",
+        "ownerEnvId": "env-1",
+        "state": "dormant",
+        "dependencies": {
+          "plugins": "slot-9"
+        }
+      }
+    ]
+  },
+  "inspectLive": {
+    "admittedServices": [
+      "snap-db@1.0.0",
+      "snap-db@2.0.0",
+      "snap-files@1.2.3",
+      "snap-memory@1.0.0",
+      "snap-plugin-a@1.0.0",
+      "snap-plugin-b@1.1.0",
+      "snap/app@1.0.0",
+      "snap/cache@1.0.0",
+      "snap/config@1.0.0",
+      "snap/host@1.0.0"
+    ],
+    "internalServices": [
+      "snap-db@1.0.0",
+      "snap-db@2.0.0",
+      "snap-files@1.2.3",
+      "snap-memory@1.0.0",
+      "snap-plugin-a@1.0.0",
+      "snap-plugin-b@1.1.0",
+      "snap/app@1.0.0",
+      "snap/cache@1.0.0",
+      "snap/config@1.0.0",
+      "snap/host@1.0.0"
+    ],
+    "overriddenServices": [],
+    "definitions": {
+      "entries": 3,
+      "inputs": 2,
+      "bindings": 1,
+      "contracts": 2,
+      "families": 9
+    },
+    "rootEnvCount": 1,
+    "liveEnvCount": 2,
+    "unsettledAttempts": [],
+    "planCache": {
+      "hits": 3,
+      "misses": 6,
+      "entries": 3,
+      "evictions": 0,
+      "maxEntries": 8
+    },
+    "definitionWarnings": []
+  },
+  "errors": {
+    "deriveFreshInactive": {
+      "name": "SynaError",
+      "code": "CONSTRAINT_VIOLATION",
+      "message": "fresh targets inactive Service Revision snap-db@2.0.0.",
+      "details": {
+        "env": "env-3",
+        "revision": "snap-db@2.0.0"
+      }
+    },
+    "deriveShareForked": {
+      "name": "SynaError",
+      "code": "SHARE_CONSTRAINT_FAILED",
+      "message": "snap/cache@1.0.0 cannot reuse its parent-visible slot in Env env-4.",
+      "details": {
+        "revision": "snap/cache@1.0.0",
+        "env": "env-4",
+        "cause": {
+          "kind": "dependency-forked",
+          "via": "db",
+          "dependency": "service:snap-db@1.0.0"
+        },
+        "path": [
+          "service:snap/cache@1.0.0",
+          "service:snap-db@1.0.0"
+        ]
+      }
+    },
+    "deriveFreshDb": {
+      "resolved": true,
+      "env": {
+        "id": "env-5",
+        "parentId": "env-1",
+        "state": "ready",
+        "nodes": [
+          {
+            "nodeId": "all:snap/plugin/v1",
+            "kind": "all",
+            "label": "snap/plugin/v1[snap-plugin-a@1.0.0,snap-plugin-b@1.1.0]",
+            "slotId": "slot-9",
+            "ownerEnvId": "env-1",
+            "state": "ready",
+            "dependencies": {
+              "snap-plugin-a@1.0.0": "slot-10",
+              "snap-plugin-b@1.1.0": "slot-11"
+            }
+          },
+          {
+            "$descriptor": "binding",
+            "id": null
+          },
+          {
+            "$descriptor": "input",
+            "id": null
+          },
+          {
+            "$descriptor": "input",
+            "id": null
+          },
+          {
+            "nodeId": "service:snap-db@1.0.0",
+            "kind": "service",
+            "label": "snap-db@1.0.0",
+            "slotId": "slot-20",
+            "ownerEnvId": "env-5",
+            "state": "dormant",
+            "dependencies": {}
+          },
+          {
+            "nodeId": "service:snap-memory@1.0.0",
+            "kind": "service",
+            "label": "snap-memory@1.0.0",
+            "slotId": "slot-13",
+            "ownerEnvId": "env-1",
+            "state": "dormant",
+            "dependencies": {}
+          },
+          {
+            "nodeId": "service:snap-plugin-a@1.0.0",
+            "kind": "service",
+            "label": "snap-plugin-a@1.0.0",
+            "slotId": "slot-10",
+            "ownerEnvId": "env-1",
+            "state": "dormant",
+            "dependencies": {}
+          },
+          {
+            "nodeId": "service:snap-plugin-b@1.1.0",
+            "kind": "service",
+            "label": "snap-plugin-b@1.1.0",
+            "slotId": "slot-11",
+            "ownerEnvId": "env-1",
+            "state": "dormant",
+            "dependencies": {}
+          },
+          {
+            "nodeId": "service:snap/app@1.0.0",
+            "kind": "service",
+            "label": "snap/app@1.0.0",
+            "slotId": "slot-18",
+            "ownerEnvId": "env-5",
+            "state": "dormant",
+            "dependencies": {
+              "cache": "slot-19",
+              "config": "slot-7",
+              "db": "slot-20",
+              "host": "slot-8",
+              "storage": "slot-12"
+            }
+          },
+          {
+            "nodeId": "service:snap/cache@1.0.0",
+            "kind": "service",
+            "label": "snap/cache@1.0.0",
+            "slotId": "slot-19",
+            "ownerEnvId": "env-5",
+            "state": "dormant",
+            "dependencies": {
+              "db": "slot-20"
+            }
+          },
+          {
+            "nodeId": "service:snap/config@1.0.0",
+            "kind": "service",
+            "label": "snap/config@1.0.0",
+            "slotId": "slot-7",
+            "ownerEnvId": "env-1",
+            "state": "dormant",
+            "dependencies": {
+              "flag": "slot-2",
+              "tenant": "slot-1"
+            }
+          },
+          {
+            "nodeId": "service:snap/host@1.0.0",
+            "kind": "service",
+            "label": "snap/host@1.0.0",
+            "slotId": "slot-8",
+            "ownerEnvId": "env-1",
+            "state": "dormant",
+            "dependencies": {
+              "plugins": "slot-9"
+            }
+          }
+        ]
+      }
+    },
+    "enterMissingBinding": {
+      "name": "SynaError",
+      "code": "MISSING_BINDING",
+      "message": "Entry snap/entry/root/v1 is missing binding snap/binding/picker/v1.",
+      "details": {
+        "entry": "snap/entry/root/v1",
+        "missing": [
+          "snap/binding/picker/v1"
+        ],
+        "missingInputs": [],
+        "missingBindings": [
+          "snap/binding/picker/v1"
+        ]
+      }
+    },
+    "enterMissingInput": {
+      "name": "SynaError",
+      "code": "MISSING_INPUT",
+      "message": "Entry snap/entry/root/v1 is missing input snap/input/tenant/v1, input snap/input/flag/v1.",
+      "details": {
+        "entry": "snap/entry/root/v1",
+        "missing": [
+          "snap/input/tenant/v1",
+          "snap/input/flag/v1"
+        ],
+        "missingInputs": [
+          "snap/input/tenant/v1",
+          "snap/input/flag/v1"
+        ],
+        "missingBindings": []
+      }
+    },
+    "chooserWithoutPolicy": {
+      "name": "SynaError",
+      "code": "MISSING_AUTO_POLICY",
+      "message": "auto(snap/storage/v1) has multiple implementation families, but this Runtime has no explicit auto-selection policy.",
+      "details": {
+        "contract": "snap/storage/v1",
+        "site": "root>snap/entry/chooser/v1/require:storage",
+        "families": [
+          "snap-files",
+          "snap-memory"
+        ]
+      }
+    },
+    "parseWithoutId": {
+      "name": "TypeError",
+      "message": "Invalid persistent implementation reference for Contract snap/storage/v1."
+    },
+    "parseForeignContract": {
+      "name": "TypeError",
+      "message": "Invalid persistent implementation reference for Contract snap/storage/v1."
+    },
+    "resolveUnavailable": {
+      "name": "SynaError",
+      "code": "MISSING_IMPLEMENTATION",
+      "message": "No snap-memory candidate for snap/storage/v1 satisfies ^9.0.0.",
+      "details": {
+        "contract": "snap/storage/v1",
+        "implementation": "snap-memory",
+        "version": "^9.0.0",
+        "available": [
+          "1.0.0"
+        ]
+      }
+    },
+    "enterUnavailable": {
+      "name": "SynaError",
+      "code": "MISSING_IMPLEMENTATION",
+      "message": "No admitted snap-memory revision satisfies ^9.0.0 and snap/storage/v1.",
+      "details": {
+        "binding": "snap/binding/picker/v1",
+        "implementation": "snap-memory",
+        "version": "^9.0.0",
+        "available": [
+          "1.0.0"
+        ]
+      }
+    }
+  },
+  "inspectAfterDispose": {
+    "admittedServices": [
+      "snap-db@1.0.0",
+      "snap-db@2.0.0",
+      "snap-files@1.2.3",
+      "snap-memory@1.0.0",
+      "snap-plugin-a@1.0.0",
+      "snap-plugin-b@1.1.0",
+      "snap/app@1.0.0",
+      "snap/cache@1.0.0",
+      "snap/config@1.0.0",
+      "snap/host@1.0.0"
+    ],
+    "internalServices": [
+      "snap-db@1.0.0",
+      "snap-db@2.0.0",
+      "snap-files@1.2.3",
+      "snap-memory@1.0.0",
+      "snap-plugin-a@1.0.0",
+      "snap-plugin-b@1.1.0",
+      "snap/app@1.0.0",
+      "snap/cache@1.0.0",
+      "snap/config@1.0.0",
+      "snap/host@1.0.0"
+    ],
+    "overriddenServices": [],
+    "definitions": {
+      "entries": 5,
+      "inputs": 2,
+      "bindings": 1,
+      "contracts": 2,
+      "families": 9
+    },
+    "rootEnvCount": 0,
+    "liveEnvCount": 0,
+    "unsettledAttempts": [],
+    "planCache": {
+      "hits": 3,
+      "misses": 10,
+      "entries": 4,
+      "evictions": 0,
+      "maxEntries": 8
+    },
+    "definitionWarnings": []
+  }
+}
