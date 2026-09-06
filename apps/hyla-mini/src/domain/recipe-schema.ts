@@ -1,3 +1,4 @@
+// syna-v05-compat: stored references written on Syna 0.5 carry `implementationId`; accepted until 0.7.0 (docs/MIGRATION_V05_TO_V06.md).
 /**
  * JSON schema of a recipe document. Lives in the domain layer because the site
  * configuration schema embeds it (a stored SiteConfig carries three recipes);

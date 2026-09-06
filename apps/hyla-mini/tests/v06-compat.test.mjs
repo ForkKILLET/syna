@@ -1,4 +1,4 @@
-// Syna 0.6 (R5): stored implementation references carry `familyId`; documents written by Hyla-mini on Syna 0.5
+// syna-v05-compat — Syna 0.6 (R5): stored implementation references carry `familyId`; documents written by Hyla-mini on Syna 0.5
 // carry the same value under `implementationId`. Both parse at the store boundary and come out in the 0.6 shape,
 // so a 0.5 content root keeps working without a rewrite (docs/MIGRATION_V05_TO_V06.md). The 0.5 key is accepted
 // until 0.7.0.

@@ -176,12 +176,12 @@ async function inputClosureCase() {
 }
 
 /**
- * A Service-owned BoundEntry (the Hyla UnitOfWork / request-handler pattern): the
+ * A Service-owned AnchoredEntry (the Hyla UnitOfWork / request-handler pattern): the
  * private Entry selects a helper by range inside the owner's private realm and
  * carries a full request chain, so every timed enter plans ~20 request-scoped
  * services under ~80 inherited ones — not a one-node graph.
  */
-async function privateRangeAndBoundEntryCase() {
+async function privateRangeAndAnchoredEntryCase() {
   const world = representativeWorld(100, { tag: 'bound' })
   const define = world.define
   const Private = define.service('private-helper', { setup: () => ({}) })
@@ -287,7 +287,7 @@ const cases = [
   await warmEnterDisposeCase(300, 6),
   await phaseBreakdownCase(300),
   await inputClosureCase(),
-  await privateRangeAndBoundEntryCase(),
+  await privateRangeAndAnchoredEntryCase(),
   await overrideAndAllCase(),
   await churnCase(),
   await lruChurnCase(),

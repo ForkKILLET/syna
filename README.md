@@ -59,32 +59,94 @@ node apps/hyla-mini/bin/hyla-mini.mjs explain --root /tmp/hyla-content --tenant 
 
 Stop the server with Ctrl-C (the worker stops, site environments drain, shared resources close last). Clean up with `rm -rf /tmp/hyla-content /tmp/hyla-alpha` and `node scripts/pg-test-cluster.mjs stop` if a cluster was left running (`SYNA_PG_KEEP=1`).
 
-## Package authoring in one screen
+## Syna in one screen
+
+One program, four files; `npm run test:scripts` compiles and runs them exactly as printed here (`scripts/tests/readme-example.test.mjs`).
+
+`package.json`
+
+```json
+{
+  "name": "greeter",
+  "version": "1.0.0",
+  "type": "module",
+  "imports": { "#syna/package": "./package.json" }
+}
+```
+
+`src/greeter.ts`
 
 ```ts
 import packageJson from '#syna/package' with { type: 'json' }
-import { createRuntime, definePackage } from '@syna/core'
+import { definePackage } from '@syna/core'
 
-export const define = definePackage(packageJson)      // exact revision = package.json version
+export const define = definePackage(packageJson)
 
-export const DatabaseConfig = define.input<{ connectionString: string }>('database-config')
+export const Audience = define.input<{ name: string }>('audience')
 
-export const Postgres = define.service({
-  requires: { config: DatabaseConfig },
-  async setup({ config }, { onDispose, signal }) {
-    const settings = config.read()                     // Inputs are read synchronously, payload as provided
-    const pool = createPool(settings.connectionString, { signal })
-    onDispose(() => pool.end())                        // only resources this setup created
-    return { query: (sql, params) => pool.query(sql, params) }
+export const Greeter = define.service({
+  requires: { audience: Audience },
+  setup({ audience }) {
+    const { name } = audience.read()
+    return { greet: () => `hello, ${name}` }
   },
 })
+```
 
-const AppEntry = define.entry('app', { requires: { database: Postgres }, parameters: { config: DatabaseConfig } })
-const runtime = createRuntime({ services: [Postgres] })
-await runtime.run(AppEntry, { config: { connectionString: '...' } }, async ({ database }) => {
-  const db = await database.load()                     // a plain Promise; no hidden barrier
-  await db.query('select 1')
+`src/conversation.ts`
+
+```ts
+import type { Runtime } from '@syna/core'
+import { Audience, Greeter, define } from './greeter.js'
+
+export const Conversation = define.entry('conversation', {
+  requires: { greeter: Greeter },
+  parameters: { audience: Audience },
 })
+
+export const Aside = define.entry('aside', {
+  requires: { greeter: Greeter },
+  reuse: { fresh: [Greeter] },
+})
+
+export async function converse(runtime: Runtime) {
+  const world = await runtime.enter(Conversation, { audience: { name: 'world' } })
+  const shared = await world.deps.greeter.load()
+  console.log(shared.greet())
+
+  const aside = await world.enter(Aside)
+  const own = await aside.deps.greeter.load()
+  console.log(own === shared, own.greet())
+
+  await world.dispose()
+}
+```
+
+`src/main.ts`
+
+```ts
+import { createRuntime } from '@syna/core'
+import { Conversation, converse } from './conversation.js'
+import { Greeter } from './greeter.js'
+
+const runtime = createRuntime({
+  services: [Greeter],
+  limits: { setupDeadlineMs: 5_000, disposalGraceMs: 1_000 },
+})
+
+const plan = await runtime.explain(Conversation, { audience: { name: 'world' } })
+if (plan.ok) console.log(plan.services.new, plan.forks.map(fork => fork.label))
+
+await converse(runtime)
+await runtime.dispose()
+```
+
+`node dist/main.js` prints:
+
+```
+1 [ 'greeter/input/audience/v1', 'greeter@1.0.0' ]
+hello, world
+false hello, world
 ```
 
 Key rules: `serviceRef.load()` is an ordinary Promise (catch, race and background loads work as JavaScript defines them); a Service-owned `AnchoredEntry` needs a Ready owner (`OWNER_NOT_READY` otherwise); reuse is parent-only; `explain()` tells you which nodes a child would inherit, create or fork and why.

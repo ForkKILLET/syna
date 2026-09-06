@@ -1,4 +1,4 @@
-import { createRuntime, type CreateRuntimeOptions, type EnvHandle, type ServiceRevision, type SynaRuntime, type UnsettledAttemptInspection } from '@syna/core'
+import { createRuntime, type CreateRuntimeOptions, type EnvHandle, type Runtime, type ServiceRevision, type UnsettledAttemptInspection } from '@syna/core'
 import { AUTHENTICATORS } from './auth/implementations.js'
 import { DatabasePool } from './data/postgres/pool.js'
 import { PostgresContentStore } from './data/postgres/store.js'
@@ -51,7 +51,7 @@ export interface HylaShutdownReport {
 }
 
 export interface HylaApp {
-  readonly runtime: SynaRuntime
+  readonly runtime: Runtime
   readonly infrastructure: EnvHandle<any>
   readonly app: EnvHandle<typeof AppEntry['requires']>
   readonly preflight: readonly BudgetReport[]

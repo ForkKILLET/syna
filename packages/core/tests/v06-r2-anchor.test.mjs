@@ -1,3 +1,4 @@
+// syna-v05-compat: this file exercises the deprecated 0.5 forms on purpose, next to their 0.6 replacements (aliases removed in 0.7.0).
 // R2 (v0.6): `env.anchor(entry)` / `AnchoredEntry` replace `env.bind(entry)` / `BoundEntry` (reason 1: `bind` shares
 // its root with `Binding`). `bind` forwards to `anchor`: same object shape, same plans, same errors. Removed in 0.7.0.
 import assert from 'node:assert/strict'

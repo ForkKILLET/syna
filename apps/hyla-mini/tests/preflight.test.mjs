@@ -140,7 +140,7 @@ test('H12 request budget: the real request world stays within budget, and explai
       assert.equal(report.localServices, 1, 'only the request handler is request-local')
       assert.equal(report.cost, 1)
       assert.equal(report.eagerToStart, 0)
-      assert.ok(report.synthetic >= 3, 'BoundEntry, all-collection and binding projections are counted separately')
+      assert.ok(report.synthetic >= 3, 'AnchoredEntry, all-collection and binding projections are counted separately')
     }
     const manager = await harness.app.app.deps.sites.load()
     const lease = await manager.acquire('alpha', 'background')

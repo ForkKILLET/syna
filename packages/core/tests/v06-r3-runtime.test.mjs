@@ -1,3 +1,4 @@
+// syna-v05-compat: this file exercises the deprecated 0.5 forms on purpose, next to their 0.6 replacements (aliases removed in 0.7.0).
 // R3 (v0.6): the Runtime type is `Runtime`; `SynaRuntime` is its deprecated alias (removed in 0.7.0). A type-only
 // rename has no runtime path of its own, so this test pins what the compiled declarations promise and that the
 // object `createRuntime()` returns is one and the same under either name.

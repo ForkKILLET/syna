@@ -226,7 +226,7 @@ test('failed eager activation rolls back newly started local services', async ()
 })
 
 test('a setup that waits for a collection member which waits back on it hits the initialization deadline', async () => {
-  const define = makeDefine('test.selector-cycle')
+  const define = makeDefine('test.collection-cycle')
   const Plugin = define.contract()
   let Manager
   let Candidate

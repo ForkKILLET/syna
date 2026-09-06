@@ -2,6 +2,19 @@
 
 Written before any rename (Phase A3). The three blocks are the files of one small program; `docs`-free, comment-free. They go verbatim into `README.md` ("Syna in one screen") in Phase D and are compiled and executed by `scripts/tests/readme-example.test.mjs` in Phase F. The zh-CN README carries the same three blocks.
 
+Phase D correction: the program also needs its `package.json` (the `#syna/package` import and the package identity every descriptor id derives from), so the README shows it as a fourth block and the test writes it verbatim; the three TypeScript blocks are unchanged.
+
+`package.json`
+
+```json
+{
+  "name": "greeter",
+  "version": "1.0.0",
+  "type": "module",
+  "imports": { "#syna/package": "./package.json" }
+}
+```
+
 `src/greeter.ts`
 
 ```ts
@@ -72,7 +85,7 @@ await runtime.dispose()
 Expected output when run (`node dist/main.js`):
 
 ```
-1 [ 'greeter' ]
+1 [ 'greeter/input/audience/v1', 'greeter@1.0.0' ]
 hello, world
 false hello, world
 ```
@@ -82,4 +95,4 @@ false hello, world
 - `reuse: { fresh: [Greeter] }` — the word "fresh" carries the meaning ("a new instance instead of the parent's"); no comment needed once the field is called `reuse` instead of `scope`.
 - `own === shared` printing `false` — the demonstration of `reuse.fresh`; the line reads on its own.
 - `plan.forks` — at the Runtime root every node is new, so the first entry shows the counts and the labels; no comment.
-- The exact fork labels (`greeter` is the dependency name inside the Entry, not the Service id) are checked by the test in Phase F; if the label turns out to be the node id instead, the expected output is corrected, not the example.
+- The exact fork labels (`greeter` is the dependency name inside the Entry, not the Service id) are checked by the test in Phase F; if the label turns out to be the node id instead, the expected output is corrected, not the example. (Phase D: the labels are the node ids — the Input node `greeter/input/audience/v1` and the Service revision `greeter@1.0.0` — and the output above was corrected accordingly; the code is verbatim.)

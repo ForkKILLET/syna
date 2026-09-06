@@ -1,3 +1,4 @@
+// syna-v05-compat: this file exercises the deprecated 0.5 forms on purpose, next to their 0.6 replacements (aliases removed in 0.7.0).
 // R6 (v0.6): `RuntimePolicyContext.dependencySite` replaces `site` (reason 1: "site" names choice sites throughout
 // Syna's explanations; the policy receives the dependency site being resolved). `site` stays readable as a
 // non-enumerable alias of `dependencySite` until 0.7.0. Same value on every policy path, same plans, same errors.

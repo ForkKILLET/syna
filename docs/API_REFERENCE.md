@@ -213,7 +213,7 @@ if (explanation.ok) {
 
 ## Implementation collections
 
-`C.all` yields an `ImplementationSet`: `candidates`, `resolve(ref)`, `load(candidate | candidateRef | ref, options?)` (`ref`: an `ImplementationRef`). Candidates are real nodes of the current Env; a `CandidateRef` belongs to one collection slot (`FRESH_CONSTRAINT_FAILED` elsewhere). `PersistentImplementationRef` (`{ kind, contractId, implementationId, version }`) is JSON-safe; without the target family it fails with `MISSING_IMPLEMENTATION` — no supplier substitution.
+`C.all` yields an `ImplementationSet`: `candidates`, `resolve(ref)`, `load(candidate | candidateRef | ref, options?)` (`ref`: an `ImplementationRef`). Candidates are real nodes of the current Env; a `CandidateRef` belongs to one collection slot (`FRESH_CONSTRAINT_FAILED` elsewhere). `ImplementationRef` (`{ kind, contractId, familyId, version }`) is JSON-safe; without the target family it fails with `MISSING_IMPLEMENTATION` — no supplier substitution.
 
 ## Errors
 

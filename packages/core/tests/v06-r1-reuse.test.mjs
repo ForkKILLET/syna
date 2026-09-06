@@ -1,3 +1,4 @@
+// syna-v05-compat: this file exercises the deprecated 0.5 forms on purpose, next to their 0.6 replacements (aliases removed in 0.7.0).
 // R1 (v0.6): `reuse: { fresh, share }` replaces `scope`, and call-time constraints move to a separate options
 // argument. The deprecated forms (definition `scope`, descriptor `.scope`, parameter-record `scope`) are aliases:
 // same plan, same explanation, same errors, same checks. Removed in 0.7.0.

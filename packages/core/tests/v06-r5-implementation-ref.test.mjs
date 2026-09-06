@@ -1,3 +1,4 @@
+// syna-v05-compat: this file exercises the deprecated 0.5 forms on purpose, next to their 0.6 replacements (aliases removed in 0.7.0).
 // R5 (v0.6): `ImplementationRef` replaces `PersistentImplementationRef`, and its family field is `familyId`
 // (serialized key too). Reason 3: `parseImplementationRef`, `CandidateRef.familyId` and `ImplementationDescriptor.familyId`
 // already used these names. `implementationId` stays readable as a non-enumerable alias and `parse()` accepts the

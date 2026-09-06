@@ -73,15 +73,15 @@ test('auto Contract choices are independent per dependency edge', async () => {
 })
 
 test('Contract.all exposes every admitted revision and shares canonical slots', async () => {
-  const define = makeDefine('test.selector-contract')
+  const define = makeDefine('test.collection-contract')
   const Capability = define.contract()
-  const Provider18 = makeDefine('test.selector-provider', '1.8.0', { displayName: 'Provider' }).service({
+  const Provider18 = makeDefine('test.collection-provider', '1.8.0', { displayName: 'Provider' }).service({
     provides: [Capability], setup: () => ({ version: '1.8' }),
   })
-  const Provider24 = makeDefine('test.selector-provider', '2.4.0', { displayName: 'Provider' }).service({
+  const Provider24 = makeDefine('test.collection-provider', '2.4.0', { displayName: 'Provider' }).service({
     provides: [Capability], setup: () => ({ version: '2.4' }),
   })
-  const Other = makeDefine('test.selector-other', '3.0.0', { displayName: 'Other' }).service({
+  const Other = makeDefine('test.collection-other', '3.0.0', { displayName: 'Other' }).service({
     provides: [Capability], setup: () => ({ version: '3.0' }),
   })
   const Consumer = define.service('consumer', {
@@ -100,19 +100,19 @@ test('Contract.all exposes every admitted revision and shares canonical slots', 
   })
   const env = await runtime.enter(Entry)
   const consumer = await env.deps.consumer.load()
-  const selector = await consumer.implementations.load()
+  const implementations = await consumer.implementations.load()
   assert.deepEqual(
-    selector.candidates.map(candidate => `${candidate.familyId}@${candidate.version}`),
+    implementations.candidates.map(candidate => `${candidate.familyId}@${candidate.version}`),
     [Other.key, Provider24.key, Provider18.key],
   )
-  assert.deepEqual([...selector], selector.candidates)
+  assert.deepEqual([...implementations], implementations.candidates)
 
   const selectedAutomatic = await consumer.automatic.load()
-  const automaticCandidate = selector.candidates.find(candidate =>
+  const automaticCandidate = implementations.candidates.find(candidate =>
     candidate.familyId === Other.family.id && candidate.version === Other.version,
   )
   assert.ok(automaticCandidate)
-  assert.strictEqual(selectedAutomatic, await selector.load(automaticCandidate))
+  assert.strictEqual(selectedAutomatic, await implementations.load(automaticCandidate))
   await env.dispose()
 })
 
@@ -203,52 +203,52 @@ test('reassigning a Binding forks its synthetic slot and reverse dependency clos
 })
 
 test('Contract.all includes eager candidates and only eager ones materialize at activation', async () => {
-  const define = makeDefine('test.selector-eager')
+  const define = makeDefine('test.collection-eager')
   const Capability = define.contract()
   let eagerStarts = 0
   let lazyStarts = 0
-  const Eager = makeDefine('test.selector-eager-provider').service({
+  const Eager = makeDefine('test.collection-eager-provider').service({
     provides: [Capability], eager: true,
     setup() { eagerStarts += 1; return { id: 'eager' } },
   })
-  const Lazy = makeDefine('test.selector-lazy-provider').service({
+  const Lazy = makeDefine('test.collection-lazy-provider').service({
     provides: [Capability],
     setup() { lazyStarts += 1; return { id: 'lazy' } },
   })
   const Panel = define.service('panel', {
-    requires: { selector: Capability.all },
-    setup({ selector }) { return { selector } },
+    requires: { implementations: Capability.all },
+    setup({ implementations }) { return { implementations } },
   })
   const Entry = define.entry({ requires: { panel: Panel } })
   const runtime = createRuntime({ services: [Panel, Eager, Lazy] })
   const env = await runtime.enter(Entry)
   assert.equal(eagerStarts, 1)
   assert.equal(lazyStarts, 0)
-  const selector = await (await env.deps.panel.load()).selector.load()
-  const lazy = selector.candidates.find(candidate => candidate.familyId === Lazy.family.id)
+  const implementations = await (await env.deps.panel.load()).implementations.load()
+  const lazy = implementations.candidates.find(candidate => candidate.familyId === Lazy.family.id)
   assert.ok(lazy)
-  assert.equal((await selector.load(lazy)).id, 'lazy')
+  assert.equal((await implementations.load(lazy)).id, 'lazy')
   assert.equal(lazyStarts, 1)
   await env.dispose()
 })
 
 test('C.all fails when all advertised implementations cannot coexist', async () => {
-  const define = makeDefine('test.selector-conflict')
+  const define = makeDefine('test.collection-conflict')
   const Capability = define.contract()
-  const Fixed1 = makeDefine('test.selector-fixed-dependency', '1.0.0').service({
+  const Fixed1 = makeDefine('test.collection-fixed-dependency', '1.0.0').service({
     uniqueWithin: 'lineage', setup: () => ({ version: 1 }),
   })
-  const Fixed2 = makeDefine('test.selector-fixed-dependency', '2.0.0').service({
+  const Fixed2 = makeDefine('test.collection-fixed-dependency', '2.0.0').service({
     uniqueWithin: 'lineage', setup: () => ({ version: 2 }),
   })
-  const Provider1 = makeDefine('test.selector-conflict-provider-a').service({
+  const Provider1 = makeDefine('test.collection-conflict-provider-a').service({
     provides: [Capability], requires: { fixed: Fixed1 }, setup: () => ({ id: 'a' }),
   })
-  const Provider2 = makeDefine('test.selector-conflict-provider-b').service({
+  const Provider2 = makeDefine('test.collection-conflict-provider-b').service({
     provides: [Capability], requires: { fixed: Fixed2 }, setup: () => ({ id: 'b' }),
   })
   const Panel = define.service('panel', {
-    requires: { selector: Capability.all }, setup: () => ({}),
+    requires: { implementations: Capability.all }, setup: () => ({}),
   })
   const Entry = define.entry({ requires: { panel: Panel } })
   const runtime = createRuntime({ services: [Panel, Provider1, Provider2, Fixed1, Fixed2] })

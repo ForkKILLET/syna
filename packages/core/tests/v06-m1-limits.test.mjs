@@ -1,3 +1,4 @@
+// syna-v05-compat: this file exercises the deprecated 0.5 forms on purpose, next to their 0.6 replacements (aliases removed in 0.7.0).
 // M1 (v0.6): `limits: { setupDeadlineMs, disposalGraceMs, planningBudget, planCacheEntries }` replaces the four
 // nested option records `initialization.deadlineMs`, `disposal.graceMs`, `planning.searchBudget` and
 // `planCache.maxEntries` (reason 3: four one-key records for one concept). The old records stay as deprecated

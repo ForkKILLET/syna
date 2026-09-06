@@ -85,7 +85,7 @@ if (phases) {
 }
 const churn = benchmark.cases.find(item => item.name === 'churn-10000-requests')
 if (churn) {
-  out(`Churn: ${churn.operations} request/BoundEntry operations in ${Math.round(churn.elapsedMs)} ms (${(churn.perOperationMs * 1000).toFixed(1)} µs/op); plan-cache entries max ${churn.planCacheEntriesMax} (hits ${churn.planCache.hits}, misses ${churn.planCache.misses}); live Envs after ${churn.liveEnvCountAfter}; heap after GC: ${churn.heapSamples.map(sample => `${mib(sample.heapUsed)} MiB`).join(' → ')}.`, '')
+  out(`Churn: ${churn.operations} request/AnchoredEntry operations in ${Math.round(churn.elapsedMs)} ms (${(churn.perOperationMs * 1000).toFixed(1)} µs/op); plan-cache entries max ${churn.planCacheEntriesMax} (hits ${churn.planCache.hits}, misses ${churn.planCache.misses}); live Envs after ${churn.liveEnvCountAfter}; heap after GC: ${churn.heapSamples.map(sample => `${mib(sample.heapUsed)} MiB`).join(' → ')}.`, '')
 }
 const lru = benchmark.cases.find(item => item.name === 'lru-churn-500-shapes')
 if (lru) {
@@ -110,7 +110,7 @@ for (const base of v4.cases) {
 out('')
 const signed = value => `${value >= 0 ? '+' : ''}${value} %`
 const spread = `${signed(Math.min(...deltas))} to ${signed(Math.max(...deltas))}`
-out(`On the v0.4 workload the v0.5 core ${Math.min(...deltas) >= 0 ? `is slower by ${spread}` : `differs by ${spread}`} at p95 (all cases stay far inside the 2 ms budget). The v0.5 representative world (Bindings, \`auto\`, \`C.all\`, SCC, BoundEntry private realm, Input closures) is heavier than the v0.4 request chain and is reported separately above. These values are targets for this machine, not cross-machine guarantees.`, '')
+out(`On the v0.4 workload the v0.5 core ${Math.min(...deltas) >= 0 ? `is slower by ${spread}` : `differs by ${spread}`} at p95 (all cases stay far inside the 2 ms budget). The v0.5 representative world (Bindings, \`auto\`, \`C.all\`, SCC, AnchoredEntry private realm, Input closures) is heavier than the v0.4 request chain and is reported separately above. These values are targets for this machine, not cross-machine guarantees.`, '')
 
 out(`## Working set (H11 / P05, \`${runDir}/working-set.json\`)`, '')
 const phaseNames = { hot: 'hot', rotate: 'rotation', tail: 'long tail', mixed: 'mixed' }

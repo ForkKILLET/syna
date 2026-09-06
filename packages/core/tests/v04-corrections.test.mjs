@@ -34,7 +34,7 @@ test('C.all plan templates are reused across request Envs and the cache remains 
   const define = makeDefine('v04.collection-cache')
   const Capability = define.contract()
   const Request = define.input('request')
-  const providers = [1, 2, 3].map(index => makeDefine(`v04.selector-provider-${index}`).service({
+  const providers = [1, 2, 3].map(index => makeDefine(`v04.collection-provider-${index}`).service({
     provides: [Capability],
     setup: () => ({ index }),
   }))

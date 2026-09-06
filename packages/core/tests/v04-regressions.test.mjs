@@ -42,15 +42,15 @@ test('C.all planning is reusable and bounded across short-lived request Envs', a
   const define = defineFor('v04.collection-cache')
   const Capability = define.contract()
   const Request = define.input('request')
-  const ProviderA = defineFor('v04.selector-cache.a').service({
+  const ProviderA = defineFor('v04.collection-cache.a').service({
     provides: [Capability],
     setup: () => ({ id: 'a' }),
   })
-  const ProviderB = defineFor('v04.selector-cache.b').service({
+  const ProviderB = defineFor('v04.collection-cache.b').service({
     provides: [Capability],
     setup: () => ({ id: 'b' }),
   })
-  const ProviderC = defineFor('v04.selector-cache.c').service({
+  const ProviderC = defineFor('v04.collection-cache.c').service({
     provides: [Capability],
     setup: () => ({ id: 'c' }),
   })

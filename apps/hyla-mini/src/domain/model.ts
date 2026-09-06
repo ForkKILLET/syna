@@ -71,7 +71,7 @@ export interface ThemeSettings {
 /**
  * JSON-safe reference to an admitted implementation; mirrors Syna's
  * `ImplementationRef` shape (0.6 key `familyId`). Documents written by 0.5
- * carry the same value under `implementationId`; the schemas accept both and
+ * carry the same value under `implementationId` (syna-v05-compat); the schemas accept both and
  * `normalizeStoredImplementationRef` rewrites them to this shape on read.
  */
 export interface StoredImplementationRef {

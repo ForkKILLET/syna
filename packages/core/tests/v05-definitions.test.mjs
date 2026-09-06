@@ -60,7 +60,7 @@ test('R01 persistent refs: no target family means an explicit failure, never a s
   const breaking = createRuntime({ services: [Major2] })
   assert.throws(() => breaking.catalog.resolve(Choice.parse(saved)), error =>
     error.code === 'MISSING_IMPLEMENTATION' && error.details.available.includes('2.0.0'))
-  assert.throws(() => Choice.parse({ kind: 'persistent-implementation-ref', contractId: 'wrong', implementationId: 'x', version: '*' }), TypeError)
+  assert.throws(() => Choice.parse({ kind: 'persistent-implementation-ref', contractId: 'wrong', familyId: 'x', version: '*' }), TypeError)
 })
 
 test('R20 exported names stay stable, package version is injected, descriptor apiVersion is independent of package major, physical duplicates canonicalize', async () => {

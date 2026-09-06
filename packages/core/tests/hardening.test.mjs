@@ -483,8 +483,8 @@ test('auto candidate backtracking includes lineage and slot-assignment constrain
 test('a policy failure while planning a C.all candidate propagates as the policy error, never disguised', async () => {
   const define = makeDefine('test.collection-policy-error')
   const Capability = define.contract()
-  const DependencyV1 = makeDefine('test.selector-policy-dependency', '1.0.0').service({ setup: () => ({}) })
-  const DependencyV2 = makeDefine('test.selector-policy-dependency', '2.0.0').service({ setup: () => ({}) })
+  const DependencyV1 = makeDefine('test.collection-policy-dependency', '1.0.0').service({ setup: () => ({}) })
+  const DependencyV2 = makeDefine('test.collection-policy-dependency', '2.0.0').service({ setup: () => ({}) })
   const Provider = define.service('provider', {
     provides: [Capability],
     requires: { dependency: DependencyV1.range('*') },
@@ -518,11 +518,11 @@ test('C.all resolves a persistent ref with the Runtime version policy among the 
   const capabilityDefine = makeDefine('test.collection-version-policy')
   const Capability = capabilityDefine.contract()
   const Choice = capabilityDefine.binding('choice', Capability)
-  const Provider12 = makeDefine('test.selector-version-provider', '1.2.0').service({
+  const Provider12 = makeDefine('test.collection-version-provider', '1.2.0').service({
     provides: [Capability],
     setup: () => ({ version: '1.2.0' }),
   })
-  const Provider19 = makeDefine('test.selector-version-provider', '1.9.0').service({
+  const Provider19 = makeDefine('test.collection-version-provider', '1.9.0').service({
     provides: [Capability],
     setup: () => ({ version: '1.9.0' }),
   })

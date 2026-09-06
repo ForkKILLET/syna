@@ -1,3 +1,4 @@
+// syna-v05-compat: this file exercises the deprecated 0.5 forms on purpose, next to their 0.6 replacements (aliases removed in 0.7.0).
 // R4 (v0.6): the loadable dependency ref is `ServiceRef<T>`; `DependencyRef<T>` becomes the deprecated union
 // `ServiceRef<T> | InputRef<T>` (removed in 0.7.0). Reason 3: `InputRef` already existed, `DependencyRef` was the
 // asymmetric name of the other kind. A type-only rename: this test pins the compiled declarations and that the

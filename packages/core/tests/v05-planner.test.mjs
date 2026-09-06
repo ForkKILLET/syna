@@ -266,14 +266,14 @@ test('R16 same Binding choice is a no-op, same Input payload re-provision forks,
   )
   const OtherContract = define.contract('other')
   await assert.rejects(
-    root.enter(Scope, { current: 1, choice: { kind: 'persistent-implementation-ref', contractId: OtherContract.id, implementationId: Provider.family.id, version: '*' } }),
+    root.enter(Scope, { current: 1, choice: { kind: 'persistent-implementation-ref', contractId: OtherContract.id, familyId: Provider.family.id, version: '*' } }),
     error => error.code === 'INCOMPATIBLE_IMPLEMENTATION',
   )
   await runtime.dispose()
 })
 
 test('K03 fresh/share accept exact and family targets; conflicts fail explicitly; payload equality never drives reuse', async () => {
-  const define = makeDefine('v05.scope')
+  const define = makeDefine('v05.reuse')
   const State = define.service('state', { setup: () => ({ token: {} }) })
   const Consumer = define.service('consumer', { requires: { state: State }, setup: ({ state }) => ({ state }) })
   const Root = define.entry('root', { requires: { consumer: Consumer, state: State } })
@@ -286,7 +286,7 @@ test('K03 fresh/share accept exact and family targets; conflicts fail explicitly
   const shared = await root.derive({ share: [State] })
   assert.equal(slotOf(shared, `service:${State.key}`), slotOf(root, `service:${State.key}`))
   await assert.rejects(root.derive({ fresh: [State], share: [State.family] }), error => error.code === 'SHARE_CONSTRAINT_FAILED')
-  const Unknown = makeDefine('v05.scope.unknown').service({ setup: () => ({}) })
+  const Unknown = makeDefine('v05.reuse.unknown').service({ setup: () => ({}) })
   await assert.rejects(root.derive({ fresh: [Unknown] }), error => error.code === 'FRESH_CONSTRAINT_FAILED')
   await runtime.dispose()
 })
