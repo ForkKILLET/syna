@@ -793,7 +793,7 @@ class RuntimeImpl implements Runtime, ImplementationViewHost {
             revision: item.slot.service.key,
             attempt: item.attempt.id,
             // `rollback`: the setup already settled; its cleanups are what outlived the grace.
-            phase: item.attempt.rawSettled ? 'rollback' : 'setup',
+            phase: item.attempt.rawSettled ? 'rollback' as const : 'setup' as const,
             // The attempt ignored the stop signal past the grace period; the slots it
             // depends on were closed in the normal order regardless (the Runtime cannot
             // revoke an instance it already handed out), which is acknowledged here.

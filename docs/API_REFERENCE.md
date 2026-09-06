@@ -217,7 +217,32 @@ if (explanation.ok) {
 
 ## Errors
 
-`SynaError` has `code` (`SynaErrorCode`) and `details`. Codes: `AMBIGUOUS_IMPLEMENTATION`, `DUPLICATE_DEFINITION`, `ENTRY_ACTIVATION_FAILED`, `FRESH_CONSTRAINT_FAILED`, `INCOMPATIBLE_IMPLEMENTATION`, `INITIALIZATION_TIMEOUT`, `INVALID_DESCRIPTOR`, `INVALID_ENV_STATE`, `LINEAGE_UNIQUENESS_CONFLICT`, `LOAD_CANCELLED`, `MISSING_AUTO_POLICY`, `MISSING_BINDING`, `MISSING_IMPLEMENTATION`, `MISSING_INPUT`, `MISSING_SERVICE`, `OWNER_NOT_READY`, `PLANNING_BUDGET_EXCEEDED`, `ROLLBACK_FAILED`, `RUNTIME_MISMATCH`, `SHARE_CONSTRAINT_FAILED`, `UNSATISFIABLE_TOPOLOGY`, `UNSETTLED_ATTEMPT`. Diagnostics (`check`, `explain`) use the same union plus `UNKNOWN_ERROR`. Policy exceptions, invalid descriptors and budget exhaustion are never disguised as `UNSATISFIABLE_TOPOLOGY`.
+`SynaError` is a union discriminated by `code`: `SynaError<'MISSING_INPUT'>` is one member, `SynaError` all of them. `isSynaError(error, code)` narrows to one member and `error.code === code` narrows `details` in a `switch`; `SynaErrorDetails[Code]` names the `details` type of a code (`SynaErrorDetails` is exported). `details` is frozen. Diagnostics (`check`, `explain`) use the same union plus `UNKNOWN_ERROR` (`DiagnosticCode`). Policy exceptions, invalid descriptors and budget exhaustion are never disguised as `UNSATISFIABLE_TOPOLOGY`.
+
+| Code | Thrown when | `details` |
+|---|---|---|
+| `AMBIGUOUS_IMPLEMENTATION` | a bare Contract dependency has several implementation Families at a site | `{ contract, site, families: string[] }` |
+| `DUPLICATE_DEFINITION` | two definitions of one Family, Binding, Entry or revision disagree structurally, or a Service is overridden twice | `{ existing, received }` (Family) · `{ revision }` (override) · `{ revision, expected, actual }` (manifest) |
+| `ENTRY_ACTIVATION_FAILED` | `enter()` fails while activating; the underlying error is `cause` | `{ entry, env, causeCode?, causeDetails? }` |
+| `FRESH_CONSTRAINT_FAILED` | a `fresh`/`share` target is inactive in the parent, an inherited choice is invalid at a site, or a `CandidateRef` belongs to another collection | `{ env, revision }` · `{ env, family }` · `{ site, selectedKey, candidates: string[] }` · `{ expectedSourceSlot, receivedSourceSlot }` |
+| `INCOMPATIBLE_IMPLEMENTATION` | an implementation reference or assignment names a revision that does not provide the required Contract, or no range candidate covers the origin's Contracts | `{ binding, contract, reference }` · `{ binding, revision }` · `{ contract, reference }` · `{ family, range, site, realm, origin, required: string[], candidates: { revision, provides: string[] }[] }` |
+| `INITIALIZATION_TIMEOUT` | a setup attempt exceeds `limits.setupDeadlineMs` | `{ slot, revision, env, attempt, deadlineMs, elapsedMs, pendingLoads: { revision, slot, state, waitingMs }[], suspectedWaitCycle?: string[], note }` |
+| `INVALID_DESCRIPTOR` | a descriptor, option or policy result has the wrong shape | `{ site?, binding?, revision?, original?: string[], ordered?: string[] }` |
+| `INVALID_ENV_STATE` | an operation meets an Env, slot or Runtime in a state that forbids it (closed, disposing, exhausted, aborted) | `{ env?, entry?, state?, node?, slot?, revision?, attempt? }` |
+| `LINEAGE_UNIQUENESS_CONFLICT` | a lineage-unique Family would diverge below its anchor or occupy several slots in one lineage | `{ family, anchorRevision, anchorSlot, attempted: { revision, slot, cause, path: string[] }[] }` · `{ family, slots: string[] }` |
+| `LOAD_CANCELLED` | the caller's `signal` aborts a `load()` wait | `{ slot, revision }` |
+| `MISSING_AUTO_POLICY` | `auto(C)` meets several Families and the Runtime has no `policy` | `{ contract, site, families: string[] }` |
+| `MISSING_BINDING` | a Binding is required at a site but chosen nowhere in the lineage, or an Entry call omits a declared Binding parameter | `{ binding, site, missing: string[] }` · `{ entry, missing, missingInputs, missingBindings }` |
+| `MISSING_IMPLEMENTATION` | no admitted Service implements a Contract, or an implementation reference names a Family, version or candidate the Runtime does not have | `{ binding, implementation, version, available: string[] }` · `{ contract, site }` · `{ contract, implementation, version, available? }` · `{ revision }` |
+| `MISSING_INPUT` | an Input is required at a site but provided nowhere in the lineage, or an Entry call omits a declared Input parameter | `{ input, site, missing: string[] }` · `{ entry, missing, missingInputs, missingBindings }` |
+| `MISSING_SERVICE` | a revision is unknown or not admitted, is outside the private realm at a site, or no visible revision satisfies a range | `{ revision }` · `{ binding, revision }` · `{ revision, site, realm }` · `{ family, range, site, realm }` |
+| `OWNER_NOT_READY` | `enter()` from an Env that is still `activating` | `{ entry, env, state }` |
+| `PLANNING_BUDGET_EXCEEDED` | planning exhausts `limits.planningBudget` (a limit, not a proof) | `{ site, budget }` |
+| `ROLLBACK_FAILED` | a recovery is refused because the previous attempt's rollback failed | `{ slot, revision, state }` |
+| `RUNTIME_MISMATCH` | an anchor belongs to another Runtime | `{}` |
+| `SHARE_CONSTRAINT_FAILED` | a `share` target cannot reuse its parent-visible slot | `{ revision, env, cause, path: string[] }` |
+| `UNSATISFIABLE_TOPOLOGY` | every candidate at a site fails; `failures` lists each attempt | `{ site, candidates: string[], failures: { code, message, details }[] }` |
+| `UNSETTLED_ATTEMPT` | a Runtime or Env closes while setup attempts are still running or rolling back, or a timed-out attempt is still running when a new one is requested | `{ attempts }` (Runtime) · `{ env, state, slots: { slot, revision, attempt, phase, dependencies }[] }` (Env) · `{ slot, revision, attempt, runningForMs }` |
 
 ## Platform
 

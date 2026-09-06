@@ -1,6 +1,6 @@
-import { SynaError } from '../errors.js'
+import { SynaError, type SynaErrorDetails } from '../errors.js'
 
-export function abortError(message: string, details: Readonly<Record<string, unknown>> = {}): SynaError {
+export function abortError(message: string, details: SynaErrorDetails['INVALID_ENV_STATE'] = {}): SynaError<'INVALID_ENV_STATE'> {
   return new SynaError('INVALID_ENV_STATE', message, details)
 }
 
@@ -44,7 +44,7 @@ export function sleepAbortable(
 export function waitWithSignal<T>(
   promise: Promise<T>,
   signal: AbortSignal | undefined,
-  describe: () => Readonly<Record<string, unknown>>,
+  describe: () => SynaErrorDetails['LOAD_CANCELLED'],
 ): Promise<T> {
   if (!signal) return promise
   if (signal.aborted) {

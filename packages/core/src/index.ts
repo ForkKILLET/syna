@@ -13,7 +13,7 @@ export {
 
 export { SynaError, isSynaError } from './errors.js'
 export { loadAll } from './loading.js'
-export type { DiagnosticCode, SynaErrorCode } from './errors.js'
+export type { DiagnosticCode, SynaErrorCode, SynaErrorDetails } from './errors.js'
 
 export type {
   AllImplementations,

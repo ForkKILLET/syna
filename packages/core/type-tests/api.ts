@@ -1,8 +1,14 @@
 import {
   createRuntime,
   definePackage,
+  isSynaError,
   loadAll,
+  SynaError,
   type AnchoredEntry,
+  type DiagnosticCode,
+  type EnvState,
+  type SynaErrorCode,
+  type SynaErrorDetails,
   type BoundEntry,
   type DependencyRef,
   type DeriveOptions,
@@ -323,3 +329,76 @@ void inferredApi
 // @ts-expect-error the Api parameter is still inferred through the phantom field.
 const wrongApi: ContractApi<typeof phantomContract> = { pong() {} }
 void wrongApi
+
+// T1 (v0.6): `SynaError` is a union discriminated by `code`; `isSynaError(error, code)` and `error.code === code` narrow `details`.
+declare const caught: unknown
+if (isSynaError(caught, 'MISSING_INPUT')) {
+  const missing: readonly string[] = caught.details.missing
+  void missing
+  if ('input' in caught.details) {
+    const input: string = caught.details.input
+    void input
+  }
+  else {
+    const entry: string = caught.details.entry
+    void entry
+  }
+  // @ts-expect-error `budget` belongs to PLANNING_BUDGET_EXCEEDED, not MISSING_INPUT.
+  void caught.details.budget
+}
+if (isSynaError(caught)) {
+  const anyCode: SynaErrorCode = caught.code
+  void anyCode
+  switch (caught.code) {
+    case 'PLANNING_BUDGET_EXCEEDED': {
+      const budget: number = caught.details.budget
+      void budget
+      break
+    }
+    case 'OWNER_NOT_READY': {
+      const state: EnvState = caught.details.state
+      void state
+      break
+    }
+    case 'INITIALIZATION_TIMEOUT': {
+      const pending: readonly { readonly slot: string; readonly waitingMs: number }[] = caught.details.pendingLoads
+      void pending
+      break
+    }
+    default:
+      break
+  }
+  if (caught.code === 'LOAD_CANCELLED') {
+    const slot: string = caught.details.slot
+    void slot
+    // @ts-expect-error `details` of LOAD_CANCELLED has no `env`.
+    void caught.details.env
+  }
+}
+const oneMember: SynaError<'MISSING_INPUT'> = new SynaError('MISSING_INPUT', 'm', { input: 'i', site: 's', missing: ['i'] })
+const widened: SynaError = oneMember
+void widened
+const fromWidened: SynaErrorCode = widened.code
+void fromWidened
+// @ts-expect-error a MISSING_SERVICE error is not a MISSING_INPUT error.
+const wrongMember: SynaError<'MISSING_INPUT'> = new SynaError('MISSING_SERVICE', 'm', { revision: 'r' })
+void wrongMember
+// @ts-expect-error PLANNING_BUDGET_EXCEEDED details require `budget`.
+new SynaError('PLANNING_BUDGET_EXCEEDED', 'm', { site: 's' })
+// @ts-expect-error the details of another code are rejected.
+new SynaError('LOAD_CANCELLED', 'm', { entry: 'e', env: 'x' })
+// @ts-expect-error codes whose details have required fields cannot omit them.
+new SynaError('LOAD_CANCELLED', 'm')
+// @ts-expect-error unknown codes are rejected.
+new SynaError('NOT_A_CODE', 'm', {})
+const optionalDetails: SynaError<'INVALID_ENV_STATE'> = new SynaError('INVALID_ENV_STATE', 'm')
+const noDetails: SynaError<'RUNTIME_MISMATCH'> = new SynaError('RUNTIME_MISMATCH', 'm')
+const withCause: SynaError<'RUNTIME_MISMATCH'> = new SynaError('RUNTIME_MISMATCH', 'm', {}, { cause: new Error('inner') })
+void [optionalDetails, noDetails, withCause]
+const detailsShape: SynaErrorDetails['SHARE_CONSTRAINT_FAILED'] = { revision: 'r', env: 'e', cause: undefined, path: [] }
+void detailsShape
+const diagnosticCode: DiagnosticCode = 'UNKNOWN_ERROR'
+void diagnosticCode
+// @ts-expect-error UNKNOWN_ERROR is a diagnostic code, not a SynaError code.
+const notAnErrorCode: SynaErrorCode = 'UNKNOWN_ERROR'
+void notAnErrorCode

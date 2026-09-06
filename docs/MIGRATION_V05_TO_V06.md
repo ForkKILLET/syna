@@ -41,6 +41,7 @@ v0.6 只收束 API 的名字与类型。语义——默认值、错误触发条�
 
 | # | v0.5 | v0.6 | 说明 |
 |---|---|---|---|
+| T1 | `class SynaError`，`code: SynaErrorCode`，`details: Record<string, unknown>` | `SynaError<Code>` 是按 `code` 判别的联合类型；`isSynaError(error, code)` 与 `error.code === code` 收窄 `details`；每个码的 `details` 类型见 `SynaErrorDetails[Code]`（新导出）和 API_REFERENCE 的逐码表 | 只影响类型层：运行时对象、`name`、`instanceof SynaError`、抛出条件、message 与 `details` 内容逐字不变。`new SynaError(code, message, details)` 现在要求 `details` 与 `code` 匹配；`class X extends SynaError` 不再可行（`SynaError` 是值加类型，不是类） |
 | T2 | 幻影字段 `Contract.__api`、`Input.__value`、`ServiceFamily.__publicApi`、`ImplementationRef.__contract`、`CandidateRef.__contract` | 统一为 `__type`；描述符种类由 `kind` 区分；不写入文档，运行时对象上不存在 | 只影响类型层；用户代码不应引用幻影字段 |
 
 ## 删除（无别名）

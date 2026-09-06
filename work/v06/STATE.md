@@ -12,11 +12,34 @@ Task book: `SYNA_V06_API_EXECUTION_PROMPT.md`. Baseline: 0.5.0 at commit 4a67b99
   - `benchmarks/results-v0.5.0-baseline-same-machine.json`: element-wise median of 7 runs of `benchmarks/v0.5-planning.mjs` (Node v26.0.0, Apple M4 Pro, darwin arm64). `scripts/benchmark-compare.mjs compare --baseline … --runs 7` enforces ±10 % on every p50/p95 and `perOperationMs` and equality of all plan-cache counters and shape counts; two disjoint subsets of the 7 baseline runs differ by at most 2.9 % on those values.
   - `work/v06/ANY_BASELINE.json` (204 `any` keywords in 84 files) + `scripts/tests/any-count.test.mjs`.
 
-## Phase B — renames (pending)
+## Phase B — renames (done)
 
-R1 … R6, one commit each.
+One commit per item; each contains the new name, the deprecated alias, a migration-equivalence test (`packages/core/tests/v06-r<n>-*.test.mjs`), type tests (`packages/core/type-tests/api.ts`) and the docs. Aliases are non-enumerable getters (`descriptor.scope`, `ref.implementationId`), a prototype getter (`RuntimePolicyContext.site`), a forwarder (`env.bind` → `env.anchor`) or type aliases; every alias is listed in `scripts/tests/deprecations.test.mjs` (EXPECTED), which also fails on any `@deprecated` not in that list.
 
-## Phase C — deletions, merges, type strengthening (pending)
+| # | Commit | Summary |
+|---|---|---|
+| R1 | 9ec421a | `scope` → `reuse` (definition, descriptor, call-time options record `{ reuse }`), `DeriveOptions` → `ReuseConstraints`, `ScopeTarget` → `ReuseTarget`; `reuse` joins `scope` as a reserved parameter id |
+| R2 | 1ca9a7e | `env.bind` → `env.anchor`, `BoundEntry` → `AnchoredEntry` |
+| R3 | 62ad4fc | `SynaRuntime` → `Runtime` |
+| R4 | 341a69e | `DependencyRef` → `ServiceRef` |
+| R5 | 75480ed | `PersistentImplementationRef` → `ImplementationRef`, persisted key `implementationId` → `familyId` (`catalog.resolve`/`set.resolve` accept both; Hyla-mini normalizes stored refs on read: `normalizeStoredImplementationRef`) |
+| R6 | 3cdd1b2 | `RuntimePolicyContext.site` → `dependencySite` |
+
+## Phase C — deletions, merges, type strengthening (done)
+
+| # | Commit | Summary |
+|---|---|---|
+| D2 | 86427c5 | `InputRef.load()` removed (`read()` only; `loadAll()` rejects Input refs structurally) |
+| D1 | 1c09234 | `ServiceRef.preload()` removed (its body was an un-awaited `load()` with a swallowing catch) |
+| D3 | d09b62f | `C.selector` / `ImplementationSelector` / `ImplementationLease` / selector plan nodes / `UNAVAILABLE_IMPLEMENTATION` removed; `C.all` is the only collection form (`ImplementationCandidate.availability` kept, always `available` → DEFERRED) |
+| D4 | 351c7d2 | `serviceRange()` removed (`Revision.range()` only) |
+| M1 | 99273f3 | `limits: { setupDeadlineMs, disposalGraceMs, planningBudget, planCacheEntries }` replaces the four option records (deprecated aliases kept; both forms → TypeError); defaults locked by `v06-m1-limits.test.mjs` (source, d.ts doc, API_REFERENCE, `inspect().planCache.maxEntries`) |
+| M2 | 5419a70 | `EntryParameters<E>` (declared map) vs `EntryArguments<E>` (call values); `EntryParameter*`/`EntryRunArguments` no longer exported |
+| M3 | 105ed40 | `CONSTRAINT_VIOLATION` → `FRESH_CONSTRAINT_FAILED` (four throw sites, details unchanged; no alias, the old code was never thrown by 0.6) |
+| T2 | d2590a6 | phantom fields unified as `__type`; `kind` separates descriptor kinds |
+| T1 | (this commit) | `SynaError<Code>` union discriminated by `code`, `SynaErrorDetails` per-code map, generic `isSynaError`/`asSynaError`; API_REFERENCE per-code details table; `v06-t1-errors.test.mjs` pins produced shapes, d.ts and table against the 22 codes |
+
+Snapshots (`v06-snapshots.test.mjs`) stayed identical apart from the RENAMED mapping (`implementationId` → `familyId` inside persistent refs, `CONSTRAINT_VIOLATION` → `FRESH_CONSTRAINT_FAILED`, the `pickerRefJson` string); the any-count stayed at or under the baseline in every commit.
 
 ## Phase D — applications, benchmarks, scripts, docs (pending)
 
