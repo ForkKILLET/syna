@@ -41,8 +41,15 @@ One commit per item; each contains the new name, the deprecated alias, a migrati
 
 Snapshots (`v06-snapshots.test.mjs`) stayed identical apart from the RENAMED mapping (`implementationId` → `familyId` inside persistent refs, `CONSTRAINT_VIOLATION` → `FRESH_CONSTRAINT_FAILED`, the `pickerRefJson` string); the any-count stayed at or under the baseline in every commit.
 
-## Phase D — applications, benchmarks, scripts, docs (pending)
+## Phase D — applications, benchmarks, scripts, docs (done: 97b0917)
 
-## Phase E — stability, migration, deferred, changelog, version (pending)
+- Hyla-mini (`Runtime` type, preflight message, `syna-v05-compat` markers on the stored-reference compatibility), the benchmark case function/comment (the result label `bound-entry-…` stays for baseline comparability, DEFERRED N4), `scripts/validation-doc.mjs`, the core test fixtures that spelled `selector`/`scope`/`implementationId`.
+- `scripts/tests/no-old-names.test.mjs`: scans apps, benchmarks, scripts, `.github`, every non-core package and the core test suites for the 0.5 names; exemptions only by `syna-v05-compat` marker (list asserted verbatim); the current docs may spell an old name only in the deprecation table or on a line that explains the 0.5 → 0.6 change.
+- README.md / README.zh-CN.md: "Syna in one screen" / "一屏示例" = package.json + the three files of `work/v06/README_EXAMPLE.md`, no comments, followed by the output; `scripts/tests/readme-example.test.mjs` compiles and runs them in a scratch package (workspace TypeScript, `@syna/tsconfig/node-app.json`) and asserts the output. The Phase A record gained the package.json block; the recorded output was corrected (fork labels are node ids: `greeter/input/audience/v1`, `greeter@1.0.0`).
+
+## Phase E — stability, migration, deferred, changelog, version (done)
+
+- `docs/API_STABILITY.md` (frozen surface = §3.5 + the new names; one-minor deprecation policy with every alias and its 0.7.0 removal; six naming guidelines), `docs/MIGRATION_V05_TO_V06.md` (every R/D/M/T row with a reason number; R5 persisted-key section), `docs/DEFERRED.md` (命名 N1–N7, 语义 S1–S10), `CHANGELOG.md` 0.6.0.
+- Version 0.6.0 in every manifest and in `package-lock.json` (npm confirms the lock is up to date); workspace name `syna-v0.6-workspace`; version labels in both READMEs, `packages/core/README.md`, ARCHITECTURE, API_REFERENCE, SEMANTIC_MODEL, HYLA_MINI.
 
 ## Phase F — verification and release gate (pending)

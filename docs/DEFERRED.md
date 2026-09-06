@@ -1,0 +1,30 @@
+# Deferred (v0.6)
+
+Things noticed during the v0.6 API consolidation that were **not** changed, because they are outside the rename list of the task book (命名) or because they would change behaviour (语义). Each entry says what was seen and where; none is a commitment.
+
+## 命名 — names outside the list, left as they are
+
+| # | Where | Observation | Kept because |
+|---|---|---|---|
+| N1 | `ImplementationDescriptor.persistentRef` | The task book suggested `ref`; `ImplementationCandidate` (which extends the descriptor) already has `ref: CandidateRef`, a different kind of reference (Phase A finding F1). | Two reference kinds must not share one field name on one object. `persistentRef` stays; only its type (`ImplementationRef`) and its key (`familyId`) changed (R5). |
+| N2 | `ImplementationCandidate.availability` | After D3 the field is always `{ status: 'available' }`: the only producer of `unavailable` was the selector's candidate pre-check. | Outside the list; removing it is a 0.7.0 candidate together with the aliases. `docs/API_REFERENCE.md` does not describe it as ever being unavailable. |
+| N3 | Error `details.site`, `details.deadlineMs`, `inspect().planCache.maxEntries` | R6 renamed only the policy-context field (`dependencySite`); M1 renamed only the options (`limits.setupDeadlineMs`, `limits.planCacheEntries`). Error details and inspection fields keep `site`, `deadlineMs`, `maxEntries`. | Outside the list, and the v0.5 snapshots pin these keys; renaming them would be a semantic-output change. |
+| N4 | `benchmarks/v0.5-planning.mjs` case label `bound-entry-private-range-request-enter-dispose-100` | The case function and comment say `AnchoredEntry`; the result label keeps the 0.5 wording. | `scripts/benchmark-compare.mjs` matches cases by name against `benchmarks/results-v0.5.0-baseline-same-machine.json`; renaming the label would break the same-machine comparison the release depends on. |
+| N5 | `DependencyRef<T>` after 0.7.0 | In 0.6 the old name means `ServiceRef<T> \| InputRef<T>` and is deprecated. Whether the union deserves a name of its own (`DependencyRefFor` already exists for the mapped form) is open. | Adding a name would be a third name between old and new (§6). |
+| N6 | `EntryCallArguments<E>` / `EntryRunCallArguments<E, Result>` | Module-level tuple aliases in `descriptors.ts` used by the `enter` / `run` overloads; not exported from the package entry. | M2 fixes the public names at `EntryParameters` and `EntryArguments`; exporting the tuples would add a public name outside the list. |
+| N7 | `SynaError` is no longer a `class` | T1 makes `SynaError` a value (constructor) plus a union type; `class X extends SynaError` stops type-checking (nothing in this repository did it). | The task asks for a code-discriminated union; a class cannot be one. Recorded in the migration table. |
+
+## 语义 — behaviour that looked wrong or improvable, left unchanged
+
+| # | Where | Observation | Not done because |
+|---|---|---|---|
+| S1 | `limits.setupDeadlineMs` | The default (30_000) and whether a setup that succeeds *after* the deadline is accepted or discarded (today: discarded and cleaned up, `late-result-discarded`). | §3.6 of the task book: explicitly not this round. |
+| S2 | `env.state` vs GC, `inspect().unsettledAttempts` | An Env with an abandoned attempt stays `disposing` until the attempt settles; the ledger keeps every unsettled attempt. Whether a collected Env should leave the ledger is open. | §3.6. |
+| S3 | `provides: [primary(C)]` | A default-implementation declaration (the `@Primary` counterpart) would remove most `MISSING_AUTO_POLICY` cases. | §3.6: no default implementations. |
+| S4 | `C.all` coexistence | Every candidate is a real node of the current Env; a candidate whose setup fails still fails the collection's caller. | §3.6: no relaxation. |
+| S5 | New dependency forms, Entry capabilities, Runtime options | Including `ServiceFamily.range()` (Phase A finding F2): `serviceRange(revision, range)` took a **revision** as the range's origin; a Family-level `range()` would be a range without an origin and would change private-realm resolution (0.5 third round C1/C2). | §3.6; D4 deleted `serviceRange` and added nothing. |
+| S6 | `FRESH_CONSTRAINT_FAILED` covers four sites (Phase A finding F3) | Two of them are not about `fresh` at all: an inherited resolution that is no longer valid at a site (`graph-builder.ts`) and a `CandidateRef` from another implementation collection (`implementation-directory.ts`). They would read better under their own codes. | Re-routing a site to another code changes which error a caller sees; M3 is a pure rename of the code string. |
+| S7 | `INVALID_DESCRIPTOR` and `INVALID_ENV_STATE` details | Thrown from 28 and 16 sites with different detail keys, so their `SynaErrorDetails` entries are all-optional objects (T1). Tightening would mean changing what some sites throw. | Zero semantic change; the per-site keys are listed in `docs/API_REFERENCE.md`. |
+| S8 | `MISSING_IMPLEMENTATION` for an unknown revision reports `details.revision` possibly `undefined` | `ImplementationDirectory.require()` passes the candidate's revision through even when the ref carries none. | Detail contents are frozen with the snapshots. |
+| S9 | `C.all` version resolution with several active revisions | With both `1.2.0` and `1.9.0` of a family active in one Env, `set.resolve({ version: '^1.0.0' })` picks the highest satisfying version (`1.9.0`); the deleted selector picked the active-ancestor revision (`1.2.0`) because only one was active in its world. | This is `C.all`'s existing rule (v0.5 `defaultRuntimePolicy`), recorded in the migration table under D3; not a change made this round. |
+| S10 | `asSynaError()` wraps foreign errors with `cause` but returns a `SynaError` whose `details` come from the wrapping site | The original error's own details (if any) are not merged. | Unchanged behaviour; only the typing was tightened (T1). |

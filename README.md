@@ -1,10 +1,10 @@
-# Syna v0.5 + Hyla-mini
+# Syna v0.6 + Hyla-mini
 
 Syna is an immutable, scope-aware capability-composition runtime for TypeScript. A Runtime admits a finite set of versioned Services; Entries create Env worlds; each Env has one canonical visible slot per resolved node, reuses its **parent's currently visible** slots by default, and materializes Service instances lazily or eagerly with plain Promises.
 
 Hyla-mini (`apps/hyla-mini`) is the narrow but complete multi-tenant blog engine that drove this release: real PostgreSQL and real filesystem backends × dynamic HTTP and static builds, three Markdown recipes sharing one set of remark/rehype factory slots, two tenants with domain mapping and replaceable authentication, and a bounded, leased SiteEnv working set.
 
-This repository is the v0.5 source workspace: `packages/core` (runtime), `packages/tsconfig` (TS presets), demo packages under `packages/*` and `apps/*-demo`, `apps/hyla-mini`, `benchmarks`, `scripts` and `docs`.
+This repository is the v0.6 source workspace: `packages/core` (runtime), `packages/tsconfig` (TS presets), demo packages under `packages/*` and `apps/*-demo`, `apps/hyla-mini`, `benchmarks`, `scripts` and `docs`.
 
 ## Requirements
 
@@ -21,14 +21,12 @@ npm run typecheck      # strict project build + compile-time API tests
 npm test               # core behaviour/regression suites (node:test)
 ```
 
-Application tests:
+Application, tooling and PostgreSQL tests:
 
 ```sh
-node --test apps/hyla-mini/tests/filesystem.test.mjs apps/hyla-mini/tests/render.test.mjs \
-             apps/hyla-mini/tests/tenants-auth.test.mjs apps/hyla-mini/tests/preflight.test.mjs
-node --test --expose-gc apps/hyla-mini/tests/site-manager.test.mjs
-# real PostgreSQL: a temporary cluster is created under work/pg and removed afterwards
-node scripts/pg-test-cluster.mjs with -- node --test apps/hyla-mini/tests/postgres.test.mjs apps/hyla-mini/tests/matrix.test.mjs
+npm run test:app        # Hyla-mini on the filesystem backend, site manager, preflight, review and audit regressions
+npm run test:scripts    # gate tooling, deprecation list, no-old-names scan, README example, any-count budget
+npm run test:postgres   # real PostgreSQL: a temporary cluster is created under work/pg and removed afterwards
 ```
 
 Acceptance orchestrator (transparent runner; every sub-command is spawned and recorded with exit code, timing, TAP counts and log path):
@@ -153,14 +151,16 @@ Key rules: `serviceRef.load()` is an ordinary Promise (catch, race and backgroun
 
 ## Documentation
 
-- `docs/SEMANTIC_MODEL.md` — the core model (v0.5 wording)
-- `docs/SEMANTIC_CHANGES_V05.md` — what v0.5 keeps, withdraws and adds, with test references
-- `docs/MIGRATION_V04_TO_V05.md` — deprecation/correction table and the rewritten v0.4 tests
-- `docs/API_REFERENCE.md` — `@syna/core` public API
+- `docs/SEMANTIC_MODEL.md` — the core model (v0.6 wording; semantics unchanged since v0.5)
+- `docs/API_REFERENCE.md` — `@syna/core` public API, with the per-code error details and the deprecation table
+- `docs/API_STABILITY.md` — the frozen surface, the one-minor deprecation policy and the naming guidelines
+- `docs/MIGRATION_V05_TO_V06.md` — every v0.6 rename, deletion, merge and type change with its reason number and the persisted-key change
+- `docs/DEFERRED.md` — what was noticed during the v0.6 consolidation and deliberately left alone
+- `docs/SEMANTIC_CHANGES_V05.md`, `docs/MIGRATION_V04_TO_V05.md` — the v0.5 semantic changes and the v0.4 → v0.5 migration
 - `docs/ARCHITECTURE.md` — module boundaries as implemented
 - `docs/HYLA_MINI.md`, `docs/PLUGIN_AUTHORING.md` — the application and its plugin protocol
 - `docs/AUDIT.md`, `docs/VALIDATION.md` — independent audit findings and the recorded validation run
-- `work/v05/` — execution ledgers (STATE, DECISIONS, ACCEPTANCE, ISSUES) and the review rounds' probes before archiving. Repository-only: the source archive produced by `scripts/verify-v05.mjs --release` contains `packages/`, `apps/`, `benchmarks/`, `docs/`, `scripts/` and the root files, never `work/`; documents in the archive that cite `work/v05/…` refer to this repository, and the archived audit probes live under `docs/audit/`.
+- `work/v05/`, `work/v06/` — execution ledgers (STATE, DECISIONS, ACCEPTANCE, ISSUES; the v0.6 API inventories and rename plan) and the review rounds' probes before archiving. Repository-only: the source archive produced by `scripts/verify-v05.mjs --release` contains `packages/`, `apps/`, `benchmarks/`, `docs/`, `scripts/` and the root files, never `work/`; documents in the archive that cite `work/v05/…` refer to this repository, and the archived audit probes live under `docs/audit/`.
 
 ## Status
 

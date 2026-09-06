@@ -12,10 +12,10 @@
     "start": "node dist/index.js"
   },
   "dependencies": {
-    "@syna/core": "0.5.0"
+    "@syna/core": "0.6.0"
   },
   "devDependencies": {
-    "@syna/tsconfig": "0.5.0"
+    "@syna/tsconfig": "0.6.0"
   },
   "engines": {
     "node": ">=22"

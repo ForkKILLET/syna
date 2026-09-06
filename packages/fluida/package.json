@@ -26,13 +26,13 @@
     "build": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@syna/core": "0.5.0",
+    "@syna/core": "0.6.0",
     "@syna-demo/postgres": "3.2.1"
   },
   "engines": {
     "node": ">=22"
   },
   "devDependencies": {
-    "@syna/tsconfig": "0.5.0"
+    "@syna/tsconfig": "0.6.0"
   }
 }

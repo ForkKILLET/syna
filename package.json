@@ -1,8 +1,8 @@
 {
-  "name": "syna-v0.5-workspace",
+  "name": "syna-v0.6-workspace",
   "private": true,
   "type": "module",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "workspaces": [
     "packages/*",
     "apps/*"
@@ -33,7 +33,7 @@
     "node": ">=22"
   },
   "packageManager": "npm@11.12.1",
-  "description": "Syna v0.5 core, demos and the Hyla-mini application",
+  "description": "Syna v0.6 core, demos and the Hyla-mini application",
   "devDependencies": {
     "@types/node": "^22.19.7",
     "typescript": "~5.9.3"

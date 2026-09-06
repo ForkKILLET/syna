@@ -1,6 +1,6 @@
 {
   "name": "@syna/tsconfig",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "TypeScript presets for Syna package authors",
   "files": [
     "node-library.json",

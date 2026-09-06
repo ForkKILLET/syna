@@ -53,7 +53,7 @@ const DOCS = [
   'README.md', 'README.zh-CN.md', 'packages/core/README.md',
   'docs/API_REFERENCE.md', 'docs/ARCHITECTURE.md', 'docs/HYLA_MINI.md', 'docs/PACKAGE_AUTHORING.md', 'docs/PLUGIN_AUTHORING.md', 'docs/SEMANTIC_MODEL.md', 'docs/API_STABILITY.md',
 ]
-const DOC_CONTEXT = /0\.7\.0|deprecated|弃用|removed|删除|0\.5|compat/
+const DOC_CONTEXT = /0\.7\.0|deprecated|弃用|removed|删除|0\.5|compat/i
 
 function* walk(dir) {
   for (const name of readdirSync(dir)) {
@@ -125,7 +125,7 @@ test('the current documentation spells old names only in the deprecation table o
     let inDeprecationSection = false
     const result = scan(file, {
       allowLine: line => {
-        if (/^## /.test(line)) inDeprecationSection = /deprecated|弃用/i.test(line)
+        if (/^## /.test(line)) inDeprecationSection = /deprecat|弃用/i.test(line)
         return inDeprecationSection || DOC_CONTEXT.test(line)
       },
     })

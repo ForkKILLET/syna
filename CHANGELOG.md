@@ -1,5 +1,40 @@
 # Changelog
 
+## 0.6.0
+
+API consolidation only: names and types. Semantics — defaults, error trigger conditions, `explain()` content, plan-cache behaviour, the `C.all` coexistence requirement, deadlines, the `env.state` / GC relationship, the absence of default implementations — are those of 0.5.0 verbatim (`packages/core/tests/v06-snapshots.test.mjs` compares check/explain/inspect/catalog/error snapshots recorded on 0.5.0; the reference-planner differential passes unchanged; the same-machine benchmark stays within ±10 % with identical plan-cache counters). `docs/MIGRATION_V05_TO_V06.md` has the item-by-item table with reason numbers, `docs/API_STABILITY.md` the frozen surface, the deprecation policy and the naming guidelines, `docs/DEFERRED.md` what was noticed and left alone.
+
+Renamed (the 0.5 name stays as a deprecated alias for the whole 0.6.x line, removed in 0.7.0):
+
+- R1 `scope` → `reuse` on Entry definitions and descriptors; call-time constraints move out of the parameter record into a separate options argument `{ reuse }` (`enter` / `run` / `check` / `explain`; the `run` callback is always last); `DeriveOptions` → `ReuseConstraints`, `ScopeTarget` → `ReuseTarget`, new `EntryOptions`.
+- R2 `env.bind(entry)` → `env.anchor(entry)`, `BoundEntry` → `AnchoredEntry`.
+- R3 `SynaRuntime` → `Runtime`.
+- R4 `DependencyRef<T>` (the loadable ref) → `ServiceRef<T>`; `DependencyRef<T>` now means `ServiceRef<T> | InputRef<T>`.
+- R5 `PersistentImplementationRef` → `ImplementationRef`; the serialized key `implementationId` → `familyId` (`parse()` / `resolve()` accept both keys until 0.7.0; `implementationId` stays readable as a non-enumerable alias).
+- R6 `RuntimePolicyContext.site` → `dependencySite`.
+
+Removed without alias:
+
+- D1 `ServiceRef.preload()` (its body was an un-awaited `load()` with a swallowing catch); D2 `InputRef.load()` (`read()` is the one form; `loadAll()` rejects Input refs structurally); D3 `Contract.selector`, `ImplementationSelector`, `ImplementationSelectorDependency`, `ImplementationLease`, the inspection node kind `'selector'` and the error code `UNAVAILABLE_IMPLEMENTATION` (`C.all` is the only same-Env collection); D4 `serviceRange()` (`revision.range()` is the one form).
+
+Merged:
+
+- M1 `limits: { setupDeadlineMs, disposalGraceMs, planningBudget, planCacheEntries }` replaces `planCache` / `initialization` / `disposal` / `planning` (deprecated aliases; giving one limit in both forms is a `TypeError`); defaults 30_000 / 2_000 / 10_000 / 512 unchanged and locked by test.
+- M2 `EntryParameters<E>` is the declared parameter map and `EntryArguments<E>` the call-time values; `EntryParameter`, `EntryParameterMap`, `EntryParameterValue`, `EntryParameterValues`, `EntryRunArguments`, `DependencyOutput`, `NormalizedServiceFailurePolicy` and `SetupResult` are no longer exported.
+- M3 error code `CONSTRAINT_VIOLATION` → `FRESH_CONSTRAINT_FAILED` (same four trigger sites, same details).
+
+Types:
+
+- T1 `SynaError<Code>` is a union discriminated by `code`; `SynaErrorDetails[Code]` (new export) types `details` per code, `isSynaError(error, code)` and `error.code === code` narrow it; the constructor requires details matching the code. The runtime object (name, `instanceof`, frozen details, `cause`, messages) is unchanged. `docs/API_REFERENCE.md` lists the details of every code.
+- T2 the phantom fields `__api` / `__value` / `__publicApi` / `__contract` are one `__type`; descriptor kinds are separated by `kind`.
+
+Applications, tooling and documentation:
+
+- Hyla-mini, the demos, `packages/hyla`, the benchmarks and the scripts use the 0.6 names only (`scripts/tests/no-old-names.test.mjs` asserts it); Hyla-mini normalizes stored implementation references written on 0.5 (`implementationId`) at its read boundary and writes `familyId`.
+- `scripts/api-inventory.mjs` records the public API before and after (`work/v06/API_INVENTORY_*.md`, `API_INVENTORY_DIFF.md`); `scripts/any-count.mjs` keeps the per-file `any` count at or under the 0.5 baseline; `scripts/benchmark-compare.mjs` compares against `benchmarks/results-v0.5.0-baseline-same-machine.json`.
+- The README's one-screen example (package.json + three files, no comments) is compiled and executed as printed by `scripts/tests/readme-example.test.mjs`.
+- The release gate is `scripts/verify-v06.mjs` (`validation/v0.6-release`, `syna-v0.6.0-source` archives).
+
 ## 0.5.0
 
 Semantics (see docs/SEMANTIC_CHANGES_V05.md and docs/MIGRATION_V04_TO_V05.md):

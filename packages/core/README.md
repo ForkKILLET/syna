@@ -22,4 +22,4 @@ const runtime = createRuntime({ services: [Database] })
 await runtime.run(App, { config: { url: '...' } }, async ({ database }) => (await database.load()).query('select 1'))
 ```
 
-Full documentation lives in the source workspace (not in this package): `docs/API_REFERENCE.md`, `docs/SEMANTIC_MODEL.md`, `docs/SEMANTIC_CHANGES_V05.md` and `docs/MIGRATION_V04_TO_V05.md` of the Syna v0.5 source archive. The package ships `dist/` (with `.d.ts` files carrying the `@deprecated` markers) only. Node ≥ 22.
+Full documentation lives in the source workspace (not in this package): `docs/API_REFERENCE.md`, `docs/API_STABILITY.md`, `docs/MIGRATION_V05_TO_V06.md`, `docs/SEMANTIC_MODEL.md`, `docs/SEMANTIC_CHANGES_V05.md` and `docs/MIGRATION_V04_TO_V05.md` of the Syna v0.6 source archive. The package ships `dist/` (with `.d.ts` files carrying the `@deprecated` markers) only. Node ≥ 22.
