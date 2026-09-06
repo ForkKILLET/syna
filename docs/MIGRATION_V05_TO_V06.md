@@ -37,6 +37,12 @@ v0.6 只收束 API 的名字与类型。语义——默认值、错误触发条�
 
 | M3 | 错误码 `CONSTRAINT_VIOLATION` | `FRESH_CONSTRAINT_FAILED`（与 `SHARE_CONSTRAINT_FAILED` 对称）。触发条件与 `details` 逐字不变（F3：四个抛出点纯改名——`fresh`/`share` 目标在父世界不活动的修订或族、继承的选择在该位点不再有效、CandidateRef 属于另一个集合；后两种情形挂在"fresh"名下并不贴切，记入 `docs/DEFERRED.md`）；`SHARE_CONSTRAINT_FAILED` 不变；`UNKNOWN_ERROR` 仍只出现在 `DiagnosticCode` | (3)/(1) 与 `SHARE_CONSTRAINT_FAILED` 不对称，也不说明违反了哪种约束 | 无别名（一个错误只有一个 `code`；0.6 直接生效，`isSynaError(error, 'FRESH_CONSTRAINT_FAILED')`） |
 
+## 类型强化（T）
+
+| # | v0.5 | v0.6 | 说明 |
+|---|---|---|---|
+| T2 | 幻影字段 `Contract.__api`、`Input.__value`、`ServiceFamily.__publicApi`、`ImplementationRef.__contract`、`CandidateRef.__contract` | 统一为 `__type`；描述符种类由 `kind` 区分；不写入文档，运行时对象上不存在 | 只影响类型层；用户代码不应引用幻影字段 |
+
 ## 删除（无别名）
 
 | # | 删除 | 替代 | 改写的测试 | 删除的测试 |

@@ -8,6 +8,9 @@ import {
   type DeriveOptions,
   type EntryExplanation,
   type EntryOptions,
+  type Contract,
+  type ContractApi,
+  type Input,
   type EntryArguments,
   type EntryParameters,
   type RuntimePolicy,
@@ -306,3 +309,17 @@ const notTheDeclaredMap: EntryParameters<typeof Root> = { context: { tenant: 'x'
 void notTheDeclaredMap
 const callValues: EntryArguments<typeof Root> = { context: { tenant: 'x' }, selected: Implementation }
 void callValues
+
+// T2 (v0.6): every descriptor carries its phantom type as `__type`; `kind` keeps the kinds apart.
+declare const phantomContract: Contract<{ ping(): void }>
+declare const phantomInput: Input<{ ping(): void }>
+// @ts-expect-error an Input is not a Contract, even with the same phantom type.
+const contractFromInput: Contract<{ ping(): void }> = phantomInput
+// @ts-expect-error a Contract is not an Input.
+const inputFromContract: Input<{ ping(): void }> = phantomContract
+void [contractFromInput, inputFromContract]
+const inferredApi: ContractApi<typeof phantomContract> = { ping() {} }
+void inferredApi
+// @ts-expect-error the Api parameter is still inferred through the phantom field.
+const wrongApi: ContractApi<typeof phantomContract> = { pong() {} }
+void wrongApi

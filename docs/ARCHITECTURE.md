@@ -38,7 +38,7 @@ packages/core/src/
 
 - The planner cannot execute setup (no materializer reference); the materializer cannot alter versions or slots (it only reads slot records); the plan cache stores templates (graphs + choices) and never Env or slot instances; diagnostics (`onEvent`) are fire-and-forget and cannot change outcomes.
 - No AsyncLocalStorage: caller attribution for pending-load diagnostics comes from the refs handed to each attempt.
-- No hidden `__contract`/string-prefix state carries internal records; `InternalCandidateRef` and `CompiledService` are internal types.
+- No hidden `__type`/string-prefix state carries internal records; `InternalCandidateRef` and `CompiledService` are internal types.
 
 ## Deliberately absent
 

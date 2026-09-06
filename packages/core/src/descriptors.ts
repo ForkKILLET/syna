@@ -68,7 +68,7 @@ export interface Contract<Api = unknown> {
   readonly apiVersion: number
   readonly metadata: Readonly<DescriptorMetadata>
   readonly all: AllImplementations<Contract<Api>>
-  readonly __api?: Api
+  readonly __type?: Api
 }
 
 export type ContractApi<C> = C extends Contract<infer Api> ? Api : never
@@ -79,7 +79,7 @@ export interface Input<ValueType = unknown> {
   readonly id: string
   readonly apiVersion: number
   readonly metadata: Readonly<DescriptorMetadata>
-  readonly __value?: ValueType
+  readonly __type?: ValueType
 }
 
 export type InputType<I> = I extends Input<infer T> ? T : never
@@ -105,7 +105,7 @@ export interface ImplementationRef<
    * non-serialized alias. Removed in 0.7.0.
    */
   readonly implementationId?: string
-  readonly __contract?: C
+  readonly __type?: C
 }
 
 /** @deprecated Use `ImplementationRef`. Removed in 0.7.0. */
@@ -117,7 +117,7 @@ export interface ServiceFamily<PublicApi = unknown> {
   readonly id: string
   readonly uniqueWithin: UniquenessPolicy
   readonly metadata: Readonly<DescriptorMetadata>
-  readonly __publicApi?: PublicApi
+  readonly __type?: PublicApi
 }
 
 export type ServiceFamilyApi<F> =
@@ -346,7 +346,7 @@ export interface CandidateRef<C extends Contract<any> = Contract<any>> {
   readonly contract: C
   readonly familyId: string
   readonly version: string
-  readonly __contract?: C
+  readonly __type?: C
 }
 
 export interface ImplementationDescriptor<C extends Contract<any> = Contract<any>> {
