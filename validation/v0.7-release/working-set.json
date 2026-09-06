@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-06T19:01:18.826Z",
+  "generatedAt": "2026-09-06T19:41:12.363Z",
   "tenants": 120,
   "capacity": 6,
   "maxRecordsPerPhase": {
@@ -42,42 +42,42 @@
   "heapSamples": [
     {
       "label": "start",
-      "heapUsed": 19807384,
+      "heapUsed": 19809176,
       "records": 0,
       "disposing": 0,
       "liveEnvs": 2
     },
     {
       "label": "after-hot",
-      "heapUsed": 20932360,
+      "heapUsed": 20934176,
       "records": 3,
       "disposing": 0,
       "liveEnvs": 5
     },
     {
       "label": "after-rotation",
-      "heapUsed": 21201072,
+      "heapUsed": 21202904,
       "records": 6,
       "disposing": 0,
       "liveEnvs": 8
     },
     {
       "label": "after-tail",
-      "heapUsed": 20989744,
+      "heapUsed": 21220096,
       "records": 5,
       "disposing": 0,
       "liveEnvs": 7
     },
     {
       "label": "after-mixed",
-      "heapUsed": 21306112,
+      "heapUsed": 21375264,
       "records": 6,
       "disposing": 0,
       "liveEnvs": 8
     },
     {
       "label": "after-idle-sweep",
-      "heapUsed": 20824584,
+      "heapUsed": 20890288,
       "records": 0,
       "disposing": 0,
       "liveEnvs": 2

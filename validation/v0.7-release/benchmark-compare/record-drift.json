@@ -144,16 +144,16 @@
       "path": "cases.warm-enter-dispose-100-depth-2.timing.p50Ms",
       "check": "±10%",
       "baseline": 0.1125420000000048,
-      "current": 0.11316599999997834,
-      "delta": 0.005544596683669356,
+      "current": 0.11666699999999253,
+      "delta": 0.036652982886278496,
       "ok": true
     },
     {
       "path": "cases.warm-enter-dispose-100-depth-2.timing.p95Ms",
       "check": "±10%",
       "baseline": 0.1864580000000018,
-      "current": 0.18637499999999818,
-      "delta": -0.00044514046060561974,
+      "current": 0.19329199999999958,
+      "delta": 0.036651685634286224,
       "ok": true
     },
     {
@@ -312,16 +312,16 @@
       "path": "cases.warm-enter-dispose-100-depth-6.timing.p50Ms",
       "check": "±10%",
       "baseline": 0.10729200000000105,
-      "current": 0.10775000000001,
-      "delta": 0.004268724602104035,
+      "current": 0.10916599999998766,
+      "delta": 0.01746635350246617,
       "ok": true
     },
     {
       "path": "cases.warm-enter-dispose-100-depth-6.timing.p95Ms",
       "check": "±10%",
       "baseline": 0.16837500000002592,
-      "current": 0.17004199999999514,
-      "delta": 0.009900519673163855,
+      "current": 0.1777919999999824,
+      "delta": 0.05592873051198244,
       "ok": true
     },
     {
@@ -480,16 +480,16 @@
       "path": "cases.warm-enter-dispose-300-depth-2.timing.p50Ms",
       "check": "±10%",
       "baseline": 0.256416999999999,
-      "current": 0.257959000000028,
-      "delta": 0.006013641841332795,
+      "current": 0.264082999999971,
+      "delta": 0.029896613718950027,
       "ok": true
     },
     {
       "path": "cases.warm-enter-dispose-300-depth-2.timing.p95Ms",
       "check": "±10%",
       "baseline": 0.381917000000044,
-      "current": 0.3872500000000514,
-      "delta": 0.013963766996511584,
+      "current": 0.3919999999999959,
+      "delta": 0.026401024306199394,
       "ok": true
     },
     {
@@ -648,16 +648,16 @@
       "path": "cases.warm-enter-dispose-300-depth-6.timing.p50Ms",
       "check": "±10%",
       "baseline": 0.2545830000000251,
-      "current": 0.25549999999998363,
-      "delta": 0.0036019687094521746,
+      "current": 0.26237500000002,
+      "delta": 0.030606914051583,
       "ok": true
     },
     {
       "path": "cases.warm-enter-dispose-300-depth-6.timing.p95Ms",
       "check": "±10%",
       "baseline": 0.3774169999999799,
-      "current": 0.37824999999998,
-      "delta": 0.0022071077879377565,
+      "current": 0.3871250000000259,
+      "delta": 0.025722211771188164,
       "ok": true
     },
     {
@@ -728,16 +728,16 @@
       "path": "cases.phase-breakdown-300.coldPlanWithNewSlotsMs.p50Ms",
       "check": "±10%",
       "baseline": 20.18512499999997,
-      "current": 20.14887500000009,
-      "delta": -0.0017958769143060493,
+      "current": 20.646416000000045,
+      "delta": 0.022853016763585865,
       "ok": true
     },
     {
       "path": "cases.phase-breakdown-300.coldPlanWithNewSlotsMs.p95Ms",
       "check": "±10%",
       "baseline": 22.253874999999994,
-      "current": 22.534125000000017,
-      "delta": 0.012593312400650314,
+      "current": 22.841125000000034,
+      "delta": 0.026388662648641592,
       "ok": true
     },
     {
@@ -752,16 +752,16 @@
       "path": "cases.phase-breakdown-300.warmPlanMs.p50Ms",
       "check": "±10%",
       "baseline": 0.3666250000001128,
-      "current": 0.3638330000001133,
-      "delta": -0.007615410842137349,
+      "current": 0.37758400000006986,
+      "delta": 0.029891578588349788,
       "ok": true
     },
     {
       "path": "cases.phase-breakdown-300.warmPlanMs.p95Ms",
       "check": "±10%",
       "baseline": 0.49374999999997726,
-      "current": 0.4949579999999969,
-      "delta": 0.0024465822785209035,
+      "current": 0.5153750000000628,
+      "delta": 0.04379746835460563,
       "ok": true
     },
     {
@@ -776,17 +776,17 @@
       "path": "cases.phase-breakdown-300.materializationMs.p50Ms",
       "check": "±10%",
       "baseline": 0.027207999999973254,
-      "current": 0.027541999999812106,
-      "delta": 0.012275801229020056,
-      "ok": true
+      "current": 0.0365830000000642,
+      "delta": 0.3445677741877451,
+      "ok": false
     },
     {
       "path": "cases.phase-breakdown-300.materializationMs.p95Ms",
       "check": "±10%",
       "baseline": 0.05954100000008111,
-      "current": 0.059750000000008185,
-      "delta": 0.0035101862569790754,
-      "ok": true
+      "current": 0.06937499999992269,
+      "delta": 0.16516350077808872,
+      "ok": false
     },
     {
       "path": "cases.phase-breakdown-300.disposeMs.samples",
@@ -800,17 +800,17 @@
       "path": "cases.phase-breakdown-300.disposeMs.p50Ms",
       "check": "±10%",
       "baseline": 0.09312499999987267,
-      "current": 0.09487500000000182,
-      "delta": 0.018791946310137364,
-      "ok": true
+      "current": 0.1050830000001497,
+      "delta": 0.12840805369442543,
+      "ok": false
     },
     {
       "path": "cases.phase-breakdown-300.disposeMs.p95Ms",
       "check": "±10%",
       "baseline": 0.12187500000004547,
-      "current": 0.11941700000011224,
-      "delta": -0.02016820512764983,
-      "ok": true
+      "current": 0.13466599999992468,
+      "delta": 0.10495179487076456,
+      "ok": false
     },
     {
       "path": "cases.site-enter-tenant-input-reverse-closure-200.forked",
@@ -840,16 +840,16 @@
       "path": "cases.site-enter-tenant-input-reverse-closure-200.timing.p50Ms",
       "check": "±10%",
       "baseline": 0.18891600000006292,
-      "current": 0.18558299999995143,
-      "delta": -0.0176427618629994,
+      "current": 0.19012499999985266,
+      "delta": 0.006399669693352372,
       "ok": true
     },
     {
       "path": "cases.site-enter-tenant-input-reverse-closure-200.timing.p95Ms",
       "check": "±10%",
       "baseline": 0.21725000000014916,
-      "current": 0.212833000000046,
-      "delta": -0.020331415420483778,
+      "current": 0.23220900000001166,
+      "delta": 0.06885615650104593,
       "ok": true
     },
     {
@@ -928,16 +928,16 @@
       "path": "cases.bound-entry-private-range-request-enter-dispose-100.timing.p50Ms",
       "check": "±10%",
       "baseline": 0.12170800000012605,
-      "current": 0.1219579999999496,
-      "delta": 0.0020540966889874834,
+      "current": 0.12258299999984956,
+      "delta": 0.007189338414258728,
       "ok": true
     },
     {
       "path": "cases.bound-entry-private-range-request-enter-dispose-100.timing.p95Ms",
       "check": "±10%",
       "baseline": 0.1720829999999296,
-      "current": 0.1679589999998825,
-      "delta": -0.023965179593851693,
+      "current": 0.17862500000001091,
+      "delta": 0.03801653853131337,
       "ok": true
     },
     {
@@ -1000,16 +1000,16 @@
       "path": "cases.override-and-all-request-enter-dispose-100.timing.p50Ms",
       "check": "±10%",
       "baseline": 0.12083399999983158,
-      "current": 0.12037499999996726,
-      "delta": -0.003798599730745922,
+      "current": 0.12212499999986903,
+      "delta": 0.010684078984716683,
       "ok": true
     },
     {
       "path": "cases.override-and-all-request-enter-dispose-100.timing.p95Ms",
       "check": "±10%",
       "baseline": 0.17520799999965675,
-      "current": 0.1758749999999054,
-      "delta": 0.003806903795773975,
+      "current": 0.18558400000028996,
+      "delta": 0.05922104013888374,
       "ok": true
     },
     {
@@ -1032,8 +1032,8 @@
       "path": "cases.churn-10000-requests.perOperationMs",
       "check": "±10%",
       "baseline": 0.12137499579999998,
-      "current": 0.12152204159999996,
-      "delta": 0.0012114999389354342,
+      "current": 0.12621027910000002,
+      "delta": 0.03983755688830293,
       "ok": true
     },
     {
@@ -1149,14 +1149,14 @@
       "ok": true
     }
   ],
-  "ok": true,
+  "ok": false,
   "currentResult": {
     "sourceCommit": "582c93ade81bc6b9683e00488d3f4f2547a5a90a",
     "builtFrom": "git archive of the commit, npm ci, npm run build, in a scratch directory",
     "runs": 21,
     "warmUpRuns": 1,
     "order": "alternating rounds, both sides in every round",
-    "generatedAt": "2026-09-06T19:04:37.836Z",
+    "generatedAt": "2026-09-06T19:44:37.108Z",
     "quick": false,
     "environment": {
       "node": "v26.0.0",
@@ -1187,28 +1187,28 @@
         "budget": "warm-enter-dispose-300-depth-2",
         "metric": "p95Ms",
         "max": 2,
-        "value": 0.3872500000000514,
+        "value": 0.3919999999999959,
         "ok": true
       },
       {
         "budget": "warm-enter-dispose-300-depth-6",
         "metric": "p95Ms",
         "max": 2,
-        "value": 0.37824999999998,
+        "value": 0.3871250000000259,
         "ok": true
       },
       {
         "budget": "warm-enter-dispose-100-depth-2",
         "metric": "p95Ms",
         "max": 1,
-        "value": 0.18637499999999818,
+        "value": 0.19329199999999958,
         "ok": true
       },
       {
         "budget": "bound-entry-private-range-request-enter-dispose-100",
         "metric": "p95Ms",
         "max": 1,
-        "value": 0.1679589999998825,
+        "value": 0.17862500000001091,
         "ok": true
       },
       {
@@ -1239,7 +1239,7 @@
         "name": "warm-enter-dispose-100-depth-2",
         "serviceCount": 100,
         "depth": 2,
-        "coldPlanMs": 5.255249999999997,
+        "coldPlanMs": 5.393250000000002,
         "requestShape": {
           "services": {
             "inherited": 100,
@@ -1260,13 +1260,13 @@
         },
         "timing": {
           "samples": 500,
-          "minMs": 0.09295899999999335,
-          "p50Ms": 0.11316599999997834,
-          "p90Ms": 0.1722910000000013,
-          "p95Ms": 0.18637499999999818,
-          "p99Ms": 0.22670800000000213,
-          "maxMs": 0.2914169999999956,
-          "meanMs": 0.12910312199999996
+          "minMs": 0.09320800000000418,
+          "p50Ms": 0.11666699999999253,
+          "p90Ms": 0.17712500000000375,
+          "p95Ms": 0.19329199999999958,
+          "p99Ms": 0.24412499999999682,
+          "maxMs": 0.32045800000000213,
+          "meanMs": 0.13276149399999965
         },
         "warmup": 50,
         "heapDeltaBytes": 193184,
@@ -1282,7 +1282,7 @@
         "name": "warm-enter-dispose-100-depth-6",
         "serviceCount": 100,
         "depth": 6,
-        "coldPlanMs": 1.174416999999977,
+        "coldPlanMs": 1.1982080000000224,
         "requestShape": {
           "services": {
             "inherited": 100,
@@ -1303,16 +1303,16 @@
         },
         "timing": {
           "samples": 500,
-          "minMs": 0.08795800000001464,
-          "p50Ms": 0.10775000000001,
-          "p90Ms": 0.1320829999999944,
-          "p95Ms": 0.17004199999999514,
-          "p99Ms": 0.2023330000000101,
-          "maxMs": 0.2843340000000012,
-          "meanMs": 0.11411035000000135
+          "minMs": 0.08833299999997735,
+          "p50Ms": 0.10916599999998766,
+          "p90Ms": 0.14458400000000893,
+          "p95Ms": 0.1777919999999824,
+          "p99Ms": 0.23783300000002328,
+          "maxMs": 0.3047910000000229,
+          "meanMs": 0.11750282600000037
         },
         "warmup": 50,
-        "heapDeltaBytes": 10504,
+        "heapDeltaBytes": 10672,
         "planCache": {
           "hits": 550,
           "misses": 8,
@@ -1325,7 +1325,7 @@
         "name": "warm-enter-dispose-300-depth-2",
         "serviceCount": 300,
         "depth": 2,
-        "coldPlanMs": 4.949083000000002,
+        "coldPlanMs": 5.06608300000002,
         "requestShape": {
           "services": {
             "inherited": 260,
@@ -1346,13 +1346,13 @@
         },
         "timing": {
           "samples": 500,
-          "minMs": 0.22254100000003518,
-          "p50Ms": 0.257959000000028,
-          "p90Ms": 0.33404200000001083,
-          "p95Ms": 0.3872500000000514,
-          "p99Ms": 0.440667000000019,
-          "maxMs": 0.7197499999999764,
-          "meanMs": 0.27599257000000055
+          "minMs": 0.227374999999995,
+          "p50Ms": 0.264082999999971,
+          "p90Ms": 0.353999999999985,
+          "p95Ms": 0.3919999999999959,
+          "p99Ms": 0.4661249999999768,
+          "maxMs": 0.8725000000000023,
+          "meanMs": 0.28134241199999915
         },
         "warmup": 50,
         "heapDeltaBytes": 36376,
@@ -1368,7 +1368,7 @@
         "name": "warm-enter-dispose-300-depth-6",
         "serviceCount": 300,
         "depth": 6,
-        "coldPlanMs": 4.9664169999999785,
+        "coldPlanMs": 5.052125000000046,
         "requestShape": {
           "services": {
             "inherited": 260,
@@ -1389,16 +1389,16 @@
         },
         "timing": {
           "samples": 500,
-          "minMs": 0.22266599999989012,
-          "p50Ms": 0.25549999999998363,
-          "p90Ms": 0.3164170000000013,
-          "p95Ms": 0.37824999999998,
-          "p99Ms": 0.4275830000000269,
-          "maxMs": 0.49979200000001356,
-          "meanMs": 0.27221367399999874
+          "minMs": 0.2240830000000642,
+          "p50Ms": 0.26237500000002,
+          "p90Ms": 0.34141699999997854,
+          "p95Ms": 0.3871250000000259,
+          "p99Ms": 0.4686669999999822,
+          "maxMs": 0.5896669999999631,
+          "meanMs": 0.2793652539999989
         },
         "warmup": 50,
-        "heapDeltaBytes": -66456,
+        "heapDeltaBytes": -66552,
         "planCache": {
           "hits": 550,
           "misses": 8,
@@ -1412,43 +1412,43 @@
         "serviceCount": 300,
         "coldPlanWithNewSlotsMs": {
           "samples": 60,
-          "minMs": 19.48870899999997,
-          "p50Ms": 20.14887500000009,
-          "p90Ms": 21.722958000000062,
-          "p95Ms": 22.534125000000017,
-          "p99Ms": 26.98129199999994,
-          "maxMs": 26.98129199999994,
-          "meanMs": 20.61183756666668
+          "minMs": 19.71308399999998,
+          "p50Ms": 20.646416000000045,
+          "p90Ms": 22.190582999999947,
+          "p95Ms": 22.841125000000034,
+          "p99Ms": 27.502166999999986,
+          "maxMs": 27.502166999999986,
+          "meanMs": 21.03977575000002
         },
         "warmPlanMs": {
           "samples": 60,
-          "minMs": 0.2773329999999987,
-          "p50Ms": 0.3638330000001133,
-          "p90Ms": 0.48766699999998764,
-          "p95Ms": 0.4949579999999969,
-          "p99Ms": 0.5760839999999234,
-          "maxMs": 0.5760839999999234,
-          "meanMs": 0.3899132833333207
+          "minMs": 0.2804169999999431,
+          "p50Ms": 0.37758400000006986,
+          "p90Ms": 0.49675000000002,
+          "p95Ms": 0.5153750000000628,
+          "p99Ms": 0.6113329999999451,
+          "maxMs": 0.6113329999999451,
+          "meanMs": 0.40000971666667057
         },
         "materializationMs": {
           "samples": 60,
-          "minMs": 0.0157920000001468,
-          "p50Ms": 0.027541999999812106,
-          "p90Ms": 0.05349999999998545,
-          "p95Ms": 0.059750000000008185,
-          "p99Ms": 0.6760000000000446,
-          "maxMs": 0.6760000000000446,
-          "meanMs": 0.04199651666666
+          "minMs": 0.022249999999985448,
+          "p50Ms": 0.0365830000000642,
+          "p90Ms": 0.06129200000009405,
+          "p95Ms": 0.06937499999992269,
+          "p99Ms": 0.6948340000000144,
+          "maxMs": 0.6948340000000144,
+          "meanMs": 0.05115908333333816
         },
         "disposeMs": {
           "samples": 60,
-          "minMs": 0.06816699999990306,
-          "p50Ms": 0.09487500000000182,
-          "p90Ms": 0.11275000000000546,
-          "p95Ms": 0.11941700000011224,
-          "p99Ms": 0.3181250000000091,
-          "maxMs": 0.3181250000000091,
-          "meanMs": 0.10013753333334231
+          "minMs": 0.07854200000008404,
+          "p50Ms": 0.1050830000001497,
+          "p90Ms": 0.1251249999997981,
+          "p95Ms": 0.13466599999992468,
+          "p99Ms": 0.32483300000001236,
+          "maxMs": 0.32483300000001236,
+          "meanMs": 0.11097160000001054
         }
       },
       {
@@ -1457,16 +1457,16 @@
         "inherited": 140,
         "timing": {
           "samples": 300,
-          "minMs": 0.1641669999999067,
-          "p50Ms": 0.18558299999995143,
-          "p90Ms": 0.2039999999999509,
-          "p95Ms": 0.212833000000046,
-          "p99Ms": 0.38170800000011695,
-          "maxMs": 0.4509579999999005,
-          "meanMs": 0.19230739333332772
+          "minMs": 0.16454099999987193,
+          "p50Ms": 0.19012499999985266,
+          "p90Ms": 0.2121669999999085,
+          "p95Ms": 0.23220900000001166,
+          "p99Ms": 0.4028329999998732,
+          "maxMs": 0.4742919999998776,
+          "meanMs": 0.19757996333333344
         },
         "warmup": 20,
-        "heapDeltaBytes": -23752,
+        "heapDeltaBytes": -22768,
         "planCache": {
           "hits": 321,
           "misses": 2,
@@ -1481,13 +1481,13 @@
         "newServices": 21,
         "timing": {
           "samples": 500,
-          "minMs": 0.10449999999991633,
-          "p50Ms": 0.1219579999999496,
-          "p90Ms": 0.13429100000007566,
-          "p95Ms": 0.1679589999998825,
-          "p99Ms": 0.21908299999995506,
-          "maxMs": 0.3704999999999927,
-          "meanMs": 0.12699631800000452
+          "minMs": 0.10524999999961437,
+          "p50Ms": 0.12258299999984956,
+          "p90Ms": 0.13966600000003382,
+          "p95Ms": 0.17862500000001091,
+          "p99Ms": 0.29470900000023903,
+          "maxMs": 0.43049999999993815,
+          "meanMs": 0.13007332199999747
         },
         "warmup": 50,
         "heapDeltaBytes": 16696,
@@ -1503,13 +1503,13 @@
         "name": "override-and-all-request-enter-dispose-100",
         "timing": {
           "samples": 500,
-          "minMs": 0.10325000000011642,
-          "p50Ms": 0.12037499999996726,
-          "p90Ms": 0.16641699999991033,
-          "p95Ms": 0.1758749999999054,
-          "p99Ms": 0.21462500000006912,
-          "maxMs": 0.3781250000001819,
-          "meanMs": 0.13576098000000184
+          "minMs": 0.1036669999998594,
+          "p50Ms": 0.12212499999986903,
+          "p90Ms": 0.17374999999992724,
+          "p95Ms": 0.18558400000028996,
+          "p99Ms": 0.2849999999998545,
+          "maxMs": 0.4315409999999247,
+          "meanMs": 0.13971117399999003
         },
         "warmup": 50,
         "heapDeltaBytes": 113416
@@ -1517,8 +1517,8 @@
       {
         "name": "churn-10000-requests",
         "operations": 10000,
-        "elapsedMs": 1215.2204159999997,
-        "perOperationMs": 0.12152204159999996,
+        "elapsedMs": 1262.1027910000003,
+        "perOperationMs": 0.12621027910000002,
         "planCacheEntriesMax": 4,
         "liveEnvCountAfter": 2,
         "planCache": {
@@ -1531,27 +1531,27 @@
         "heapSamples": [
           {
             "index": 0,
-            "heapUsed": 7310840,
+            "heapUsed": 7368176,
             "liveEnvs": 2
           },
           {
             "index": 2000,
-            "heapUsed": 7510000,
+            "heapUsed": 7509888,
             "liveEnvs": 2
           },
           {
             "index": 4000,
-            "heapUsed": 7594248,
+            "heapUsed": 7594144,
             "liveEnvs": 2
           },
           {
             "index": 6000,
-            "heapUsed": 7582736,
+            "heapUsed": 7582936,
             "liveEnvs": 2
           },
           {
             "index": 8000,
-            "heapUsed": 7606848,
+            "heapUsed": 7606880,
             "liveEnvs": 2
           }
         ]

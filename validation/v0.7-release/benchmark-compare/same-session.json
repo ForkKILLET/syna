@@ -143,17 +143,17 @@
     {
       "path": "cases.warm-enter-dispose-100-depth-2.timing.p50Ms",
       "check": "±10%",
-      "baseline": 0.11316599999997834,
-      "current": 0.11358300000000554,
-      "delta": 0.0036848523410502043,
+      "baseline": 0.11666699999999253,
+      "current": 0.11566700000000196,
+      "delta": -0.00857140408162227,
       "ok": true
     },
     {
       "path": "cases.warm-enter-dispose-100-depth-2.timing.p95Ms",
       "check": "±10%",
-      "baseline": 0.18637499999999818,
-      "current": 0.18841700000000117,
-      "delta": 0.010956405097266364,
+      "baseline": 0.19329199999999958,
+      "current": 0.19370899999999835,
+      "delta": 0.002157357779932756,
       "ok": true
     },
     {
@@ -311,17 +311,17 @@
     {
       "path": "cases.warm-enter-dispose-100-depth-6.timing.p50Ms",
       "check": "±10%",
-      "baseline": 0.10775000000001,
-      "current": 0.10783399999999688,
-      "delta": 0.0007795823664673573,
+      "baseline": 0.10916599999998766,
+      "current": 0.1078329999999994,
+      "delta": -0.012210761592331032,
       "ok": true
     },
     {
       "path": "cases.warm-enter-dispose-100-depth-6.timing.p95Ms",
       "check": "±10%",
-      "baseline": 0.17004199999999514,
-      "current": 0.17074999999999818,
-      "delta": 0.004163677209177985,
+      "baseline": 0.1777919999999824,
+      "current": 0.17425000000000068,
+      "delta": -0.01992215622740101,
       "ok": true
     },
     {
@@ -479,17 +479,17 @@
     {
       "path": "cases.warm-enter-dispose-300-depth-2.timing.p50Ms",
       "check": "±10%",
-      "baseline": 0.257959000000028,
-      "current": 0.25858299999998735,
-      "delta": 0.0024189890639956246,
+      "baseline": 0.264082999999971,
+      "current": 0.2628750000000082,
+      "delta": -0.004574319437309238,
       "ok": true
     },
     {
       "path": "cases.warm-enter-dispose-300-depth-2.timing.p95Ms",
       "check": "±10%",
-      "baseline": 0.3872500000000514,
-      "current": 0.38400000000001455,
-      "delta": -0.008392511297705352,
+      "baseline": 0.3919999999999959,
+      "current": 0.3958329999999819,
+      "delta": 0.009778061224454238,
       "ok": true
     },
     {
@@ -647,17 +647,17 @@
     {
       "path": "cases.warm-enter-dispose-300-depth-6.timing.p50Ms",
       "check": "±10%",
-      "baseline": 0.25549999999998363,
-      "current": 0.25633299999992687,
-      "delta": 0.0032602739723808227,
+      "baseline": 0.26237500000002,
+      "current": 0.260291000000052,
+      "delta": -0.007942829918886507,
       "ok": true
     },
     {
       "path": "cases.warm-enter-dispose-300-depth-6.timing.p95Ms",
       "check": "±10%",
-      "baseline": 0.37824999999998,
-      "current": 0.3815829999999778,
-      "delta": 0.00881163251817041,
+      "baseline": 0.3871250000000259,
+      "current": 0.38425000000000864,
+      "delta": -0.00742654181470348,
       "ok": true
     },
     {
@@ -727,17 +727,17 @@
     {
       "path": "cases.phase-breakdown-300.coldPlanWithNewSlotsMs.p50Ms",
       "check": "±10%",
-      "baseline": 20.14887500000009,
-      "current": 20.185875000000124,
-      "delta": 0.001836330812515996,
+      "baseline": 20.646416000000045,
+      "current": 20.523500000000013,
+      "delta": -0.0059533819332145965,
       "ok": true
     },
     {
       "path": "cases.phase-breakdown-300.coldPlanWithNewSlotsMs.p95Ms",
       "check": "±10%",
-      "baseline": 22.534125000000017,
-      "current": 22.53808300000003,
-      "delta": 0.00017564471662478987,
+      "baseline": 22.841125000000034,
+      "current": 22.842249999999922,
+      "delta": 0.00004925326576032951,
       "ok": true
     },
     {
@@ -751,17 +751,17 @@
     {
       "path": "cases.phase-breakdown-300.warmPlanMs.p50Ms",
       "check": "±10%",
-      "baseline": 0.3638330000001133,
-      "current": 0.37162499999999454,
-      "delta": 0.02141641907105396,
+      "baseline": 0.37758400000006986,
+      "current": 0.3826249999999618,
+      "delta": 0.013350671638340028,
       "ok": true
     },
     {
       "path": "cases.phase-breakdown-300.warmPlanMs.p95Ms",
       "check": "±10%",
-      "baseline": 0.4949579999999969,
-      "current": 0.5006660000000238,
-      "delta": 0.011532291628839175,
+      "baseline": 0.5153750000000628,
+      "current": 0.5125000000000455,
+      "delta": -0.005578462284776986,
       "ok": true
     },
     {
@@ -775,17 +775,17 @@
     {
       "path": "cases.phase-breakdown-300.materializationMs.p50Ms",
       "check": "±10%",
-      "baseline": 0.027541999999812106,
-      "current": 0.02549999999996544,
-      "delta": -0.07414131144653968,
+      "baseline": 0.0365830000000642,
+      "current": 0.03475000000003092,
+      "delta": -0.05010524013968409,
       "ok": true
     },
     {
       "path": "cases.phase-breakdown-300.materializationMs.p95Ms",
       "check": "±10%",
-      "baseline": 0.059750000000008185,
-      "current": 0.05795799999998508,
-      "delta": -0.02999163179954578,
+      "baseline": 0.06937499999992269,
+      "current": 0.0670830000000251,
+      "delta": -0.033037837836398576,
       "ok": true
     },
     {
@@ -799,17 +799,17 @@
     {
       "path": "cases.phase-breakdown-300.disposeMs.p50Ms",
       "check": "±10%",
-      "baseline": 0.09487500000000182,
-      "current": 0.09541599999988648,
-      "delta": 0.0057022397879804565,
+      "baseline": 0.1050830000001497,
+      "current": 0.10791699999981574,
+      "delta": 0.026969157710210023,
       "ok": true
     },
     {
       "path": "cases.phase-breakdown-300.disposeMs.p95Ms",
       "check": "±10%",
-      "baseline": 0.11941700000011224,
-      "current": 0.12154099999997925,
-      "delta": 0.017786412318723688,
+      "baseline": 0.13466599999992468,
+      "current": 0.1353750000000673,
+      "delta": 0.005264877549960856,
       "ok": true
     },
     {
@@ -839,17 +839,17 @@
     {
       "path": "cases.site-enter-tenant-input-reverse-closure-200.timing.p50Ms",
       "check": "±10%",
-      "baseline": 0.18558299999995143,
-      "current": 0.1864579999999023,
-      "delta": 0.0047148715127522944,
+      "baseline": 0.19012499999985266,
+      "current": 0.19100000000003092,
+      "delta": 0.004602235372407337,
       "ok": true
     },
     {
       "path": "cases.site-enter-tenant-input-reverse-closure-200.timing.p95Ms",
       "check": "±10%",
-      "baseline": 0.212833000000046,
-      "current": 0.2143750000000182,
-      "delta": 0.007245117063480855,
+      "baseline": 0.23220900000001166,
+      "current": 0.23262500000009823,
+      "delta": 0.0017914895636541583,
       "ok": true
     },
     {
@@ -927,17 +927,17 @@
     {
       "path": "cases.bound-entry-private-range-request-enter-dispose-100.timing.p50Ms",
       "check": "±10%",
-      "baseline": 0.1219579999999496,
-      "current": 0.12287500000002183,
-      "delta": 0.007518981945199066,
+      "baseline": 0.12258299999984956,
+      "current": 0.12491700000009587,
+      "delta": 0.019040160546316853,
       "ok": true
     },
     {
       "path": "cases.bound-entry-private-range-request-enter-dispose-100.timing.p95Ms",
       "check": "±10%",
-      "baseline": 0.1679589999998825,
-      "current": 0.18000000000006366,
-      "delta": 0.07169011485058596,
+      "baseline": 0.17862500000001091,
+      "current": 0.1903749999999036,
+      "delta": 0.06578026591961916,
       "ok": true
     },
     {
@@ -999,17 +999,17 @@
     {
       "path": "cases.override-and-all-request-enter-dispose-100.timing.p50Ms",
       "check": "±10%",
-      "baseline": 0.12037499999996726,
-      "current": 0.11995799999976953,
-      "delta": -0.00346417445647218,
+      "baseline": 0.12212499999986903,
+      "current": 0.1211249999996653,
+      "delta": -0.008188331629107926,
       "ok": true
     },
     {
       "path": "cases.override-and-all-request-enter-dispose-100.timing.p95Ms",
       "check": "±10%",
-      "baseline": 0.1758749999999054,
-      "current": 0.17179099999975733,
-      "delta": -0.023221037669653333,
+      "baseline": 0.18558400000028996,
+      "current": 0.17845799999986411,
+      "delta": -0.038397706701088,
       "ok": true
     },
     {
@@ -1031,9 +1031,9 @@
     {
       "path": "cases.churn-10000-requests.perOperationMs",
       "check": "±10%",
-      "baseline": 0.12152204159999996,
-      "current": 0.12314412080000002,
-      "delta": 0.013348024594083574,
+      "baseline": 0.12621027910000002,
+      "current": 0.1263239541,
+      "delta": 0.0009006794122521367,
       "ok": true
     },
     {
@@ -1155,7 +1155,7 @@
     "runs": 21,
     "warmUpRuns": 1,
     "order": "alternating rounds, both sides in every round",
-    "generatedAt": "2026-09-06T19:04:41.300Z",
+    "generatedAt": "2026-09-06T19:44:40.623Z",
     "quick": false,
     "environment": {
       "node": "v26.0.0",
@@ -1186,28 +1186,28 @@
         "budget": "warm-enter-dispose-300-depth-2",
         "metric": "p95Ms",
         "max": 2,
-        "value": 0.38400000000001455,
+        "value": 0.3958329999999819,
         "ok": true
       },
       {
         "budget": "warm-enter-dispose-300-depth-6",
         "metric": "p95Ms",
         "max": 2,
-        "value": 0.3815829999999778,
+        "value": 0.38425000000000864,
         "ok": true
       },
       {
         "budget": "warm-enter-dispose-100-depth-2",
         "metric": "p95Ms",
         "max": 1,
-        "value": 0.18841700000000117,
+        "value": 0.19370899999999835,
         "ok": true
       },
       {
         "budget": "bound-entry-private-range-request-enter-dispose-100",
         "metric": "p95Ms",
         "max": 1,
-        "value": 0.18000000000006366,
+        "value": 0.1903749999999036,
         "ok": true
       },
       {
@@ -1238,7 +1238,7 @@
         "name": "warm-enter-dispose-100-depth-2",
         "serviceCount": 100,
         "depth": 2,
-        "coldPlanMs": 5.228875000000002,
+        "coldPlanMs": 5.383833000000003,
         "requestShape": {
           "services": {
             "inherited": 100,
@@ -1259,16 +1259,16 @@
         },
         "timing": {
           "samples": 500,
-          "minMs": 0.09254200000000878,
-          "p50Ms": 0.11358300000000554,
-          "p90Ms": 0.17141699999999105,
-          "p95Ms": 0.18841700000000117,
-          "p99Ms": 0.23470900000000938,
-          "maxMs": 0.2938749999999999,
-          "meanMs": 0.13019373599999987
+          "minMs": 0.09291699999999992,
+          "p50Ms": 0.11566700000000196,
+          "p90Ms": 0.1731669999999923,
+          "p95Ms": 0.19370899999999835,
+          "p99Ms": 0.23987499999999784,
+          "maxMs": 0.31066599999999767,
+          "meanMs": 0.13212923199999968
         },
         "warmup": 50,
-        "heapDeltaBytes": 195528,
+        "heapDeltaBytes": 199232,
         "planCache": {
           "hits": 550,
           "misses": 4,
@@ -1281,7 +1281,7 @@
         "name": "warm-enter-dispose-100-depth-6",
         "serviceCount": 100,
         "depth": 6,
-        "coldPlanMs": 1.1665419999999926,
+        "coldPlanMs": 1.174999999999983,
         "requestShape": {
           "services": {
             "inherited": 100,
@@ -1302,13 +1302,13 @@
         },
         "timing": {
           "samples": 500,
-          "minMs": 0.08741599999999039,
-          "p50Ms": 0.10783399999999688,
-          "p90Ms": 0.13062499999998067,
-          "p95Ms": 0.17074999999999818,
-          "p99Ms": 0.19770900000000324,
-          "maxMs": 0.35300000000000864,
-          "meanMs": 0.11407468400000027
+          "minMs": 0.0881249999999909,
+          "p50Ms": 0.1078329999999994,
+          "p90Ms": 0.13650000000001228,
+          "p95Ms": 0.17425000000000068,
+          "p99Ms": 0.2142080000000135,
+          "maxMs": 0.5387499999999932,
+          "meanMs": 0.11572874200000025
         },
         "warmup": 50,
         "heapDeltaBytes": 10712,
@@ -1324,7 +1324,7 @@
         "name": "warm-enter-dispose-300-depth-2",
         "serviceCount": 300,
         "depth": 2,
-        "coldPlanMs": 4.96241599999999,
+        "coldPlanMs": 5.0128330000000005,
         "requestShape": {
           "services": {
             "inherited": 260,
@@ -1345,16 +1345,16 @@
         },
         "timing": {
           "samples": 500,
-          "minMs": 0.22470900000001848,
-          "p50Ms": 0.25858299999998735,
-          "p90Ms": 0.3325839999999971,
-          "p95Ms": 0.38400000000001455,
-          "p99Ms": 0.431541999999979,
-          "maxMs": 0.5554169999999772,
-          "meanMs": 0.27537119599999904
+          "minMs": 0.22870799999998326,
+          "p50Ms": 0.2628750000000082,
+          "p90Ms": 0.34858400000001666,
+          "p95Ms": 0.3958329999999819,
+          "p99Ms": 0.47383300000001327,
+          "maxMs": 0.5889999999999986,
+          "meanMs": 0.28047129999999765
         },
         "warmup": 50,
-        "heapDeltaBytes": 27424,
+        "heapDeltaBytes": 27352,
         "planCache": {
           "hits": 550,
           "misses": 4,
@@ -1367,7 +1367,7 @@
         "name": "warm-enter-dispose-300-depth-6",
         "serviceCount": 300,
         "depth": 6,
-        "coldPlanMs": 4.946916999999985,
+        "coldPlanMs": 4.999207999999953,
         "requestShape": {
           "services": {
             "inherited": 260,
@@ -1388,13 +1388,13 @@
         },
         "timing": {
           "samples": 500,
-          "minMs": 0.22433399999999892,
-          "p50Ms": 0.25633299999992687,
-          "p90Ms": 0.31475000000000364,
-          "p95Ms": 0.3815829999999778,
-          "p99Ms": 0.43158299999998917,
-          "maxMs": 0.5149579999999787,
-          "meanMs": 0.2733104279999988
+          "minMs": 0.22641699999996945,
+          "p50Ms": 0.260291000000052,
+          "p90Ms": 0.33283300000005056,
+          "p95Ms": 0.38425000000000864,
+          "p99Ms": 0.4647499999999809,
+          "maxMs": 0.5710830000000442,
+          "meanMs": 0.27756041999999886
         },
         "warmup": 50,
         "heapDeltaBytes": -74848,
@@ -1411,43 +1411,43 @@
         "serviceCount": 300,
         "coldPlanWithNewSlotsMs": {
           "samples": 60,
-          "minMs": 19.418458999999984,
-          "p50Ms": 20.185875000000124,
-          "p90Ms": 21.78416600000014,
-          "p95Ms": 22.53808300000003,
-          "p99Ms": 26.894499999999994,
-          "maxMs": 26.894499999999994,
-          "meanMs": 20.606048583333347
+          "minMs": 19.765750000000025,
+          "p50Ms": 20.523500000000013,
+          "p90Ms": 22.130374999999958,
+          "p95Ms": 22.842249999999922,
+          "p99Ms": 27.299499999999966,
+          "maxMs": 27.299499999999966,
+          "meanMs": 20.93238680000001
         },
         "warmPlanMs": {
           "samples": 60,
-          "minMs": 0.27025000000003274,
-          "p50Ms": 0.37162499999999454,
-          "p90Ms": 0.48987499999998363,
-          "p95Ms": 0.5006660000000238,
-          "p99Ms": 0.5913330000000769,
-          "maxMs": 0.5913330000000769,
-          "meanMs": 0.39391178333332655
+          "minMs": 0.28641700000002857,
+          "p50Ms": 0.3826249999999618,
+          "p90Ms": 0.497333000000026,
+          "p95Ms": 0.5125000000000455,
+          "p99Ms": 0.5950419999999212,
+          "maxMs": 0.5950419999999212,
+          "meanMs": 0.40116800000000313
         },
         "materializationMs": {
           "samples": 60,
-          "minMs": 0.014541999999892141,
-          "p50Ms": 0.02549999999996544,
-          "p90Ms": 0.049875000000042746,
-          "p95Ms": 0.05795799999998508,
-          "p99Ms": 0.7470829999999751,
-          "maxMs": 0.7470829999999751,
-          "meanMs": 0.041988900000004985
+          "minMs": 0.01970900000014808,
+          "p50Ms": 0.03475000000003092,
+          "p90Ms": 0.058667000000014013,
+          "p95Ms": 0.0670830000000251,
+          "p99Ms": 0.7650000000001,
+          "maxMs": 0.7650000000001,
+          "meanMs": 0.051034033333322286
         },
         "disposeMs": {
           "samples": 60,
-          "minMs": 0.0705000000000382,
-          "p50Ms": 0.09541599999988648,
-          "p90Ms": 0.11245900000017173,
-          "p95Ms": 0.12154099999997925,
-          "p99Ms": 0.3192919999999049,
-          "maxMs": 0.3192919999999049,
-          "meanMs": 0.10016188333333578
+          "minMs": 0.08120800000006057,
+          "p50Ms": 0.10791699999981574,
+          "p90Ms": 0.12554199999999582,
+          "p95Ms": 0.1353750000000673,
+          "p99Ms": 0.32741699999996854,
+          "maxMs": 0.32741699999996854,
+          "meanMs": 0.11263331666668629
         }
       },
       {
@@ -1456,16 +1456,16 @@
         "inherited": 140,
         "timing": {
           "samples": 300,
-          "minMs": 0.1675000000000182,
-          "p50Ms": 0.1864579999999023,
-          "p90Ms": 0.20641599999999016,
-          "p95Ms": 0.2143750000000182,
-          "p99Ms": 0.3682499999999891,
-          "maxMs": 0.44283299999983683,
-          "meanMs": 0.19385219999999967
+          "minMs": 0.16499999999996362,
+          "p50Ms": 0.19100000000003092,
+          "p90Ms": 0.21391600000015387,
+          "p95Ms": 0.23262500000009823,
+          "p99Ms": 0.4023339999998825,
+          "maxMs": 0.5082909999998719,
+          "meanMs": 0.19939124999999347
         },
         "warmup": 20,
-        "heapDeltaBytes": -41264,
+        "heapDeltaBytes": -41288,
         "planCache": {
           "hits": 321,
           "misses": 2,
@@ -1480,16 +1480,16 @@
         "newServices": 21,
         "timing": {
           "samples": 500,
-          "minMs": 0.10633400000006077,
-          "p50Ms": 0.12287500000002183,
-          "p90Ms": 0.17220899999983885,
-          "p95Ms": 0.18000000000006366,
-          "p99Ms": 0.22125000000005457,
-          "maxMs": 0.38779199999999037,
-          "meanMs": 0.13987116600000082
+          "minMs": 0.10625000000027285,
+          "p50Ms": 0.12491700000009587,
+          "p90Ms": 0.17645800000036616,
+          "p95Ms": 0.1903749999999036,
+          "p99Ms": 0.27612500000032014,
+          "maxMs": 0.45516700000007404,
+          "meanMs": 0.14302342599999837
         },
         "warmup": 50,
-        "heapDeltaBytes": 24080,
+        "heapDeltaBytes": 23912,
         "planCache": {
           "hits": 550,
           "misses": 4,
@@ -1502,13 +1502,13 @@
         "name": "override-and-all-request-enter-dispose-100",
         "timing": {
           "samples": 500,
-          "minMs": 0.10233400000015536,
-          "p50Ms": 0.11995799999976953,
-          "p90Ms": 0.13483300000007148,
-          "p95Ms": 0.17179099999975733,
-          "p99Ms": 0.21012500000006185,
-          "maxMs": 0.3784169999998994,
-          "meanMs": 0.12733776600000601
+          "minMs": 0.10212500000034197,
+          "p50Ms": 0.1211249999996653,
+          "p90Ms": 0.15075000000024374,
+          "p95Ms": 0.17845799999986411,
+          "p99Ms": 0.25516600000037215,
+          "maxMs": 0.4279999999998836,
+          "meanMs": 0.12906701999999315
         },
         "warmup": 50,
         "heapDeltaBytes": 50776
@@ -1516,8 +1516,8 @@
       {
         "name": "churn-10000-requests",
         "operations": 10000,
-        "elapsedMs": 1231.4412080000002,
-        "perOperationMs": 0.12314412080000002,
+        "elapsedMs": 1263.239541,
+        "perOperationMs": 0.1263239541,
         "planCacheEntriesMax": 4,
         "liveEnvCountAfter": 2,
         "planCache": {
@@ -1530,27 +1530,27 @@
         "heapSamples": [
           {
             "index": 0,
-            "heapUsed": 7391216,
+            "heapUsed": 7390992,
             "liveEnvs": 2
           },
           {
             "index": 2000,
-            "heapUsed": 7588584,
+            "heapUsed": 7588376,
             "liveEnvs": 2
           },
           {
             "index": 4000,
-            "heapUsed": 7681784,
+            "heapUsed": 7681560,
             "liveEnvs": 2
           },
           {
             "index": 6000,
-            "heapUsed": 7666944,
+            "heapUsed": 7666816,
             "liveEnvs": 2
           },
           {
             "index": 8000,
-            "heapUsed": 7693376,
+            "heapUsed": 7693232,
             "liveEnvs": 2
           }
         ]
