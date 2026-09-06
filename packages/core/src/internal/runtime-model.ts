@@ -26,7 +26,7 @@ export class PolicyContext implements RuntimePolicyContext {
 
 export type EnvState = 'activating' | 'ready' | 'disposing' | 'disposed'
 
-export type NodeKind = 'service' | 'input' | 'binding' | 'all' | 'entry'
+export type NodeKind = 'service' | 'input' | 'binding' | 'all-implementations' | 'entry'
 
 /**
  * Internal executable record for one nominal Service revision. Public code
@@ -94,7 +94,7 @@ export interface BindingChoiceSlot {
 }
 
 export interface SyntheticSlot {
-  readonly kind: 'binding' | 'all' | 'entry'
+  readonly kind: 'binding' | 'all-implementations' | 'entry'
   readonly id: string
   readonly ownerEnvId: string
   readonly state: 'ready'
@@ -111,7 +111,7 @@ export interface PendingLoad {
  * One `load()` wait on a slot that is not Ready. The setup deadline is the
  * waiter's: it is armed while an attempt is running (re-armed when a new
  * attempt of the same sequence starts, cleared between attempts) and ends
- * only this wait with `INITIALIZATION_TIMEOUT`; the attempt keeps running.
+ * only this wait with `LOAD_TIMEOUT`; the attempt keeps running.
  * Armed waiters sit in one deadline queue (a list sorted by expiry behind a
  * single timer), so a wait costs no timer of its own.
  */
@@ -228,7 +228,7 @@ export interface BindingPlanNode extends BasePlanNode {
 
 /** Every candidate is a real dependency in the current Env. */
 export interface AllPlanNode extends BasePlanNode {
-  readonly kind: 'all'
+  readonly kind: 'all-implementations'
   readonly contract: Contract
   readonly candidates: readonly CompiledService[]
 }
@@ -249,7 +249,7 @@ export type PlanNode =
   | AnchoredEntryPlanNode
 
 export interface NodeExplanation {
-  readonly placement: 'inherited' | 'new' | 'forked'
+  readonly placement: 'reused' | 'new' | 'forked'
   readonly cause: ForkCause | undefined
 }
 

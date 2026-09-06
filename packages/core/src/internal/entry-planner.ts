@@ -325,13 +325,13 @@ export class EntryPlanner implements GraphBuilderHost {
         placement: explanation.placement,
         eager: node.kind === 'service' && node.revision.eager,
         ...(explanation.cause ? { cause: explanation.cause } : {}),
-        path: Object.freeze(explanation.placement === 'inherited' ? [node.id] : pathFor(node.id)),
+        path: Object.freeze(explanation.placement === 'reused' ? [node.id] : pathFor(node.id)),
       }))
     }
     const count = (predicate: (node: ExplainedNode) => boolean) => {
       const selected = nodes.filter(predicate)
       return {
-        inherited: selected.filter(node => node.placement === 'inherited').length,
+        reused: selected.filter(node => node.placement === 'reused').length,
         new: selected.filter(node => node.placement === 'new').length,
         forked: selected.filter(node => node.placement === 'forked').length,
       }
@@ -371,7 +371,7 @@ export class EntryPlanner implements GraphBuilderHost {
         inputsProvided: Object.freeze([...providedInputIds].sort()),
         inputsInherited: Object.freeze(
           inputNodes
-            .filter(node => node.placement === 'inherited')
+            .filter(node => node.placement === 'reused')
             .map(node => node.label)
             .sort(),
         ),
@@ -380,17 +380,17 @@ export class EntryPlanner implements GraphBuilderHost {
       }),
       services: Object.freeze({
         ...services,
-        eagerToStart: nodes.filter(node => node.kind === 'service' && node.eager && node.placement !== 'inherited').length,
-        eagerInherited: nodes.filter(node => node.kind === 'service' && node.eager && node.placement === 'inherited').length,
+        eagerToStart: nodes.filter(node => node.kind === 'service' && node.eager && node.placement !== 'reused').length,
+        eagerReused: nodes.filter(node => node.kind === 'service' && node.eager && node.placement === 'reused').length,
       }),
       inputs: Object.freeze({
-        inherited: inputNodes.filter(node => node.placement === 'inherited').length,
-        provided: inputNodes.filter(node => node.placement !== 'inherited').length,
+        inherited: inputNodes.filter(node => node.placement === 'reused').length,
+        provided: inputNodes.filter(node => node.placement !== 'reused').length,
       }),
       synthetic: Object.freeze(count(node => node.kind !== 'service' && node.kind !== 'input')),
       choices: Object.freeze(Object.fromEntries(plan.choices)),
       nodes: Object.freeze(nodes),
-      forks: Object.freeze(nodes.filter(node => node.placement !== 'inherited')),
+      forks: Object.freeze(nodes.filter(node => node.placement !== 'reused')),
     })
   }
 
@@ -654,7 +654,7 @@ export class EntryPlanner implements GraphBuilderHost {
         causes.set(
           nodeId,
           candidate.viaAnchor && node.kind === 'service'
-            ? { kind: 'anchor-dependency-mismatch', family: node.revision.family.id, via: failure.via }
+            ? { kind: 'pinned-dependency-mismatch', family: node.revision.family.id, via: failure.via }
             : { kind: 'dependency-forked', via: failure.via, dependency: failure.dependency },
         )
         for (const dependant of reverse.get(nodeId) ?? []) {
@@ -787,11 +787,11 @@ export class EntryPlanner implements GraphBuilderHost {
       if (node.kind === 'input') {
         explanations.set(node.id, cause
           ? { placement: 'new', cause }
-          : { placement: 'inherited', cause: undefined })
+          : { placement: 'reused', cause: undefined })
         continue
       }
       if (reusable.has(node.id)) {
-        explanations.set(node.id, { placement: 'inherited', cause: undefined })
+        explanations.set(node.id, { placement: 'reused', cause: undefined })
         continue
       }
       const placement = cause?.kind === 'root' || cause?.kind === 'not-in-parent' ? 'new' : 'forked'

@@ -286,7 +286,7 @@ export class GraphBuilder {
         if (existing) return existing.id
         const node: AllPlanNode = {
           id: nodeId,
-          kind: 'all',
+          kind: 'all-implementations',
           label: `${dependency.contract.id}[${candidates.map(item => item.key).join(',')}]`,
           edges: new Map(),
           contract: dependency.contract,

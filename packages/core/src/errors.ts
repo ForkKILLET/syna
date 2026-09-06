@@ -13,12 +13,12 @@ export type SynaErrorCode =
   | 'FOREIGN_CANDIDATE_REF'
   | 'INACTIVE_REUSE_TARGET'
   | 'INCOMPATIBLE_IMPLEMENTATION'
-  | 'INITIALIZATION_TIMEOUT'
   | 'INVALID_DESCRIPTOR'
   | 'INVALID_INHERITED_CHOICE'
   | 'LIFECYCLE_MISUSE'
   | 'LINEAGE_UNIQUENESS_CONFLICT'
   | 'LOAD_CANCELLED'
+  | 'LOAD_TIMEOUT'
   | 'MISSING_AUTO_POLICY'
   | 'MISSING_BINDING'
   | 'MISSING_IMPLEMENTATION'
@@ -43,7 +43,7 @@ type EntryParametersMissing = {
   readonly missingBindings: readonly string[]
 }
 
-/** A dependency slot a timed-out setup was still waiting for. */
+/** A dependency slot an overdue setup was still waiting for. */
 type PendingLoad = {
   readonly revision: string
   readonly slot: string
@@ -90,24 +90,6 @@ export type SynaErrorDetails = {
         readonly candidates: readonly { readonly revision: string; readonly provides: readonly string[] }[]
       }
   /**
-   * One `load()` waited `deadlineMs` on the attempt named by `attemptNumber` (running
-   * for `elapsedMs`) without it settling. The attempt keeps running
-   * (`attemptStillRunning`): its result is adopted if the owner Env is still
-   * ready and discarded only if the owner closes.
-   */
-  readonly INITIALIZATION_TIMEOUT: {
-    readonly slot: string
-    readonly revision: string
-    readonly env: string
-    readonly attemptNumber: number
-    readonly deadlineMs: number
-    readonly elapsedMs: number
-    readonly pendingLoads: readonly PendingLoad[]
-    readonly suspectedWaitCycle?: readonly string[]
-    readonly attemptStillRunning: true
-    readonly note: string
-  }
-  /**
    * `descriptor` names the expected descriptor kind, the option, or the id / key
    * of the offending descriptor; `problem` is one token of a closed vocabulary
    * (`not-an-object`, `not-an-array`, `wrong-kind`, `unknown-kind`,
@@ -136,6 +118,24 @@ export type SynaErrorDetails = {
       }
     | { readonly family: string; readonly slots: readonly string[] }
   readonly LOAD_CANCELLED: { readonly slot: string; readonly revision: string }
+  /**
+   * One `load()` waited `deadlineMs` on the attempt named by `attemptNumber` (running
+   * for `elapsedMs`) without it settling. The attempt keeps running
+   * (`attemptStillRunning`): its result is adopted if the owner Env is still
+   * ready and discarded only if the owner closes.
+   */
+  readonly LOAD_TIMEOUT: {
+    readonly slot: string
+    readonly revision: string
+    readonly env: string
+    readonly attemptNumber: number
+    readonly deadlineMs: number
+    readonly elapsedMs: number
+    readonly pendingLoads: readonly PendingLoad[]
+    readonly suspectedWaitCycle?: readonly string[]
+    readonly attemptStillRunning: true
+    readonly note: string
+  }
   readonly MISSING_AUTO_POLICY: { readonly contract: string; readonly site: string; readonly families: readonly string[] }
   readonly MISSING_BINDING:
     | { readonly binding: string; readonly site: string; readonly missing: readonly string[] }

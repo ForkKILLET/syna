@@ -435,7 +435,7 @@ class RuntimeImpl implements Runtime, ImplementationViewHost {
       // Attempts that ignored the stop signal are not an error of this close.
       await this.materializer.awaitSettling(this.disposalGraceMs)
       const outstanding = this.materializer.unsettledAttempts()
-      if (outstanding.length > 0) this.onEvent({ type: 'attempts-outstanding', attempts: outstanding })
+      if (outstanding.length > 0) this.onEvent({ type: 'runtime-attempts-outstanding', attempts: outstanding })
       if (errors.length > 0) {
         throw new AggregateError(errors, 'One or more Syna root Envs failed to dispose.')
       }
@@ -685,7 +685,7 @@ class RuntimeImpl implements Runtime, ImplementationViewHost {
       if (slot.ownerEnvId !== env.id || slot.kind === 'service' || slot.kind === 'input' || slot.value !== undefined) {
         continue
       }
-      if (node.kind === 'all') slot.value = createImplementationSet(this, node, slot, env.id)
+      if (node.kind === 'all-implementations') slot.value = createImplementationSet(this, node, slot, env.id)
       else if (node.kind === 'entry') {
         slot.value = this.createAnchoredEntry(node.entry, this.anchorEnvId(node.anchorNodeId, env), node.realm)
       }

@@ -6,6 +6,11 @@ import {
   loadAll,
   SynaError,
   type AnchoredEntry,
+  type EntryExplanationSuccess,
+  type EnvInspection,
+  type ForkCause,
+  type InspectionNodeKind,
+  type RuntimeEvent,
   type CandidateRef,
   type DescriptorMetadata,
   type ExplainedNode,
@@ -377,7 +382,7 @@ if (isSynaError(caught)) {
       void state
       break
     }
-    case 'INITIALIZATION_TIMEOUT': {
+    case 'LOAD_TIMEOUT': {
       const pending: readonly { readonly slot: string; readonly waitingMs: number }[] = caught.details.pendingLoads
       void pending
       break
@@ -511,3 +516,35 @@ const inheritedChoice: SynaErrorDetails['INVALID_INHERITED_CHOICE'] = { site: 's
 const lineageConflict: SynaErrorDetails['LINEAGE_UNIQUENESS_CONFLICT'] = { family: 'f', pinnedRevision: 'r@1.0.0', pinnedSlot: 's', attempted: [] }
 const lifecycleMisuse: SynaErrorDetails['LIFECYCLE_MISUSE'] = { slot: 's', revision: 'r@1.0.0', attemptNumber: 1, state: 'succeeded' }
 void [inheritedChoice, lineageConflict, lifecycleMisuse]
+
+// v0.8 (§2.3): the values and the event names.
+const loadTimeoutCode: SynaErrorCode = 'LOAD_TIMEOUT'
+// @ts-expect-error D1 (v0.8): INITIALIZATION_TIMEOUT → LOAD_TIMEOUT.
+const oldTimeoutCode: SynaErrorCode = 'INITIALIZATION_TIMEOUT'
+const reusedPlacement: NodePlacement = 'reused'
+// @ts-expect-error D4 (v0.8): the placement 'inherited' → 'reused' (Input and Binding declarations stay "inherited").
+const inheritedPlacement: NodePlacement = 'inherited'
+const allKind: InspectionNodeKind = 'all-implementations'
+// @ts-expect-error D3 (v0.8): 'all' → 'all-implementations'.
+const oldAllKind: InspectionNodeKind = 'all'
+const pinnedCause: ForkCause = { kind: 'pinned-dependency-mismatch', family: 'f', via: 'v' }
+const overdueState: UnsettledAttemptInspection['state'] = 'overdue'
+// @ts-expect-error D7 (v0.8): 'timed-out' → 'overdue'.
+const timedOutState: UnsettledAttemptInspection['state'] = 'timed-out'
+const eventTypes: RuntimeEvent['type'][] = ['attempt-overdue', 'attempt-succeeded-late', 'attempt-failed-late', 'attempt-abandoned', 'runtime-attempts-outstanding', 'attempt-unreachable', 'setup-returned-thenable']
+// @ts-expect-error D8 (v0.8): the 0.7 event names are gone.
+const oldEventTypes: RuntimeEvent['type'][] = ['late-setup-result', 'late-setup-failure', 'attempts-outstanding', 'foreign-thenable-setup']
+void [loadTimeoutCode, oldTimeoutCode, reusedPlacement, inheritedPlacement, allKind, oldAllKind, pinnedCause, overdueState, timedOutState, eventTypes, oldEventTypes]
+// D6 (v0.8): the three states are typed.
+declare const envInspection: EnvInspection
+const envState: EnvState = envInspection.state
+const nodeState: SlotState = envInspection.nodes[0]!.state
+declare const abandonedEvent: Extract<RuntimeEvent, { type: 'attempt-abandoned' }>
+const dependencyState: SlotState = abandonedEvent.dependencies[0]!.state
+void [envState, nodeState, dependencyState]
+// D5 (v0.8): `services.reused` / `services.eagerReused`; `inputs.inherited` and `inputsInherited` / `bindingsInherited` stay.
+declare const explanationOk: EntryExplanationSuccess
+const reusedCount: number = explanationOk.services.reused + explanationOk.services.eagerReused + explanationOk.synthetic.reused + explanationOk.inputs.inherited + explanationOk.parameters.inputsInherited.length
+void reusedCount
+// @ts-expect-error D5 (v0.8): `services.inherited` → `services.reused`.
+void explanationOk.services.inherited

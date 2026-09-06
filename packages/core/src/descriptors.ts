@@ -285,7 +285,7 @@ export interface ServiceDefinition<
   readonly failure?: ServiceFailurePolicy
   /**
    * How long one `load()` waits on the current setup attempt before it rejects
-   * with `INITIALIZATION_TIMEOUT`; overrides the Runtime default. The attempt
+   * with `LOAD_TIMEOUT`; overrides the Runtime default. The attempt
    * itself keeps running (its result is adopted while the owner Env is ready).
    * `Infinity` disables it.
    */
@@ -498,7 +498,7 @@ export interface ServiceOverride<
 export interface RuntimeLimits {
   /**
    * Default wait, in milliseconds (30_000), of one `load()` on the current setup
-   * attempt before it rejects with INITIALIZATION_TIMEOUT. Bounds the wait, not
+   * attempt before it rejects with LOAD_TIMEOUT. Bounds the wait, not
    * the attempt: a late success is adopted while the owner Env is ready and
    * discarded only by a close. Never proves a deadlock.
    */
@@ -542,7 +542,7 @@ export type RuntimeEvent =
        * `cleanupErrors` is empty); otherwise a close discarded the result and
        * the cleanups the attempt registered ran.
        */
-      readonly type: 'late-setup-result'
+      readonly type: 'attempt-succeeded-late'
       readonly slot: string
       readonly revision: string
       readonly env: string
@@ -551,7 +551,7 @@ export type RuntimeEvent =
     }
   | {
       /** An overdue or abandoned attempt failed late; its cleanups ran. An overdue attempt then follows its failure policy. */
-      readonly type: 'late-setup-failure'
+      readonly type: 'attempt-failed-late'
       readonly slot: string
       readonly revision: string
       readonly env: string
@@ -580,7 +580,7 @@ export type RuntimeEvent =
         readonly dependency: string
         readonly slot: string
         readonly revision: string
-        readonly state: string
+        readonly state: SlotState
       }[]
     }
   | {
@@ -589,12 +589,12 @@ export type RuntimeEvent =
        * rolling back or settling late); their resources are outside Syna
        * control. Once per Runtime close, after the grace given to late cleanups.
        */
-      readonly type: 'attempts-outstanding'
+      readonly type: 'runtime-attempts-outstanding'
       readonly attempts: readonly UnsettledAttemptInspection[]
     }
   | {
       /**
-       * The raw setup Promise of a timed-out or abandoned attempt was garbage-
+       * The raw setup Promise of an overdue or abandoned attempt was garbage-
        * collected before settling: nothing can resolve it any more. Cleanups the
        * attempt registered were run and the attempt is settled as failed.
        */
@@ -606,7 +606,7 @@ export type RuntimeEvent =
       readonly cleanupErrors: readonly unknown[]
     }
   | {
-      readonly type: 'foreign-thenable-setup'
+      readonly type: 'setup-returned-thenable'
       readonly slot: string
       readonly revision: string
       readonly env: string
@@ -631,14 +631,14 @@ export interface UnsettledAttemptInspection {
   readonly revision: string
   readonly env: string
   /**
-   * `timed-out`: a waiter's deadline passed, the attempt is overdue and still
+   * `overdue`: a waiter's deadline passed, the attempt is overdue and still
    * running under a live owner (its result will be adopted). `abandoned`: the
    * owner's close stopped waiting for the pending Promise. `rolling-back`: the
    * setup settled (failed, or its result was discarded) but its cleanups
    * outlived the close. `settling`: the Promise settled late or was found
    * unreachable and the late cleanups are running.
    */
-  readonly state: 'timed-out' | 'abandoned' | 'rolling-back' | 'settling'
+  readonly state: 'overdue' | 'abandoned' | 'rolling-back' | 'settling'
   readonly elapsedMs: number
 }
 
@@ -667,7 +667,7 @@ export interface RuntimeInspection {
   readonly liveEnvCount: number
   /**
    * Attempts the Runtime is still waiting on: overdue under a live owner
-   * (`timed-out`), abandoned by a closed owner, rolling back or settling late.
+   * (`overdue`), abandoned by a closed owner, rolling back or settling late.
    * A closed owner is `disposed` and no longer counted above; the Runtime
    * retains no Env graph for it, only this ledger, which holds each attempt
    * until it settles (or its setup Promise is collected: `attempt-unreachable`).
@@ -687,7 +687,7 @@ export type InspectionNodeKind =
   | 'service'
   | 'input'
   | 'binding'
-  | 'all'
+  | 'all-implementations'
   | 'entry'
 
 export interface EnvInspectionNode {
@@ -696,7 +696,7 @@ export interface EnvInspectionNode {
   readonly label: string
   readonly slotId: string
   readonly ownerEnvId: string
-  readonly state: string
+  readonly state: SlotState
   /** Present only while the slot is `starting` and a waiter's deadline has passed: milliseconds since the attempt became overdue. */
   readonly overdueMs?: number
   readonly dependencies: Readonly<Record<string, string>>
@@ -705,7 +705,7 @@ export interface EnvInspectionNode {
 export interface EnvInspection {
   readonly id: string
   readonly parentId?: string
-  readonly state: string
+  readonly state: EnvState
   readonly nodes: readonly EnvInspectionNode[]
   /**
    * The ledger entries this Env's close left behind: attempts of its own
@@ -742,10 +742,10 @@ export type ForkCause =
   | { readonly kind: 'input-provided'; readonly input: string }
   | { readonly kind: 'binding-changed'; readonly binding: string }
   | { readonly kind: 'structure-changed' }
-  | { readonly kind: 'anchor-dependency-mismatch'; readonly family: string; readonly via: string }
+  | { readonly kind: 'pinned-dependency-mismatch'; readonly family: string; readonly via: string }
   | { readonly kind: 'dependency-forked'; readonly via: string; readonly dependency: string }
 
-export type NodePlacement = 'inherited' | 'new' | 'forked'
+export type NodePlacement = 'reused' | 'new' | 'forked'
 
 export interface ExplainedNode {
   readonly nodeId: string
@@ -759,7 +759,7 @@ export interface ExplainedNode {
 }
 
 export interface ExplainCounts {
-  readonly inherited: number
+  readonly reused: number
   readonly new: number
   readonly forked: number
 }
@@ -776,7 +776,7 @@ export interface EntryExplanationSuccess {
   }
   readonly services: ExplainCounts & {
     readonly eagerToStart: number
-    readonly eagerInherited: number
+    readonly eagerReused: number
   }
   readonly inputs: { readonly inherited: number; readonly provided: number }
   readonly synthetic: ExplainCounts

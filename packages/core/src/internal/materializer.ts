@@ -54,7 +54,7 @@ type RaceResult =
 
 /**
  * Ledger entry for an attempt the Runtime is still waiting on: its raw Promise
- * is pending after a waiter's deadline (`timed-out`: the attempt is overdue and
+ * is pending after a waiter's deadline (`overdue`: the attempt is overdue and
  * still running under a live owner) or after its owner's close (`abandoned`),
  * its setup ended but its rollback outlived the close (`rolling-back`), or its
  * late result is being cleaned up (`settling`). The record holds the attempt
@@ -270,7 +270,7 @@ export class Materializer {
 
   /** The attempts an Env's close left behind: its own slots' attempts that are abandoned, rolling back or settling. */
   abandonedAttemptsOf(envId: string): readonly UnsettledAttemptInspection[] {
-    return this.ledgerView(record => record.env === envId && record.state !== 'timed-out')
+    return this.ledgerView(record => record.env === envId && record.state !== 'overdue')
   }
 
   private ledgerView(include: (record: UnsettledRecord) => boolean): readonly UnsettledAttemptInspection[] {
@@ -319,7 +319,7 @@ export class Materializer {
     switch (slot.kind) {
       case 'input': return Promise.resolve(slot.payload)
       case 'binding': return this.load(slot.requires.get('target')!, options, requester)
-      case 'all':
+      case 'all-implementations':
       case 'entry': return Promise.resolve(slot.value)
       case 'service': return this.loadService(slot, options, requester)
     }
@@ -329,7 +329,7 @@ export class Materializer {
    * Starts every given eager slot and resolves when all are Ready; rejects with
    * the first failure. The activation is the waiter of each eager attempt, so
    * an eager setup that outlasts the deadline fails the activation with
-   * `INITIALIZATION_TIMEOUT` while the attempt keeps running; the rollback
+   * `LOAD_TIMEOUT` while the attempt keeps running; the rollback
    * that follows closes the new Env, and that close is what discards the late
    * result.
    */
@@ -389,7 +389,7 @@ export class Materializer {
 
   private reportAbandoned(slot: ServiceSlot, attempt: SetupAttempt): void {
     const record = this.unsettled.get(attempt.id)
-    if (record && record.state === 'timed-out') record.state = 'abandoned'
+    if (record && record.state === 'overdue') record.state = 'abandoned'
     this.options.onEvent({
       type: 'attempt-abandoned',
       phase: attempt.rawSettled ? 'rollback' : 'setup',
@@ -551,8 +551,8 @@ export class Materializer {
 
   /**
    * The waiter's deadline passed while its attempt is still running: only this
-   * wait ends (`INITIALIZATION_TIMEOUT`). The attempt is overdue from the first
-   * such timeout on — listed in the ledger as `timed-out`, `attempt-overdue`
+   * wait ends (`LOAD_TIMEOUT`). The attempt is overdue from the first
+   * such timeout on — listed in the ledger as `overdue`, `attempt-overdue`
    * reported once, its slot showing `overdueMs` — and keeps running; its
    * result is adopted if the owner is still ready and discarded only by a
    * close.
@@ -747,7 +747,7 @@ export class Materializer {
         const raw = slot.service.setup(Object.freeze(dependencyRefs) as never, lifecycle)
         if (isForeignThenable(raw)) {
           this.options.onEvent({
-            type: 'foreign-thenable-setup',
+            type: 'setup-returned-thenable',
             slot: slot.id,
             revision: slot.service.key,
             env: owner.id,
@@ -820,7 +820,7 @@ export class Materializer {
       attempt.state = 'failed'
       if (this.forgetOverdue(attempt)) {
         this.options.onEvent({
-          type: 'late-setup-failure',
+          type: 'attempt-failed-late',
           slot: slot.id,
           revision: slot.service.key,
           env: owner.id,
@@ -839,7 +839,7 @@ export class Materializer {
       attempt.state = 'failed'
       if (this.forgetOverdue(attempt)) {
         this.options.onEvent({
-          type: 'late-setup-result',
+          type: 'attempt-succeeded-late',
           slot: slot.id,
           revision: slot.service.key,
           env: owner.id,
@@ -873,7 +873,7 @@ export class Materializer {
       // and its cleanups run at disposal like any other. Only a close discards
       // a late success.
       this.options.onEvent({
-        type: 'late-setup-result',
+        type: 'attempt-succeeded-late',
         slot: slot.id,
         revision: slot.service.key,
         env: owner.id,
@@ -889,12 +889,12 @@ export class Materializer {
   }
 
   /**
-   * The attempt's first waiter timed out: it is overdue, listed as `timed-out`
+   * The attempt's first waiter timed out: it is overdue, listed as `overdue`
    * while it keeps running under its live owner. From now on it holds the raw
    * Promise only weakly, so that Promise's reachability bounds the record.
    */
   private registerOverdue(attempt: SetupAttempt, owner: SlotOwnerEnv): void {
-    this.registerUnsettled(attempt, owner, 'timed-out')
+    this.registerUnsettled(attempt, owner, 'overdue')
     const rawPromise = this.releaseRaw(attempt)
     if (rawPromise) this.watch(attempt, rawPromise)
     else attempt.endRace?.('unreachable')
@@ -927,7 +927,7 @@ export class Materializer {
   private registerUnsettled(
     attempt: SetupAttempt,
     owner: SlotOwnerEnv,
-    state: 'timed-out' | 'abandoned',
+    state: 'overdue' | 'abandoned',
   ): UnsettledRecord {
     const existing = this.unsettled.get(attempt.id)
     if (existing && existing.attempt === attempt) {
@@ -1053,7 +1053,7 @@ export class Materializer {
     }
     if (failure) {
       this.options.onEvent({
-        type: 'late-setup-failure',
+        type: 'attempt-failed-late',
         slot: slot.id,
         revision: slot.service.key,
         env: envId,
@@ -1063,7 +1063,7 @@ export class Materializer {
     }
     else {
       this.options.onEvent({
-        type: 'late-setup-result',
+        type: 'attempt-succeeded-late',
         slot: slot.id,
         revision: slot.service.key,
         env: envId,
@@ -1084,7 +1084,7 @@ export class Materializer {
     }))
     const suspectedWaitCycle = this.findSuspectedWaitCycle(slot)
     return new SynaError(
-      'INITIALIZATION_TIMEOUT',
+      'LOAD_TIMEOUT',
       `Setup of ${slot.service.key} did not complete within ${deadlineMs} ms.${
         suspectedWaitCycle
           ? ` Observed load() calls form a cycle (${suspectedWaitCycle.join(' -> ')}); this is an observation, not a proof of deadlock.`
