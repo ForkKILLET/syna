@@ -160,7 +160,7 @@ env.id; env.deps; env.state            // 'activating' | 'ready' | 'disposing' |
                                        // (its own and those of the descendants that close took down with it)
 env.enter(entry, parameters?, options?); env.run(...); env.check(...); env.explain(...)
 env.derive(reuse)                      // a child world with only reuse constraints ({ fresh, share })
-env.bind(entry)                        // BoundEntry anchored at this Env, public authority
+env.anchor(entry)                      // AnchoredEntry anchored at this Env, public authority
 env.inspect()                          // nodes with slot ids, owners and slot states
 env.dispose(); await env[Symbol.asyncDispose]()
 ```
@@ -171,9 +171,9 @@ Entering from an Env that is still `activating` rejects with `OWNER_NOT_READY`; 
 
 An Env is Ready when every eager slot it owns is Ready; inherited eager slots are already Ready in their owner. Closing: refuse new work and abort the owner signal, wait for descendants, wait for registered attempts (up to the disposal grace), then dispose owned Ready slots dependant-first over the SCC condensation. Business and cleanup errors are both kept (`AggregateError`, or `error.suppressed` for `run()`); when the callback of `run()` succeeded and only the close reports, the close error carries the callback's result as a non-enumerable `result` property. The close is bounded by one grace period per level of the tree; when it ends the Env has left the tree whatever is still outstanding (see the lifecycle notes). `runtime.dispose()` waits up to `disposal.graceMs` for attempts whose late cleanup is in progress (`settling`) and reports the rest.
 
-## BoundEntry
+## AnchoredEntry
 
-A Service that requires an Entry receives a `BoundEntry` anchored at the **owner Env of the Service slot** (not at any caller). Its roots resolve in the owner's private realm (exact and range alike); Contract discovery stays public. `enter()`/`run()` need a Ready anchor; `check()`/`explain()` only plan (no setup, no Env, no anchor, no Env id or slot id consumed — their plans are numbered `check-slot-N` / `check-choice-N`; they register the descriptors they meet, diagnose a drifted copy of a definition as `DUPLICATE_DEFINITION` exactly as `enter()` would whether the plan is solved or taken from the cache, and may fill the plan cache, all bounded by the static definition set, see `inspect().definitions`) and may run while the anchor activates.
+A Service that requires an Entry receives an `AnchoredEntry` anchored at the **owner Env of the Service slot** (not at any caller). Its roots resolve in the owner's private realm (exact and range alike); Contract discovery stays public. `enter()`/`run()` need a Ready anchor; `check()`/`explain()` only plan (no setup, no Env, no anchor, no Env id or slot id consumed — their plans are numbered `check-slot-N` / `check-choice-N`; they register the descriptors they meet, diagnose a drifted copy of a definition as `DUPLICATE_DEFINITION` exactly as `enter()` would whether the plan is solved or taken from the cache, and may fill the plan cache, all bounded by the static definition set, see `inspect().definitions`) and may run while the anchor activates.
 
 ```ts
 const UnitOfWork = define.service('unit-of-work', {
@@ -200,7 +200,7 @@ const explanation = await siteEnv.explain(RequestEntry, { request })
 if (explanation.ok) {
   explanation.services   // { inherited, new, forked, eagerToStart, eagerInherited }
   explanation.inputs     // { inherited, provided }
-  explanation.synthetic  // { inherited, new, forked }  (binding projections, collections, bound entries)
+  explanation.synthetic  // { inherited, new, forked }  (binding projections, collections, anchored entries)
   explanation.choices    // site → revision key
   explanation.forks      // every non-inherited node with { cause, path }
 } else {
@@ -234,3 +234,5 @@ Every 0.5 name below still works in 0.6.x exactly as before (same object or a fo
 | `scope` inside the parameter record of `enter`/`run`/`check`/`explain` | the separate options argument `{ reuse }` | one call may use one form, not both; `reuse` is never a parameter key |
 | `DeriveOptions` | `ReuseConstraints` | type alias |
 | `ScopeTarget` | `ReuseTarget` | type alias |
+| `env.bind(entry)` | `env.anchor(entry)` | same result object shape and checks; `bind` forwards to `anchor` |
+| `BoundEntry` | `AnchoredEntry` | type alias |

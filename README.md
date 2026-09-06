@@ -87,7 +87,7 @@ await runtime.run(AppEntry, { config: { connectionString: '...' } }, async ({ da
 })
 ```
 
-Key rules: `serviceRef.load()` is an ordinary Promise (catch, race and background loads work as JavaScript defines them); a Service-owned `BoundEntry` needs a Ready owner (`OWNER_NOT_READY` otherwise); reuse is parent-only; `explain()` tells you which nodes a child would inherit, create or fork and why.
+Key rules: `serviceRef.load()` is an ordinary Promise (catch, race and background loads work as JavaScript defines them); a Service-owned `AnchoredEntry` needs a Ready owner (`OWNER_NOT_READY` otherwise); reuse is parent-only; `explain()` tells you which nodes a child would inherit, create or fork and why.
 
 ## Documentation
 

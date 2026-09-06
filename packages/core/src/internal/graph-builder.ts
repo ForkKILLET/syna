@@ -14,7 +14,7 @@ import type {
   AllPlanNode,
   BindingChoiceSlot,
   BindingPlanNode,
-  BoundEntryPlanNode,
+  AnchoredEntryPlanNode,
   CompiledService,
   EnvPlanView,
   GraphBuildResult,
@@ -213,7 +213,7 @@ export class GraphBuilder {
         const entryRealm = owner?.kind === 'service'
           ? this.host.serviceRealm(owner.revision)
           : realm
-        const node: BoundEntryPlanNode = {
+        const node: AnchoredEntryPlanNode = {
           id: nodeId,
           kind: 'entry',
           label: `${dependency.id}@${site}`,

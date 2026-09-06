@@ -198,7 +198,7 @@ export interface AllPlanNode extends BasePlanNode {
   readonly candidates: readonly CompiledService[]
 }
 
-export interface BoundEntryPlanNode extends BasePlanNode {
+export interface AnchoredEntryPlanNode extends BasePlanNode {
   readonly kind: 'entry'
   readonly entry: EntryDescriptor
   readonly dependencySite: string
@@ -212,7 +212,7 @@ export type PlanNode =
   | BindingPlanNode
   | SelectorPlanNode
   | AllPlanNode
-  | BoundEntryPlanNode
+  | AnchoredEntryPlanNode
 
 export interface NodeExplanation {
   readonly disposition: 'inherited' | 'new' | 'forked'

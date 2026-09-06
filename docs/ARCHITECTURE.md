@@ -8,7 +8,7 @@ packages/core/src/
 ├── semver.ts                           thin wrapper over npm `semver` (includePrerelease)
 ├── loading.ts                          loadAll()
 ├── graph.ts                            SCC discovery, dependant-first order
-├── runtime.ts                          RuntimeImpl / EnvImpl: entry points, BoundEntry, activation & closing order
+├── runtime.ts                          RuntimeImpl / EnvImpl: entry points, AnchoredEntry, activation & closing order
 └── internal/
     ├── identity.ts                     nominal identity, structural signatures, ordering helpers
     ├── definition-compiler.ts          DefinitionCompiler: admission, private closure, CompiledService, overrides, realms
@@ -32,7 +32,7 @@ packages/core/src/
 - **EntryPlanner** owns everything about a plan: parameters, choices (with the search budget), the parent-only reuse fixed point with fork causes, persistent lineage anchors, slot allocation, plan-template caching and `explain()`. It cannot start a setup: it has no reference to the Materializer.
 - **ImplementationDirectory / views** are the single implementation of candidate identity, persistent-ref resolution and policy-order validation shared by `C.all`, the compatibility selector and the catalog.
 - **Materializer** realizes already-created slots: one attempt per slot at a time, waiters joining the sequence promise, per-attempt refs that record pending loads for diagnostics only, deadlines, retry/backoff with owner-signal cancellation, recovery after exhaustion, discard-and-report of late results, dependant-first disposal. It never changes topology or versions.
-- **RuntimeImpl / EnvImpl** wire the pieces: planning entry points (`enter`, `check`, `explain`), Ready-anchor enforcement for BoundEntry, synthetic values (collections, bound entries), activation (start owned eager slots) and the closing order.
+- **RuntimeImpl / EnvImpl** wire the pieces: planning entry points (`enter`, `check`, `explain`), Ready-anchor enforcement for AnchoredEntry, synthetic values (collections, anchored entries), activation (start owned eager slots) and the closing order.
 
 ## What the boundaries prevent
 

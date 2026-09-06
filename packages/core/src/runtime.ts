@@ -1,6 +1,6 @@
 import packageJson from '../package.json' with { type: 'json' }
 import type {
-  BoundEntry,
+  AnchoredEntry,
   Contract,
   CreateRuntimeOptions,
   DependencyMap,
@@ -252,8 +252,13 @@ class EnvImpl<Requires extends DependencyMap> implements EnvHandle<Requires> {
     return this.runtime.enterFrom(this, internalDeriveEntry, { parameters: undefined, reuse }, PUBLIC_REALM)
   }
 
-  bind<E extends EntryDescriptor<any, any>>(descriptor: E): BoundEntry<E> {
-    return this.runtime.createBoundEntry(descriptor, this.id, PUBLIC_REALM)
+  anchor<E extends EntryDescriptor>(descriptor: E): AnchoredEntry<E> {
+    return this.runtime.createAnchoredEntry(descriptor, this.id, PUBLIC_REALM)
+  }
+
+  /** @deprecated R2 alias of `anchor()`; removed in 0.7.0. */
+  bind<E extends EntryDescriptor>(descriptor: E): AnchoredEntry<E> {
+    return this.anchor(descriptor)
   }
 
   inspect(): EnvInspection {
@@ -476,7 +481,7 @@ class RuntimeImpl implements SynaRuntime, ImplementationViewHost {
   }
 
   /**
-   * A BoundEntry is anchored at one Env id. Entering requires that Env to be
+   * An AnchoredEntry is anchored at one Env id. Entering requires that Env to be
    * Ready: an owner that is still activating yields OWNER_NOT_READY, a plain
    * rejected Promise the caller may catch. Planning (`check`/`explain`) only
    * plans: it runs no setup, publishes no Env, leaves no anchor and consumes no
@@ -484,27 +489,28 @@ class RuntimeImpl implements SynaRuntime, ImplementationViewHost {
    * both bounded by the static definition set. It is allowed while the anchor
    * activates.
    */
-  createBoundEntry<E extends EntryDescriptor<any, any>>(
+  createAnchoredEntry<E extends EntryDescriptor<any, any>>(
     descriptor: E,
     anchorEnvId: string,
     realm: ResolutionRealm,
-  ): BoundEntry<E> {
+  ): AnchoredEntry<E> {
     const anchor = (): EnvImpl<any> => this.requireEnv(anchorEnvId)
-    const enterBound = (...args: EntryArguments<E>): Promise<EnvHandle<E['requires']>> =>
+    // async: a dead anchor (`requireEnv`) rejects, as in 0.5, instead of throwing synchronously.
+    const enterAnchored = async (...args: EntryArguments<E>): Promise<EnvHandle<E['requires']>> =>
       withCall(args[0], args[1], call => this.enterFrom(anchor(), descriptor, call, realm))
 
-    const runBound = async <Result>(...args: EntryRunArguments<E, Result>): Promise<Result> => {
+    const runAnchored = async <Result>(...args: EntryRunArguments<E, Result>): Promise<Result> => {
       const { call, callback } = runCall(args)
       const child = await this.enterFrom(anchor(), descriptor, call, realm)
       return this.executeStructured(child, () => Promise.resolve(callback(child.deps, child)))
     }
 
     return Object.freeze({
-      enter: enterBound,
-      run: runBound,
-      check: (...args: EntryArguments<E>) =>
+      enter: enterAnchored,
+      run: runAnchored,
+      check: async (...args: EntryArguments<E>) =>
         withCall(args[0], args[1], call => this.checkFrom(anchor(), descriptor, call, realm, true)),
-      explain: (...args: EntryArguments<E>) =>
+      explain: async (...args: EntryArguments<E>) =>
         withCall(args[0], args[1], call => this.explainFrom(anchor(), descriptor, call, realm, true)),
     })
   }
@@ -675,7 +681,7 @@ class RuntimeImpl implements SynaRuntime, ImplementationViewHost {
       }
       else if (node.kind === 'all') slot.value = createImplementationSet(this, node, slot, env.id)
       else if (node.kind === 'entry') {
-        slot.value = this.createBoundEntry(node.entry, this.anchorEnvId(node.anchorNodeId, env), node.realm)
+        slot.value = this.createAnchoredEntry(node.entry, this.anchorEnvId(node.anchorNodeId, env), node.realm)
       }
       Object.freeze(slot.requires)
     }

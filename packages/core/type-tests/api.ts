@@ -3,11 +3,14 @@ import {
   definePackage,
   loadAll,
   serviceRange,
+  type AnchoredEntry,
+  type BoundEntry,
   type DependencyRef,
   type DeriveOptions,
   type EntryExplanation,
   type EntryOptions,
   type EntryParameters,
+  type EnvHandle,
   type InputRef,
   type ReuseConstraints,
   type ReuseTarget,
@@ -179,6 +182,23 @@ const scopedValues: EntryParameters<typeof Root> = { ...validInput, scope: { fre
 void scopedValues
 // @ts-expect-error Options carry only `reuse`.
 void runtime.enter(Scoped, {}, { fresh: [Minimal] })
+
+// R2 (v0.6): env.anchor(entry) creates an AnchoredEntry; a Service requiring an Entry receives one.
+declare const someEnv: EnvHandle
+const anchoredNoParams: AnchoredEntry<typeof NoParams> = someEnv.anchor(NoParams)
+const legacyBound: BoundEntry<typeof NoParams> = someEnv.bind(NoParams)
+const stillAnchored: AnchoredEntry<typeof NoParams> = legacyBound
+void [anchoredNoParams, stillAnchored]
+void anchoredNoParams.run(async ({ minimal }) => (await minimal.load()).ping())
+void anchoredNoParams.enter({}, { reuse: { fresh: [Minimal] } })
+const UnitOfWork = define.service('unit-of-work', {
+  requires: { work: NoParams },
+  async setup({ work }) {
+    const anchored: AnchoredEntry<typeof NoParams> = await work.load()
+    return { run: () => anchored.run(async ({ minimal }) => (await minimal.load()).ping()) }
+  },
+})
+void UnitOfWork
 
 // Input refs have no preload(); loadAll() therefore rejects them at compile time.
 const InputConsumer = define.service('input-consumer', {

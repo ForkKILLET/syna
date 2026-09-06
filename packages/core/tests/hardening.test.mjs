@@ -393,7 +393,7 @@ test('fresh and share may target a Service Family rather than one exact revision
   await runtime.dispose()
 })
 
-// v0.5 (MIGRATION M-05): no activation transaction. A BoundEntry anchored at an
+// v0.5 (MIGRATION M-05): no activation transaction. An AnchoredEntry anchored at an
 // owner that is still activating rejects with OWNER_NOT_READY; the rejection is
 // an ordinary Promise the setup may catch.
 test('an owner-bound Entry entered during owner activation rejects with OWNER_NOT_READY', async () => {

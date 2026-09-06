@@ -210,7 +210,7 @@ test('retry-on-next-load starts a fresh setup sequence after exhaustion', async 
 
 // v0.5 (MIGRATION M-05): an eager Service cannot open a child of its own
 // activating owner. A lazy Service whose owner is already Ready can.
-test('BoundEntry.enter needs a Ready owner: eager setup is refused, lazy setup in a Ready Env succeeds', async () => {
+test('AnchoredEntry.enter needs a Ready owner: eager setup is refused, lazy setup in a Ready Env succeeds', async () => {
   const define = makeDefine('v04.activation-child')
   const Child = define.entry('child', {})
   let eagerObserved

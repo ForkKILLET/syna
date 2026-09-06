@@ -186,13 +186,20 @@ export interface NormalizedServiceFailurePolicy {
   readonly cooldownMs: number
 }
 
-/** A dependency-bound Entry capability; invoking it creates a child of the Service slot owner. */
-export interface BoundEntry<E extends EntryDescriptor<any, any>> {
+/**
+ * An Entry anchored at one Env: invoking it creates a child of that Env. A
+ * Service that requires an Entry receives one anchored at the owner Env of its
+ * slot; `env.anchor(entry)` creates one anchored at `env`.
+ */
+export interface AnchoredEntry<E extends EntryDescriptor<any, any>> {
   enter(...args: EntryArguments<E>): Promise<EnvHandle<E['requires']>>
   run<Result>(...args: EntryRunArguments<E, Result>): Promise<Result>
   check(...args: EntryArguments<E>): Promise<EntryCheck>
   explain(...args: EntryArguments<E>): Promise<EntryExplanation>
 }
+
+/** @deprecated Use `AnchoredEntry`. Removed in 0.7.0. */
+export type BoundEntry<E extends EntryDescriptor> = AnchoredEntry<E>
 
 /** Every descriptor accepted in a Service or Entry `requires` map. */
 export type Dependency =
@@ -230,7 +237,7 @@ export type DependencyOutput<D> =
                 : UnwrapForward<D> extends AllImplementations<infer C>
                   ? ImplementationSet<C>
                   : UnwrapForward<D> extends EntryDescriptor<any, any>
-                    ? BoundEntry<UnwrapForward<D>>
+                    ? AnchoredEntry<UnwrapForward<D>>
                     : never
 
 export interface LoadOptions {
@@ -827,7 +834,10 @@ export interface EnvHandle<Requires extends DependencyMap = DependencyMap> {
   ): Promise<EntryExplanation>
 
   derive(reuse?: ReuseConstraints): Promise<EnvHandle<{}>>
-  bind<E extends EntryDescriptor<any, any>>(entry: E): BoundEntry<E>
+  /** An `AnchoredEntry` anchored at this Env (public authority). */
+  anchor<E extends EntryDescriptor>(entry: E): AnchoredEntry<E>
+  /** @deprecated Use `anchor()`. Removed in 0.7.0. */
+  bind<E extends EntryDescriptor>(entry: E): AnchoredEntry<E>
   inspect(): EnvInspection
   dispose(): Promise<void>
   [Symbol.asyncDispose](): Promise<void>

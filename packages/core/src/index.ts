@@ -18,6 +18,7 @@ export type { DiagnosticCode, SynaErrorCode } from './errors.js'
 
 export type {
   AllImplementations,
+  AnchoredEntry,
   AvailableImplementationCandidate,
   AutoImplementation,
   Awaitable,

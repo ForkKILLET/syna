@@ -79,7 +79,7 @@ test('R17 cache keys separate public and private realms, and templates never cro
   assert.equal(await (await app.deps.owner.load()).open(), true)
   // The same descriptor through the public realm must not hit the private template.
   await assert.rejects(app.enter(PrivateEntry), error => error.code === 'MISSING_SERVICE')
-  await assert.rejects(app.bind(PrivateEntry).enter(), error => error.code === 'MISSING_SERVICE')
+  await assert.rejects(app.anchor(PrivateEntry).enter(), error => error.code === 'MISSING_SERVICE')
   assert.equal(await (await app.deps.owner.load()).open(), true)
   await runtime.dispose()
 
@@ -104,7 +104,7 @@ test('R17 cache keys separate public and private realms, and templates never cro
   await shapeRuntime.dispose()
 })
 
-test('R18 10,000 request/BoundEntry churns do not grow live Envs, plan templates or registries', async () => {
+test('R18 10,000 request/AnchoredEntry churns do not grow live Envs, plan templates or registries', async () => {
   const define = makeDefine('v05.churn')
   const Request = define.input('request')
   const Capability = define.contract()

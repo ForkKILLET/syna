@@ -1,5 +1,5 @@
 import type {
-  BoundEntry,
+  AnchoredEntry,
   CandidateRef,
   Contract,
   EntryCheck,
@@ -35,11 +35,11 @@ export interface ImplementationViewHost {
     descriptor: EntryDescriptor,
     realm: ResolutionRealm,
   ): Promise<EntryCheck>
-  createBoundEntry<E extends EntryDescriptor<any, any>>(
+  createAnchoredEntry<E extends EntryDescriptor<any, any>>(
     descriptor: E,
     anchorEnvId: string,
     realm: ResolutionRealm,
-  ): BoundEntry<E>
+  ): AnchoredEntry<E>
   executeStructured<Result>(env: EnvHandle, callback: () => Promise<Result> | Result): Promise<Result>
   loadSlot(slot: RuntimeSlot, options?: LoadOptions): Promise<unknown>
 }
@@ -91,12 +91,12 @@ export async function createSelector(
   anchorEnvId: string,
 ): Promise<ImplementationSelector<any>> {
   const availabilityByRevision = new Map<string, CandidateAvailabilityInput>()
-  const boundEntryByRevision = new Map<string, BoundEntry<EntryDescriptor<{ implementation: ServiceRevision<any> }, {}>>>()
+  const anchoredEntryByRevision = new Map<string, AnchoredEntry<EntryDescriptor<{ implementation: ServiceRevision<any> }, {}>>>()
 
   for (const revision of node.candidates) {
     const entry = candidateEntry(host, node.contract, revision)
     const check = await host.checkPlanOnly(anchorEnvId, entry, PUBLIC_REALM)
-    boundEntryByRevision.set(revision.key, host.createBoundEntry(entry, anchorEnvId, PUBLIC_REALM))
+    anchoredEntryByRevision.set(revision.key, host.createAnchoredEntry(entry, anchorEnvId, PUBLIC_REALM))
     availabilityByRevision.set(
       revision.key,
       check.ok
@@ -123,8 +123,8 @@ export async function createSelector(
     input: ImplementationCandidate<any> | CandidateRef<any> | PersistentImplementationRef<any>,
   ): Promise<ImplementationLease<any>> => {
     const candidate = index.requireAvailable(input)
-    const boundEntry = boundEntryByRevision.get(index.revisionKey(candidate))!
-    const candidateEnv = await boundEntry.enter()
+    const anchoredEntry = anchoredEntryByRevision.get(index.revisionKey(candidate))!
+    const candidateEnv = await anchoredEntry.enter()
     return Object.freeze({
       env: candidateEnv,
       implementation: candidateEnv.deps.implementation,

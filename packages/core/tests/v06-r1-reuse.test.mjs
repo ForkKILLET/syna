@@ -124,7 +124,7 @@ test('R1 anchored (bound) entries accept the same call shapes', async () => {
   const Child = define.entry('child', { requires: { app: App }, parameters: { flag: Flag } })
   const runtime = createRuntime({ services: [Db, Cache, App, Config] })
   const root = await runtime.enter(Root, { flag: 1 })
-  const bound = root.bind(Child)
+  const bound = root.anchor(Child)
   const modern = shape(await bound.explain({ flag: 2 }, { reuse: { fresh: [Cache] } }))
   assert.deepEqual(shape(await bound.explain({ flag: 2, scope: { fresh: [Cache] } })), modern)
   assert.deepEqual(await bound.check({ flag: 2, scope: { share: [Db] } }), await bound.check({ flag: 2 }, { reuse: { share: [Db] } }))

@@ -11,6 +11,9 @@ const EXPECTED = [
   { path: 'ScopeTarget', replacement: 'ReuseTarget' },
   { path: 'EntryDescriptor.scope', replacement: 'reuse' },
   { path: 'EntryDefinition.scope', replacement: 'reuse' },
+  // R2 bind → anchor
+  { path: 'EnvHandle.bind', replacement: 'anchor' },
+  { path: 'BoundEntry', replacement: 'AnchoredEntry' },
   // 0.5 deprecations that Phase C deletes (no removal version required until then)
   { path: 'Contract.selector', legacy: true },
   { path: 'DependencyRef.preload', legacy: true },
@@ -30,7 +33,7 @@ test('every deprecated alias names its replacement and the 0.7.0 removal; nothin
     assert.ok(item, `${expected.path} is not in the public API`)
     assert.equal(item.deprecated, true, `${expected.path} must be @deprecated`)
     if (expected.legacy) continue
-    assert.match(item.note, new RegExp(`\`${expected.replacement}\``), `${expected.path}: note must name \`${expected.replacement}\` (got: ${item.note})`)
+    assert.match(item.note, new RegExp(`\`${expected.replacement}(\\(\\))?\``), `${expected.path}: note must name \`${expected.replacement}\` (got: ${item.note})`)
     assert.match(item.note, /Removed in 0\.7\.0/, `${expected.path}: note must name the removal version (got: ${item.note})`)
   }
   const unexpected = [...items].filter(([path, item]) => item.deprecated && !EXPECTED.some(expected => expected.path === path)).map(([path]) => path)
