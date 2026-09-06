@@ -131,6 +131,8 @@ const runtime = createRuntime({
 })
 ```
 
+`createRuntime(options)` returns a `Runtime` (the 0.5 type name `SynaRuntime` is a deprecated alias, removed in 0.7.0).
+
 - `services`: the immutable public admission set. Exact transitive dependencies form private definition realms.
 - `override(source, fake)`: construction-time definition override. Source keeps nominal identity, Contract membership, eagerness and metadata; the fake supplies `requires`/`setup`/`failure`/`setupDeadlineMs`. All resolution paths use the compiled view. Duplicate source, self and cycles are errors.
 - `initialization.deadlineMs`: default per-attempt setup deadline → `INITIALIZATION_TIMEOUT` with `details.pendingLoads` and an optional `details.suspectedWaitCycle` (an observation, not a proof).
@@ -236,3 +238,4 @@ Every 0.5 name below still works in 0.6.x exactly as before (same object or a fo
 | `ScopeTarget` | `ReuseTarget` | type alias |
 | `env.bind(entry)` | `env.anchor(entry)` | same result object shape and checks; `bind` forwards to `anchor` |
 | `BoundEntry` | `AnchoredEntry` | type alias |
+| `SynaRuntime` | `Runtime` | type alias; the only branded type name is `SynaError` |

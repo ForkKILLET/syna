@@ -26,9 +26,9 @@ import type {
   RuntimeInspection,
   RuntimePolicy,
   RuntimePolicyContext,
+  Runtime,
   ServiceFamily,
   ServiceRevision,
-  SynaRuntime,
 } from './descriptors.js'
 import { withDeprecatedScope } from './definition.js'
 import { diagnosticFromError, SynaError } from './errors.js'
@@ -297,7 +297,7 @@ class EnvImpl<Requires extends DependencyMap> implements EnvHandle<Requires> {
   }
 }
 
-class RuntimeImpl implements SynaRuntime, ImplementationViewHost {
+class RuntimeImpl implements Runtime, ImplementationViewHost {
   readonly policy: RuntimePolicy
   readonly catalog: RuntimeCatalog
   readonly roots = new Set<EnvImpl<any>>()
@@ -847,6 +847,6 @@ function collectMissingParameters(
   return { inputs: [...inputs].sort(), bindings: [...bindings].sort() }
 }
 
-export function createRuntime(options: CreateRuntimeOptions): SynaRuntime {
+export function createRuntime(options: CreateRuntimeOptions): Runtime {
   return new RuntimeImpl(options)
 }

@@ -14,6 +14,8 @@ const EXPECTED = [
   // R2 bind → anchor
   { path: 'EnvHandle.bind', replacement: 'anchor' },
   { path: 'BoundEntry', replacement: 'AnchoredEntry' },
+  // R3 SynaRuntime → Runtime
+  { path: 'SynaRuntime', replacement: 'Runtime' },
   // 0.5 deprecations that Phase C deletes (no removal version required until then)
   { path: 'Contract.selector', legacy: true },
   { path: 'DependencyRef.preload', legacy: true },

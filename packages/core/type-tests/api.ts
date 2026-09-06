@@ -14,7 +14,9 @@ import {
   type InputRef,
   type ReuseConstraints,
   type ReuseTarget,
+  type Runtime,
   type ScopeTarget,
+  type SynaRuntime,
   type ServiceFamily,
   type ServiceInstance,
   type ServiceRange,
@@ -182,6 +184,12 @@ const scopedValues: EntryParameters<typeof Root> = { ...validInput, scope: { fre
 void scopedValues
 // @ts-expect-error Options carry only `reuse`.
 void runtime.enter(Scoped, {}, { fresh: [Minimal] })
+
+// R3 (v0.6): createRuntime() returns a Runtime; SynaRuntime is the deprecated alias of the same type.
+const typedRuntime: Runtime = runtime
+const legacyRuntime: SynaRuntime = typedRuntime
+const backToRuntime: Runtime = legacyRuntime
+void backToRuntime.catalog.revisions('type-test.package/minimal')
 
 // R2 (v0.6): env.anchor(entry) creates an AnchoredEntry; a Service requiring an Entry receives one.
 declare const someEnv: EnvHandle

@@ -92,6 +92,7 @@ export type {
   ProvidedShape,
   ReuseConstraints,
   ReuseTarget,
+  Runtime,
   RuntimeCatalog,
   RuntimeEvent,
   RuntimeInspection,

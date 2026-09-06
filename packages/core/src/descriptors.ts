@@ -843,7 +843,7 @@ export interface EnvHandle<Requires extends DependencyMap = DependencyMap> {
   [Symbol.asyncDispose](): Promise<void>
 }
 
-export interface SynaRuntime {
+export interface Runtime {
   readonly catalog: RuntimeCatalog
 
   enter<E extends EntryDescriptor<any, any>>(
@@ -870,6 +870,9 @@ export interface SynaRuntime {
   dispose(): Promise<void>
   [Symbol.asyncDispose](): Promise<void>
 }
+
+/** @deprecated Use `Runtime`. Removed in 0.7.0. */
+export type SynaRuntime = Runtime
 
 type ContractApiUnion<Provides extends readonly Contract[]> =
   Provides[number] extends infer C
