@@ -24,7 +24,7 @@ New in 0.6 (the replacements; frozen from 0.6.0):
 | R6 | `RuntimePolicyContext.dependencySite` |
 | M1 | `limits: { setupDeadlineMs, disposalGraceMs, planningBudget, planCacheEntries }` (`RuntimeLimits`) with the defaults 30_000 / 2_000 / 10_000 / 512 |
 | M2 | `EntryParameters<E>` (the declared parameter map), `EntryArguments<E>` (the call-time values), `LoadedDependencies<Refs>` |
-| M3 | `FRESH_CONSTRAINT_FAILED` |
+| M3 | `FRESH_CONSTRAINT_FAILED` — split in 0.7.0 by throw site into `INACTIVE_REUSE_TARGET`, `INVALID_INHERITED_CHOICE` and `FOREIGN_CANDIDATE_REF` (`docs/MIGRATION_V06_TO_V07.md` §3) |
 | T1 | `SynaError<Code>` (a union discriminated by `code`), `SynaErrorOf<Code>`, `SynaErrorDetails`, `isSynaError(error, code?)`, `SynaErrorCode`, `DiagnosticCode` |
 | T2 | the single phantom field `__type` (type-level only; never documented as an API, never present at runtime) |
 

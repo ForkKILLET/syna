@@ -22,11 +22,19 @@ const RENAMED = {
     { from: 'implementationId', to: 'familyId', within: 'persistent-implementation-ref' },
   ],
   values: [
-    // M3: the error code CONSTRAINT_VIOLATION is FRESH_CONSTRAINT_FAILED (same trigger conditions, same details)
-    { key: 'code', from: 'CONSTRAINT_VIOLATION', to: 'FRESH_CONSTRAINT_FAILED' },
+    // M3 (0.6): the error code CONSTRAINT_VIOLATION became FRESH_CONSTRAINT_FAILED; S6 (0.7): the two recorded sites
+    // (an inactive `fresh` target) are INACTIVE_REUSE_TARGET (same trigger conditions, same message).
+    { key: 'code', from: 'CONSTRAINT_VIOLATION', to: 'INACTIVE_REUSE_TARGET' },
     { key: 'pickerRefJson', from: '{"kind":"persistent-implementation-ref","contractId":"snap/storage/v1","implementationId":"snap-memory","version":"^1.0.0"}', to: '{"kind":"persistent-implementation-ref","contractId":"snap/storage/v1","familyId":"snap-memory","version":"^1.0.0"}' },
   ],
 }
+
+// Fields added since 0.5.0 — { when(recorded object), key, value(current mapped value) } — set on every recorded
+// object `when` accepts, after the renames.
+const ADDED = [
+  // S6 (0.7): INACTIVE_REUSE_TARGET details carry the constraint kind; every recorded case is a `fresh` target.
+  { when: object => object.code === 'CONSTRAINT_VIOLATION' && typeof object.details === 'object', key: 'details', value: details => ({ constraint: 'fresh', ...details }) },
+]
 
 const applyRenames = value => {
   if (Array.isArray(value)) return value.map(applyRenames)
@@ -38,6 +46,7 @@ const applyRenames = value => {
     const replaced = RENAMED.values.find(entry => entry.key === key && entry.from === inner)
     out[target] = replaced ? replaced.to : applyRenames(inner)
   }
+  for (const added of ADDED) if (added.when(value)) out[added.key] = added.value(out[added.key])
   return out
 }
 

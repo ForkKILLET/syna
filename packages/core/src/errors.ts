@@ -9,11 +9,13 @@ export type SynaErrorCode =
   | 'AMBIGUOUS_IMPLEMENTATION'
   | 'DUPLICATE_DEFINITION'
   | 'ENTRY_ACTIVATION_FAILED'
-  | 'FRESH_CONSTRAINT_FAILED'
+  | 'FOREIGN_CANDIDATE_REF'
+  | 'INACTIVE_REUSE_TARGET'
   | 'INCOMPATIBLE_IMPLEMENTATION'
   | 'INITIALIZATION_TIMEOUT'
   | 'INVALID_DESCRIPTOR'
   | 'INVALID_ENV_STATE'
+  | 'INVALID_INHERITED_CHOICE'
   | 'LINEAGE_UNIQUENESS_CONFLICT'
   | 'LOAD_CANCELLED'
   | 'MISSING_AUTO_POLICY'
@@ -74,11 +76,10 @@ export type SynaErrorDetails = {
     readonly causeCode?: SynaErrorCode
     readonly causeDetails?: Readonly<Record<string, unknown>>
   }
-  readonly FRESH_CONSTRAINT_FAILED:
-    | { readonly env: string; readonly revision: string }
-    | { readonly env: string; readonly family: string }
-    | { readonly site: string; readonly selectedKey: string; readonly candidates: readonly string[] }
-    | { readonly expectedSourceSlot: string; readonly receivedSourceSlot: string }
+  readonly FOREIGN_CANDIDATE_REF: { readonly expectedSourceSlot: string; readonly receivedSourceSlot: string }
+  readonly INACTIVE_REUSE_TARGET:
+    | { readonly constraint: 'fresh' | 'share'; readonly env: string; readonly revision: string }
+    | { readonly constraint: 'fresh' | 'share'; readonly env: string; readonly family: string }
   readonly INCOMPATIBLE_IMPLEMENTATION:
     | { readonly binding: string; readonly contract: string; readonly reference: string }
     | { readonly binding: string; readonly revision: string }
@@ -119,6 +120,7 @@ export type SynaErrorDetails = {
     readonly revision?: string
     readonly attempt?: number
   }
+  readonly INVALID_INHERITED_CHOICE: { readonly site: string; readonly selectedKey: string; readonly candidates: readonly string[] }
   readonly LINEAGE_UNIQUENESS_CONFLICT:
     | {
         readonly family: string

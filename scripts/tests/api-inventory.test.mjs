@@ -40,6 +40,11 @@ const DELETED_MEMBERS_06 = ['Contract.selector', 'DependencyRef.preload', 'Servi
 // remnants: `CandidateAvailability`, `ImplementationCandidate.availability` and `AvailableImplementationCandidate`.
 const DELETED_07 = ['AvailableImplementationCandidate', 'BoundEntry', 'CandidateAvailability', 'DependencyRef', 'DeriveOptions', 'DisposalOptions', 'InitializationOptions', 'PersistentImplementationRef', 'PlanCacheOptions', 'PlanningOptions', 'ScopeTarget', 'SynaRuntime']
 const DELETED_MEMBERS_07 = ['CreateRuntimeOptions.disposal', 'CreateRuntimeOptions.initialization', 'CreateRuntimeOptions.planCache', 'CreateRuntimeOptions.planning', 'EntryDefinition.scope', 'EntryDescriptor.scope', 'EnvHandle.bind', 'ImplementationCandidate.availability', 'ImplementationRef.implementationId', 'RuntimePolicyContext.site']
+// 0.7 (§2.3): error codes split or removed — each code is one inventory item, its SynaErrorCode union member
+// (DiagnosticCode is the union alias plus UNKNOWN_ERROR; SynaErrorDetails is a mapped type; neither has per-code items).
+const codeItems = code => [`SynaErrorCode['${code}']`]
+const DELETED_CODES_07 = ['FRESH_CONSTRAINT_FAILED'].flatMap(codeItems)
+const NEW_CODES_07 = ['FOREIGN_CANDIDATE_REF', 'INACTIVE_REUSE_TARGET', 'INVALID_INHERITED_CHOICE'].flatMap(codeItems)
 const DELETED_07_OWNED = ['DisposalOptions.graceMs', 'InitializationOptions.deadlineMs', 'PlanCacheOptions.maxEntries', 'PlanningOptions.searchBudget']
 // Names the 0.6 consolidation introduced; every one of them stays.
 const KEPT = [
@@ -47,14 +52,14 @@ const KEPT = [
   'EntryParameters', 'EntryArguments', 'LoadedDependencies', 'SynaError', 'SynaErrorOf', 'SynaErrorConstructor', 'SynaErrorDetails', 'SynaErrorCode', 'DiagnosticCode', 'isSynaError',
   'EnvHandle.anchor', 'EntryDescriptor.reuse', 'RuntimePolicyContext.dependencySite', 'ImplementationRef.familyId', 'CreateRuntimeOptions.limits',
   'RuntimeLimits.setupDeadlineMs', 'RuntimeLimits.disposalGraceMs', 'RuntimeLimits.planningBudget', 'RuntimeLimits.planCacheEntries',
-  "SynaErrorCode['FRESH_CONSTRAINT_FAILED']", "SynaErrorCode['SHARE_CONSTRAINT_FAILED']", "DiagnosticCode['UNKNOWN_ERROR']",
+  "SynaErrorCode['SHARE_CONSTRAINT_FAILED']", "DiagnosticCode['UNKNOWN_ERROR']",
 ]
 // Names 0.7 adds to the public API (registered phase by phase: S6/S7 error codes and details, S1 inspection fields).
-const NEW_07 = []
-const ERROR_CODE_COUNT = 22
+const NEW_07 = [...NEW_CODES_07]
+const ERROR_CODE_COUNT = 24
 
 const deleted = [...DELETED_06, ...DELETED_07]
-const deletedMembers = [...DELETED_MEMBERS_06, ...DELETED_MEMBERS_07, ...DELETED_07_OWNED]
+const deletedMembers = [...DELETED_MEMBERS_06, ...DELETED_MEMBERS_07, ...DELETED_07_OWNED, ...DELETED_CODES_07]
 const isDeleted = item => deleted.some(name => item === name || item.startsWith(`${name}.`) || item.startsWith(`${name}[`)) || deletedMembers.includes(item)
 
 test('A01/A11 no deleted name survives and every kept name is exported', () => {
@@ -70,7 +75,7 @@ test(`A11 nothing is deprecated; the error-code union has ${ERROR_CODE_COUNT} me
   assert.deepEqual(deprecated, [], 'deprecated items in the public API')
   const codes = after.items.filter(item => /^SynaErrorCode\['/.test(item.path)).map(item => item.path.slice("SynaErrorCode['".length, -2))
   assert.equal(codes.length, ERROR_CODE_COUNT, codes.join(','))
-  assert.ok(!codes.includes('CONSTRAINT_VIOLATION') && !codes.includes('UNAVAILABLE_IMPLEMENTATION') && codes.includes('FRESH_CONSTRAINT_FAILED'))
+  assert.ok(!codes.includes('CONSTRAINT_VIOLATION') && !codes.includes('UNAVAILABLE_IMPLEMENTATION') && !codes.includes('FRESH_CONSTRAINT_FAILED') && codes.includes('INACTIVE_REUSE_TARGET'))
 })
 
 const before = path.join(root, 'work/v07/API_INVENTORY_BEFORE.json')
@@ -84,7 +89,7 @@ test('A11 the diff against the 0.6.0 record is exactly the registered 0.7 remova
   const beforePaths = new Set(record.items.map(item => item.path))
   const removed = [...beforePaths].filter(item => !paths.has(item)).sort()
   const added = [...paths].filter(item => !beforePaths.has(item)).sort()
-  assert.deepEqual(removed, [...DELETED_07, ...DELETED_MEMBERS_07, ...DELETED_07_OWNED].sort(), 'the removals are the 23 aliases with their owned members and the three selector remnants, nothing else')
+  assert.deepEqual(removed, [...DELETED_07, ...DELETED_MEMBERS_07, ...DELETED_07_OWNED, ...DELETED_CODES_07].sort(), 'the removals are the 23 aliases with their owned members, the three selector remnants and the split/removed error codes, nothing else')
   assert.deepEqual(added, [...NEW_07].sort(), 'the additions are the registered 0.7 names, nothing else')
   assert.equal(record.items.filter(item => item.deprecated).length, 23, 'the record carried the 23 deprecated aliases')
   const committedAfter = path.join(root, 'work/v07/API_INVENTORY_AFTER.json')

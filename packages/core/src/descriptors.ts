@@ -390,7 +390,7 @@ export type ReuseTarget = ServiceRevision<any> | ServiceFamily<any>
  * Reuse constraints of an Entry or of one call. `fresh` targets never reuse the
  * parent's slot (their reverse dependency closure is forked); `share` targets
  * must reuse it (`SHARE_CONSTRAINT_FAILED` otherwise). Targets that are not
- * active in the parent world fail with `FRESH_CONSTRAINT_FAILED`.
+ * active in the parent world fail with `INACTIVE_REUSE_TARGET`.
  */
 export interface ReuseConstraints {
   readonly fresh?: readonly ReuseTarget[]

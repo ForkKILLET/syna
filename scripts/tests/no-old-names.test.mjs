@@ -43,6 +43,8 @@ const OLD_NAMES = [
   // 0.7 (§2.2): the selector's last remnants
   [/\bCandidateAvailability\b|\bAvailableImplementationCandidate\b/, 'ImplementationCandidate (every C.all candidate is loadable)'],
   [/\.availability\b|\bavailability:\s/, 'set.load(candidate) (the availability field is gone)'],
+  // 0.7 (§2.3 S6): the code split by throw site
+  [/\bFRESH_CONSTRAINT_FAILED\b/, 'INACTIVE_REUSE_TARGET (inactive fresh/share target), INVALID_INHERITED_CHOICE or FOREIGN_CANDIDATE_REF'],
 ]
 
 const CODE_ROOTS = ['apps', 'benchmarks', 'scripts', '.github', 'packages/core/tests', 'packages/core/type-tests']
@@ -180,6 +182,7 @@ test('the scanner recognises every old name it is meant to catch', () => {
     'interface X { readonly __api?: T }',
     'if (candidate.availability.status !== "available") continue',
     'const usable: AvailableImplementationCandidate[] = []',
+    'if (error.code === "FRESH_CONSTRAINT_FAILED") {}',
   ]
   for (const sample of samples) {
     assert.ok(OLD_NAMES.some(([pattern]) => pattern.test(sample)), `not caught: ${sample}`)

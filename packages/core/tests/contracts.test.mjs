@@ -136,7 +136,7 @@ test('C.all CandidateRefs are exact and scoped to their own collection slot', as
   assert.ok(candidate)
   await assert.rejects(
     secondSet.load(candidate.ref),
-    error => error.code === 'FRESH_CONSTRAINT_FAILED',
+    error => error.code === 'FOREIGN_CANDIDATE_REF',
   )
   await runtime.dispose()
 })

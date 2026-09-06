@@ -40,7 +40,22 @@ v0.7 做三件事：删除 0.6 宣布到期的全部 23 个别名与 0.5 调用�
 
 ## §3 错误码映射
 
-（Phase C 填写：S6 `FRESH_CONSTRAINT_FAILED` 的拆分、S7 `INVALID_ENV_STATE` 的拆分与 `INVALID_DESCRIPTOR` 的统一 `details`、S8 `MISSING_IMPLEMENTATION` 的三种形状、S10 `asSynaError` 的 `details.cause`。）
+触发条件与消息文案逐字不变，只改码与 `details`；`docs/API_REFERENCE.md` 的错误表列出每个码的 `details`，`scripts/tests/api-inventory.test.mjs` 把每个码的三个清单项（`SynaErrorCode`、`DiagnosticCode`、`SynaErrorDetails`）登记为删除/新增。
+
+### S6 `FRESH_CONSTRAINT_FAILED` → 按抛出点拆成三个码
+
+0.6 的四个抛出点里只有一类和 `fresh` 有关。拆完后 `FRESH_CONSTRAINT_FAILED` 没有抛出点，从 `SynaErrorCode` 移除；`SHARE_CONSTRAINT_FAILED` 不动。
+
+| 抛出点 | 0.6 | 0.7 | `details` |
+|---|---|---|---|
+| `fresh` / `share` 目标修订在父世界不活动 | `FRESH_CONSTRAINT_FAILED` `{ env, revision }` | `INACTIVE_REUSE_TARGET` | `{ constraint: 'fresh' \| 'share', env, revision }` |
+| 同上，目标是 Family | `FRESH_CONSTRAINT_FAILED` `{ env, family }` | `INACTIVE_REUSE_TARGET` | `{ constraint, env, family }` |
+| 继承自父世系的解析在该位点不再是候选（两次规划之间该位点的依赖变了，例如 `forward()` 的目标） | `FRESH_CONSTRAINT_FAILED` | `INVALID_INHERITED_CHOICE` | `{ site, selectedKey, candidates }` |
+| `set.load()` 收到属于另一个集合的 `CandidateRef`（或带着它的候选） | `FRESH_CONSTRAINT_FAILED` | `FOREIGN_CANDIDATE_REF` | `{ expectedSourceSlot, receivedSourceSlot }` |
+
+可回溯集合（决定 `check()` / `explain()` 报告而非抛出、规划器是否回溯）用 `INACTIVE_REUSE_TARGET` 与 `INVALID_INHERITED_CHOICE` 顶替旧码，规划行为按构造不变；`FOREIGN_CANDIDATE_REF` 由 `ImplementationSet` 在运行时抛出，从不可回溯。快照：`v06-snapshots` 的 RENAMED 表把 0.5 记录的 `CONSTRAINT_VIOLATION` 映射到 `INACTIVE_REUSE_TARGET`，ADDED 表补上 `constraint: 'fresh'`；记录本身不变。测试：`packages/core/tests/v07-s6-reuse-errors.test.mjs`（四个抛出点各一，`details` 逐键断言）。
+
+（S7、S8、S10 随各自提交填写。）
 
 ## §4 语义修订 S1 / S2
 

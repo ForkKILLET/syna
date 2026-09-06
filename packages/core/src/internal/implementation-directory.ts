@@ -258,7 +258,7 @@ export class CandidateIndex<C extends Contract<any>> {
     }
     if (ref.sourceSlotId !== this.options.sourceSlotId) {
       throw new SynaError(
-        'FRESH_CONSTRAINT_FAILED',
+        'FOREIGN_CANDIDATE_REF',
         'CandidateRef belongs to another implementation collection.',
         {
           expectedSourceSlot: this.options.sourceSlotId,

@@ -112,7 +112,7 @@ test('call: options.reuse on enter/check/explain/run; scope inside the parameter
   // Errors: an inactive target, a bad target.
   const inactive = await root.check(Child, { flag: 2 }, { reuse: { fresh: [Other] } })
   assert.equal(inactive.ok, false)
-  assert.equal(inactive.error.code, 'FRESH_CONSTRAINT_FAILED')
+  assert.equal(inactive.error.code, 'INACTIVE_REUSE_TARGET')
   assert.equal(inactive.error.message, `fresh targets inactive Service Revision ${Other.key}.`)
   await assert.rejects(root.enter(Child, { flag: 2 }, { reuse: { fresh: ['not-a-service'] } }), { code: 'INVALID_DESCRIPTOR', message: 'Reuse targets must be Service revisions or families.' })
 
@@ -143,7 +143,7 @@ test('derive(): the argument is ReuseConstraints', async () => {
   assert.equal(derived.inspect().parentId, root.id)
   const cacheNode = derived.inspect().nodes.find(node => node.nodeId === `service:${Cache.key}`)
   assert.equal(cacheNode.ownerEnvId, derived.id)
-  await assert.rejects(root.derive({ fresh: [makeDefine('expired-unknown').service({ setup: () => ({}) })] }), { code: 'FRESH_CONSTRAINT_FAILED' })
+  await assert.rejects(root.derive({ fresh: [makeDefine('expired-unknown').service({ setup: () => ({}) })] }), { code: 'INACTIVE_REUSE_TARGET' })
   await runtime.dispose()
 })
 

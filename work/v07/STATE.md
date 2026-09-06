@@ -25,9 +25,18 @@ Task book: `SYNA_V07_EXECUTION_PROMPT.md` (untracked at the workspace root; neve
 - Docs: `DEFERRED` N2 removed (N-numbering keeps its gap), `MIGRATION_V06_TO_V07` §1 paragraph, `CHANGELOG` bullet. The current docs never described the field as unavailable and contain no selector / lease / pre-check wording beyond the "removed in 0.6" history lines and Hyla-mini's own working-set leases (grep, PROPOSAL §1).
 - Suites: `npm test` 186/186, `npm run typecheck` 0, `npm run test:scripts` 21/21, `npm run test:app` 122+14 / 0, any count OK.
 
-### Phase C — NEXT
+## Phase C — diagnostics (2026-09-06)
 
-Four commits: S6 (`FRESH_CONSTRAINT_FAILED` → `INACTIVE_REUSE_TARGET` / `INVALID_INHERITED_CHOICE` / `FOREIGN_CANDIDATE_REF`), S7 (`INVALID_ENV_STATE` → `ENV_CLOSED` / `RUNTIME_CLOSED` / `SLOT_NOT_LOADABLE` / `LIFECYCLE_MISUSE`; `INVALID_DESCRIPTOR` details `{ descriptor, problem, site?, path? }` over the 28 sites, table-driven), S8 (`MISSING_IMPLEMENTATION` three shapes), S10 (`asSynaError` details `cause: { name, message }`), each with per-site tests and the API_REFERENCE error table; `v06-snapshots` RENAMED gains the S6 value mapping.
+### C1 — S6: `FRESH_CONSTRAINT_FAILED` split by throw site — DONE (this commit)
+
+- Codes: `INACTIVE_REUSE_TARGET` (`{ constraint: 'fresh' | 'share', env, revision | family }`, both `validateScopeTargets` sites), `INVALID_INHERITED_CHOICE` (`{ site, selectedKey, candidates }`, `graph-builder.resolveChosenRevision`), `FOREIGN_CANDIDATE_REF` (`{ expectedSourceSlot, receivedSourceSlot }`, `CandidateIndex.require`). `FRESH_CONSTRAINT_FAILED` left `SynaErrorCode` (24 codes now). Messages verbatim. `solve-errors.ts` backtrackable set: the two planner codes replace the old one; `FOREIGN_CANDIDATE_REF` is a run-time throw of `set.load()` and never backtrackable (`set.resolve()` takes persistent refs only, `INVALID_DESCRIPTOR` otherwise — unchanged).
+- Tests: new `v07-s6-reuse-errors.test.mjs` — every site with every details key: INACTIVE_REUSE_TARGET × {fresh, share} × {revision, family} on `check()` (reported, `check-N`), `enter()` / `run()` / `derive()` (thrown, `env-N`) and a definition-time constraint; INVALID_INHERITED_CHOICE reproduced end-to-end through a `forward()` whose target moves between the parent's plan and the child's (a cached template is not re-solved, so the observing Entry must be unplanned in that lineage); FOREIGN_CANDIDATE_REF on `load(ref)` and `load(candidate)` with the mirror-image slot ids; no `FRESH_CONSTRAINT_FAILED` string in `dist/`. `v06-snapshots`: RENAMED value → `INACTIVE_REUSE_TARGET`, new ADDED table adds `constraint: 'fresh'` to the two recorded cases (the recording is unchanged). `contracts`, `v05-planner`, `v06-t1-errors` (`CODES`, detail keys), `v07-expired-forms` updated. `api-inventory`: `DELETED_CODES_07` / `NEW_CODES_07` (one inventory item per code: the `SynaErrorCode` member), count 24. `no-old-names`: pattern for the old code.
+- Docs: `API_REFERENCE` (error table rows for the three codes in alphabetical position, the `reuse` and `C.all` sentences), `API_STABILITY` M3 row, `DEFERRED` S6 row removed, `MIGRATION_V06_TO_V07` §3 S6 table, `CHANGELOG` Diagnostics paragraph.
+- Suites: `npm test` 190/190, `npm run typecheck` 0, `npm run test:scripts` 21/21, `npm run test:app` 122+14 / 0, any count OK.
+
+### C2 — S7 — NEXT
+
+`INVALID_ENV_STATE` → `ENV_CLOSED` (`{ env, state }` | `{ env, state, slot, revision }`), `RUNTIME_CLOSED` (`{}`), `SLOT_NOT_LOADABLE` (`{ slot, revision, state }`), `LIFECYCLE_MISUSE` (`{ slot, revision, attempt, state }`); unreachable sites 5/7/8/10 → internal `Error` (Q7); `INVALID_DESCRIPTOR` details `{ descriptor, problem, site?, path? }` over the 28 sites with the `problem` vocabulary of PROPOSAL §5, `CandidateRef.revisionKey` validated there (Q8); table-driven tests over every site; API_REFERENCE error table. Then C3 (S8 `MISSING_IMPLEMENTATION` three shapes) and C4 (S10 `asSynaError`).
 
 ## Later phases
 

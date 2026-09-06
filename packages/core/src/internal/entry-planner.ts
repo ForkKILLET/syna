@@ -825,18 +825,18 @@ export class EntryPlanner implements GraphBuilderHost {
     for (const key of targets.revisionKeys) {
       if (!activeKeys.has(key)) {
         throw new SynaError(
-          'FRESH_CONSTRAINT_FAILED',
+          'INACTIVE_REUSE_TARGET',
           `${kind} targets inactive Service Revision ${key}.`,
-          { env: envId, revision: key },
+          { constraint: kind, env: envId, revision: key },
         )
       }
     }
     for (const family of targets.familyIds) {
       if (!activeFamilies.has(family)) {
         throw new SynaError(
-          'FRESH_CONSTRAINT_FAILED',
+          'INACTIVE_REUSE_TARGET',
           `${kind} targets inactive Service Family ${family}.`,
-          { env: envId, family },
+          { constraint: kind, env: envId, family },
         )
       }
     }

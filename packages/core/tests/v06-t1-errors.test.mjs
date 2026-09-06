@@ -12,8 +12,8 @@ const root = new URL('../../../', import.meta.url)
 const read = path => readFileSync(new URL(path, root), 'utf8')
 
 const CODES = [
-  'AMBIGUOUS_IMPLEMENTATION', 'DUPLICATE_DEFINITION', 'ENTRY_ACTIVATION_FAILED', 'FRESH_CONSTRAINT_FAILED',
-  'INCOMPATIBLE_IMPLEMENTATION', 'INITIALIZATION_TIMEOUT', 'INVALID_DESCRIPTOR', 'INVALID_ENV_STATE',
+  'AMBIGUOUS_IMPLEMENTATION', 'DUPLICATE_DEFINITION', 'ENTRY_ACTIVATION_FAILED', 'FOREIGN_CANDIDATE_REF', 'INACTIVE_REUSE_TARGET',
+  'INCOMPATIBLE_IMPLEMENTATION', 'INITIALIZATION_TIMEOUT', 'INVALID_DESCRIPTOR', 'INVALID_ENV_STATE', 'INVALID_INHERITED_CHOICE',
   'LINEAGE_UNIQUENESS_CONFLICT', 'LOAD_CANCELLED', 'MISSING_AUTO_POLICY', 'MISSING_BINDING', 'MISSING_IMPLEMENTATION',
   'MISSING_INPUT', 'MISSING_SERVICE', 'OWNER_NOT_READY', 'PLANNING_BUDGET_EXCEEDED', 'ROLLBACK_FAILED',
   'RUNTIME_MISMATCH', 'SHARE_CONSTRAINT_FAILED', 'UNSATISFIABLE_TOPOLOGY', 'UNSETTLED_ATTEMPT',
@@ -70,11 +70,11 @@ test('T1 the details the Runtime produces have the documented keys', async () =>
   // MISSING_INPUT (Entry call omits a declared parameter).
   const missing = await capture(() => rootEnv.enter(Child, {}))
   assert.deepEqual(detailKeys(missing), ['entry', 'missing', 'missingBindings', 'missingInputs'])
-  // FRESH_CONSTRAINT_FAILED (inactive fresh target) — twice: revision and family form.
+  // INACTIVE_REUSE_TARGET (inactive fresh target; S6 in 0.7) — twice: revision and family form.
   const inactiveRevision = await capture(() => rootEnv.enter(Child, { flag: 1 }, { reuse: { fresh: [Other] } }))
-  assert.deepEqual(detailKeys(inactiveRevision), ['env', 'revision'])
+  assert.deepEqual(detailKeys(inactiveRevision), ['constraint', 'env', 'revision'])
   const inactiveFamily = await capture(() => rootEnv.enter(Child, { flag: 1 }, { reuse: { fresh: [Other.family] } }))
-  assert.deepEqual(detailKeys(inactiveFamily), ['env', 'family'])
+  assert.deepEqual(detailKeys(inactiveFamily), ['constraint', 'env', 'family'])
   // INVALID_DESCRIPTOR (bad reuse target; all keys optional).
   const invalid = await capture(() => rootEnv.enter(Child, { flag: 1 }, { reuse: { fresh: ['nope'] } }))
   assert.equal(invalid.code, 'INVALID_DESCRIPTOR')
