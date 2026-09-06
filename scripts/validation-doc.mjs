@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Generates docs/VALIDATION.md from the machine-readable results of one orchestrator run.
 //
-//   node scripts/validation-doc.mjs [validation/v0.6-release] [docs/VALIDATION.md]
+//   node scripts/validation-doc.mjs [validation/v0.7-release] [docs/VALIDATION.md]
 //
 // Every number in the document comes from manifest.json, benchmark-v0.5.json, working-set.json,
 // the consumer-run log and the two same-machine v0.4 comparison files under benchmarks/.
@@ -10,7 +10,7 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 
 const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..')
-const runDir = process.argv[2] ?? 'validation/v0.6-release'
+const runDir = process.argv[2] ?? 'validation/v0.7-release'
 const outFile = process.argv[3] ?? 'docs/VALIDATION.md'
 const json = file => JSON.parse(readFileSync(path.resolve(root, file), 'utf8'))
 
@@ -26,11 +26,14 @@ const recordFile = path.join(runDir, 'benchmark-compare.json')
 const compareFile = existsSync(path.resolve(root, sameSessionFile)) ? sameSessionFile : recordFile
 const comparison = existsSync(path.resolve(root, compareFile)) ? json(compareFile) : null
 const sameSession = compareFile === sameSessionFile
-const sessionBaseline = sameSession ? json(path.join(runDir, 'benchmark-compare/baseline-v0.5.0-same-session.json')) : null
+const sessionBaselineFile = ['baseline-v0.6.0-same-session.json', 'baseline-v0.5.0-same-session.json'].map(name => path.join(runDir, 'benchmark-compare', name)).find(file => existsSync(path.resolve(root, file)))
+const sessionBaseline = sameSession && sessionBaselineFile ? json(sessionBaselineFile) : null
 const sessionCurrentFile = path.join(runDir, 'benchmark-compare/current-same-session.json')
 const sessionCurrent = sameSession && existsSync(path.resolve(root, sessionCurrentFile)) ? json(sessionCurrentFile) : null
 const driftFile = path.join(runDir, 'benchmark-compare/record-drift.json')
 const drift = sameSession && existsSync(path.resolve(root, driftFile)) ? json(driftFile) : null
+// The version the comparison's baseline side was built from (the median files record the core's package version).
+const baselineVersion = sessionBaseline?.core?.version ?? (comparison && existsSync(path.resolve(root, comparison.baseline)) ? json(comparison.baseline).core?.version : null) ?? 'baseline'
 
 const ms = value => (typeof value === 'number' ? value.toFixed(3) : '—')
 const mib = bytes => (bytes / (1024 * 1024)).toFixed(1)
@@ -108,22 +111,22 @@ for (const item of benchmark.budgets) out(`| ${item.budget} | ${item.metric} | $
 out('')
 
 if (comparison) {
-  out(`### v0.5.0 comparison on the same machine (\`${compareFile}\`)`, '')
+  out(`### ${baselineVersion} comparison on the same machine (\`${compareFile}\`)`, '')
   const tolerance = Math.round(comparison.tolerance * 100)
   const rows = comparison.rows
   const equal = rows.filter(row => row.check === 'equal')
   const timed = rows.filter(row => row.check !== 'equal')
   const runCount = sessionCurrent ? sessionCurrent.runs : comparison.current.replace('median of ', '').replace(' fresh runs', '')
   const baselineText = sameSession
-    ? `the 0.5.0 source (commit \`${short(sessionBaseline.sourceCommit)}\`) exported from git into a scratch directory, installed from its lockfile, built and benchmarked ${sessionBaseline.runs} times in the same session (\`scripts/benchmark-same-session.mjs\`${sessionCurrent ? `: one discarded warm-up run per side, then ${sessionCurrent.runs} rounds that benchmark both sides in alternating order` : ''}; medians in \`${path.join(runDir, 'benchmark-compare/')}\`)`
-    : `\`${comparison.baseline}\` (the 0.5.0 median of 7 runs recorded earlier on the same machine)`
+    ? `the ${baselineVersion} source (commit \`${short(sessionBaseline.sourceCommit)}\`) exported from git into a scratch directory, installed from its lockfile, built and benchmarked ${sessionBaseline.runs} times in the same session (\`scripts/benchmark-same-session.mjs\`${sessionCurrent ? `: one discarded warm-up run per side, then ${sessionCurrent.runs} rounds that benchmark both sides in alternating order` : ''}; medians in \`${path.join(runDir, 'benchmark-compare/')}\`)`
+    : `\`${comparison.baseline}\` (the ${baselineVersion} median recorded earlier on the same machine)`
   out(`${sessionCurrent ? '`scripts/benchmark-same-session.mjs`' : '`scripts/benchmark-compare.mjs compare`'} ran \`benchmarks/v0.5-planning.mjs\` ${runCount} times on this host, took the element-wise median and compared it with ${baselineText}: environment ${comparison.comparable ? 'identical' : 'DIFFERENT'} (${comparison.environment.map(row => `${row.key} ${row.current}`).join(', ')}); ${timed.filter(row => row.ok).length}/${timed.length} p50/p95/per-operation values within ±${tolerance} %; ${equal.filter(row => row.ok).length}/${equal.length} plan-cache counters and shape counts equal; overall ${comparison.ok ? 'OK' : 'FAILED'}.`, '')
   if (drift) {
     const driftTimed = drift.rows.filter(row => row.check !== 'equal')
     const outside = driftTimed.filter(row => !row.ok)
-    out(`Machine-state drift (informational): this session's 0.5.0 against the file recorded on ${json(drift.baseline).generatedAt} (\`${drift.baseline}\`) has ${driftTimed.length - outside.length}/${driftTimed.length} timings within ±${tolerance} %${outside.length > 0 ? `; outside: ${outside.map(row => `${row.path} ${row.delta >= 0 ? '+' : ''}${(row.delta * 100).toFixed(1)} %`).join(', ')}` : ''} — the same code measured at two moments, which is why both sides are measured in one session.`, '')
+    out(`Machine-state drift (informational): this session's ${baselineVersion} against the file recorded on ${json(drift.baseline).generatedAt} (\`${drift.baseline}\`) has ${driftTimed.length - outside.length}/${driftTimed.length} timings within ±${tolerance} %${outside.length > 0 ? `; outside: ${outside.map(row => `${row.path} ${row.delta >= 0 ? '+' : ''}${(row.delta * 100).toFixed(1)} %`).join(', ')}` : ''} — the same code measured at two moments, which is why both sides are measured in one session.`, '')
   }
-  out('| value | baseline | v0.6 | delta |', '|---|---:|---:|---:|')
+  out(`| value | baseline (${baselineVersion}) | this source (${manifest.version}) | delta |`, '|---|---:|---:|---:|')
   for (const row of timed) out(`| ${row.path} | ${ms(row.baseline)} | ${ms(row.current)} | ${row.delta === null ? '—' : `${row.delta >= 0 ? '+' : ''}${(row.delta * 100).toFixed(1)} %`}${row.ok ? '' : ' (outside tolerance)'} |`)
   out('')
   const unequal = equal.filter(row => !row.ok)
@@ -169,13 +172,13 @@ if (existsSync(latencyFile)) {
 out('## Audit and review fixes covered by this run', '')
 out('The suites above include the regressions written for the independent audits and for the second and third review rounds (`docs/AUDIT.md`): `packages/core/tests/v05-audit-lifecycle.test.mjs`, `v05-audit-planning.test.mjs` and `v05-review-lifecycle.test.mjs` inside `core-tests` (the third round\'s core cases live in the `v05-*` files named in `work/v05/ISSUES.md` I-58…I-65), `apps/hyla-mini/tests/audit-app.test.mjs` and `apps/hyla-mini/tests/review-app.test.mjs` as their own steps, the site-manager, render and preflight cases of the third round inside their steps, and the repository-conformance cases (content version, domain claims and concurrent claims, tenant-scoped post identity, configuration validation) inside the filesystem and PostgreSQL suites. The demo steps are self-asserting: the Hyla-mini demo must print `demo: OK` and three `: 200` cells, and the `demos` step must print `demo: OK` once per core demo (each checks its own results); exit 0 alone is not enough. The `gate-self-tests` step covers the gate\'s own tooling (step process groups, cluster script signal forwarding).', '')
 
-out('## v0.6 API consolidation evidence in this run', '')
+out('## v0.7 evidence in this run', '')
 const named = name => manifest.steps.find(step => step.name === name)
-const describe = name => { const step = named(name); return step ? (step.tests ? `${step.tests.pass}/${step.tests.tests} pass` : step.mustRun === false ? `recorded, not a test: ${step.note ?? ''}` : `exit ${step.exitCode}`) : 'not run' }
-out(`The zero-semantic-change claim of 0.6 rests on steps of this run: \`core-tests\` includes \`v06-snapshots.test.mjs\` (check/explain/inspect/catalog/error snapshots recorded on 0.5.0, identical apart from the renamed fields), \`reference-planner.test.mjs\` (brute-force planner differential) and the six \`v06-r*\` migration-equivalence suites; \`gate-self-tests\` (${describe('gate-self-tests')}) includes the deprecation list, the no-old-names scan of every application, benchmark and script, the README example compiled and run as printed, the public-API inventory assertions and the \`any\` budget; \`api-inventory\` (${describe('api-inventory')}) and \`api-inventory-diff\` (${describe('api-inventory-diff')}) record the public API of this source and its diff against the 0.5.0 record; \`any-count\` (${describe('any-count')}) checks every file against \`scripts/any-baseline-v0.5.0.json\`; \`benchmark-compare\` (${describe('benchmark-compare')}) is the same-machine comparison above.`, '')
+const describe = name => { const step = named(name); return step ? (step.tests ? `${step.tests.pass}/${step.tests.tests} pass` : step.mustRun === false ? `recorded, not a test: ${step.note ?? ''}` : step.note ? `${step.ok ? 'ok' : 'FAIL'}: ${step.note}` : `exit ${step.exitCode}`) : 'not run' }
+out(`The 0.7 claims rest on steps of this run. Planning layer unchanged: \`core-tests\` includes \`v06-snapshots.test.mjs\` (the check/explain/inspect/catalog/error snapshots recorded on 0.5.0, identical apart from the registered renames and the two registered additions) and \`reference-planner.test.mjs\` (brute-force planner differential). Deletions, diagnostics and the two semantic revisions: the \`v07-*\` suites in \`core-tests\` — \`v07-expired-forms\` and \`v07-legacy-implementation-key\` (the 23 removed aliases refused, the serialized key read permanently), \`v07-s6-reuse-errors\`, \`v07-s7-env-state\`, \`v07-s7-invalid-descriptor\`, \`v07-s8-missing-implementation\`, \`v07-s10-as-syna-error\` (every throw site of the split and tightened codes, \`details\` asserted key by key), \`v07-s1-waiter-deadline\` and \`v07-s2-state-and-ledger\` (the counter-examples of S1 and S2; no state assertion depends on \`--expose-gc\`) — and \`hyla-review-regression-tests\` for the application's close report. \`gate-self-tests\` (${describe('gate-self-tests')}) includes the empty deprecation register, the no-old-names scan of every application, benchmark, script, workflow and test suite for the deleted names and the removed error codes, the README example compiled and run as printed, the public-API inventory assertions (exactly the registered removals and additions against the 0.6.0 record) and the \`any\` budget; \`api-inventory\` (${describe('api-inventory')}), \`api-inventory-no-deprecated\` (${describe('api-inventory-no-deprecated')}) and \`api-inventory-diff\` (${describe('api-inventory-diff')}) record the public API of this source, assert that no item of it is deprecated and diff it against the 0.6.0 record; \`any-count\` (${describe('any-count')}) checks every file against \`scripts/any-baseline-v0.6.0.json\`; \`benchmark-compare\` (${describe('benchmark-compare')}) is the same-machine comparison with 0.6.0 above.`, '')
 
 out('## What is not covered', '')
-out('- Coverage percentages are not a gate in v0.6; the adversarial and application suites are.')
+out('- Coverage percentages are not a gate in v0.7; the adversarial and application suites are.')
 out('- Benchmarks use empty setups; Hyla-mini request latency (section above) is reported end to end on this machine but is not a budget and not a cross-machine claim.')
 out('- The gate ran with no other workload on the machine; single-run timings still carry noise (see the v0.4 comparison for the spread between two runs of the same code).')
 

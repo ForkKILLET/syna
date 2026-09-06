@@ -135,7 +135,7 @@ v0.7 做三件事：删除 0.6 宣布到期的全部 23 个别名与 0.5 调用�
 - `await env.dispose().catch(…)` / `runtime.dispose().catch(…)` 里按 `code === 'UNSETTLED_ATTEMPT'` 分支的代码：该拒绝不再发生；改为订阅 `attempt-abandoned` / `attempts-outstanding`，或在关闭后读 `runtime.inspect().unsettledAttempts` / `env.inspect().abandonedAttempts`。仍需处理的拒绝只有 cleanup 抛出的 `AggregateError`。
 - 轮询 `env.state === 'disposing'` 以等待迟到 attempt 结算的代码：`state` 在有界关闭结束时即为 `'disposed'`；要等待结算，改为等待 `runtime.inspect().unsettledAttempts` 变空（或对应的 `late-setup-*` / `attempt-unreachable` 事件）。
 - 把 `state === 'disposed'` 当作"所有资源已释放"的代码：被放弃的 attempt 迟到兑现时其 cleanup 才执行；账本为空才是资源全部释放的信号。
-- `run()` 的调用方：回调成功且关闭只放弃了 attempt时得到结果本身，不再是带 `result` 的错误。
+- `run()` 的调用方：回调成功且关闭只放弃了 attempt 时得到结果本身，不再是带 `result` 的错误。
 - 依赖 `--expose-gc` 断言 `state` 的测试：0.7 中没有任何 `state` 断言依赖 GC；GC 相关断言只剩账本收缩与 `attempt-unreachable`。
 - Hyla-mini：`SiteManagerSettings.onDisposalError` 不再因被放弃的 attempt 被调用；`HylaApp.close()` 的 `errors` 只含 cleanup 错误，`unsettledAttempts` 仍来自账本。
 
@@ -144,3 +144,5 @@ v0.7 做三件事：删除 0.6 宣布到期的全部 23 个别名与 0.5 调用�
 1. 升级后先跑类型检查：每个过期名字都是编译错误（缺失的导出、多余的属性），没有静默通过的别名。
 2. 跑测试：三处运行时拒绝——定义里的 `scope`、参数记录里的 `scope` / `reuse`、`createRuntime()` 的四个嵌套记录——都是带出路的 `TypeError`。
 3. 数据不需要重写。想找出仍是 0.5 形式的存储文档，订阅 `diagnostics.onEvent` 里的 `legacy-implementation-ref`（`site` 说明是哪条读取路径）。
+4. 按 §3 改错误分支：`isSynaError(e, 'FRESH_CONSTRAINT_FAILED')` → 三个码之一；`isSynaError(e, 'INVALID_ENV_STATE')` → 四个码之一；`UNSETTLED_ATTEMPT` 分支删除；读 `INVALID_DESCRIPTOR` / `MISSING_IMPLEMENTATION` 的 `details` 的代码按新形状取键。类型层面每个已删除的码都是编译错误。
+5. 按 §4 检查 S1/S2 的用户代码模式：把 `INITIALIZATION_TIMEOUT` 当作"attempt 已死"的分支、依赖"迟到成功会被丢弃"的清理逻辑、`dispose().catch(…)` 里的 `UNSETTLED_ATTEMPT` 分支、轮询 `env.state === 'disposing'` 的等待逻辑、以 `--expose-gc` 断言 `state` 的测试。

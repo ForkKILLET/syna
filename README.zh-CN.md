@@ -1,10 +1,10 @@
-# Syna v0.6 + Hyla-mini（中文简介）
+# Syna v0.7 + Hyla-mini（中文简介）
 
 Syna 是面向 TypeScript 的不可变、作用域感知的能力组合运行时。Runtime 接纳有限的带版本 Service 集合；Entry 创建 Env 世界；每个 Env 对每个 resolved node 只有一个 canonical slot，默认只复用 **parent 当前可见** 的 slot，Service 实例按需或 eager 物化，`load()` 返回普通 Promise。
 
 Hyla-mini（`apps/hyla-mini`）是驱动本轮的窄范围完整应用：真实 PostgreSQL 与真实文件系统两后端 × HTTP 动态渲染与静态构建两方式；三份 Markdown 配方共享一组 remark/rehype 工厂 slot；两租户、域名映射、可替换认证；按需、有界、租约保护的 SiteEnv 工作集。
 
-命令、文档索引与演示见英文 `README.md`；v0.6 的 API 收束（改名、删除、合并、类型强化）见 `docs/MIGRATION_V05_TO_V06.md`，冻结范围与弃用政策见 `docs/API_STABILITY.md`，未做的事见 `docs/DEFERRED.md`；v0.5 的语义变更见 `docs/SEMANTIC_CHANGES_V05.md`，应用说明见 `docs/HYLA_MINI.md`。
+命令、文档索引与演示见英文 `README.md`；v0.7 的到期删除、错误码映射与 S1/S2 语义修订见 `docs/MIGRATION_V06_TO_V07.md` 与 `docs/SEMANTIC_CHANGES_V07.md`（保留/澄清/修订/撤回登记），1.0 候选面与弃用政策见 `docs/API_STABILITY.md`，未做的事见 `docs/DEFERRED.md`；v0.6 的 API 收束见 `docs/MIGRATION_V05_TO_V06.md`，v0.5 的语义变更见 `docs/SEMANTIC_CHANGES_V05.md`，应用说明见 `docs/HYLA_MINI.md`。
 
 ## 一屏示例
 
@@ -99,8 +99,8 @@ false hello, world
 验收入口：
 
 ```sh
-node scripts/verify-v06.mjs --dev
-node scripts/verify-v06.mjs --release
+node scripts/verify-v07.mjs --dev
+node scripts/verify-v07.mjs --release
 ```
 
 后者只在全部必跑项目通过（含真实 PostgreSQL）、归档在空目录重建通过时输出 `COMPLETE` 并退出 0。

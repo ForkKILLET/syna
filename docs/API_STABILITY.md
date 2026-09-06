@@ -1,10 +1,19 @@
-# `@syna/core` API stability (v0.6)
+# `@syna/core` API stability (v0.7)
 
-This document declares what is frozen from 0.6.0 on, how deprecated names are retired, and the naming rules every later addition must follow. It is the reference for `docs/MIGRATION_V05_TO_V06.md` (what changed and why) and for `docs/DEFERRED.md` (what was deliberately not changed).
+This document declares what is frozen from 0.6.0 on and what 0.7.0 did to it, how deprecated names are retired, the naming rules every later addition must follow, and — from 0.7.0 — the surface that is the candidate for 1.0. It is the reference for `docs/MIGRATION_V05_TO_V06.md` and `docs/MIGRATION_V06_TO_V07.md` (what changed and why), `docs/SEMANTIC_CHANGES_V07.md` (what 0.7 keeps, clarifies, revises and withdraws) and `docs/DEFERRED.md` (what was deliberately not changed).
+
+## 1.0 candidate surface (1.0 候选面)
+
+From 0.7.0 the frozen surface below is the **1.0 candidate surface**: the public API recorded by `scripts/api-inventory.mjs` (`work/v07/API_INVENTORY_AFTER.json`; 0 `@deprecated` items, asserted by the release gate), the 26 error codes with the `details` shapes of `docs/API_REFERENCE.md`, every `RuntimeEvent.type`, `EnvState`, the `limits` defaults, and the semantics of `docs/SEMANTIC_MODEL.md` as revised by 0.7.0 (§11, §13; `docs/SEMANTIC_CHANGES_V07.md`). The declaration:
+
+- 1.0 adds no name to this surface, removes none and changes no semantics of it. Every deprecation minor the 0.6 line announced has been executed (the register is empty); nothing on this surface is scheduled for removal.
+- After 0.7.0 any change to a public name or to a semantic of this surface needs a **major**: a removal or a semantic change goes through a deprecation minor first, as the policy below says, and lands in the next major.
+- Not on the candidate surface, and therefore not promised for 1.0 in either direction: everything `docs/DEFERRED.md` lists (`C.all` coexistence relaxation, `primary()`, `ServiceFamily.range()`, `load({ timeoutMs })`, cross-ancestor reuse, Prepared / activation groups, a generation-switching host). An addition of that kind is a new name under the naming guidelines, not a change of this surface.
+- Persisted data is separate from the API line: the 0.5 serialized key `implementationId` is read permanently (deprecation policy below), and `kind: 'persistent-implementation-ref'` never changes.
 
 ## Frozen surface
 
-The names below are stable: they are not renamed, aliased or re-typed within 0.6.x, and a later major that touches one of them must give the old name a deprecation minor first (see the policy). Semantics are frozen with the names — defaults, error trigger conditions, `explain()` content, plan-cache behaviour, the `C.all` coexistence requirement, deadlines, the `env.state` / GC relationship and the absence of default implementations are exactly those of 0.5 (`packages/core/tests/v06-snapshots.test.mjs`, `reference-planner.test.mjs`).
+The names below are stable: they are not renamed, aliased or re-typed within a minor line, and a later major that touches one of them must give the old name a deprecation minor first (see the policy). Semantics are frozen with the names. 0.6 froze them exactly as 0.5 had them; 0.7.0 revised three of them — S1 (the setup deadline is the waiter's timeout), S2 (`env.state` is advanced only by Runtime actions; the ledger is decoupled from garbage collection; `dispose()` does not reject for an abandoned attempt) and S6 (`FRESH_CONSTRAINT_FAILED` split by throw site) — and clarified three (S7, S8, S10: codes and `details`, never trigger conditions or messages); everything else — defaults, error trigger conditions, `explain()` content, plan-cache behaviour, the `C.all` coexistence requirement, the absence of default implementations, the planning layer as a whole — is exactly that of 0.5 (`packages/core/tests/v06-snapshots.test.mjs`, `reference-planner.test.mjs`; `docs/SEMANTIC_CHANGES_V07.md`).
 
 Kept from 0.5 (every one considered and confirmed):
 
@@ -29,6 +38,18 @@ New in 0.6 (the replacements; frozen from 0.6.0):
 | T2 | the single phantom field `__type` (type-level only; never documented as an API, never present at runtime) |
 
 Removed in 0.6.0 without alias (D items): `ServiceRef.preload()`, `InputRef.load()`, `Contract.selector` with `ImplementationSelector`, `ImplementationSelectorDependency`, `ImplementationLease`, the inspection node kind `'selector'` and the error code `UNAVAILABLE_IMPLEMENTATION`, and `serviceRange()`. They are not coming back under another name.
+
+Changed in 0.7.0 (`docs/MIGRATION_V06_TO_V07.md`; frozen from 0.7.0 as part of the candidate surface):
+
+| Item | 0.7.0 |
+|---|---|
+| §2.1 / §2.2 | The 23 aliases of the 0.6 line, the 0.5 call form (`scope` inside the parameter record) and the selector remnants `ImplementationCandidate.availability` / `CandidateAvailability` / `AvailableImplementationCandidate` are removed; an expired form given at runtime is a `TypeError` naming the current form |
+| S6 | `INACTIVE_REUSE_TARGET`, `INVALID_INHERITED_CHOICE`, `FOREIGN_CANDIDATE_REF` replace `FRESH_CONSTRAINT_FAILED` (removed) |
+| S7 | `ENV_CLOSED`, `RUNTIME_CLOSED`, `SLOT_NOT_LOADABLE`, `LIFECYCLE_MISUSE` replace `INVALID_ENV_STATE` (removed); `INVALID_DESCRIPTOR.details` is `{ descriptor, problem, site?, path? }` |
+| S8 | `MISSING_IMPLEMENTATION.details` is one of three shapes with every field required |
+| S1 | `INITIALIZATION_TIMEOUT.details.attemptStillRunning: true`; `RuntimeEvent` `attempt-overdue`; `late-setup-result.adopted`; `EnvInspectionNode.overdueMs?` |
+| S2 | `EnvInspection.abandonedAttempts`; `RuntimeEvent` `attempts-outstanding`; `attempt-abandoned.dependencies`; `UNSETTLED_ATTEMPT` removed (no throw site) |
+| R5 (data) | `RuntimeEvent` `legacy-implementation-ref`: each Runtime read of the 0.5 serialized key is reported once |
 
 ## Deprecation policy
 

@@ -1,15 +1,16 @@
 #!/usr/bin/env node
-// Same-session benchmark comparison with 0.5.0 (A09). The 0.5.0 source is exported from its git commit into a
-// scratch directory, installed from its lockfile and built; then both it and the current tree are benchmarked in
+// Same-session benchmark comparison with the previous release (0.6 compared with 0.5.0, 0.7 with 0.6.0). The
+// baseline source is exported from its git commit into a scratch directory, installed from its lockfile and built;
+// then both it and the current tree are benchmarked in
 // the same session: one discarded warm-up run per side, then N rounds that run both sides in alternating order.
 // Each side's element-wise median over the N runs is compared by scripts/benchmark-compare.mjs (every p50/p95/
 // per-operation value within ±tolerance, every plan-cache counter and shape count equal). Measuring both sides in
 // one session, interleaved, removes the machine-state drift a recorded baseline file carries (thermal state,
 // background load, OS updates) and keeps a slow period of the machine from landing on one side only; the recorded
-// 0.5.0 file is compared with this session's 0.5.0 as well and reported as `recordDrift` (informational; it says
-// how far the machine moved, not how the code did).
+// baseline file is compared with this session's baseline as well and reported as `recordDrift` (informational; it
+// says how far the machine moved, not how the code did).
 //
-//   node scripts/benchmark-same-session.mjs --commit 4a67b99 --out-dir validation/v0.6-dev/benchmark-compare [--runs 21] [--tolerance 0.10] [--record benchmarks/results-v0.5.0-baseline-same-machine.json]
+//   node scripts/benchmark-same-session.mjs --commit 582c93a --baseline-label 0.6.0 --out-dir validation/v0.7-dev/benchmark-compare [--runs 21] [--tolerance 0.10] [--record benchmarks/results-v0.6.0-baseline-same-machine.json]
 //
 // Exit 0 when the same-session comparison is OK, 1 when it fails, 3 when the baseline commit cannot be exported.
 import { spawnSync } from 'node:child_process'
@@ -25,9 +26,10 @@ const commit = option('--commit')
 const runs = Number(option('--runs', '21'))
 const tolerance = option('--tolerance', '0.10')
 const record = option('--record', 'benchmarks/results-v0.5.0-baseline-same-machine.json')
+const label = option('--baseline-label', '0.5.0')
 const outDir = option('--out-dir')
 if (!commit || !outDir) {
-  console.error('usage: benchmark-same-session.mjs --commit <0.5.0 commit> --out-dir <dir> [--runs N] [--tolerance 0.10] [--record <file>]')
+  console.error('usage: benchmark-same-session.mjs --commit <baseline commit> --out-dir <dir> [--baseline-label 0.5.0] [--runs N] [--tolerance 0.10] [--record <file>]')
   process.exit(2)
 }
 const out = path.resolve(root, outDir)
@@ -102,7 +104,7 @@ try {
     const median = JSON.parse(readFileSync(file, 'utf8'))
     writeFileSync(file, `${JSON.stringify({ ...extra, ...method, ...median }, null, 2)}\n`)
   }
-  const baselineMedian = path.join(out, 'baseline-v0.5.0-same-session.json')
+  const baselineMedian = path.join(out, `baseline-v${label}-same-session.json`)
   const currentMedian = path.join(out, 'current-same-session.json')
   medianOf(sides[0], baselineMedian, { sourceCommit: commitFull, builtFrom: 'git archive of the commit, npm ci, npm run build, in a scratch directory' })
   medianOf(sides[1], currentMedian, { source: 'the current working tree' })
@@ -114,12 +116,12 @@ try {
   if (compare.stderr) process.stderr.write(compare.stderr)
   status = compare.status === 0 ? 0 : 1
 
-  // 6. Informational: how far this session's 0.5.0 sits from the recorded 0.5.0 file (machine drift, not code).
+  // 6. Informational: how far this session's baseline sits from the recorded baseline file (machine drift, not code).
   if (existsSync(path.resolve(root, record))) {
     const driftFile = path.join(out, 'record-drift.json')
     const drift = sh(node, [compareScript, 'compare', '--baseline', record, '--current', relative(baselineMedian), '--tolerance', tolerance, '--out', relative(driftFile)], { cwd: root, stdio: ['ignore', 'pipe', 'pipe'] })
     const summary = drift.stdout.split('\n').find(line => line.startsWith('equality checks:')) ?? ''
-    console.log(`record drift (informational): this session's 0.5.0 vs ${record}: ${summary || `exit ${drift.status}`}`)
+    console.log(`record drift (informational): this session's ${label} vs ${record}: ${summary || `exit ${drift.status}`}`)
   }
 }
 catch (error) {

@@ -1,4 +1,4 @@
-# `@syna/core` v0.6 API reference
+# `@syna/core` v0.7 API reference
 
 Syna exposes immutable nominal descriptors and Entry-driven Env construction. Graph solving is global to the Runtime; TypeScript checks local shapes and descriptor compatibility. Every example below type-checks against `packages/core/src` (see `packages/core/type-tests/api.ts`).
 

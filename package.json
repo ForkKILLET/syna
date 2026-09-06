@@ -1,8 +1,8 @@
 {
-  "name": "syna-v0.6-workspace",
+  "name": "syna-v0.7-workspace",
   "private": true,
   "type": "module",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "workspaces": [
     "packages/*",
     "apps/*"
@@ -26,15 +26,16 @@
     "check": "npm run typecheck && npm test && npm run test:app && npm run test:scripts && npm run demo",
     "benchmark:v05": "npm run build && node --expose-gc benchmarks/v0.5-planning.mjs benchmarks/results-v0.5.0.json",
     "benchmark:v04-workload": "npm run build && node --expose-gc benchmarks/v0.4-planning.mjs benchmarks/results-v0.4-workload-on-v0.5-same-machine.json",
-    "verify": "node scripts/verify-v06.mjs --dev",
-    "verify:release": "node scripts/verify-v06.mjs --release",
+    "verify": "node scripts/verify-v07.mjs --dev",
+    "verify:release": "node scripts/verify-v07.mjs --release",
+    "verify:v06": "node scripts/verify-v06.mjs --dev",
     "verify:v05": "node scripts/verify-v05.mjs --dev"
   },
   "engines": {
     "node": ">=22"
   },
   "packageManager": "npm@11.12.1",
-  "description": "Syna v0.6 core, demos and the Hyla-mini application",
+  "description": "Syna v0.7 core, demos and the Hyla-mini application",
   "devDependencies": {
     "@types/node": "^22.19.7",
     "typescript": "~5.9.3"

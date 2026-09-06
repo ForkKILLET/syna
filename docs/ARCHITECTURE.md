@@ -1,4 +1,4 @@
-# Architecture (v0.6, as implemented)
+# Architecture (v0.7, as implemented)
 
 ```text
 packages/core/src/

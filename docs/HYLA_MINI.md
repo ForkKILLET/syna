@@ -1,6 +1,6 @@
 # Hyla-mini（HYLA_MINI）
 
-Hyla-mini 是使用 Syna v0.6 的窄范围但完整的多租户博客引擎：两种真实数据后端 × 两种执行方式，三份配方共享一组工厂，两租户隔离，可替换 auth，按需、有界、租约保护的 SiteEnv 工作集。它不是完整的 BlogAssembly，也不是通用 ORM。
+Hyla-mini 是使用 Syna v0.7 的窄范围但完整的多租户博客引擎：两种真实数据后端 × 两种执行方式，三份配方共享一组工厂，两租户隔离，可替换 auth，按需、有界、租约保护的 SiteEnv 工作集。它不是完整的 BlogAssembly，也不是通用 ORM。
 
 ## 分层
 

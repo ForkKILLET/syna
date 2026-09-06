@@ -1,4 +1,4 @@
-# Syna Core Semantic Model v0 (v0.6 wording; semantics unchanged since v0.5)
+# Syna Core Semantic Model v0 (v0.7 wording; §11 and §13 revised in 0.7.0 — `docs/SEMANTIC_CHANGES_V07.md`; everything else unchanged since v0.5)
 
 ## 1. Static Runtime
 
