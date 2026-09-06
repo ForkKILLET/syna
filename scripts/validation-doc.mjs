@@ -27,6 +27,8 @@ const compareFile = existsSync(path.resolve(root, sameSessionFile)) ? sameSessio
 const comparison = existsSync(path.resolve(root, compareFile)) ? json(compareFile) : null
 const sameSession = compareFile === sameSessionFile
 const sessionBaseline = sameSession ? json(path.join(runDir, 'benchmark-compare/baseline-v0.5.0-same-session.json')) : null
+const sessionCurrentFile = path.join(runDir, 'benchmark-compare/current-same-session.json')
+const sessionCurrent = sameSession && existsSync(path.resolve(root, sessionCurrentFile)) ? json(sessionCurrentFile) : null
 const driftFile = path.join(runDir, 'benchmark-compare/record-drift.json')
 const drift = sameSession && existsSync(path.resolve(root, driftFile)) ? json(driftFile) : null
 
@@ -111,11 +113,11 @@ if (comparison) {
   const rows = comparison.rows
   const equal = rows.filter(row => row.check === 'equal')
   const timed = rows.filter(row => row.check !== 'equal')
-  const runCount = comparison.current.replace('median of ', '').replace(' fresh runs', '')
+  const runCount = sessionCurrent ? sessionCurrent.runs : comparison.current.replace('median of ', '').replace(' fresh runs', '')
   const baselineText = sameSession
-    ? `the 0.5.0 source (commit \`${short(sessionBaseline.sourceCommit)}\`) exported from git into a scratch directory, installed from its lockfile, built and benchmarked ${sessionBaseline.runs} times in the same session (\`scripts/benchmark-same-session.mjs\`; median in \`${path.join(runDir, 'benchmark-compare/baseline-v0.5.0-same-session.json')}\`)`
+    ? `the 0.5.0 source (commit \`${short(sessionBaseline.sourceCommit)}\`) exported from git into a scratch directory, installed from its lockfile, built and benchmarked ${sessionBaseline.runs} times in the same session (\`scripts/benchmark-same-session.mjs\`${sessionCurrent ? `: one discarded warm-up run per side, then ${sessionCurrent.runs} rounds that benchmark both sides in alternating order` : ''}; medians in \`${path.join(runDir, 'benchmark-compare/')}\`)`
     : `\`${comparison.baseline}\` (the 0.5.0 median of 7 runs recorded earlier on the same machine)`
-  out(`\`scripts/benchmark-compare.mjs compare\` ran \`benchmarks/v0.5-planning.mjs\` ${runCount} times on this host, took the element-wise median and compared it with ${baselineText}: environment ${comparison.comparable ? 'identical' : 'DIFFERENT'} (${comparison.environment.map(row => `${row.key} ${row.current}`).join(', ')}); ${timed.filter(row => row.ok).length}/${timed.length} p50/p95/per-operation values within ±${tolerance} %; ${equal.filter(row => row.ok).length}/${equal.length} plan-cache counters and shape counts equal; overall ${comparison.ok ? 'OK' : 'FAILED'}.`, '')
+  out(`${sessionCurrent ? '`scripts/benchmark-same-session.mjs`' : '`scripts/benchmark-compare.mjs compare`'} ran \`benchmarks/v0.5-planning.mjs\` ${runCount} times on this host, took the element-wise median and compared it with ${baselineText}: environment ${comparison.comparable ? 'identical' : 'DIFFERENT'} (${comparison.environment.map(row => `${row.key} ${row.current}`).join(', ')}); ${timed.filter(row => row.ok).length}/${timed.length} p50/p95/per-operation values within ±${tolerance} %; ${equal.filter(row => row.ok).length}/${equal.length} plan-cache counters and shape counts equal; overall ${comparison.ok ? 'OK' : 'FAILED'}.`, '')
   if (drift) {
     const driftTimed = drift.rows.filter(row => row.check !== 'equal')
     const outside = driftTimed.filter(row => !row.ok)

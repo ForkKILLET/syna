@@ -37,7 +37,9 @@ const BENCHMARK_BASELINE = 'benchmarks/results-v0.5.0-baseline-same-machine.json
 // The 0.5.0 source: the records commit on top of the released 09e2931 (identical core). Exported and benchmarked
 // in the same session when the history is available; otherwise the recorded file above is the baseline.
 const BASELINE_COMMIT = '4a67b99'
-const BENCHMARK_RUNS = 7
+// Rounds per side of the same-session comparison (each round benchmarks both sides). A p95 of a sub-millisecond
+// operation is bimodal from run to run; the median of 21 rounds is robust to it where the median of 7 was not.
+const BENCHMARK_RUNS = 21
 const ANY_BASELINE = 'scripts/any-baseline-v0.5.0.json'
 const INVENTORY_BEFORE = 'work/v06/API_INVENTORY_BEFORE.json'
 
