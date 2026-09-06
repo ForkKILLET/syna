@@ -18,9 +18,16 @@ Task book: `SYNA_V07_EXECUTION_PROMPT.md` (untracked at the workspace root; neve
 - Docs: `API_REFERENCE` (ref key permanent + event, `scope` refusal, `SynaRuntime` / `context.site` / nested records removed, "Deprecated in 0.6, removed in 0.7.0" collapsed to one paragraph), `API_STABILITY` (policy: empty register, permanent R5 key), `DEFERRED` N5, `PLUGIN_AUTHORING` recipe key, `packages/core/README`, `MIGRATION_V05_TO_V06` (history note: the key is permanent), new `docs/MIGRATION_V06_TO_V07.md` (§1 table of 23 + call form, §2 permanent key, §3/§4 placeholders for C/D/E, §5 steps), `CHANGELOG` 0.7.0 section started. Hyla-mini comments: the 0.5 key is permanent data compatibility, never written.
 - Suites: `npm test` 185/185, `npm run typecheck` 0, `npm run test:scripts` 21/21, `npm run test:app` 122+14 / 0 failures (`work/v05/working-set.json` restored).
 
-### B2 — §2.2: selector remnants — NEXT
+### B2 — §2.2: selector remnants — DONE (this commit)
 
-Delete `CandidateAvailability`, `ImplementationCandidate.availability` (producer: `CandidateIndex` constructor), `AvailableImplementationCandidate` (Q2); `DEFERRED` N2 removed; `no-old-names` patterns; inventory lists (`DELETED_07` / `DELETED_MEMBERS_07`); docs mentioning selector / lease / pre-check / availability rewritten.
+- Deleted `CandidateAvailability`, `ImplementationCandidate.availability` (producer: `CandidateIndex` constructor) and `AvailableImplementationCandidate` (Q2). Inventory: 361 items, 0 deprecated; the diff vs the 0.6.0 record is the 23 alias items + these 3 (asserted exactly).
+- Tests: `v07-expired-forms` gains the `C.all` candidate test (own keys = descriptor fields + `ref`; `set.load(candidate)` / `set.load(candidate.ref)` / `set.resolve(persistentRef)`) and the declaration patterns; `no-old-names` patterns for the three names (+ samples); `api-inventory` lists.
+- Docs: `DEFERRED` N2 removed (N-numbering keeps its gap), `MIGRATION_V06_TO_V07` §1 paragraph, `CHANGELOG` bullet. The current docs never described the field as unavailable and contain no selector / lease / pre-check wording beyond the "removed in 0.6" history lines and Hyla-mini's own working-set leases (grep, PROPOSAL §1).
+- Suites: `npm test` 186/186, `npm run typecheck` 0, `npm run test:scripts` 21/21, `npm run test:app` 122+14 / 0, any count OK.
+
+### Phase C — NEXT
+
+Four commits: S6 (`FRESH_CONSTRAINT_FAILED` → `INACTIVE_REUSE_TARGET` / `INVALID_INHERITED_CHOICE` / `FOREIGN_CANDIDATE_REF`), S7 (`INVALID_ENV_STATE` → `ENV_CLOSED` / `RUNTIME_CLOSED` / `SLOT_NOT_LOADABLE` / `LIFECYCLE_MISUSE`; `INVALID_DESCRIPTOR` details `{ descriptor, problem, site?, path? }` over the 28 sites, table-driven), S8 (`MISSING_IMPLEMENTATION` three shapes), S10 (`asSynaError` details `cause: { name, message }`), each with per-site tests and the API_REFERENCE error table; `v06-snapshots` RENAMED gains the S6 value mapping.
 
 ## Later phases
 

@@ -18,12 +18,10 @@ export type { DiagnosticCode, SynaErrorCode, SynaErrorConstructor, SynaErrorDeta
 export type {
   AllImplementations,
   AnchoredEntry,
-  AvailableImplementationCandidate,
   AutoImplementation,
   Awaitable,
   Binding,
   BindingAssignment,
-  CandidateAvailability,
   CandidateRef,
   Contract,
   ContractApi,

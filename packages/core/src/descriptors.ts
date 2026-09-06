@@ -343,25 +343,15 @@ export interface ImplementationDescriptor<C extends Contract<any> = Contract<any
   readonly persistentRef: ImplementationRef<C>
 }
 
-export type CandidateAvailability =
-  | { readonly status: 'available' }
-  | {
-      readonly status: 'unavailable'
-      readonly code: DiagnosticCode
-      readonly message: string
-      readonly details: Readonly<Record<string, unknown>>
-    }
-
+/**
+ * One candidate of a same-Env collection: the descriptor of an admitted
+ * revision plus the Env-local `ref` that `set.load()` accepts. Every candidate
+ * is a real node of the current topology and can be loaded.
+ */
 export interface ImplementationCandidate<C extends Contract<any> = Contract<any>>
   extends ImplementationDescriptor<C> {
   readonly ref: CandidateRef<C>
-  readonly availability: CandidateAvailability
 }
-
-export type AvailableImplementationCandidate<C extends Contract<any> = Contract<any>> =
-  ImplementationCandidate<C> & {
-    readonly availability: { readonly status: 'available' }
-  }
 
 /** Same-Env collection: every candidate is a real node of the current topology. */
 export interface ImplementationSet<C extends Contract<any> = Contract<any>>

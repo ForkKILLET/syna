@@ -36,9 +36,10 @@ const DELETED_06 = [
 ]
 const DELETED_MEMBERS_06 = ['Contract.selector', 'DependencyRef.preload', 'ServiceRef.preload', 'InputRef.load', "InspectionNodeKind['selector']", "SynaErrorCode['UNAVAILABLE_IMPLEMENTATION']", "SynaErrorCode['CONSTRAINT_VIOLATION']", "DiagnosticCode['UNAVAILABLE_IMPLEMENTATION']", "DiagnosticCode['CONSTRAINT_VIOLATION']"]
 // 0.7 (§2.1): the 23 aliases of the 0.6 migration table (docs/MIGRATION_V06_TO_V07.md) — ten type names, nine
-// members of kept types, and the four members the deleted option records carried.
-const DELETED_07 = ['BoundEntry', 'DependencyRef', 'DeriveOptions', 'DisposalOptions', 'InitializationOptions', 'PersistentImplementationRef', 'PlanCacheOptions', 'PlanningOptions', 'ScopeTarget', 'SynaRuntime']
-const DELETED_MEMBERS_07 = ['CreateRuntimeOptions.disposal', 'CreateRuntimeOptions.initialization', 'CreateRuntimeOptions.planCache', 'CreateRuntimeOptions.planning', 'EntryDefinition.scope', 'EntryDescriptor.scope', 'EnvHandle.bind', 'ImplementationRef.implementationId', 'RuntimePolicyContext.site']
+// members of kept types, and the four members the deleted option records carried; (§2.2) the selector's last
+// remnants: `CandidateAvailability`, `ImplementationCandidate.availability` and `AvailableImplementationCandidate`.
+const DELETED_07 = ['AvailableImplementationCandidate', 'BoundEntry', 'CandidateAvailability', 'DependencyRef', 'DeriveOptions', 'DisposalOptions', 'InitializationOptions', 'PersistentImplementationRef', 'PlanCacheOptions', 'PlanningOptions', 'ScopeTarget', 'SynaRuntime']
+const DELETED_MEMBERS_07 = ['CreateRuntimeOptions.disposal', 'CreateRuntimeOptions.initialization', 'CreateRuntimeOptions.planCache', 'CreateRuntimeOptions.planning', 'EntryDefinition.scope', 'EntryDescriptor.scope', 'EnvHandle.bind', 'ImplementationCandidate.availability', 'ImplementationRef.implementationId', 'RuntimePolicyContext.site']
 const DELETED_07_OWNED = ['DisposalOptions.graceMs', 'InitializationOptions.deadlineMs', 'PlanCacheOptions.maxEntries', 'PlanningOptions.searchBudget']
 // Names the 0.6 consolidation introduced; every one of them stays.
 const KEPT = [
@@ -83,7 +84,7 @@ test('A11 the diff against the 0.6.0 record is exactly the registered 0.7 remova
   const beforePaths = new Set(record.items.map(item => item.path))
   const removed = [...beforePaths].filter(item => !paths.has(item)).sort()
   const added = [...paths].filter(item => !beforePaths.has(item)).sort()
-  assert.deepEqual(removed, [...DELETED_07, ...DELETED_MEMBERS_07, ...DELETED_07_OWNED].sort(), 'the removals are the 23 aliases and their owned members, nothing else')
+  assert.deepEqual(removed, [...DELETED_07, ...DELETED_MEMBERS_07, ...DELETED_07_OWNED].sort(), 'the removals are the 23 aliases with their owned members and the three selector remnants, nothing else')
   assert.deepEqual(added, [...NEW_07].sort(), 'the additions are the registered 0.7 names, nothing else')
   assert.equal(record.items.filter(item => item.deprecated).length, 23, 'the record carried the 23 deprecated aliases')
   const committedAfter = path.join(root, 'work/v07/API_INVENTORY_AFTER.json')

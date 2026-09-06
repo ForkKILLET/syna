@@ -42,6 +42,8 @@ test('the compiled declarations carry no @deprecated tag and none of the expired
     /\bPlanCacheOptions\b/, /\bInitializationOptions\b/, /\bDisposalOptions\b/, /\bPlanningOptions\b/,
     /\bimplementationId\??:/, /\bscope\??:/, /\bbind</, /\bplanCache\?:/, /\binitialization\?:/, /\bdisposal\?:/, /\bplanning\?:/,
     /\bsearchBudget\b/, /\bgraceMs\b/, /\bdeadlineMs\?:/, /\bmaxEntries\?:/, /readonly site: string;\s*readonly parentActiveRevisionKeys/,
+    // §2.2: the selector's last remnants
+    /\bavailability\??:/, /\bCandidateAvailability\b/, /\bAvailableImplementationCandidate\b/,
   ]
   for (const [name, text] of files) {
     assert.ok(!text.includes('@deprecated'), `${name} still carries @deprecated`)
@@ -385,4 +387,32 @@ test('limits: the removed nested option records are refused, not ignored; invali
   }
   assert.throws(() => createRuntime({ services: [], limits: 5 }), { name: 'TypeError', message: 'limits must be an object.' })
   assert.doesNotThrow(() => createRuntime({ services: [], limits: { setupDeadlineMs: Infinity } }), 'Infinity disables the deadline')
+})
+
+// v0.7 (Phase B, §2.2): the selector's last remnants are gone. Every candidate of C.all is a real node of the current
+// topology, so `availability` (always `{ status: 'available' }` since the selector left in 0.6) said nothing.
+test('C.all candidates carry the descriptor fields and ref only: no availability field; loading a candidate is the availability', async () => {
+  const define = makeDefine('remnants')
+  const Capability = define.contract('capability')
+  const A = makeDefine('remnants-a').service({ provides: [Capability], setup: () => ({ id: 'a' }) })
+  const B = makeDefine('remnants-b', '2.1.0').service({ provides: [Capability], setup: () => ({ id: 'b' }) })
+  const Host = define.service('host', { requires: { all: Capability.all }, setup: ({ all }) => ({ all }) })
+  const Entry = define.entry('entry', { requires: { host: Host } })
+  const runtime = createRuntime({ services: [A, B, Host] })
+  const env = await runtime.enter(Entry)
+  const set = await (await env.deps.host.load()).all.load()
+  assert.equal(set.candidates.length, 2)
+  const ids = { 'remnants-a': 'a', 'remnants-b': 'b' }
+  for (const candidate of set.candidates) {
+    assert.deepEqual(Object.keys(candidate).sort(), ['contractId', 'eager', 'familyId', 'familyMetadata', 'persistentRef', 'ref', 'revisionMetadata', 'version'])
+    assert.equal('availability' in candidate, false)
+    assert.ok(Object.isFrozen(candidate))
+    assert.equal(candidate.ref.kind, 'candidate-ref')
+    assert.equal((await set.load(candidate)).id, ids[candidate.familyId])
+    assert.equal((await set.load(candidate.ref)).id, ids[candidate.familyId])
+    assert.equal(set.resolve(candidate.persistentRef), candidate)
+  }
+  assert.deepEqual([...set].map(candidate => candidate.familyId), set.candidates.map(candidate => candidate.familyId))
+  await env.dispose()
+  await runtime.dispose()
 })

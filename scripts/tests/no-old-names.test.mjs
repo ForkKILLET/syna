@@ -40,6 +40,9 @@ const OLD_NAMES = [
   [/\bEntryParameterMap\b|\bEntryParameter\b/, 'EntryParameters'],
   [/\bNormalizedServiceFailurePolicy\b|\bSetupResult\b|\bDependencyOutput\b/, '(no longer exported)'],
   [/\b__(api|value|publicApi|contract)\b/, '__type'],
+  // 0.7 (§2.2): the selector's last remnants
+  [/\bCandidateAvailability\b|\bAvailableImplementationCandidate\b/, 'ImplementationCandidate (every C.all candidate is loadable)'],
+  [/\.availability\b|\bavailability:\s/, 'set.load(candidate) (the availability field is gone)'],
 ]
 
 const CODE_ROOTS = ['apps', 'benchmarks', 'scripts', '.github', 'packages/core/tests', 'packages/core/type-tests']
@@ -175,6 +178,8 @@ test('the scanner recognises every old name it is meant to catch', () => {
     'createRuntime({ services: [], planCache: { maxEntries: 3 } })',
     'const values: EntryParameterValues<typeof Entry> = {}',
     'interface X { readonly __api?: T }',
+    'if (candidate.availability.status !== "available") continue',
+    'const usable: AvailableImplementationCandidate[] = []',
   ]
   for (const sample of samples) {
     assert.ok(OLD_NAMES.some(([pattern]) => pattern.test(sample)), `not caught: ${sample}`)

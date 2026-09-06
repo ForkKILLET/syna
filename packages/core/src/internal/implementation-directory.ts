@@ -221,7 +221,6 @@ export class CandidateIndex<C extends Contract<any>> {
       const candidate = Object.freeze({
         ...directory.describe<C>(options.contract, revision),
         ref: this.createRef(revision),
-        availability: Object.freeze({ status: 'available' as const }),
       }) as ImplementationCandidate<C>
       values.push(candidate)
       this.byRevisionKey.set(revision.key, candidate)

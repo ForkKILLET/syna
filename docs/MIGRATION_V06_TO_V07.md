@@ -23,7 +23,9 @@ v0.7 做三件事：删除 0.6 宣布到期的全部 23 个别名与 0.5 调用�
 | 12–15 | `createRuntime({ planCache: { maxEntries } })`、`initialization: { deadlineMs }`、`disposal: { graceMs }`、`planning: { searchBudget }` | `limits: { planCacheEntries, setupDeadlineMs, disposalGraceMs, planningBudget }`；默认值不变：512 / 30_000 / 2_000 / 10_000 | `TypeError`（`createRuntime() option <record> was removed in 0.7.0; use limits.<key>.`），与 `limits` 同时给出也拒绝 |
 | 16–23 | `PlanCacheOptions` / `.maxEntries`、`InitializationOptions` / `.deadlineMs`、`DisposalOptions` / `.graceMs`、`PlanningOptions` / `.searchBudget` | `RuntimeLimits` | 类型不存在 |
 
-测试：`packages/core/tests/v07-expired-forms.test.mjs` 逐项断言过期形式被拒绝或不存在、现行形式的行为与 0.6 相同、四个默认值逐字锁定；`packages/core/type-tests/api.ts` 对每个过期形式标 `@ts-expect-error`。0.6 的七个别名等价测试（`v06-r1` … `v06-r6`、`v06-m1-limits`）随别名一起删除，登记在 `docs/SEMANTIC_CHANGES_V07.md` 的撤回清单。
+清单之外的 selector 遗骸（§2.2）：`ImplementationCandidate.availability`（0.6 起恒为 `{ status: 'available' }`——唯一产生过 `unavailable` 的是 0.5 selector 的候选预检）、它的类型 `CandidateAvailability`，以及由这个字段定义的 `AvailableImplementationCandidate`（Q2）一并删除。`C.all` 的每个候选都是当前拓扑里的真实节点，`set.load(candidate)` 就是可用性本身；候选对象的自有键恰是描述符字段加 `ref`。
+
+测试：`packages/core/tests/v07-expired-forms.test.mjs` 逐项断言过期形式被拒绝或不存在、现行形式的行为与 0.6 相同、四个默认值逐字锁定、`C.all` 候选没有 `availability`；`packages/core/type-tests/api.ts` 对每个过期形式标 `@ts-expect-error`。0.6 的七个别名等价测试（`v06-r1` … `v06-r6`、`v06-m1-limits`）随别名一起删除，登记在 `docs/SEMANTIC_CHANGES_V07.md` 的撤回清单。
 
 ## §2 永久保留：序列化键 `implementationId` 与 `kind`
 
