@@ -11,6 +11,10 @@ import test from 'node:test'
 
 const root = new URL('../../', import.meta.url).pathname.replace(/\/$/, '')
 const MARKER = 'syna-v05-compat'
+// v0.8: the rename codemod (it spells every pre-0.8 name on purpose: it is the migration) and the tests that assert
+// a pre-0.8 form is refused carry this marker instead.
+const RENAME_MARKER = 'syna-v08-rename'
+const marked = line => line.includes(MARKER) || line.includes(RENAME_MARKER)
 
 // Old name → what replaced it (the message names the replacement).
 const OLD_NAMES = [
@@ -89,10 +93,10 @@ function codeFiles() {
 
 function scan(file, { allowLine }) {
   const lines = readFileSync(join(root, file), 'utf8').split('\n')
-  if (lines.slice(0, 5).some(line => line.includes(MARKER))) return { exempt: true, hits: [] }
+  if (lines.slice(0, 5).some(marked)) return { exempt: true, hits: [] }
   const hits = []
   lines.forEach((line, index) => {
-    if (line.includes(MARKER) || allowLine(line, index, lines)) return
+    if (marked(line) || allowLine(line, index, lines)) return
     for (const [pattern, replacement] of OLD_NAMES) {
       if (pattern.test(line)) hits.push(`${file}:${index + 1}: ${pattern.source} → use ${replacement}: ${line.trim().slice(0, 120)}`)
     }
@@ -119,6 +123,7 @@ test('no 0.5 name survives in the applications, benchmarks, scripts, workflow an
     'packages/core/tests/v07-expired-forms.test.mjs',
     'packages/core/tests/v07-legacy-implementation-key.test.mjs',
     'packages/core/type-tests/api.ts',
+    'scripts/codemod-v08.mjs',
   ])
 })
 
@@ -135,9 +140,9 @@ test('the core source spells no deleted public name outside marked lines and rem
   const hits = []
   for (const file of files) {
     const lines = readFileSync(join(root, file), 'utf8').split('\n')
-    assert.ok(!lines.slice(0, 5).some(line => line.includes(MARKER)), `${file} must not carry a file-level ${MARKER} marker`)
+    assert.ok(!lines.slice(0, 5).some(marked), `${file} must not carry a file-level ${MARKER} / ${RENAME_MARKER} marker`)
     lines.forEach((line, index) => {
-      if (line.includes(MARKER)) return
+      if (marked(line)) return
       if (/^\s*(\*|\/\/|\/\*)/.test(line) && DOC_CONTEXT.test(line)) return
       // The inspection counters are declared under `planCache`; the removed option record is caught by the inventory test.
       if (/^\s*readonly planCache: \{$/.test(line)) return

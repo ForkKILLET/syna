@@ -1,0 +1,694 @@
+{
+  "dryRun": false,
+  "targets": [
+    "apps/hyla-mini"
+  ],
+  "files": [
+    {
+      "file": "apps/hyla-mini/src/app.ts",
+      "edits": 17,
+      "changes": [
+        {
+          "line": 255,
+          "rule": "T1",
+          "from": "EnvHandle",
+          "to": "Env"
+        },
+        {
+          "line": 154,
+          "rule": "T1",
+          "from": "EnvHandle",
+          "to": "Env"
+        },
+        {
+          "line": 133,
+          "rule": "T1",
+          "from": "EnvHandle",
+          "to": "Env"
+        },
+        {
+          "line": 82,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 81,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 80,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 73,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 73,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 73,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 71,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 70,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 69,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 68,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 57,
+          "rule": "T1",
+          "from": "EnvHandle",
+          "to": "Env"
+        },
+        {
+          "line": 56,
+          "rule": "T1",
+          "from": "EnvHandle",
+          "to": "Env"
+        },
+        {
+          "line": 46,
+          "rule": "D8",
+          "from": "attempts-outstanding",
+          "to": "runtime-attempts-outstanding"
+        },
+        {
+          "line": 1,
+          "rule": "T1",
+          "from": "EnvHandle",
+          "to": "Env"
+        }
+      ],
+      "manual": []
+    },
+    {
+      "file": "apps/hyla-mini/src/data/filesystem/store.ts",
+      "edits": 1,
+      "changes": [
+        {
+          "line": 467,
+          "rule": "F4",
+          "from": "metadata",
+          "to": "familyMetadata"
+        }
+      ],
+      "manual": []
+    },
+    {
+      "file": "apps/hyla-mini/src/data/postgres/pool.ts",
+      "edits": 1,
+      "changes": [
+        {
+          "line": 144,
+          "rule": "F4",
+          "from": "metadata",
+          "to": "familyMetadata"
+        }
+      ],
+      "manual": []
+    },
+    {
+      "file": "apps/hyla-mini/src/data/postgres/store.ts",
+      "edits": 1,
+      "changes": [
+        {
+          "line": 380,
+          "rule": "F4",
+          "from": "metadata",
+          "to": "familyMetadata"
+        }
+      ],
+      "manual": []
+    },
+    {
+      "file": "apps/hyla-mini/src/domain/model.ts",
+      "edits": 2,
+      "changes": [
+        {
+          "line": 81,
+          "rule": "F9",
+          "from": "version",
+          "to": "range"
+        },
+        {
+          "line": 78,
+          "rule": "F19",
+          "from": "persistent-implementation-ref",
+          "to": "implementation-ref"
+        }
+      ],
+      "manual": []
+    },
+    {
+      "file": "apps/hyla-mini/src/domain/recipe-schema.ts",
+      "edits": 8,
+      "changes": [
+        {
+          "line": 39,
+          "rule": "F9",
+          "from": "version",
+          "to": "range"
+        },
+        {
+          "line": 39,
+          "rule": "F9",
+          "from": "version",
+          "to": "range"
+        },
+        {
+          "line": 39,
+          "rule": "F19",
+          "from": "persistent-implementation-ref",
+          "to": "implementation-ref"
+        },
+        {
+          "line": 36,
+          "rule": "F9",
+          "from": "version",
+          "to": "range"
+        },
+        {
+          "line": 36,
+          "rule": "F19",
+          "from": "persistent-implementation-ref",
+          "to": "implementation-ref"
+        },
+        {
+          "line": 26,
+          "rule": "F9",
+          "from": "version",
+          "to": "range"
+        },
+        {
+          "line": 22,
+          "rule": "F19",
+          "from": "persistent-implementation-ref",
+          "to": "implementation-ref"
+        },
+        {
+          "line": 20,
+          "rule": "F9",
+          "from": "'version'",
+          "to": "'range'"
+        }
+      ],
+      "manual": [
+        {
+          "line": 13,
+          "rule": "F9",
+          "reason": "the 0.5 key is not read any more: write { kind: \"implementation-ref\", contractId, familyId, range } and delete the old-key form",
+          "text": "* by the 0.5 line carry `implementationId`. The old key is accepted permanently"
+        },
+        {
+          "line": 25,
+          "rule": "F9",
+          "reason": "the 0.5 key is not read any more: write { kind: \"implementation-ref\", contractId, familyId, range } and delete the old-key form",
+          "text": "implementationId: { type: 'string', minLength: 1 },"
+        },
+        {
+          "line": 28,
+          "rule": "F9",
+          "reason": "the 0.5 key is not read any more: write { kind: \"implementation-ref\", contractId, familyId, range } and delete the old-key form",
+          "text": "// Syna writes `familyId`; documents written on Syna 0.5 carry `implementationId` (accepted permanently)."
+        },
+        {
+          "line": 31,
+          "rule": "F9",
+          "reason": "the 0.5 key is not read any more: write { kind: \"implementation-ref\", contractId, familyId, range } and delete the old-key form",
+          "text": "{ required: ['implementationId'], properties: { implementationId: { type: 'string', minLength: 1 } } },"
+        },
+        {
+          "line": 36,
+          "rule": "F9",
+          "reason": "the 0.5 key is not read any more: write { kind: \"implementation-ref\", contractId, familyId, range } and delete the old-key form",
+          "text": "export function normalizeStoredImplementationRef(ref: { readonly kind: 'persistent-implementation-ref'; readonly contrac"
+        },
+        {
+          "line": 37,
+          "rule": "F9",
+          "reason": "the 0.5 key is not read any more: write { kind: \"implementation-ref\", contractId, familyId, range } and delete the old-key form",
+          "text": "const familyId = ref.familyId ?? ref.implementationId"
+        }
+      ]
+    },
+    {
+      "file": "apps/hyla-mini/src/site/http.ts",
+      "edits": 2,
+      "changes": [
+        {
+          "line": 16,
+          "rule": "T1",
+          "from": "EnvHandle",
+          "to": "Env"
+        },
+        {
+          "line": 5,
+          "rule": "T1",
+          "from": "EnvHandle",
+          "to": "Env"
+        }
+      ],
+      "manual": []
+    },
+    {
+      "file": "apps/hyla-mini/src/site/manager.ts",
+      "edits": 4,
+      "changes": [
+        {
+          "line": 365,
+          "rule": "T1",
+          "from": "EnvHandle",
+          "to": "Env"
+        },
+        {
+          "line": 120,
+          "rule": "T1",
+          "from": "EnvHandle",
+          "to": "Env"
+        },
+        {
+          "line": 16,
+          "rule": "T1",
+          "from": "EnvHandle",
+          "to": "Env"
+        },
+        {
+          "line": 1,
+          "rule": "T1",
+          "from": "EnvHandle",
+          "to": "Env"
+        }
+      ],
+      "manual": []
+    },
+    {
+      "file": "apps/hyla-mini/src/site/preflight.ts",
+      "edits": 13,
+      "changes": [
+        {
+          "line": 86,
+          "rule": "T1",
+          "from": "EnvHandle",
+          "to": "Env"
+        },
+        {
+          "line": 84,
+          "rule": "T1",
+          "from": "EnvHandle",
+          "to": "Env"
+        },
+        {
+          "line": 83,
+          "rule": "T1",
+          "from": "EnvHandle",
+          "to": "Env"
+        },
+        {
+          "line": 73,
+          "rule": "F13",
+          "from": "disposition",
+          "to": "placement"
+        },
+        {
+          "line": 73,
+          "rule": "F13",
+          "from": "disposition",
+          "to": "placement"
+        },
+        {
+          "line": 70,
+          "rule": "D5",
+          "from": "inherited",
+          "to": "reused"
+        },
+        {
+          "line": 61,
+          "rule": "F13",
+          "from": "disposition",
+          "to": "placement"
+        },
+        {
+          "line": 60,
+          "rule": "D4",
+          "from": "'inherited'",
+          "to": "'reused'"
+        },
+        {
+          "line": 60,
+          "rule": "F13",
+          "from": "disposition",
+          "to": "placement"
+        },
+        {
+          "line": 44,
+          "rule": "D4",
+          "from": "'inherited'",
+          "to": "'reused'"
+        },
+        {
+          "line": 44,
+          "rule": "F13",
+          "from": "disposition",
+          "to": "placement"
+        },
+        {
+          "line": 23,
+          "rule": "F13",
+          "from": "disposition",
+          "to": "placement"
+        },
+        {
+          "line": 1,
+          "rule": "T1",
+          "from": "EnvHandle",
+          "to": "Env"
+        }
+      ],
+      "manual": []
+    },
+    {
+      "file": "apps/hyla-mini/tests/helpers/repository-conformance.mjs",
+      "edits": 4,
+      "changes": [
+        {
+          "line": 35,
+          "rule": "F9",
+          "from": "version",
+          "to": "range"
+        },
+        {
+          "line": 35,
+          "rule": "F19",
+          "from": "persistent-implementation-ref",
+          "to": "implementation-ref"
+        },
+        {
+          "line": 19,
+          "rule": "F9",
+          "from": "version",
+          "to": "range"
+        },
+        {
+          "line": 19,
+          "rule": "F19",
+          "from": "persistent-implementation-ref",
+          "to": "implementation-ref"
+        }
+      ],
+      "manual": []
+    },
+    {
+      "file": "apps/hyla-mini/tests/preflight.test.mjs",
+      "edits": 13,
+      "changes": [
+        {
+          "line": 191,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 191,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 191,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 184,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 183,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 156,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 153,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 151,
+          "rule": "D5",
+          "from": "inherited",
+          "to": "reused"
+        },
+        {
+          "line": 151,
+          "rule": "D5",
+          "from": "inherited",
+          "to": "reused"
+        },
+        {
+          "line": 150,
+          "rule": "D5",
+          "from": "eagerInherited",
+          "to": "eagerReused"
+        },
+        {
+          "line": 150,
+          "rule": "D5",
+          "from": "inherited",
+          "to": "reused"
+        },
+        {
+          "line": 150,
+          "rule": "D5",
+          "from": "inherited",
+          "to": "reused"
+        },
+        {
+          "line": 43,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        }
+      ],
+      "manual": []
+    },
+    {
+      "file": "apps/hyla-mini/tests/render.test.mjs",
+      "edits": 5,
+      "changes": [
+        {
+          "line": 293,
+          "rule": "S2",
+          "from": "RemarkGfmFactory.family.id",
+          "to": "RemarkGfmFactory.family"
+        },
+        {
+          "line": 291,
+          "rule": "F9",
+          "from": "version",
+          "to": "range"
+        },
+        {
+          "line": 288,
+          "rule": "F9",
+          "from": "version",
+          "to": "range"
+        },
+        {
+          "line": 43,
+          "rule": "F9",
+          "from": "version",
+          "to": "range"
+        },
+        {
+          "line": 43,
+          "rule": "F19",
+          "from": "persistent-implementation-ref",
+          "to": "implementation-ref"
+        }
+      ],
+      "manual": []
+    },
+    {
+      "file": "apps/hyla-mini/tests/review-app.test.mjs",
+      "edits": 2,
+      "changes": [
+        {
+          "line": 320,
+          "rule": "D8",
+          "from": "attempts-outstanding",
+          "to": "runtime-attempts-outstanding"
+        },
+        {
+          "line": 320,
+          "rule": "D8",
+          "from": "attempts-outstanding",
+          "to": "runtime-attempts-outstanding"
+        }
+      ],
+      "manual": []
+    },
+    {
+      "file": "apps/hyla-mini/tests/site-manager.test.mjs",
+      "edits": 2,
+      "changes": [
+        {
+          "line": 136,
+          "rule": "F9",
+          "from": "version",
+          "to": "range"
+        },
+        {
+          "line": 136,
+          "rule": "F19",
+          "from": "persistent-implementation-ref",
+          "to": "implementation-ref"
+        }
+      ],
+      "manual": []
+    },
+    {
+      "file": "apps/hyla-mini/tests/v06-compat.test.mjs",
+      "edits": 10,
+      "changes": [
+        {
+          "line": 57,
+          "rule": "F9",
+          "from": "version",
+          "to": "range"
+        },
+        {
+          "line": 57,
+          "rule": "F19",
+          "from": "persistent-implementation-ref",
+          "to": "implementation-ref"
+        },
+        {
+          "line": 55,
+          "rule": "F9",
+          "from": "version",
+          "to": "range"
+        },
+        {
+          "line": 55,
+          "rule": "F19",
+          "from": "persistent-implementation-ref",
+          "to": "implementation-ref"
+        },
+        {
+          "line": 46,
+          "rule": "F9",
+          "from": "version",
+          "to": "range"
+        },
+        {
+          "line": 46,
+          "rule": "F19",
+          "from": "persistent-implementation-ref",
+          "to": "implementation-ref"
+        },
+        {
+          "line": 14,
+          "rule": "F9",
+          "from": "version",
+          "to": "range: version"
+        },
+        {
+          "line": 14,
+          "rule": "F19",
+          "from": "persistent-implementation-ref",
+          "to": "implementation-ref"
+        },
+        {
+          "line": 13,
+          "rule": "F9",
+          "from": "version",
+          "to": "range: version"
+        },
+        {
+          "line": 13,
+          "rule": "F19",
+          "from": "persistent-implementation-ref",
+          "to": "implementation-ref"
+        }
+      ],
+      "manual": [
+        {
+          "line": 2,
+          "rule": "F9",
+          "reason": "the 0.5 key is not read any more: write { kind: \"implementation-ref\", contractId, familyId, range } and delete the old-key form",
+          "text": "// Hyla-mini on Syna 0.5 carry the same value under `implementationId`. Both parse at the store boundary and come out"
+        },
+        {
+          "line": 4,
+          "rule": "D10",
+          "reason": "the event no longer exists: delete the handler or the assertion",
+          "text": "// (docs/MIGRATION_V06_TO_V07.md); the Runtime's own `legacy-implementation-ref` event never fires for Hyla-mini data."
+        },
+        {
+          "line": 12,
+          "rule": "F9",
+          "reason": "the 0.5 key is not read any more: write { kind: \"implementation-ref\", contractId, familyId, range } and delete the old-key form",
+          "text": "const LEGACY_KEY = 'implementationId'"
+        }
+      ]
+    }
+  ],
+  "rules": {
+    "T1": 16,
+    "F1": 18,
+    "D8": 3,
+    "F4": 3,
+    "F9": 17,
+    "F19": 13,
+    "F13": 6,
+    "D5": 6,
+    "D4": 2,
+    "S2": 1
+  },
+  "edits": 85,
+  "filesChanged": 15,
+  "manual": 9
+}
