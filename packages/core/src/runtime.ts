@@ -591,7 +591,7 @@ class RuntimeImpl implements Runtime, ImplementationViewHost {
       await this.activateEnv(env)
       if (env.state !== 'activating') {
         throw new SynaError(
-          'INVALID_ENV_STATE',
+          'ENV_CLOSED',
           `Env ${env.id} was closed before activation completed.`,
           { env: env.id, state: env.state },
         )
@@ -629,9 +629,9 @@ class RuntimeImpl implements Runtime, ImplementationViewHost {
     const env = this.envById.get(envId)
     if (!env) {
       throw new SynaError(
-        'INVALID_ENV_STATE',
+        'ENV_CLOSED',
         `Env ${envId} is no longer live.`,
-        { env: envId },
+        { env: envId, state: 'disposed' },
       )
     }
     return env
@@ -658,9 +658,9 @@ class RuntimeImpl implements Runtime, ImplementationViewHost {
     descriptor: EntryDescriptor,
     allowActivatingParent: boolean,
   ): void {
-    if (this.disposed) throw new SynaError('INVALID_ENV_STATE', 'The Syna Runtime is disposed.')
+    if (this.disposed) throw new SynaError('RUNTIME_CLOSED', 'The Syna Runtime is disposed.')
     if (typeof descriptor !== 'object' || descriptor === null || descriptor.kind !== 'entry') {
-      throw new SynaError('INVALID_DESCRIPTOR', 'Expected an Entry descriptor.')
+      throw new SynaError('INVALID_DESCRIPTOR', 'Expected an Entry descriptor.', { descriptor: 'Entry', problem: 'wrong-kind' })
     }
     if (!parent) return
     if (parent.runtime !== this) {
@@ -676,9 +676,9 @@ class RuntimeImpl implements Runtime, ImplementationViewHost {
       )
     }
     throw new SynaError(
-      'INVALID_ENV_STATE',
+      'ENV_CLOSED',
       `Cannot enter from Env ${parent.id} while it is ${parent.state}.`,
-      { entry: descriptor.id, env: parent.id, state: parent.state },
+      { env: parent.id, state: parent.state },
     )
   }
 
@@ -700,7 +700,7 @@ class RuntimeImpl implements Runtime, ImplementationViewHost {
     if (!anchorNodeId) return fallback.id
     const anchorSlot = fallback.plan.slotsByNode.get(anchorNodeId)
     if (!anchorSlot) {
-      throw new SynaError('INVALID_ENV_STATE', `Missing anchor node ${anchorNodeId}.`, { node: anchorNodeId })
+      throw new Error(`Syna internal invariant: missing anchor node ${anchorNodeId}.`)
     }
     return anchorSlot.ownerEnvId
   }

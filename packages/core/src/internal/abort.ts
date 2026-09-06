@@ -1,19 +1,23 @@
 import { SynaError, type SynaErrorDetails } from '../errors.js'
 
-export function abortError(message: string, details: SynaErrorDetails['INVALID_ENV_STATE'] = {}): SynaError<'INVALID_ENV_STATE'> {
-  return new SynaError('INVALID_ENV_STATE', message, details)
+export type ClosedEnvDetails = SynaErrorDetails['ENV_CLOSED']
+
+/** The refusal every operation meets once its Env, or the owner Env of its slot, is closing or closed. */
+export function closedError(message: string, details: ClosedEnvDetails): SynaError<'ENV_CLOSED'> {
+  return new SynaError('ENV_CLOSED', message, details)
 }
 
-export function assertNotAborted(signal: AbortSignal, message: string): void {
-  if (signal.aborted) throw abortError(message)
-}
-
+/**
+ * Sleeps unless the owner's stop signal fires first. `details` is read when the
+ * refusal is built, so it carries the owner's state at that moment.
+ */
 export function sleepAbortable(
   milliseconds: number,
   signal: AbortSignal,
   message: string,
+  details: () => ClosedEnvDetails,
 ): Promise<void> {
-  assertNotAborted(signal, message)
+  if (signal.aborted) return Promise.reject(closedError(message, details()))
   if (milliseconds <= 0) return Promise.resolve()
 
   return new Promise<void>((resolve, reject) => {
@@ -32,7 +36,7 @@ export function sleepAbortable(
 
     function cancel(): void {
       cleanup()
-      reject(abortError(message))
+      reject(closedError(message, details()))
     }
   })
 }

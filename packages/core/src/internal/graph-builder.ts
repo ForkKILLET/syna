@@ -303,7 +303,7 @@ export class GraphBuilder {
         throw new SynaError(
           'INVALID_DESCRIPTOR',
           `Unknown dependency descriptor at ${site}.`,
-          { site },
+          { descriptor: 'Dependency', problem: 'unknown-kind', site },
         )
     }
   }

@@ -168,7 +168,7 @@ test('F-PL-02 control: onDispose() from a stale lifecycle after the setup settle
   const runtime = createRuntime({ services: [Svc] })
   const env = await runtime.enter(Entry)
   await env.deps.svc.load()
-  assert.throws(() => stale.onDispose(() => undefined), error => error.code === 'INVALID_ENV_STATE')
+  assert.throws(() => stale.onDispose(() => undefined), error => error.code === 'LIFECYCLE_MISUSE')
   await runtime.dispose()
 })
 
@@ -202,9 +202,9 @@ test('F-PL-03 an ancestor closing broadcasts the stop signal to every descendant
   const disposing = root.dispose()
   assert.equal(child2.state, 'disposing', 'the sibling is closing immediately, not after child1 finished')
   assert.ok(log.includes('c2-signal'), 'the sibling saw the stop signal before anything was awaited')
-  await assert.rejects(child2.deps.lazy.load(), error => error.code === 'INVALID_ENV_STATE')
-  await assert.rejects(child2.derive(), error => error.code === 'INVALID_ENV_STATE')
-  await assert.rejects(root.enter(Child2), error => error.code === 'INVALID_ENV_STATE')
+  await assert.rejects(child2.deps.lazy.load(), error => error.code === 'ENV_CLOSED')
+  await assert.rejects(child2.derive(), error => error.code === 'ENV_CLOSED')
+  await assert.rejects(root.enter(Child2), error => error.code === 'ENV_CLOSED')
   assert.equal(log.includes('lazy-start'), false, 'no new attempt started inside a closing subtree')
   slowCleanup.resolve()
   await disposing

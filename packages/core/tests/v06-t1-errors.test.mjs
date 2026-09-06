@@ -12,11 +12,12 @@ const root = new URL('../../../', import.meta.url)
 const read = path => readFileSync(new URL(path, root), 'utf8')
 
 const CODES = [
-  'AMBIGUOUS_IMPLEMENTATION', 'DUPLICATE_DEFINITION', 'ENTRY_ACTIVATION_FAILED', 'FOREIGN_CANDIDATE_REF', 'INACTIVE_REUSE_TARGET',
-  'INCOMPATIBLE_IMPLEMENTATION', 'INITIALIZATION_TIMEOUT', 'INVALID_DESCRIPTOR', 'INVALID_ENV_STATE', 'INVALID_INHERITED_CHOICE',
-  'LINEAGE_UNIQUENESS_CONFLICT', 'LOAD_CANCELLED', 'MISSING_AUTO_POLICY', 'MISSING_BINDING', 'MISSING_IMPLEMENTATION',
-  'MISSING_INPUT', 'MISSING_SERVICE', 'OWNER_NOT_READY', 'PLANNING_BUDGET_EXCEEDED', 'ROLLBACK_FAILED',
-  'RUNTIME_MISMATCH', 'SHARE_CONSTRAINT_FAILED', 'UNSATISFIABLE_TOPOLOGY', 'UNSETTLED_ATTEMPT',
+  'AMBIGUOUS_IMPLEMENTATION', 'DUPLICATE_DEFINITION', 'ENTRY_ACTIVATION_FAILED', 'ENV_CLOSED', 'FOREIGN_CANDIDATE_REF',
+  'INACTIVE_REUSE_TARGET', 'INCOMPATIBLE_IMPLEMENTATION', 'INITIALIZATION_TIMEOUT', 'INVALID_DESCRIPTOR', 'INVALID_INHERITED_CHOICE',
+  'LIFECYCLE_MISUSE', 'LINEAGE_UNIQUENESS_CONFLICT', 'LOAD_CANCELLED', 'MISSING_AUTO_POLICY', 'MISSING_BINDING',
+  'MISSING_IMPLEMENTATION', 'MISSING_INPUT', 'MISSING_SERVICE', 'OWNER_NOT_READY', 'PLANNING_BUDGET_EXCEEDED',
+  'ROLLBACK_FAILED', 'RUNTIME_CLOSED', 'RUNTIME_MISMATCH', 'SHARE_CONSTRAINT_FAILED', 'SLOT_NOT_LOADABLE', 'UNSATISFIABLE_TOPOLOGY',
+  'UNSETTLED_ATTEMPT',
 ]
 
 const detailKeys = error => Object.keys(error.details).sort()
@@ -75,15 +76,16 @@ test('T1 the details the Runtime produces have the documented keys', async () =>
   assert.deepEqual(detailKeys(inactiveRevision), ['constraint', 'env', 'revision'])
   const inactiveFamily = await capture(() => rootEnv.enter(Child, { flag: 1 }, { reuse: { fresh: [Other.family] } }))
   assert.deepEqual(detailKeys(inactiveFamily), ['constraint', 'env', 'family'])
-  // INVALID_DESCRIPTOR (bad reuse target; all keys optional).
+  // INVALID_DESCRIPTOR (bad reuse target; one shape at every site since 0.7, S7).
   const invalid = await capture(() => rootEnv.enter(Child, { flag: 1 }, { reuse: { fresh: ['nope'] } }))
   assert.equal(invalid.code, 'INVALID_DESCRIPTOR')
-  // INVALID_ENV_STATE (enter from a disposed Env).
+  assert.deepEqual(invalid.details, { descriptor: 'ReuseTarget', problem: 'not-an-object' })
+  // ENV_CLOSED (enter from a disposed Env; S7 in 0.7).
   const child = await rootEnv.enter(Child, { flag: 1 })
   await child.dispose()
   const closed = await capture(() => child.enter(Child, { flag: 1 }))
-  assert.equal(closed.code, 'INVALID_ENV_STATE')
-  assert.ok(detailKeys(closed).every(key => ['env', 'entry', 'state', 'node', 'slot', 'revision', 'attempt'].includes(key)), detailKeys(closed).join(','))
+  assert.equal(closed.code, 'ENV_CLOSED')
+  assert.deepEqual(closed.details, { env: child.id, state: 'disposed' })
   // MISSING_SERVICE: a private revision from a public root (realm form) and a revision unknown to the Runtime.
   const missingService = await capture(() => rootEnv.enter(PrivateEntry))
   assert.equal(missingService.code, 'MISSING_SERVICE')

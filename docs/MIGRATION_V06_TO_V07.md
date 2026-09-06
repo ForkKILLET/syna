@@ -40,7 +40,7 @@ v0.7 做三件事：删除 0.6 宣布到期的全部 23 个别名与 0.5 调用�
 
 ## §3 错误码映射
 
-触发条件与消息文案逐字不变，只改码与 `details`；`docs/API_REFERENCE.md` 的错误表列出每个码的 `details`，`scripts/tests/api-inventory.test.mjs` 把每个码的三个清单项（`SynaErrorCode`、`DiagnosticCode`、`SynaErrorDetails`）登记为删除/新增。
+触发条件与消息文案逐字不变，只改码与 `details`；`docs/API_REFERENCE.md` 的错误表列出每个码的 `details`，`scripts/tests/api-inventory.test.mjs` 把每个码的清单项（`SynaErrorCode` 的成员）登记为删除/新增。
 
 ### S6 `FRESH_CONSTRAINT_FAILED` → 按抛出点拆成三个码
 
@@ -55,7 +55,29 @@ v0.7 做三件事：删除 0.6 宣布到期的全部 23 个别名与 0.5 调用�
 
 可回溯集合（决定 `check()` / `explain()` 报告而非抛出、规划器是否回溯）用 `INACTIVE_REUSE_TARGET` 与 `INVALID_INHERITED_CHOICE` 顶替旧码，规划行为按构造不变；`FOREIGN_CANDIDATE_REF` 由 `ImplementationSet` 在运行时抛出，从不可回溯。快照：`v06-snapshots` 的 RENAMED 表把 0.5 记录的 `CONSTRAINT_VIOLATION` 映射到 `INACTIVE_REUSE_TARGET`，ADDED 表补上 `constraint: 'fresh'`；记录本身不变。测试：`packages/core/tests/v07-s6-reuse-errors.test.mjs`（四个抛出点各一，`details` 逐键断言）。
 
-（S7、S8、S10 随各自提交填写。）
+### S7 `INVALID_ENV_STATE` → 按含义拆成四个码；`INVALID_DESCRIPTOR` 的 `details` 收成一种形状
+
+0.6 的 16 个抛出点（11 个字面量加上 `internal/abort.ts` 的 5 条路径）至少有六种含义。0.7 按含义分为 `ENV_CLOSED`（`{ env, state }` | `{ env, state, slot, revision }`）、`RUNTIME_CLOSED`（`{}`）、`SLOT_NOT_LOADABLE`（`{ slot, revision, state }`，slot 的状态）、`LIFECYCLE_MISUSE`（`{ slot, revision, attempt, state }`，attempt 的状态）；四个调用方无法到达的位点（计划里缺失锚点节点、没有 owner 的 slot、attempts 循环零次、恢复时状态异常）改为没有公开码的内部不变量 `Error('Syna internal invariant: …')`。`INVALID_ENV_STATE` 从 `SynaErrorCode` 移除；`ENTRY_ACTIVATION_FAILED` 的 `details.causeCode` 相应变为 `ENV_CLOSED`。消息文案不变。
+
+| 抛出点 | 0.6 `details` | 0.7 | `details` |
+|---|---|---|---|
+| Env 在激活完成前被关闭（作为 `ENTRY_ACTIVATION_FAILED` 的 `cause`） | `{ env, state }` | `ENV_CLOSED` | `{ env, state }` |
+| 锚定 Entry 的锚点 Env 已离开 Runtime | `{ env }` | `ENV_CLOSED` | `{ env, state: 'disposed' }` |
+| Runtime 已 dispose 后的任何入口 | `{}` | `RUNTIME_CLOSED` | `{}` |
+| 从 disposing / disposed 的 Env `enter` / `run` / `check` / `explain` / `derive` | `{ entry, env, state }` | `ENV_CLOSED` | `{ env, state }`（entry 仍在消息里） |
+| `load()` 遇到 disposing / disposed / abandoned 的 slot | `{ slot, revision, state }` | `SLOT_NOT_LOADABLE` | `{ slot, revision, state }` |
+| attempt 结算后再调用 `onDispose()` | `{ slot, revision, attempt, state }` | `LIFECYCLE_MISUSE` | `{ slot, revision, attempt, state }` |
+| owner 关闭时 setup 仍未结算（结果将被丢弃） | `{ slot, revision, env, attempt }` | `ENV_CLOSED` | `{ env, state, slot, revision }`（`attempt` 去掉） |
+| setup 在 owner 开始关闭后才完成（实例被丢弃） | `{ slot, revision, env }` | `ENV_CLOSED` | `{ env, state, slot, revision }` |
+| owner 正在关闭时 materialize / recover | `{}`（信号已中止）或 `{ slot, revision, env, state }` | `ENV_CLOSED` | `{ env, state, slot, revision }` |
+| 重试退避 / 恢复冷却被 owner 的关闭取消 | `{}` | `ENV_CLOSED` | `{ env, state, slot, revision }` |
+| 缺失锚点节点、没有 owner 的 slot、attempts 循环零次、恢复时状态异常 | 各异 | 内部 `Error` | —（没有公开码） |
+
+`INVALID_DESCRIPTOR` 保留一个码，28 个抛出点的 `details` 统一为 `{ descriptor: string, problem: string, site?: string, path?: readonly string[] }`：`descriptor` 是期望的描述符种类、选项名或出错描述符的 id / key；`problem` 取自封闭词表 `not-an-object`、`not-an-array`、`wrong-kind`、`unknown-kind`、`empty-contract-id`、`self-override`、`override-cycle`、`forward-cycle`、`not-service-revisions`、`parameters-not-an-object`、`invalid-assignment`、`not-from-this-runtime`、`policy-result-not-an-array`、`policy-result-not-a-permutation`；有依赖位点的带 `site`，override 环带 `path`（环上的 key 链）。0.6 键的映射：`revision`（override 环）→ `descriptor`；`binding`（Binding 赋值）→ `descriptor`；`site`（策略结果、未知依赖种类）保留；`original` / `ordered`（策略结果不是排列）去掉；其余 24 个位点在 0.6 的 `details` 是 `{}`。另外 `set.load()` 收到 `revisionKey` 不是字符串的 `CandidateRef` 现在是 `INVALID_DESCRIPTOR`（0.6 报 `MISSING_IMPLEMENTATION { revision: undefined }`）。
+
+测试：`packages/core/tests/v07-s7-env-state.test.mjs`（每个可达位点一例，`details` 逐键断言）与 `v07-s7-invalid-descriptor.test.mjs`（28 个位点的表驱动测试，按抛出模块核对，并计数编译产物里的抛出点）。
+
+（S8、S10 随各自提交填写。）
 
 ## §4 语义修订 S1 / S2
 

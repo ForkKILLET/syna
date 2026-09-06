@@ -170,7 +170,7 @@ test('anchored entries: env.anchor(entry) is the one form and accepts the same c
   await a.dispose()
   await b.dispose()
   await root.dispose()
-  await assert.rejects(anchored.enter({ flag: 1 }), { code: 'INVALID_ENV_STATE' })
+  await assert.rejects(anchored.enter({ flag: 1 }), { code: 'ENV_CLOSED' })
   await runtime.dispose()
 })
 

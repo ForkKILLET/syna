@@ -211,8 +211,8 @@ test('K09 Ready means every locally owned eager slot is Ready; inherited eager s
   const child = await root.enter(Child)
   assert.deepEqual(events, ['eager-start'], 'inherited eager slot is already Ready')
   const disposing = root.dispose()
-  await assert.rejects(root.enter(Child), error => error.code === 'INVALID_ENV_STATE')
-  await assert.rejects(root.deps.lazy.load(), error => error.code === 'INVALID_ENV_STATE')
+  await assert.rejects(root.enter(Child), error => error.code === 'ENV_CLOSED')
+  await assert.rejects(root.deps.lazy.load(), error => error.code === 'ENV_CLOSED')
   await disposing
   assert.equal(child.state, 'disposed')
   assert.deepEqual(events, ['eager-start', 'aborted', 'eager-dispose'])

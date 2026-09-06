@@ -67,7 +67,7 @@ export class DefinitionCompiler {
     private readonly entrySignature: (entry: EntryDescriptor) => string,
   ) {
     if (!Array.isArray(services)) {
-      throw new SynaError('INVALID_DESCRIPTOR', 'createRuntime() requires a services array.')
+      throw new SynaError('INVALID_DESCRIPTOR', 'createRuntime() requires a services array.', { descriptor: 'CreateRuntimeOptions.services', problem: 'not-an-array' })
     }
     for (const revision of services) this.registerAdmittedRevision(revision)
     for (const revision of [...this.admittedSources.values()]) this.collectInternalRevision(revision)
@@ -192,7 +192,7 @@ export class DefinitionCompiler {
 
   registerContract(contract: Contract): void {
     if (typeof contract !== 'object' || contract === null || contract.kind !== 'contract') {
-      throw new SynaError('INVALID_DESCRIPTOR', 'Expected a Contract descriptor.')
+      throw new SynaError('INVALID_DESCRIPTOR', 'Expected a Contract descriptor.', { descriptor: 'Contract', problem: 'wrong-kind' })
     }
     this.recordMetadataDrift('Contract', contract.id, contract.metadata, this.contractMetadataSignatures)
   }
@@ -218,7 +218,7 @@ export class DefinitionCompiler {
 
   registerEntry(entry: EntryDescriptor): void {
     if (typeof entry !== 'object' || entry === null || entry.kind !== 'entry') {
-      throw new SynaError('INVALID_DESCRIPTOR', 'Expected an Entry descriptor.')
+      throw new SynaError('INVALID_DESCRIPTOR', 'Expected an Entry descriptor.', { descriptor: 'Entry', problem: 'wrong-kind' })
     }
     const signature = this.entrySignature(entry)
     const existing = this.entrySignatures.get(entry.id)
@@ -259,21 +259,22 @@ export class DefinitionCompiler {
 
   private prepareOverrides(overrides: readonly ServiceOverride[]): void {
     if (!Array.isArray(overrides)) {
-      throw new SynaError('INVALID_DESCRIPTOR', 'createRuntime() overrides must be an array.')
+      throw new SynaError('INVALID_DESCRIPTOR', 'createRuntime() overrides must be an array.', { descriptor: 'CreateRuntimeOptions.overrides', problem: 'not-an-array' })
     }
     // Collect every target first so chains (A -> B, B -> C) resolve regardless
     // of declaration order; a source supplied only to override() is not admitted.
     for (const item of overrides) {
       if (typeof item !== 'object' || item === null || item.kind !== 'service-override') {
-        throw new SynaError('INVALID_DESCRIPTOR', 'Invalid Runtime service override descriptor.')
+        throw new SynaError('INVALID_DESCRIPTOR', 'Invalid Runtime service override descriptor.', { descriptor: 'ServiceOverride', problem: 'wrong-kind' })
       }
       if (!isServiceRevision(item.from) || !isServiceRevision(item.to)) {
-        throw new SynaError('INVALID_DESCRIPTOR', 'override() expects two ServiceRevision descriptors.')
+        throw new SynaError('INVALID_DESCRIPTOR', 'override() expects two ServiceRevision descriptors.', { descriptor: 'ServiceOverride', problem: 'not-service-revisions' })
       }
       if (item.from.key === item.to.key) {
         throw new SynaError(
           'INVALID_DESCRIPTOR',
           `Service ${item.from.key} cannot override itself.`,
+          { descriptor: item.from.key, problem: 'self-override' },
         )
       }
       this.collectInternalRevision(item.to)
@@ -310,7 +311,7 @@ export class DefinitionCompiler {
           throw new SynaError(
             'INVALID_DESCRIPTOR',
             `Runtime service overrides contain a cycle at ${target.key}.`,
-            { revision: target.key },
+            { descriptor: target.key, problem: 'override-cycle', path: [...seen, target.key] },
           )
         }
         seen.add(target.key)
@@ -326,7 +327,7 @@ export class DefinitionCompiler {
 
   private registerAdmittedRevision(revision: ServiceRevision): void {
     if (!isServiceRevision(revision)) {
-      throw new SynaError('INVALID_DESCRIPTOR', 'Runtime services must be ServiceRevision descriptors.')
+      throw new SynaError('INVALID_DESCRIPTOR', 'Runtime services must be ServiceRevision descriptors.', { descriptor: 'ServiceRevision', problem: 'wrong-kind' })
     }
     parseVersion(revision.version)
     const existing = this.admittedSources.get(revision.key)
@@ -340,7 +341,7 @@ export class DefinitionCompiler {
 
   private collectInternalRevision(revision: ServiceRevision): void {
     if (!isServiceRevision(revision)) {
-      throw new SynaError('INVALID_DESCRIPTOR', 'A Service dependency must be a ServiceRevision descriptor.')
+      throw new SynaError('INVALID_DESCRIPTOR', 'A Service dependency must be a ServiceRevision descriptor.', { descriptor: 'ServiceRevision', problem: 'wrong-kind' })
     }
     const existing = this.internalSources.get(revision.key)
     if (existing) {
@@ -372,6 +373,7 @@ export class DefinitionCompiler {
           throw new SynaError(
             'INVALID_DESCRIPTOR',
             `Unknown dependency descriptor kind ${String((dependency as { kind?: unknown }).kind)}.`,
+            { descriptor: 'Dependency', problem: 'unknown-kind' },
           )
       }
     }
@@ -415,6 +417,7 @@ export class DefinitionCompiler {
           throw new SynaError(
             'INVALID_DESCRIPTOR',
             `${compiled.key} provides a Contract with an empty id.`,
+            { descriptor: compiled.key, problem: 'empty-contract-id' },
           )
         }
       }

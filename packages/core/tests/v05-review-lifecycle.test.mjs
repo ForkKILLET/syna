@@ -182,7 +182,7 @@ test('R-1/R-4 a caught cancellation never leaves an unhandled rejection, on ever
       await runtime.dispose()
     }
     // D: a setup forwards the owner signal to a dependency load, catches LOAD_CANCELLED and returns
-    //    degraded while the owner is already closing; its instance is discarded (INVALID_ENV_STATE).
+    //    degraded while the owner is already closing; its instance is discarded (ENV_CLOSED).
     {
       const gate = deferred()
       const Dep = define.service('d-dep', { async setup() { await gate.promise; return {} } })
@@ -273,8 +273,8 @@ test('R-1/R-4 a caught cancellation never leaves an unhandled rejection, on ever
   assert.deepEqual(codes, [
     'LOAD_CANCELLED',                       // A
     'LOAD_CANCELLED',                       // B
-    'boom', 'LOAD_CANCELLED', 'INVALID_ENV_STATE', // C: first sequence, aborted waiter, other waiter cancelled by the close
-    'setup:LOAD_CANCELLED', 'INVALID_ENV_STATE',   // D: caught inside setup; the degraded instance is discarded
+    'boom', 'LOAD_CANCELLED', 'ENV_CLOSED', // C: first sequence, aborted waiter, other waiter cancelled by the close
+    'setup:LOAD_CANCELLED', 'ENV_CLOSED',   // D: caught inside setup; the degraded instance is discarded
     'LOAD_CANCELLED',                       // E
     'LOAD_CANCELLED',                       // F
     'LOAD_CANCELLED',                       // G

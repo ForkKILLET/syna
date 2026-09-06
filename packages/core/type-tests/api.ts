@@ -398,10 +398,18 @@ new SynaError('LOAD_CANCELLED', 'm', { entry: 'e', env: 'x' })
 new SynaError('LOAD_CANCELLED', 'm')
 // @ts-expect-error unknown codes are rejected.
 new SynaError('NOT_A_CODE', 'm', {})
-const optionalDetails: SynaError<'INVALID_ENV_STATE'> = new SynaError('INVALID_ENV_STATE', 'm')
+// 0.7 (S7): the closed-state codes and the one INVALID_DESCRIPTOR shape.
+const closedEnv: SynaError<'ENV_CLOSED'> = new SynaError('ENV_CLOSED', 'm', { env: 'e', state: 'disposed' })
+const closedSlot: SynaError<'ENV_CLOSED'> = new SynaError('ENV_CLOSED', 'm', { env: 'e', state: 'disposing', slot: 's', revision: 'r@1.0.0' })
+// @ts-expect-error ENV_CLOSED always names the Env and its state.
+new SynaError('ENV_CLOSED', 'm')
+// @ts-expect-error INVALID_DESCRIPTOR always names the descriptor and the problem.
+new SynaError('INVALID_DESCRIPTOR', 'm', {})
+const descriptorDetails: SynaErrorDetails['INVALID_DESCRIPTOR'] = { descriptor: 'Entry', problem: 'wrong-kind' }
+const closedRuntime: SynaError<'RUNTIME_CLOSED'> = new SynaError('RUNTIME_CLOSED', 'm')
 const noDetails: SynaError<'RUNTIME_MISMATCH'> = new SynaError('RUNTIME_MISMATCH', 'm')
 const withCause: SynaError<'RUNTIME_MISMATCH'> = new SynaError('RUNTIME_MISMATCH', 'm', {}, { cause: new Error('inner') })
-void [optionalDetails, noDetails, withCause]
+void [closedEnv, closedSlot, descriptorDetails, closedRuntime, noDetails, withCause]
 const detailsShape: SynaErrorDetails['SHARE_CONSTRAINT_FAILED'] = { revision: 'r', env: 'e', cause: undefined, path: [] }
 void detailsShape
 const diagnosticCode: DiagnosticCode = 'UNKNOWN_ERROR'

@@ -117,6 +117,6 @@ test('K01 Runtime construction is closed and inert: no Env, slot or instance; un
   const env = await runtime.enter(define.entry('root', { requires: { eager: Eager } }))
   assert.equal(starts, 1)
   await runtime.dispose()
-  await assert.rejects(runtime.enter(define.entry('again', {})), error => error.code === 'INVALID_ENV_STATE')
+  await assert.rejects(runtime.enter(define.entry('again', {})), error => error.code === 'RUNTIME_CLOSED')
   assert.equal(env.state, 'disposed')
 })

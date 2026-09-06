@@ -164,7 +164,7 @@ env.inspect()                          // nodes with slot ids, owners and slot s
 env.dispose(); await env[Symbol.asyncDispose]()
 ```
 
-Entering from an Env that is still `activating` rejects with `OWNER_NOT_READY`; from a closing Env with `INVALID_ENV_STATE`. Activation failures are always `ENTRY_ACTIVATION_FAILED` with the underlying error as `cause` (and `details.causeCode` for SynaErrors).
+Entering from an Env that is still `activating` rejects with `OWNER_NOT_READY`; from a closing or closed Env with `ENV_CLOSED`; on a disposed Runtime with `RUNTIME_CLOSED`. Activation failures are always `ENTRY_ACTIVATION_FAILED` with the underlying error as `cause` (and `details.causeCode` for SynaErrors).
 
 ### Ready and closing
 
@@ -186,7 +186,7 @@ const UnitOfWork = define.service('unit-of-work', {
 ## Lifecycle notes
 
 - `ref.load()` returns a Promise of its own for every caller (all callers share one attempt). A rejected Promise nobody handles is an ordinary unhandled rejection. `load({ signal })` with an already-aborted signal rejects with `LOAD_CANCELLED` and starts nothing.
-- `onDispose(cleanup)` is accepted for as long as the setup attempt is still executing, including after its deadline passed or its owner started closing; the late-settlement cleanup then runs it. A lifecycle whose setup Promise already settled is stale and refused (`INVALID_ENV_STATE`).
+- `onDispose(cleanup)` is accepted for as long as the setup attempt is still executing, including after its deadline passed or its owner started closing; the late-settlement cleanup then runs it. A lifecycle whose setup Promise already settled is stale and refused (`LIFECYCLE_MISUSE`).
 - Closing an Env moves the whole subtree to `disposing` and aborts every descendant's `signal` first, then waits for descendants (sibling subtrees concurrently), then gives owned attempts `limits.disposalGraceMs`, then disposes owned Ready slots dependant-first (through never-started intermediates as well). `ServiceRef`s are bound to slots: a ref obtained from a child Env keeps working after that child is disposed as long as the slot's owner Env is alive.
 - An attempt that ignores the signal past the grace is abandoned and reported (`UNSETTLED_ATTEMPT`); its dependencies are closed in the normal order anyway (the Runtime cannot revoke an instance it handed out) and the report names them. The Env then leaves the tree and the Runtime's registries, so its parent no longer waits for it and `inspect()` no longer counts it; its `state` stays `disposing` until the attempts settle late (cleaned up, `late-setup-*`) or become unreachable (`attempt-unreachable`). `inspect().unsettledAttempts` lists those attempts, held weakly: an attempt lives exactly as long as the caller's own setup Promise, never longer because of the Runtime. `runtime.dispose()` reports the ledger again if it is not empty.
 - A failed rollback is final. When a cleanup throws (inside a retry sequence, or while a late result is cleaned up) the slot stays `failed` and every later `load()` rejects with `ROLLBACK_FAILED` (`cause`: the original error), even under `afterExhaustion: 'retry-on-next-load'`: the resources of that attempt are outside Syna's control and a new attempt would stack on top of them.
@@ -224,13 +224,14 @@ if (explanation.ok) {
 | `AMBIGUOUS_IMPLEMENTATION` | a bare Contract dependency has several implementation Families at a site | `{ contract, site, families: string[] }` |
 | `DUPLICATE_DEFINITION` | two definitions of one Family, Binding, Entry or revision disagree structurally, or a Service is overridden twice | `{ existing, received }` (Family) · `{ revision }` (override) · `{ revision, expected, actual }` (manifest) |
 | `ENTRY_ACTIVATION_FAILED` | `enter()` fails while activating; the underlying error is `cause` | `{ entry, env, causeCode?, causeDetails? }` |
+| `ENV_CLOSED` | an operation meets a closing or closed Env: `enter` / `run` / `check` / `explain` / `derive` from it, an anchored Entry whose anchor is gone, an activation cut short by a close (as the `cause` of `ENTRY_ACTIVATION_FAILED`); or, in the slot form, a `load()`, retry or recovery under a closing owner and a setup still pending or completed only after its owner began closing | `{ env, state }` · `{ env, state, slot, revision }` |
 | `FOREIGN_CANDIDATE_REF` | `set.load()` receives a `CandidateRef` (or a candidate carrying one) that belongs to another implementation collection | `{ expectedSourceSlot, receivedSourceSlot }` |
 | `INACTIVE_REUSE_TARGET` | a `fresh`/`share` target (definition or call) names a revision or family that is not active in the parent world | `{ constraint: 'fresh' \| 'share', env, revision }` · `{ constraint, env, family }` |
 | `INCOMPATIBLE_IMPLEMENTATION` | an implementation reference or assignment names a revision that does not provide the required Contract, or no range candidate covers the origin's Contracts | `{ binding, contract, reference }` · `{ binding, revision }` · `{ contract, reference }` · `{ family, range, site, realm, origin, required: string[], candidates: { revision, provides: string[] }[] }` |
 | `INITIALIZATION_TIMEOUT` | a setup attempt exceeds `limits.setupDeadlineMs` | `{ slot, revision, env, attempt, deadlineMs, elapsedMs, pendingLoads: { revision, slot, state, waitingMs }[], suspectedWaitCycle?: string[], note }` |
-| `INVALID_DESCRIPTOR` | a descriptor, option or policy result has the wrong shape | `{ site?, binding?, revision?, original?: string[], ordered?: string[] }` |
-| `INVALID_ENV_STATE` | an operation meets an Env, slot or Runtime in a state that forbids it (closed, disposing, exhausted, aborted) | `{ env?, entry?, state?, node?, slot?, revision?, attempt? }` |
+| `INVALID_DESCRIPTOR` | a descriptor, option or policy result has the wrong shape; `descriptor` names the expected kind, the option or the offending id / key, `problem` is one of `not-an-object`, `not-an-array`, `wrong-kind`, `unknown-kind`, `empty-contract-id`, `self-override`, `override-cycle`, `forward-cycle`, `not-service-revisions`, `parameters-not-an-object`, `invalid-assignment`, `not-from-this-runtime`, `policy-result-not-an-array`, `policy-result-not-a-permutation`; `site` where a dependency site exists, `path` for an override cycle | `{ descriptor, problem, site?, path?: string[] }` |
 | `INVALID_INHERITED_CHOICE` | the resolution a site inherited from the parent lineage is no longer among the site's candidates (the plan's dependency changed between the two plans, e.g. a `forward()` target) | `{ site, selectedKey, candidates: string[] }` |
+| `LIFECYCLE_MISUSE` | `onDispose()` is called on a lifecycle whose setup attempt already settled (`state` is the attempt's) | `{ slot, revision, attempt, state }` |
 | `LINEAGE_UNIQUENESS_CONFLICT` | a lineage-unique Family would diverge below its anchor or occupy several slots in one lineage | `{ family, anchorRevision, anchorSlot, attempted: { revision, slot, cause, path: string[] }[] }` · `{ family, slots: string[] }` |
 | `LOAD_CANCELLED` | the caller's `signal` aborts a `load()` wait | `{ slot, revision }` |
 | `MISSING_AUTO_POLICY` | `auto(C)` meets several Families and the Runtime has no `policy` | `{ contract, site, families: string[] }` |
@@ -241,8 +242,10 @@ if (explanation.ok) {
 | `OWNER_NOT_READY` | `enter()` from an Env that is still `activating` | `{ entry, env, state }` |
 | `PLANNING_BUDGET_EXCEEDED` | planning exhausts `limits.planningBudget` (a limit, not a proof) | `{ site, budget }` |
 | `ROLLBACK_FAILED` | a recovery is refused because the previous attempt's rollback failed | `{ slot, revision, state }` |
+| `RUNTIME_CLOSED` | any entry point (`enter` / `run` / `check` / `explain`) of a disposed Runtime | `{}` |
 | `RUNTIME_MISMATCH` | an anchor belongs to another Runtime | `{}` |
 | `SHARE_CONSTRAINT_FAILED` | a `share` target cannot reuse its parent-visible slot | `{ revision, env, cause, path: string[] }` |
+| `SLOT_NOT_LOADABLE` | `load()` on a slot that is `disposing`, `disposed` or `abandoned` (`state` is the slot's) | `{ slot, revision, state }` |
 | `UNSATISFIABLE_TOPOLOGY` | every candidate at a site fails; `failures` lists each attempt | `{ site, candidates: string[], failures: { code, message, details }[] }` |
 | `UNSETTLED_ATTEMPT` | a Runtime or Env closes while setup attempts are still running or rolling back, or a timed-out attempt is still running when a new one is requested | `{ attempts }` (Runtime) · `{ env, state, slots: { slot, revision, attempt, phase, dependencies }[] }` (Env) · `{ slot, revision, attempt, runningForMs }` |
 

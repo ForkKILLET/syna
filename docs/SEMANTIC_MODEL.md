@@ -81,7 +81,7 @@ Selection identity and Service instance identity remain distinct: descendants ca
 
 An Entry may be a Service dependency. The injected Anchored Entry is anchored at the unique owner Env of the consuming Service slot, not at an ambient caller Env. This permits a Service to construct typed child worlds without making “current Env” dynamic or ambiguous. Its roots resolve in the owner's private realm: the admitted revisions plus the owner's transitive closure over exact references and range origins; Contract discovery stays public.
 
-A Service-owned Anchored Entry can only be entered from a Ready owner. Invoking it while the owner is still activating rejects with `OWNER_NOT_READY` (an ordinary rejected Promise); invoking it after the owner begins disposal rejects with `INVALID_ENV_STATE`. There is no activation transaction and no provisional Ready.
+A Service-owned Anchored Entry can only be entered from a Ready owner. Invoking it while the owner is still activating rejects with `OWNER_NOT_READY` (an ordinary rejected Promise); invoking it after the owner begins disposal rejects with `ENV_CLOSED`. There is no activation transaction and no provisional Ready.
 
 ## 11. Materialization
 

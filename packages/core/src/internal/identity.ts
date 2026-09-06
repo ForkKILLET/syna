@@ -26,19 +26,20 @@ export function unwrapDependency(
   const seen = new Set<unknown>()
 
   if (typeof current !== 'object' || current === null) {
-    throw new SynaError('INVALID_DESCRIPTOR', 'A dependency must be a descriptor object.')
+    throw new SynaError('INVALID_DESCRIPTOR', 'A dependency must be a descriptor object.', { descriptor: 'Dependency', problem: 'not-an-object' })
   }
   while (current.kind === 'forward-dependency') {
     if (seen.has(current)) {
       throw new SynaError(
         'INVALID_DESCRIPTOR',
         'A forward dependency descriptor resolves to itself.',
+        { descriptor: 'ForwardDependency', problem: 'forward-cycle' },
       )
     }
     seen.add(current)
     current = current.get()
     if (typeof current !== 'object' || current === null) {
-      throw new SynaError('INVALID_DESCRIPTOR', 'A forward dependency resolved to a non-descriptor value.')
+      throw new SynaError('INVALID_DESCRIPTOR', 'A forward dependency resolved to a non-descriptor value.', { descriptor: 'ForwardDependency', problem: 'not-an-object' })
     }
   }
 
@@ -67,6 +68,7 @@ export function dependencyIdentity(input: Dependency): string {
       throw new SynaError(
         'INVALID_DESCRIPTOR',
         `Unknown dependency descriptor kind ${String((dependency as { kind?: unknown }).kind)}.`,
+        { descriptor: 'Dependency', problem: 'unknown-kind' },
       )
   }
 }

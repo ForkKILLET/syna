@@ -616,7 +616,7 @@ test('F-AP3-04 a creation cut short by shutdown() fails with SITE_MANAGER_CLOSED
     assert.ok(Date.now() - started < 1_000, 'shutdown() is bounded by its timeout plus the SiteEnv close, not by the creation')
     const outcome = await acquiring
     assert.equal(outcome.code, 'SITE_MANAGER_CLOSED', `the acquirer is refused as closed, not with the Runtime's state error: ${outcome.message ?? outcome}`)
-    assert.equal(outcome.cause?.code, 'INVALID_ENV_STATE', 'the underlying error travels as the cause')
+    assert.equal(outcome.cause?.code, 'ENV_CLOSED', 'the underlying error travels as the cause')
     assert.equal(manager.stats().creationFailures, 0, 'a shutdown is not a creation failure and starts no backoff')
     assert.equal(report.unreleasedLeases.length, 1, 'the creator\'s hold on the creating record is reported, as documented (R-2/R-3)')
     await waitUntil(() => runtime.inspect().liveEnvCount === liveBefore)

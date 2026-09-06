@@ -105,7 +105,7 @@ test('R09 owner disposal cancels retry backoff; a rollback failure ends the sequ
   await slowEnv.dispose()
   const error = await loading
   assert.ok(Date.now() - started < 300, 'backoff was cancelled by disposal')
-  assert.equal(error.code, 'INVALID_ENV_STATE')
+  assert.equal(error.code, 'ENV_CLOSED')
   assert.match(error.message, /cancelled because owner Env .* is closing/)
   assert.equal(slowAttempts, 1)
   await slowRuntime.dispose()
@@ -216,7 +216,7 @@ test('K08 a setup that completes after the owner started closing is discarded an
   gate.resolve()
   await disposing
   const error = await loading
-  assert.equal(error.code, 'INVALID_ENV_STATE')
+  assert.equal(error.code, 'ENV_CLOSED')
   assert.match(error.message, /discarded/)
   assert.deepEqual(events, ['cleanup'])
   await runtime.dispose()
@@ -232,7 +232,7 @@ test('R11 callback failure and dispose failure are both kept; every cleanup stil
     setup({ dormant }, { onDispose }) {
       onDispose(async () => {
         events.push('first-cleanup')
-        await assert.rejects(dormant.load(), error => error.code === 'INVALID_ENV_STATE')
+        await assert.rejects(dormant.load(), error => error.code === 'ENV_CLOSED')
         throw new Error('first cleanup failed')
       })
       return {}

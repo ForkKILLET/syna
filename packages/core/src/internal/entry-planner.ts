@@ -91,7 +91,7 @@ export function entryDefinitionSignature(entry: EntryDescriptor): string {
 
 function scopeTargetIdentity(target: ReuseTarget): string {
   if (typeof target !== 'object' || target === null) {
-    throw new SynaError('INVALID_DESCRIPTOR', 'Reuse targets must be Service revisions or families.')
+    throw new SynaError('INVALID_DESCRIPTOR', 'Reuse targets must be Service revisions or families.', { descriptor: 'ReuseTarget', problem: 'not-an-object' })
   }
   return target.kind === 'service-revision'
     ? `revision:${target.key}`
@@ -193,7 +193,7 @@ export class EntryPlanner implements GraphBuilderHost {
   ): PlannedEntry {
     this.compiler.registerEntry(descriptor)
     if (input !== undefined && (typeof input !== 'object' || input === null)) {
-      throw new SynaError('INVALID_DESCRIPTOR', `Entry ${descriptor.id} parameters must be an object.`)
+      throw new SynaError('INVALID_DESCRIPTOR', `Entry ${descriptor.id} parameters must be an object.`, { descriptor: descriptor.id, problem: 'parameters-not-an-object' })
     }
 
     const envId = checking ? `check-${this.nextCheckNumber++}` : `env-${this.nextEnvNumber++}`
@@ -949,7 +949,7 @@ export class EntryPlanner implements GraphBuilderHost {
     }
     else {
       if (typeof assignment !== 'object' || assignment === null || assignment.kind !== 'persistent-implementation-ref') {
-        throw new SynaError('INVALID_DESCRIPTOR', `Invalid assignment for Binding ${binding.id}.`, { binding: binding.id })
+        throw new SynaError('INVALID_DESCRIPTOR', `Invalid assignment for Binding ${binding.id}.`, { descriptor: binding.id, problem: 'invalid-assignment' })
       }
       if (assignment.contractId !== binding.contract.id) {
         throw new SynaError(

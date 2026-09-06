@@ -14,7 +14,6 @@ import {
 } from '../graph.js'
 import type {
   DisposableError,
-  EnvState,
   InputSlot,
   RuntimeSlot,
   ServiceSlot,
@@ -22,8 +21,8 @@ import type {
   SlotOwnerEnv,
 } from './runtime-model.js'
 import {
-  abortError,
-  assertNotAborted,
+  type ClosedEnvDetails,
+  closedError,
   settlesWithin,
   sleepAbortable,
   waitWithSignal,
@@ -336,7 +335,7 @@ export class Materializer {
       case 'disposed':
       case 'abandoned':
         throw new SynaError(
-          'INVALID_ENV_STATE',
+          'SLOT_NOT_LOADABLE',
           `Service slot ${slot.id} (${slot.service.key}) is ${slot.state}.`,
           { slot: slot.id, revision: slot.service.key, state: slot.state },
         )
@@ -356,7 +355,7 @@ export class Materializer {
 
   private owner(slot: ServiceSlot): SlotOwnerEnv {
     if (!slot.ownerEnv) {
-      throw new SynaError('INVALID_ENV_STATE', `Service slot ${slot.id} has no owner Env.`, { slot: slot.id })
+      throw new Error(`Syna internal invariant: service slot ${slot.id} has no owner Env.`)
     }
     return slot.ownerEnv
   }
@@ -440,9 +439,11 @@ export class Materializer {
           policy.delayMs,
           signal,
           `Retry of ${slot.service.key} was cancelled because owner Env ${owner.id} is closing.`,
+          this.closedDetails(owner, slot),
         )
       }
-      throw new SynaError('INVALID_ENV_STATE', `Service ${slot.service.key} exhausted setup attempts.`)
+      // `failure.attempts` is a positive integer by definition: the loop above always returns or throws.
+      throw new Error(`Syna internal invariant: service ${slot.service.key} exhausted setup attempts.`)
     }
     catch (error) {
       if (slot.state === 'starting') {
@@ -478,7 +479,7 @@ export class Materializer {
         // must release. Refused once the raw Promise settled (stale lifecycle).
         if (attempt.rawSettled || attempt.state === 'succeeded' || attempt.state === 'failed') {
           throw new SynaError(
-            'INVALID_ENV_STATE',
+            'LIFECYCLE_MISUSE',
             `onDispose() for ${slot.service.key} may only be called while its setup attempt is still executing.`,
             { slot: slot.id, revision: slot.service.key, attempt: attempt.id, state: attempt.state },
           )
@@ -514,9 +515,9 @@ export class Materializer {
       this.registerUnsettled(attempt, rawPromise, owner, raced.kind === 'timeout' ? 'timed-out' : 'abandoned')
       const error = raced.kind === 'timeout'
         ? this.timeoutError(attempt, owner, deadlineMs)
-        : abortError(
+        : closedError(
           `Setup of ${slot.service.key} was still pending when owner Env ${owner.id} closed; its eventual result will be discarded.`,
-          { slot: slot.id, revision: slot.service.key, env: owner.id, attempt: attempt.id },
+          this.closedDetails(owner, slot)(),
         )
       rawPromise.then(
         () => this.handleLateSettlement(attempt, owner, undefined),
@@ -541,9 +542,9 @@ export class Materializer {
       attempt.resolveSettled()
       return {
         ok: false,
-        error: abortError(
+        error: closedError(
           `Setup of ${slot.service.key} completed after owner Env ${owner.id} began closing; the instance was discarded.`,
-          { slot: slot.id, revision: slot.service.key, env: owner.id },
+          this.closedDetails(owner, slot)(),
         ),
         unsettled: false,
         cleanupErrors,
@@ -778,6 +779,7 @@ export class Materializer {
         remaining,
         owner.abortController.signal,
         `Recovery of ${slot.service.key} was cancelled because owner Env ${owner.id} is closing.`,
+        this.closedDetails(owner, slot),
       )
       this.assertOwnerUsable(owner, slot, 'recover')
       // A late cleanup may have failed during the cooldown: the slot is then final.
@@ -785,11 +787,8 @@ export class Materializer {
       if (slot.state === 'ready') return slot.instance
       if (slot.state === 'starting' && slot.sequence) return slot.sequence
       if (slot.state !== 'failed') {
-        throw new SynaError(
-          'INVALID_ENV_STATE',
-          `Cannot recover ${slot.service.key} from state ${slot.state}.`,
-          { slot: slot.id, revision: slot.service.key, state: slot.state },
-        )
+        // The owner was just found usable and recovery is single-flight: the slot is `failed` here.
+        throw new Error(`Syna internal invariant: cannot recover ${slot.service.key} from state ${slot.state}.`)
       }
       slot.state = 'dormant'
       this.startSequence(slot)
@@ -803,21 +802,20 @@ export class Materializer {
     return recovery
   }
 
-  private assertOwnerUsable(
-    owner: { readonly id: string; readonly state: EnvState; readonly abortController: AbortController },
-    slot: ServiceSlot,
-    action: string,
-  ): void {
-    assertNotAborted(
-      owner.abortController.signal,
-      `Cannot ${action} ${slot.service.key}: owner Env ${owner.id} is closing.`,
+  private assertOwnerUsable(owner: SlotOwnerEnv, slot: ServiceSlot, action: string): void {
+    const closing = owner.abortController.signal.aborted
+    if (!closing && (owner.state === 'activating' || owner.state === 'ready')) return
+    throw closedError(
+      closing
+        ? `Cannot ${action} ${slot.service.key}: owner Env ${owner.id} is closing.`
+        : `Cannot ${action} ${slot.service.key} while owner Env ${owner.id} is ${owner.state}.`,
+      this.closedDetails(owner, slot)(),
     )
-    if (owner.state !== 'activating' && owner.state !== 'ready') {
-      throw abortError(
-        `Cannot ${action} ${slot.service.key} while owner Env ${owner.id} is ${owner.state}.`,
-        { slot: slot.id, revision: slot.service.key, env: owner.id, state: owner.state },
-      )
-    }
+  }
+
+  /** The `ENV_CLOSED` details of a slot-level refusal, read when the refusal is built. */
+  private closedDetails(owner: SlotOwnerEnv, slot: ServiceSlot): () => ClosedEnvDetails {
+    return () => ({ env: owner.id, state: owner.state, slot: slot.id, revision: slot.service.key })
   }
 
   // Disposal ------------------------------------------------------------------

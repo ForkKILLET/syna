@@ -9,13 +9,14 @@ export type SynaErrorCode =
   | 'AMBIGUOUS_IMPLEMENTATION'
   | 'DUPLICATE_DEFINITION'
   | 'ENTRY_ACTIVATION_FAILED'
+  | 'ENV_CLOSED'
   | 'FOREIGN_CANDIDATE_REF'
   | 'INACTIVE_REUSE_TARGET'
   | 'INCOMPATIBLE_IMPLEMENTATION'
   | 'INITIALIZATION_TIMEOUT'
   | 'INVALID_DESCRIPTOR'
-  | 'INVALID_ENV_STATE'
   | 'INVALID_INHERITED_CHOICE'
+  | 'LIFECYCLE_MISUSE'
   | 'LINEAGE_UNIQUENESS_CONFLICT'
   | 'LOAD_CANCELLED'
   | 'MISSING_AUTO_POLICY'
@@ -26,8 +27,10 @@ export type SynaErrorCode =
   | 'OWNER_NOT_READY'
   | 'PLANNING_BUDGET_EXCEEDED'
   | 'ROLLBACK_FAILED'
+  | 'RUNTIME_CLOSED'
   | 'RUNTIME_MISMATCH'
   | 'SHARE_CONSTRAINT_FAILED'
+  | 'SLOT_NOT_LOADABLE'
   | 'UNSATISFIABLE_TOPOLOGY'
   | 'UNSETTLED_ATTEMPT'
 
@@ -76,6 +79,10 @@ export type SynaErrorDetails = {
     readonly causeCode?: SynaErrorCode
     readonly causeDetails?: Readonly<Record<string, unknown>>
   }
+  /** An Env-level refusal names the Env; a slot-level one (a load, retry or recovery under a closing owner) names the slot as well. */
+  readonly ENV_CLOSED:
+    | { readonly env: string; readonly state: EnvState }
+    | { readonly env: string; readonly state: EnvState; readonly slot: string; readonly revision: string }
   readonly FOREIGN_CANDIDATE_REF: { readonly expectedSourceSlot: string; readonly receivedSourceSlot: string }
   readonly INACTIVE_REUSE_TARGET:
     | { readonly constraint: 'fresh' | 'share'; readonly env: string; readonly revision: string }
@@ -104,23 +111,25 @@ export type SynaErrorDetails = {
     readonly suspectedWaitCycle?: readonly string[]
     readonly note: string
   }
+  /**
+   * `descriptor` names the expected descriptor kind, the option, or the id / key
+   * of the offending descriptor; `problem` is one token of a closed vocabulary
+   * (`not-an-object`, `not-an-array`, `wrong-kind`, `unknown-kind`,
+   * `empty-contract-id`, `self-override`, `override-cycle`, `forward-cycle`,
+   * `not-service-revisions`, `parameters-not-an-object`, `invalid-assignment`,
+   * `not-from-this-runtime`, `policy-result-not-an-array`,
+   * `policy-result-not-a-permutation`); `site` where a dependency site exists,
+   * `path` where a chain (an override cycle) exists.
+   */
   readonly INVALID_DESCRIPTOR: {
+    readonly descriptor: string
+    readonly problem: string
     readonly site?: string
-    readonly binding?: string
-    readonly revision?: string
-    readonly original?: readonly string[]
-    readonly ordered?: readonly string[]
-  }
-  readonly INVALID_ENV_STATE: {
-    readonly env?: string
-    readonly entry?: string
-    readonly state?: string
-    readonly node?: string
-    readonly slot?: string
-    readonly revision?: string
-    readonly attempt?: number
+    readonly path?: readonly string[]
   }
   readonly INVALID_INHERITED_CHOICE: { readonly site: string; readonly selectedKey: string; readonly candidates: readonly string[] }
+  /** `onDispose()` called on a lifecycle whose setup attempt already settled; `state` is the attempt's. */
+  readonly LIFECYCLE_MISUSE: { readonly slot: string; readonly revision: string; readonly attempt: number; readonly state: string }
   readonly LINEAGE_UNIQUENESS_CONFLICT:
     | {
         readonly family: string
@@ -150,8 +159,11 @@ export type SynaErrorDetails = {
   readonly OWNER_NOT_READY: { readonly entry: string; readonly env: string; readonly state: EnvState }
   readonly PLANNING_BUDGET_EXCEEDED: { readonly site: string; readonly budget: number }
   readonly ROLLBACK_FAILED: { readonly slot: string; readonly revision: string; readonly state: string }
+  readonly RUNTIME_CLOSED: Record<string, never>
   readonly RUNTIME_MISMATCH: Record<string, never>
   readonly SHARE_CONSTRAINT_FAILED: { readonly revision: string; readonly env: string; readonly cause: ForkCause | undefined; readonly path: readonly string[] }
+  /** `load()` on a slot that is closing, closed or abandoned; `state` is the slot's. */
+  readonly SLOT_NOT_LOADABLE: { readonly slot: string; readonly revision: string; readonly state: 'disposing' | 'disposed' | 'abandoned' }
   readonly UNSATISFIABLE_TOPOLOGY: {
     readonly site: string
     readonly candidates: readonly string[]

@@ -74,7 +74,7 @@ export class ImplementationDirectory {
 
   implementations<C extends Contract<any>>(contract: C): readonly ImplementationDescriptor<C>[] {
     if (typeof contract !== 'object' || contract === null || contract.kind !== 'contract') {
-      throw new SynaError('INVALID_DESCRIPTOR', 'catalog.implementations() expects a Contract descriptor.')
+      throw new SynaError('INVALID_DESCRIPTOR', 'catalog.implementations() expects a Contract descriptor.', { descriptor: 'Contract', problem: 'wrong-kind' })
     }
     return Object.freeze(
       this.candidatesForContract(contract).map(revision => this.describe<C>(contract, revision)),
@@ -87,7 +87,7 @@ export class ImplementationDirectory {
 
   resolveCatalog<C extends Contract<any>>(ref: ImplementationRef<C>): ImplementationDescriptor<C> {
     if (typeof ref !== 'object' || ref === null || ref.kind !== 'persistent-implementation-ref') {
-      throw new SynaError('INVALID_DESCRIPTOR', 'catalog.resolve() expects a persistent implementation reference.')
+      throw new SynaError('INVALID_DESCRIPTOR', 'catalog.resolve() expects a persistent implementation reference.', { descriptor: 'ImplementationRef', problem: 'wrong-kind' })
     }
     const contract = { id: ref.contractId }
     const revision = this.resolvePersistentRevision(
@@ -188,7 +188,7 @@ export class ImplementationDirectory {
       throw new SynaError(
         'INVALID_DESCRIPTOR',
         `Resolution policy must return an array of candidates at ${site}.`,
-        { site },
+        { descriptor: 'RuntimePolicy', problem: 'policy-result-not-an-array', site },
       )
     }
     const originalKeys = [...byKey.keys()].sort()
@@ -200,7 +200,7 @@ export class ImplementationDirectory {
       throw new SynaError(
         'INVALID_DESCRIPTOR',
         `Resolution policy must return every candidate exactly once at ${site}.`,
-        { site, original: originalKeys, ordered: orderedKeys },
+        { descriptor: 'RuntimePolicy', problem: 'policy-result-not-a-permutation', site },
       )
     }
     return ordered.map(candidate => byKey.get(candidate.key)!)
@@ -230,7 +230,7 @@ export class CandidateIndex<C extends Contract<any>> {
 
   resolve(ref: ImplementationRef<C>): ImplementationCandidate<C> {
     if (typeof ref !== 'object' || ref === null || ref.kind !== 'persistent-implementation-ref') {
-      throw new SynaError('INVALID_DESCRIPTOR', 'resolve() expects a persistent implementation reference.')
+      throw new SynaError('INVALID_DESCRIPTOR', 'resolve() expects a persistent implementation reference.', { descriptor: 'ImplementationRef', problem: 'wrong-kind' })
     }
     const selected = this.directory.resolvePersistentRevision(
       this.options.contract,
@@ -246,15 +246,15 @@ export class CandidateIndex<C extends Contract<any>> {
     input: ImplementationCandidate<C> | CandidateRef<C> | ImplementationRef<C>,
   ): ImplementationCandidate<C> {
     if (typeof input !== 'object' || input === null) {
-      throw new SynaError('INVALID_DESCRIPTOR', 'Expected a candidate, candidate ref or persistent ref.')
+      throw new SynaError('INVALID_DESCRIPTOR', 'Expected a candidate, candidate ref or persistent ref.', { descriptor: 'ImplementationCandidate', problem: 'not-an-object' })
     }
     if ('kind' in input && input.kind === 'persistent-implementation-ref') {
       return this.resolve(input)
     }
 
     const ref = ('ref' in input ? input.ref : input) as Partial<InternalCandidateRef>
-    if (ref.kind !== 'candidate-ref' || typeof ref.sourceSlotId !== 'string') {
-      throw new SynaError('INVALID_DESCRIPTOR', 'Expected a CandidateRef created by this Runtime.')
+    if (ref.kind !== 'candidate-ref' || typeof ref.sourceSlotId !== 'string' || typeof ref.revisionKey !== 'string') {
+      throw new SynaError('INVALID_DESCRIPTOR', 'Expected a CandidateRef created by this Runtime.', { descriptor: 'CandidateRef', problem: 'not-from-this-runtime' })
     }
     if (ref.sourceSlotId !== this.options.sourceSlotId) {
       throw new SynaError(
@@ -266,7 +266,7 @@ export class CandidateIndex<C extends Contract<any>> {
         },
       )
     }
-    const candidate = this.byRevisionKey.get(ref.revisionKey ?? '')
+    const candidate = this.byRevisionKey.get(ref.revisionKey)
     if (!candidate) {
       throw new SynaError(
         'MISSING_IMPLEMENTATION',

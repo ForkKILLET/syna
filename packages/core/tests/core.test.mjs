@@ -226,7 +226,7 @@ test('a disposed Env cannot materialize a dormant owned slot', async () => {
   const env = await runtime.enter(Root)
   const ref = env.deps.lazy
   await env.dispose()
-  await assert.rejects(ref.load(), error => error.code === 'INVALID_ENV_STATE')
+  await assert.rejects(ref.load(), error => error.code === 'SLOT_NOT_LOADABLE')
   assert.equal(starts, 0)
 })
 
