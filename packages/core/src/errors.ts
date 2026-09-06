@@ -100,6 +100,12 @@ export type SynaErrorDetails = {
         readonly required: readonly string[]
         readonly candidates: readonly { readonly revision: string; readonly provides: readonly string[] }[]
       }
+  /**
+   * One `load()` waited `deadlineMs` on the attempt named by `attempt` (running
+   * for `elapsedMs`) without it settling. The attempt keeps running
+   * (`attemptStillRunning`): its result is adopted if the owner Env is still
+   * ready and discarded only if the owner closes.
+   */
   readonly INITIALIZATION_TIMEOUT: {
     readonly slot: string
     readonly revision: string
@@ -109,6 +115,7 @@ export type SynaErrorDetails = {
     readonly elapsedMs: number
     readonly pendingLoads: readonly PendingLoad[]
     readonly suspectedWaitCycle?: readonly string[]
+    readonly attemptStillRunning: true
     readonly note: string
   }
   /**

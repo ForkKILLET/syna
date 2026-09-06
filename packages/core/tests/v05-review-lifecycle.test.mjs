@@ -85,7 +85,10 @@ test('R-1 a failed rollback is final: retry-on-next-load starts no further attem
   await runtime.dispose()
 })
 
-test('R-1 a late cleanup that fails after INITIALIZATION_TIMEOUT makes the slot final too; a clean late cleanup still allows recovery', async () => {
+test('R-1 a late success after INITIALIZATION_TIMEOUT is adopted: its cleanups run at dispose(), where a throwing one is a disposal error, not a final slot', async () => {
+  // 0.7 (S1): the 0.6 case "a late cleanup that fails after INITIALIZATION_TIMEOUT makes the slot final
+  // (ROLLBACK_FAILED)" is withdrawn (docs/SEMANTIC_CHANGES_V07.md §撤回): nothing is cleaned up at adoption,
+  // so no late cleanup can fail there. Rollback finality itself stays covered by the sibling R-1 test above.
   const define = makeDefine('v05.review.late-rollback')
   const events = []
   const gates = { leaky: deferred(), clean: deferred() }
@@ -95,10 +98,11 @@ test('R-1 a late cleanup that fails after INITIALIZATION_TIMEOUT makes the slot 
     setupDeadlineMs: 20,
     async setup(_deps, { onDispose }) {
       counts[name] += 1
-      if (counts[name] === 1) {
-        onDispose(() => { if (cleanupThrows) throw new Error('late cleanup failed') })
-        await gates[name].promise
-      }
+      onDispose(() => {
+        events.push(`cleanup:${name}`)
+        if (cleanupThrows) throw new Error('late cleanup failed')
+      })
+      await gates[name].promise
       return { attempt: counts[name] }
     },
   })
@@ -110,19 +114,31 @@ test('R-1 a late cleanup that fails after INITIALIZATION_TIMEOUT makes the slot 
 
   await assert.rejects(env.deps.leaky.load(), error => error.code === 'INITIALIZATION_TIMEOUT')
   await assert.rejects(env.deps.clean.load(), error => error.code === 'INITIALIZATION_TIMEOUT')
-  assert.equal(runtime.inspect().unsettledAttempts.length, 2, 'timed-out attempts are in the ledger while their owner lives')
+  assert.equal(runtime.inspect().unsettledAttempts.length, 2, 'overdue attempts are in the ledger while their owner lives')
   assert.deepEqual(runtime.inspect().unsettledAttempts.map(item => item.state), ['timed-out', 'timed-out'])
+  assert.deepEqual(
+    env.inspect().nodes.filter(node => node.kind === 'service').map(node => [node.state, typeof node.overdueMs]),
+    [['starting', 'number'], ['starting', 'number']],
+  )
   gates.leaky.resolve()
   gates.clean.resolve()
   await waitFor(() => events.filter(event => event.type === 'late-setup-result').length === 2)
-  const leakyLate = events.find(event => event.type === 'late-setup-result' && event.revision.includes('leaky'))
-  assert.equal(leakyLate.cleanupErrors.length, 1, 'the failed late cleanup is reported')
+  assert.deepEqual(
+    events.filter(event => event.type === 'late-setup-result').map(event => [event.adopted, event.cleanupErrors]),
+    [[true, []], [true, []]],
+    'both adopted, nothing cleaned up',
+  )
+  assert.deepEqual(events.filter(event => typeof event === 'string'), [], 'no cleanup ran at adoption')
   assert.equal(runtime.inspect().unsettledAttempts.length, 0)
+  assert.equal(env.inspect().nodes.some(node => 'overdueMs' in node), false)
 
-  const refused = await env.deps.leaky.load().catch(error => error)
-  assert.equal(refused.code, 'ROLLBACK_FAILED')
-  assert.equal(counts.leaky, 1, 'no recovery on top of the resource the late cleanup could not release')
-  assert.deepEqual(await env.deps.clean.load(), { attempt: 2 }, 'control: a clean late cleanup keeps recovery available')
+  assert.deepEqual(await env.deps.leaky.load(), { attempt: 1 }, 'the adopted instance; no recovery')
+  assert.deepEqual(await env.deps.clean.load(), { attempt: 1 })
+  assert.deepEqual(counts, { leaky: 1, clean: 1 })
+  const error = await env.dispose().catch(error => error)
+  assert.ok(error instanceof AggregateError, 'the throwing cleanup is a disposal error')
+  assert.deepEqual(error.errors.flatMap(item => item.errors ?? [item]).map(item => item.message), ['late cleanup failed'])
+  assert.deepEqual(events.filter(event => typeof event === 'string').sort(), ['cleanup:clean', 'cleanup:leaky'], 'the adopted instances were cleaned up by dispose()')
   await runtime.dispose()
 })
 
@@ -458,10 +474,10 @@ test('R-4 the dependencies of an abandoned attempt are closed in the normal orde
 })
 
 test('R-5 a setup deadline that fires inside the disposal grace does not hide the attempt: the close reports it, the Env stays disposing until it settles', async () => {
-  // Third review round (C4): dispose() issued before the deadline. The setup
-  // sequence settles inside the grace (by timing out), but the raw setup is still
-  // running; it must get the rest of the grace and then be reported like any
-  // other abandoned attempt.
+  // Third review round (C4): dispose() issued before the deadline. 0.7 (S1): the
+  // deadline is the waiter's, so the waiter times out inside the grace while the
+  // sequence keeps running; the attempt gets the whole grace and is then reported
+  // like any other abandoned attempt.
   const define = makeDefine('v05.review.deadline-in-grace')
   const gate = deferred()
   const started = deferred()
@@ -484,7 +500,7 @@ test('R-5 a setup deadline that fires inside the disposal grace does not hide th
   const closedAt = Date.now()
   const error = await env.dispose().catch(error => error)
   await assert.rejects(load, error => error.code === 'INITIALIZATION_TIMEOUT')
-  assert.ok(Date.now() - closedAt >= 300, 'the attempt got the remainder of the grace after its deadline')
+  assert.ok(Date.now() - closedAt >= 390, 'the attempt got the whole grace: the waiter\'s timeout did not settle the sequence')
   assert.ok(error instanceof AggregateError && error.errors.some(item => item.code === 'UNSETTLED_ATTEMPT'), `the close reports the attempt that outlived it: ${String(error)}`)
   assert.equal(env.state, 'disposing')
   assert.equal(env.inspect().nodes[0].state, 'abandoned')

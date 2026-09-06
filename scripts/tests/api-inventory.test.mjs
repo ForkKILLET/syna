@@ -55,7 +55,7 @@ const KEPT = [
   "SynaErrorCode['SHARE_CONSTRAINT_FAILED']", "DiagnosticCode['UNKNOWN_ERROR']",
 ]
 // Names 0.7 adds to the public API (registered phase by phase: S6/S7 error codes and details, S1 inspection fields).
-const NEW_07 = [...NEW_CODES_07]
+const NEW_07 = [...NEW_CODES_07, 'EnvInspectionNode.overdueMs']
 const ERROR_CODE_COUNT = 27
 
 const deleted = [...DELETED_06, ...DELETED_07]

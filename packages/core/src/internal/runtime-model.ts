@@ -32,7 +32,7 @@ export type ServiceSlotState =
   | 'failed'
   | 'disposing'
   | 'disposed'
-  /** A timed-out setup attempt never settled before disposal finished. */
+  /** A setup attempt was still pending when its owner's bounded close ended. */
   | 'abandoned'
 
 export type NodeKind = 'service' | 'input' | 'binding' | 'all' | 'entry'
@@ -116,17 +116,33 @@ export interface PendingLoad {
   readonly since: number
 }
 
+/**
+ * One `load()` wait on a slot that is not Ready. The setup deadline is the
+ * waiter's: its timer is armed while an attempt is running (re-armed when a
+ * new attempt of the same sequence starts, cleared between attempts) and ends
+ * only this wait with `INITIALIZATION_TIMEOUT`; the attempt keeps running.
+ */
+export interface SetupWaiter {
+  readonly id: number
+  /** Ends the wait; no-op after the first call. */
+  readonly settle: (outcome: { readonly ok: true; readonly value: unknown } | { readonly ok: false; readonly error: unknown }) => void
+  timer?: ReturnType<typeof setTimeout>
+}
+
 /** One actual execution of `setup()` for a slot. Waiters join it; it never runs concurrently with another attempt of the same slot. */
 export interface SetupAttempt {
   readonly id: number
   readonly slot: ServiceSlot
   readonly startedAt: number
   /**
-   * `timed-out`: the deadline passed while the raw setup Promise was pending.
-   * `abandoned`: the owner Env closed while it was pending. Both keep the
-   * attempt alive as `slot.unsettledAttempt` until the raw Promise settles.
+   * `running` covers an overdue attempt as well (`overdueAt` set): a waiter's
+   * deadline never changes the attempt. `abandoned`: the owner Env closed while
+   * the raw setup Promise was pending; the attempt then lives on as
+   * `slot.unsettledAttempt` until that Promise settles.
    */
-  state: 'running' | 'succeeded' | 'failed' | 'timed-out' | 'abandoned'
+  state: 'running' | 'succeeded' | 'failed' | 'abandoned'
+  /** When the first waiter on this attempt timed out; the attempt is overdue from then on. */
+  overdueAt?: number
   readonly cleanups: Array<() => Awaitable<void>>
   readonly pendingLoads: Map<number, PendingLoad>
   /** True once the user's setup Promise settled (resolved or rejected), however late. */
@@ -137,6 +153,17 @@ export interface SetupAttempt {
   /** Resolves when disposal gives up waiting for the raw Promise; ends the attempt's race early. */
   readonly abandoned: Promise<void>
   abandon: () => void
+  /** Resolves when the raw Promise was garbage-collected unsettled while the attempt was still racing it. */
+  readonly unreachable: Promise<void>
+  markUnreachable: () => void
+  /**
+   * Weak handle on the user's raw setup Promise, so the running attempt never
+   * keeps that Promise alive: its reachability alone bounds how long an
+   * overdue or abandoned attempt can stay open.
+   */
+  rawRef?: WeakRef<Promise<unknown>>
+  /** The raw Promise is registered for the unreachable diagnosis (once per attempt). */
+  watched: boolean
 }
 
 export interface ServiceSlot {
@@ -154,7 +181,9 @@ export interface ServiceSlot {
   attempt?: SetupAttempt
   /** Result promise of the current or last setup sequence; waiters join it. */
   sequence?: Promise<unknown>
-  /** A timed-out or abandoned attempt whose raw Promise has not settled yet. Blocks new attempts. */
+  /** Every `load()` currently waiting on this slot, each with its own deadline timer. */
+  readonly waiters: Set<SetupWaiter>
+  /** An abandoned attempt whose raw Promise has not settled yet (the owner closed). Blocks new attempts. */
   unsettledAttempt?: SetupAttempt
   /**
    * A rollback (attempt cleanup or late-settlement cleanup) of this slot failed:

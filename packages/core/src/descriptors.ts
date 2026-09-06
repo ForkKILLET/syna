@@ -284,7 +284,12 @@ export interface ServiceDefinition<
   /** `lineage` prevents a descendant from selecting or owning a divergent node. */
   readonly uniqueWithin?: 'lineage'
   readonly failure?: ServiceFailurePolicy
-  /** Per-attempt initialization deadline; overrides the Runtime default. `Infinity` disables it. */
+  /**
+   * How long one `load()` waits on the current setup attempt before it rejects
+   * with `INITIALIZATION_TIMEOUT`; overrides the Runtime default. The attempt
+   * itself keeps running (its result is adopted while the owner Env is ready).
+   * `Infinity` disables it.
+   */
   readonly setupDeadlineMs?: number
   readonly metadata?: DescriptorMetadata
   readonly revisionMetadata?: DescriptorMetadata
@@ -492,7 +497,12 @@ export interface ServiceOverride<
  * `planningBudget` 10_000, `planCacheEntries` 512.
  */
 export interface RuntimeLimits {
-  /** Default per-attempt setup deadline in milliseconds (30_000). Reports INITIALIZATION_TIMEOUT; never proves a deadlock. */
+  /**
+   * Default wait, in milliseconds (30_000), of one `load()` on the current setup
+   * attempt before it rejects with INITIALIZATION_TIMEOUT. Bounds the wait, not
+   * the attempt: a late success is adopted while the owner Env is ready and
+   * discarded only by a close. Never proves a deadlock.
+   */
   readonly setupDeadlineMs?: number
   /**
    * How long disposal waits, in milliseconds (2_000), after broadcasting the
@@ -512,13 +522,35 @@ export interface RuntimeLimits {
 
 export type RuntimeEvent =
   | {
+      /**
+       * The first waiter on a setup attempt timed out: the attempt is overdue
+       * from now on (`inspect()` reports `overdueMs` for its slot) and keeps
+       * running. Once per attempt.
+       */
+      readonly type: 'attempt-overdue'
+      readonly slot: string
+      readonly revision: string
+      readonly env: string
+      readonly attempt: number
+      readonly deadlineMs: number
+      readonly elapsedMs: number
+    }
+  | {
+      /**
+       * An overdue or abandoned attempt succeeded late. `adopted`: the owner
+       * Env was still ready, so the instance became the slot's (no cleanup ran,
+       * `cleanupErrors` is empty); otherwise a close discarded the result and
+       * the cleanups the attempt registered ran.
+       */
       readonly type: 'late-setup-result'
       readonly slot: string
       readonly revision: string
       readonly env: string
+      readonly adopted: boolean
       readonly cleanupErrors: readonly unknown[]
     }
   | {
+      /** An overdue or abandoned attempt failed late; its cleanups ran. An overdue attempt then follows its failure policy. */
       readonly type: 'late-setup-failure'
       readonly slot: string
       readonly revision: string
@@ -582,16 +614,17 @@ export interface CreateRuntimeOptions {
   readonly diagnostics?: DiagnosticsOptions
 }
 
-/** A setup attempt whose raw Promise is still pending after its deadline passed or its owner Env closed. */
+/** A setup attempt whose raw Promise is still pending after a waiter's deadline passed or its owner Env closed. */
 export interface UnsettledAttemptInspection {
   readonly attempt: number
   readonly slot: string
   readonly revision: string
   readonly env: string
   /**
-   * `timed-out`: the deadline passed, the raw Promise is pending. `abandoned`:
-   * the owner's close stopped waiting for the pending Promise. `rolling-back`:
-   * the setup settled (failed, or its result was discarded) but its cleanups
+   * `timed-out`: a waiter's deadline passed, the attempt is overdue and still
+   * running under a live owner (its result will be adopted). `abandoned`: the
+   * owner's close stopped waiting for the pending Promise. `rolling-back`: the
+   * setup settled (failed, or its result was discarded) but its cleanups
    * outlived the close. `settling`: the Promise settled late or was found
    * unreachable and the late cleanups are running.
    */
@@ -652,6 +685,8 @@ export interface EnvInspectionNode {
   readonly slotId: string
   readonly ownerEnvId: string
   readonly state: string
+  /** Present only while the slot is `starting` and a waiter's deadline has passed: milliseconds since the attempt became overdue. */
+  readonly overdueMs?: number
   readonly dependencies: Readonly<Record<string, string>>
 }
 

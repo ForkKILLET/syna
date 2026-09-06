@@ -280,6 +280,7 @@ class EnvImpl<Requires extends DependencyMap> implements EnvHandle<Requires> {
     const nodes: EnvInspectionNode[] = [...this.plan.nodes.values()]
       .map(node => {
         const slot = this.plan.slotsByNode.get(node.id)!
+        const overdueAt = slot.kind === 'service' && slot.state === 'starting' ? slot.attempt?.overdueAt : undefined
         return {
           nodeId: node.id,
           kind: node.kind,
@@ -287,6 +288,7 @@ class EnvImpl<Requires extends DependencyMap> implements EnvHandle<Requires> {
           slotId: slot.id,
           ownerEnvId: slot.ownerEnvId,
           state: slot.state,
+          ...(overdueAt === undefined ? {} : { overdueMs: Date.now() - overdueAt }),
           dependencies: Object.fromEntries(
             [...slot.requires.entries()].map(([key, dependency]) => [key, dependency.id]),
           ),

@@ -111,7 +111,10 @@ test('R09 owner disposal cancels retry backoff; a rollback failure ends the sequ
   await slowRuntime.dispose()
 })
 
-test('R09 retry-on-next-load recovery starts exactly one new sequence and is refused while an old attempt still runs', async () => {
+test('R09 a waiter\'s timeout leaves the attempt running: a second load() joins it and the late success is adopted; recovery after a failing attempt starts exactly one new sequence', async () => {
+  // 0.7 (S1): the 0.6 assertions "a second load() is refused with UNSETTLED_ATTEMPT while the timed-out attempt
+  // runs" and "the late value is discarded and cleaned up, recovery makes attempt 2" are withdrawn
+  // (docs/SEMANTIC_CHANGES_V07.md §撤回): the deadline ends one wait, the attempt keeps running and is adopted.
   const define = makeDefine('v05.recovery')
   let attempts = 0
   const hang = deferred()
@@ -121,12 +124,9 @@ test('R09 retry-on-next-load recovery starts exactly one new sequence and is ref
     setupDeadlineMs: 30,
     async setup(_deps, { onDispose }) {
       attempts += 1
-      if (attempts === 1) {
-        onDispose(() => events.push('late-cleanup'))
-        await hang.promise
-        return { attempts, late: true }
-      }
-      return { attempts }
+      onDispose(() => events.push(`cleanup:${attempts}`))
+      await hang.promise
+      return { attempts, late: true }
     },
   })
   const Entry = define.entry({ requires: { recovering: Recovering } })
@@ -135,19 +135,44 @@ test('R09 retry-on-next-load recovery starts exactly one new sequence and is ref
     diagnostics: { onEvent: event => events.push(event.type) },
   })
   const env = await runtime.enter(Entry)
-  await assert.rejects(env.deps.recovering.load(), error => error.code === 'INITIALIZATION_TIMEOUT')
-  // The first attempt is still running: a new attempt must not overlap it.
-  await assert.rejects(env.deps.recovering.load(), error => error.code === 'UNSETTLED_ATTEMPT')
+  await assert.rejects(env.deps.recovering.load(), error => error.code === 'INITIALIZATION_TIMEOUT' && error.details.attemptStillRunning === true)
+  // The first attempt is still running: a second load() joins it instead of starting or refusing a new one.
+  const joined = env.deps.recovering.load()
   assert.equal(attempts, 1)
   hang.resolve()
+  assert.deepEqual(await joined, { attempts: 1, late: true })
   await waitFor(() => events.includes('late-setup-result'))
-  // The late value was discarded, its registered cleanup ran, and it did not become the instance.
-  assert.deepEqual(events.filter(event => event !== 'foreign-thenable-setup'), ['late-cleanup', 'late-setup-result'])
+  // The late value became the instance: no cleanup ran and no recovery started.
+  assert.deepEqual(events.filter(event => event !== 'foreign-thenable-setup'), ['attempt-overdue', 'late-setup-result'])
   const [first, second] = await Promise.all([env.deps.recovering.load(), env.deps.recovering.load()])
   assert.strictEqual(first, second)
-  assert.deepEqual(first, { attempts: 2 })
-  assert.equal(attempts, 2)
+  assert.strictEqual(first, await joined)
+  assert.equal(attempts, 1)
   await runtime.dispose()
+  assert.deepEqual(events.filter(event => event.startsWith('cleanup')), ['cleanup:1'], 'the adopted instance is cleaned up at disposal')
+
+  // Recovery stays single-flight: after a *failing* first attempt, concurrent loads start exactly one new sequence.
+  const single = makeDefine('v05.recovery-single-flight')
+  let failing = 0
+  const Failing = single.service({
+    failure: { attempts: 1, afterExhaustion: 'retry-on-next-load', cooldownMs: 1 },
+    async setup() {
+      failing += 1
+      if (failing === 1) throw new Error('first attempt failed')
+      await sleep(5)
+      return { failing }
+    },
+  })
+  const FailingEntry = single.entry({ requires: { failing: Failing } })
+  const failingRuntime = createRuntime({ services: [Failing] })
+  const failingEnv = await failingRuntime.enter(FailingEntry)
+  await assert.rejects(failingEnv.deps.failing.load(), /first attempt failed/)
+  await sleep(5)
+  const [recoveredA, recoveredB] = await Promise.all([failingEnv.deps.failing.load(), failingEnv.deps.failing.load()])
+  assert.strictEqual(recoveredA, recoveredB)
+  assert.deepEqual(recoveredA, { failing: 2 })
+  assert.equal(failing, 2)
+  await failingRuntime.dispose()
 })
 
 test('K08 a Ready instance is never swapped by a later load; concurrent waiters join one attempt', async () => {

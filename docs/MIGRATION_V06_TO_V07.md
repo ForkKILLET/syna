@@ -97,7 +97,24 @@ v0.7 做三件事：删除 0.6 宣布到期的全部 23 个别名与 0.5 调用�
 
 ## §4 语义修订 S1 / S2
 
-（Phase D / E 填写；正文在 `docs/SEMANTIC_CHANGES_V07.md` 与 `docs/SEMANTIC_MODEL.md` §11 / §13。）
+正文在 `docs/SEMANTIC_MODEL.md` §11 / §13，登记在 `docs/SEMANTIC_CHANGES_V07.md`。
+
+### S1 `setupDeadlineMs` 是等待者的超时，不是 attempt 的期限
+
+0.6：deadline 到期时 attempt 被判 `timed-out`，slot 进入 `failed`，迟到的成功被丢弃并执行 cleanup（`late-setup-result`），raw Promise 兑现前对同一 slot 的 `load()` 以 `UNSETTLED_ATTEMPT` 拒绝，到期还消耗一次 `failure.attempts` 并触发 `delayMs` 退避。
+
+0.7：deadline 只限定**一次 `load()` 等待当前 attempt** 的时长（Service 选项与 `limits.setupDeadlineMs`，默认仍 `30_000`）。到期时该等待者以 `INITIALIZATION_TIMEOUT` 拒绝，`details` 在原有字段上加 `attemptStillRunning: true`（`note` 文字相应改写）；slot 保持 `starting`，`env.inspect()` 对该节点报告 `overdueMs`，`runtime.inspect().unsettledAttempts` 以 `timed-out` 列出该 attempt，每个 attempt 只发一次 `attempt-overdue` 事件（`{ slot, revision, env, attempt, deadlineMs, elapsedMs }`）。之后的 `load()` 加入仍在运行的 attempt，各自计算自己的等待窗口（重试开始新 attempt 时重新计时，`delayMs` 退避期间不计时）。attempt 随后成功且 owner Env 仍 `ready`：实例被接纳——slot `ready`，所有仍在等待的 `load()` 兑现，不执行 cleanup，`late-setup-result` 带 `adopted: true`；随后失败：走原有失败路径（sticky / attempts / retry-on-next-load 不变，`late-setup-failure` 报告）。到期**不消耗** `attempts`，也不触发 `delayMs`。只有关闭会丢弃迟到的成功：现有有界关闭语义不变（abort → grace → abandoned → 丢弃并 cleanup，`late-setup-result` 带 `adopted: false`）。eager 场景 `enter()` 是等待者：到期即 `ENTRY_ACTIVATION_FAILED`（`causeCode: 'INITIALIZATION_TIMEOUT'`，`causeDetails.slot` 指向 overdue 的 slot），回滚关闭新 Env，其迟到成功因此被关闭丢弃——这是上一条的推论，不是例外。不新增任何公开选项：更短的等待用 `load({ signal: AbortSignal.timeout(ms) })`（`LOAD_CANCELLED`；被取消的等待者连同它的 deadline 一起离开）。
+
+需要检查的用户代码：
+
+- 把 `INITIALIZATION_TIMEOUT` 当作"该 Service 已失败、稍后会重试"的代码：0.7 中 slot 仍在 `starting`，再次 `load()` 会加入同一 attempt 而不是触发恢复；要更短的等待用 `AbortSignal.timeout()`。
+- 依赖"迟到的成功会被丢弃并清理"的代码：迟到的成功现在成为实例，它通过 `onDispose` 登记的清理在 Env 关闭时执行。
+- 监听 `late-setup-result` 的诊断代码：新字段 `adopted` 区分接纳与丢弃；新增事件 `attempt-overdue`；`EnvInspectionNode` 新增可选字段 `overdueMs`。
+- 断言超时后 `env.inspect().nodes[i].state === 'failed'`、或 `load()` 在超时后得到 `UNSETTLED_ATTEMPT` 的测试：现在分别是 `'starting'`（带 `overdueMs`）与加入 attempt。
+
+### S2 `env.state` 与账本
+
+（Phase E 填写。）
 
 ## §5 迁移步骤
 

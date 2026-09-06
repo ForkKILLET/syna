@@ -102,7 +102,10 @@ test('F-PL-01 control: a cooperative setup that unwinds within the grace period 
   await runtime.dispose()
 })
 
-test('F-PL-02 onDispose() registered after the deadline passed is honoured by the late-settlement cleanup', async () => {
+test('F-PL-02 onDispose() registered after the deadline passed belongs to the adopted instance and runs at disposal', async () => {
+  // 0.7 (S1): the 0.6 assertion "the late-acquired resource is released right after the late result" is
+  // withdrawn (docs/SEMANTIC_CHANGES_V07.md §撤回): under a ready owner the late result is adopted, so the
+  // resource is the live instance's and the ordinary disposal releases it.
   const define = makeDefine('v05.audit.late-ondispose')
   const gate = deferred()
   const resource = { closed: false }
@@ -124,12 +127,15 @@ test('F-PL-02 onDispose() registered after the deadline passed is honoured by th
   await assert.rejects(env.deps.slow.load(), error => error.code === 'INITIALIZATION_TIMEOUT')
   gate.resolve()
   await sleep(10)
-  assert.equal(resource.closed, true, 'the late-acquired resource was released')
+  assert.equal(resource.closed, false, 'the late-acquired resource is the live instance, not an orphan')
+  assert.strictEqual(await env.deps.slow.load(), resource)
   const late = events.find(event => event.type === 'late-setup-result')
   assert.ok(late, 'late result reported as a result, not as a runtime-injected failure')
+  assert.equal(late.adopted, true)
   assert.deepEqual(late.cleanupErrors, [])
   assert.equal(events.some(event => event.type === 'late-setup-failure'), false)
   await runtime.dispose()
+  assert.equal(resource.closed, true, 'released by disposal')
 })
 
 test('F-PL-02 onDispose() registered after the owner closed mid-setup is still run once the setup settles', async () => {
@@ -278,7 +284,8 @@ test('F-PL-04 an Env with an abandoned attempt stays disposing (and counted) unt
   await sleep(10)
   assert.equal(env.state, 'disposed')
   assert.equal(env.inspect().nodes[0].state, 'disposed')
-  assert.deepEqual(events.filter(event => event !== 'cleanup'), ['attempt-abandoned', 'late-setup-result'])
+  // 0.7 (S1): the waiter's timeout marked the attempt overdue before the close abandoned it.
+  assert.deepEqual(events.filter(event => event !== 'cleanup'), ['attempt-overdue', 'attempt-abandoned', 'late-setup-result'])
   assert.ok(events.includes('cleanup'))
   assert.equal(runtime.inspect().liveEnvCount, 0)
   assert.equal(runtime.inspect().unsettledAttempts.length, 0)

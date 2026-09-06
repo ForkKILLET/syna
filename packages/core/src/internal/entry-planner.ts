@@ -711,6 +711,7 @@ export class EntryPlanner implements GraphBuilderHost {
           service: node.revision,
           requires: new Map(),
           state: 'dormant',
+          waiters: new Set(),
           cleanups: [],
           attemptCount: 0,
         }

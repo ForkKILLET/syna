@@ -18,6 +18,7 @@ import type {
   RuntimeSlot,
   ServiceSlot,
   SetupAttempt,
+  SetupWaiter,
   SlotOwnerEnv,
 } from './runtime-model.js'
 import {
@@ -39,7 +40,7 @@ type AttemptOutcome =
   | {
       readonly ok: false
       readonly error: unknown
-      /** The raw setup Promise is still pending (deadline or disposal ended the wait); never retried. */
+      /** The raw setup Promise is still pending (the owner's close ended the wait); never retried. */
       readonly unsettled: boolean
       readonly cleanupErrors: readonly unknown[]
     }
@@ -47,8 +48,8 @@ type AttemptOutcome =
 type RaceResult =
   | { readonly kind: 'resolved'; readonly value: unknown }
   | { readonly kind: 'rejected'; readonly error: unknown }
-  | { readonly kind: 'timeout' }
   | { readonly kind: 'abandoned' }
+  | { readonly kind: 'unreachable' }
 
 /** A slot whose setup attempt was still pending when its owner Env closed. */
 export interface AbandonedAttempt {
@@ -58,15 +59,16 @@ export interface AbandonedAttempt {
 
 /**
  * Ledger entry for an attempt the Runtime is still waiting on: its raw Promise
- * is pending after its deadline or its owner's close (`timed-out`, `abandoned`),
+ * is pending after a waiter's deadline (`timed-out`: the attempt is overdue and
+ * still running under a live owner) or after its owner's close (`abandoned`),
  * its setup ended but its rollback outlived the close (`rolling-back`), or its
  * late result is being cleaned up (`settling`). The record holds the attempt
  * strongly, and that retains nothing beyond the documented bound: the attempt
- * does not reference the user's raw Promise, whose reachability alone decides
- * how long the record lives — when the Promise is collected the attempt is
- * closed as unreachable and the record dropped. (A weak reference here let the
- * attempt die in the same collection as the Promise, so nothing was left to
- * run its cleanups when the unreachable path fired.)
+ * holds the user's raw Promise only weakly, so that Promise's reachability
+ * alone decides how long the record lives — when the Promise is collected the
+ * attempt is closed as unreachable and the record dropped. (A weak reference
+ * here let the attempt die in the same collection as the Promise, so nothing
+ * was left to run its cleanups when the unreachable path fired.)
  */
 interface UnsettledRecord {
   readonly id: number
@@ -94,29 +96,22 @@ function isForeignThenable(value: unknown): boolean {
 }
 
 /**
- * Settles with the raw result, with `timeout` when the deadline passes first,
- * or with `abandoned` when disposal stops waiting first. Whichever comes first
- * wins; the raw Promise itself is never cancelled.
+ * Settles with the raw result, with `abandoned` when disposal stops waiting
+ * first, or with `unreachable` when the raw Promise was garbage-collected
+ * unsettled first. Whichever comes first wins; the raw Promise itself is never
+ * cancelled. No deadline runs here: the deadline belongs to each waiter.
+ * Nothing returned here references the raw Promise, so the racing attempt
+ * never keeps it alive.
  */
-function raceDeadline(
-  promise: Promise<unknown>,
-  deadlineMs: number,
-  abandoned: Promise<void>,
-): Promise<RaceResult> {
+function raceAttempt(promise: Promise<unknown>, attempt: SetupAttempt): Promise<RaceResult> {
   const settled = promise.then(
     (value): RaceResult => ({ kind: 'resolved', value }),
     (error): RaceResult => ({ kind: 'rejected', error }),
   )
   return new Promise<RaceResult>(resolve => {
-    const timer = Number.isFinite(deadlineMs)
-      ? setTimeout(() => resolve({ kind: 'timeout' }), Math.max(0, deadlineMs))
-      : undefined
-    const finish = (result: RaceResult): void => {
-      if (timer !== undefined) clearTimeout(timer)
-      resolve(result)
-    }
-    void settled.then(finish)
-    void abandoned.then(() => finish({ kind: 'abandoned' }))
+    void settled.then(resolve)
+    void attempt.abandoned.then(() => resolve({ kind: 'abandoned' }))
+    void attempt.unreachable.then(() => resolve({ kind: 'unreachable' }))
   })
 }
 
@@ -125,19 +120,21 @@ function raceDeadline(
  * recovery, deadlines and cleanup ordering. Topology is decided elsewhere; the
  * materializer can only realize already-created slots.
  *
- * `load()` returns a plain Promise for the slot's current setup sequence. No
- * completion barrier is attached to the caller; whether the caller awaits the
- * Promise is ordinary JavaScript.
+ * `load()` returns a plain Promise of its own for every caller: a waiter on the
+ * slot's current setup sequence. The setup deadline is the waiter's — it ends
+ * that one wait, never the attempt. No completion barrier is attached to the
+ * caller; whether the caller awaits the Promise is ordinary JavaScript.
  */
 export class Materializer {
   private nextAttemptId = 1
   private nextLoadId = 1
+  private nextWaiterId = 1
   private completionCounter = 1
   private readonly unsettled = new Map<number, UnsettledRecord>()
   /**
-   * Fires when the raw setup Promise of an unsettled attempt is garbage-
-   * collected: nothing can settle it any more, so the attempt is closed as
-   * failed (its registered cleanups run) instead of staying pending forever.
+   * Fires when the raw setup Promise of an overdue or abandoned attempt is
+   * garbage-collected: nothing can settle it any more, so the attempt is closed
+   * as failed (its registered cleanups run) instead of staying pending forever.
    */
   private readonly unreachable = new FinalizationRegistry<UnreachableToken>(token => this.attemptUnreachable(token))
 
@@ -195,20 +192,27 @@ export class Materializer {
     }
   }
 
-  /** Starts every given eager slot and resolves when all are Ready; rejects with the first failure. */
+  /**
+   * Starts every given eager slot and resolves when all are Ready; rejects with
+   * the first failure. The activation is the waiter of each eager attempt, so
+   * an eager setup that outlasts the deadline fails the activation with
+   * `INITIALIZATION_TIMEOUT` while the attempt keeps running; the rollback
+   * that follows closes the new Env, and that close is what discards the late
+   * result.
+   */
   async startEagerSlots(slots: readonly ServiceSlot[]): Promise<void> {
     await Promise.all(slots.map(slot => this.loadService(slot, undefined, undefined)))
   }
 
   /**
    * Gives every in-flight attempt of the given slots at most `limits.disposalGraceMs`
-   * to settle after the owner's stop signal: running sequences as well as
-   * attempts whose deadline already passed. Slots are waited for concurrently,
-   * so the whole step is bounded by one grace period regardless of the
-   * per-service `setupDeadlineMs` (even `Infinity`). Attempts that do not
-   * settle in time are abandoned: their slot is marked `abandoned`, the attempt
-   * stays registered as `unsettledAttempt`, and its late result is still
-   * discarded, cleaned up and reported when it eventually arrives.
+   * to settle after the owner's stop signal: running sequences, overdue or
+   * not. Slots are waited for concurrently, so the whole step is bounded by
+   * one grace period regardless of the per-service `setupDeadlineMs` (even
+   * `Infinity`). Attempts that do not settle in time are abandoned: their slot
+   * is marked `abandoned`, the attempt stays registered as `unsettledAttempt`,
+   * and its late result is still discarded, cleaned up and reported when it
+   * eventually arrives.
    */
   async settleSlots(slots: readonly ServiceSlot[]): Promise<readonly AbandonedAttempt[]> {
     const outcomes = await Promise.all(slots.map(slot => this.settleSlot(slot)))
@@ -239,9 +243,9 @@ export class Materializer {
         this.reportAbandoned(slot, attempt)
         return { slot, attempt }
       }
-      // The sequence settled inside the grace, possibly by its own deadline: the
-      // raw setup is then still running as `unsettledAttempt` and gets the rest
-      // of the same grace below instead of vanishing from the close report.
+      // The sequence settled inside the grace: the attempt settled (its result
+      // discarded by this close, or failed) and its cleanups ran. A deadline
+      // never settles a sequence, so nothing of it is still running here.
     }
     const attempt = slot.unsettledAttempt
     if (!attempt) return undefined
@@ -308,23 +312,119 @@ export class Materializer {
     catch (error) {
       value = Promise.reject(error)
     }
-    if (requester && requester.state === 'running' && slot.state !== 'ready') {
-      const loadId = this.nextLoadId++
-      requester.pendingLoads.set(loadId, { target: slot, since: Date.now() })
-      value.then(
-        () => requester.pendingLoads.delete(loadId),
-        () => requester.pendingLoads.delete(loadId),
-      )
+    if (slot.state === 'ready') {
+      // Nothing to wait for: the caller's own Promise of the instance.
+      return waitWithSignal(value.then(instance => instance), options?.signal, () => ({
+        slot: slot.id,
+        revision: slot.service.key,
+      }))
     }
-    // Every caller gets its own Promise. The shared sequence carries an internal
-    // rejection handler so the runtime never produces unhandled rejections on
-    // its own; a caller that ignores its Promise sees ordinary JavaScript
-    // behaviour (an unhandled rejection) whichever slot state it hit.
-    const own = value.then(instance => instance)
-    return waitWithSignal(own, options?.signal, () => ({
-      slot: slot.id,
-      revision: slot.service.key,
-    }))
+    // Every caller gets its own Promise: a waiter with its own deadline timer.
+    // The shared sequence carries an internal rejection handler so the runtime
+    // never produces unhandled rejections on its own; a caller that ignores its
+    // Promise sees ordinary JavaScript behaviour (an unhandled rejection)
+    // whichever slot state it hit.
+    return this.waitFor(slot, value, options?.signal, requester)
+  }
+
+  /**
+   * One caller's wait on the slot's sequence (or its recovery, or an immediate
+   * refusal). The waiter's deadline timer is armed now if an attempt is
+   * running, and by every attempt that starts while the wait lasts; it ends
+   * only this wait. An aborted signal ends the wait too (`LOAD_CANCELLED`)
+   * and takes the waiter, timer included, off the slot.
+   */
+  private waitFor(
+    slot: ServiceSlot,
+    value: Promise<unknown>,
+    signal: AbortSignal | undefined,
+    requester: SetupAttempt | undefined,
+  ): Promise<unknown> {
+    return new Promise<unknown>((resolve, reject) => {
+      // A requester's pending load is observed for the wait-cycle diagnosis
+      // exactly as long as this wait lasts (a timeout ends it too).
+      const pendingLoad = requester && requester.state === 'running' ? this.nextLoadId++ : undefined
+      if (pendingLoad !== undefined) requester!.pendingLoads.set(pendingLoad, { target: slot, since: Date.now() })
+      let done = false
+      const waiter: SetupWaiter = {
+        id: this.nextWaiterId++,
+        settle: outcome => {
+          if (done) return
+          done = true
+          slot.waiters.delete(waiter)
+          this.disarm(waiter)
+          signal?.removeEventListener('abort', onAbort)
+          if (pendingLoad !== undefined) requester!.pendingLoads.delete(pendingLoad)
+          // Nothing else observes the caller's Promise: ignoring a rejected one
+          // is an ordinary unhandled rejection.
+          if (outcome.ok) resolve(outcome.value)
+          else reject(outcome.error)
+        },
+      }
+      const onAbort = (): void => {
+        waiter.settle({
+          ok: false,
+          error: new SynaError('LOAD_CANCELLED', 'The caller cancelled its wait.', { slot: slot.id, revision: slot.service.key }),
+        })
+      }
+      slot.waiters.add(waiter)
+      value.then(
+        instance => waiter.settle({ ok: true, value: instance }),
+        error => waiter.settle({ ok: false, error }),
+      )
+      // A setup may abort its caller's signal while running synchronously inside
+      // this very load(): the wait then ends before it is armed.
+      if (signal?.aborted) {
+        onAbort()
+        return
+      }
+      signal?.addEventListener('abort', onAbort, { once: true })
+      const attempt = slot.attempt
+      if (attempt && attempt.state === 'running' && !attempt.rawSettled) this.arm(waiter, slot, attempt)
+    })
+  }
+
+  /** Starts (or restarts) the waiter's deadline for the given running attempt. `Infinity` arms nothing. */
+  private arm(waiter: SetupWaiter, slot: ServiceSlot, attempt: SetupAttempt): void {
+    this.disarm(waiter)
+    const deadlineMs = slot.service.setupDeadlineMs ?? this.options.deadlineMs
+    if (!Number.isFinite(deadlineMs)) return
+    waiter.timer = setTimeout(() => this.waiterTimedOut(waiter, slot, attempt, deadlineMs), Math.max(0, deadlineMs))
+  }
+
+  private disarm(waiter: SetupWaiter): void {
+    if (waiter.timer === undefined) return
+    clearTimeout(waiter.timer)
+    delete waiter.timer
+  }
+
+  /**
+   * The waiter's deadline passed while its attempt is still running: only this
+   * wait ends (`INITIALIZATION_TIMEOUT`). The attempt is overdue from the first
+   * such timeout on — listed in the ledger as `timed-out`, `attempt-overdue`
+   * reported once, its slot showing `overdueMs` — and keeps running; its
+   * result is adopted if the owner is still ready and discarded only by a
+   * close.
+   */
+  private waiterTimedOut(waiter: SetupWaiter, slot: ServiceSlot, attempt: SetupAttempt, deadlineMs: number): void {
+    delete waiter.timer
+    if (!slot.waiters.has(waiter)) return
+    if (slot.attempt !== attempt || attempt.state !== 'running' || attempt.rawSettled) return
+    const owner = this.owner(slot)
+    if (attempt.overdueAt === undefined) {
+      attempt.overdueAt = Date.now()
+      this.registerOverdue(attempt, owner)
+      this.options.onEvent({
+        type: 'attempt-overdue',
+        slot: slot.id,
+        revision: slot.service.key,
+        env: owner.id,
+        attempt: attempt.id,
+        deadlineMs,
+        elapsedMs: attempt.overdueAt - attempt.startedAt,
+      })
+    }
+    waiter.settle({ ok: false, error: this.timeoutError(attempt, owner, deadlineMs) })
   }
 
   private serviceValue(slot: ServiceSlot): Promise<unknown> {
@@ -395,12 +495,18 @@ export class Materializer {
     )
   }
 
+  /**
+   * Guard kept for the `UNSETTLED_ATTEMPT` meaning "recovery requested while
+   * an attempt is unsettled". Since 0.7 an unsettled attempt always belongs to
+   * an abandoned slot, which refuses `load()` with `SLOT_NOT_LOADABLE` before
+   * a sequence could start, so no public call reaches this refusal.
+   */
   private assertNoUnsettledAttempt(slot: ServiceSlot): void {
     const unsettled = slot.unsettledAttempt
     if (!unsettled) return
     throw new SynaError(
       'UNSETTLED_ATTEMPT',
-      `A previous setup attempt of ${slot.service.key} timed out but is still running; a new attempt would overlap it.`,
+      `A previous setup attempt of ${slot.service.key} has not settled yet; a new attempt would overlap it.`,
       {
         slot: slot.id,
         revision: slot.service.key,
@@ -488,48 +594,94 @@ export class Materializer {
       },
     }
 
-    let rawPromise: Promise<unknown>
-    try {
-      const raw = slot.service.setup(Object.freeze(dependencyRefs) as never, lifecycle)
-      if (isForeignThenable(raw)) {
-        this.options.onEvent({
-          type: 'foreign-thenable-setup',
-          slot: slot.id,
-          revision: slot.service.key,
-          env: owner.id,
-        })
+    // The raw Promise is only ever referenced weakly past this block: the
+    // racing attempt must not keep alive what only the user's code can settle.
+    const raced = await (() => {
+      let rawPromise: Promise<unknown>
+      try {
+        const raw = slot.service.setup(Object.freeze(dependencyRefs) as never, lifecycle)
+        if (isForeignThenable(raw)) {
+          this.options.onEvent({
+            type: 'foreign-thenable-setup',
+            slot: slot.id,
+            revision: slot.service.key,
+            env: owner.id,
+          })
+        }
+        rawPromise = Promise.resolve(raw)
       }
-      rawPromise = Promise.resolve(raw)
-    }
-    catch (error) {
-      rawPromise = Promise.reject(error)
-    }
-    void rawPromise.catch(() => undefined)
+      catch (error) {
+        rawPromise = Promise.reject(error)
+      }
+      void rawPromise.catch(() => undefined)
+      attempt.rawRef = new WeakRef(rawPromise)
+      // Every waiter present now measures its deadline against this attempt.
+      for (const waiter of slot.waiters) this.arm(waiter, slot, attempt)
+      return raceAttempt(rawPromise, attempt)
+    })()
+    for (const waiter of slot.waiters) this.disarm(waiter)
 
-    const deadlineMs = slot.service.setupDeadlineMs ?? this.options.deadlineMs
-    const raced = await raceDeadline(rawPromise, deadlineMs, attempt.abandoned)
-
-    if (raced.kind === 'timeout' || raced.kind === 'abandoned') {
-      if (raced.kind === 'timeout') attempt.state = 'timed-out'
+    if (raced.kind === 'abandoned') {
       slot.unsettledAttempt = attempt
-      this.registerUnsettled(attempt, rawPromise, owner, raced.kind === 'timeout' ? 'timed-out' : 'abandoned')
-      const error = raced.kind === 'timeout'
-        ? this.timeoutError(attempt, owner, deadlineMs)
-        : closedError(
-          `Setup of ${slot.service.key} was still pending when owner Env ${owner.id} closed; its eventual result will be discarded.`,
-          this.closedDetails(owner, slot)(),
-        )
-      rawPromise.then(
-        () => this.handleLateSettlement(attempt, owner, undefined),
-        lateError => this.handleLateSettlement(attempt, owner, { error: lateError }),
+      const record = this.registerUnsettled(attempt, owner, 'abandoned')
+      const error = closedError(
+        `Setup of ${slot.service.key} was still pending when owner Env ${owner.id} closed; its eventual result will be discarded.`,
+        this.closedDetails(owner, slot)(),
       )
+      const rawPromise = attempt.rawRef?.deref()
+      if (rawPromise) {
+        this.watch(attempt, rawPromise)
+        rawPromise.then(
+          () => this.handleLateSettlement(attempt, owner, undefined),
+          lateError => this.handleLateSettlement(attempt, owner, { error: lateError }),
+        )
+      }
+      else {
+        // Collected before anything could observe it: nothing can settle it any more.
+        void this.settleRecord(record, undefined, 'unreachable')
+      }
       return { ok: false, error, unsettled: true, cleanupErrors: [] }
     }
 
     attempt.rawSettled = true
+    this.unreachable.unregister(attempt)
+    if (raced.kind === 'unreachable') {
+      // The raw Promise of an overdue attempt was collected while its owner
+      // lived: the attempt is closed as failed and the sequence goes on with the
+      // failure policy (a new attempt cannot overlap one that can never finish).
+      const cleanupErrors = (await this.runCleanups(attempt.cleanups, slot)).map(item => item.error)
+      attempt.state = 'failed'
+      this.forgetOverdue(attempt)
+      attempt.resolveSettled()
+      this.options.onEvent({
+        type: 'attempt-unreachable',
+        slot: slot.id,
+        revision: slot.service.key,
+        env: owner.id,
+        elapsedMs: Date.now() - attempt.startedAt,
+        cleanupErrors,
+      })
+      return {
+        ok: false,
+        error: new Error(`Setup of ${slot.service.key} can no longer settle: its Promise was garbage-collected while still pending.`),
+        unsettled: false,
+        cleanupErrors,
+      }
+    }
+
     if (raced.kind === 'rejected') {
       const cleanupErrors = (await this.runCleanups(attempt.cleanups, slot)).map(item => item.error)
       attempt.state = 'failed'
+      if (this.forgetOverdue(attempt)) {
+        this.options.onEvent({
+          type: 'late-setup-failure',
+          slot: slot.id,
+          revision: slot.service.key,
+          env: owner.id,
+          error: raced.error,
+          cleanupErrors,
+        })
+      }
       attempt.resolveSettled()
       return { ok: false, error: raced.error, unsettled: false, cleanupErrors }
     }
@@ -539,6 +691,16 @@ export class Materializer {
     if (ownerClosed || slot.attempt !== attempt) {
       const cleanupErrors = (await this.runCleanups(attempt.cleanups, slot)).map(item => item.error)
       attempt.state = 'failed'
+      if (this.forgetOverdue(attempt)) {
+        this.options.onEvent({
+          type: 'late-setup-result',
+          slot: slot.id,
+          revision: slot.service.key,
+          env: owner.id,
+          adopted: false,
+          cleanupErrors,
+        })
+      }
       attempt.resolveSettled()
       return {
         ok: false,
@@ -560,6 +722,19 @@ export class Materializer {
     delete slot.attempt
     delete slot.error
     delete slot.failedAt
+    if (this.forgetOverdue(attempt)) {
+      // Adopted: the owner is still ready, so the late instance is the slot's
+      // and its cleanups run at disposal like any other. Only a close discards
+      // a late success.
+      this.options.onEvent({
+        type: 'late-setup-result',
+        slot: slot.id,
+        revision: slot.service.key,
+        env: owner.id,
+        adopted: true,
+        cleanupErrors: [],
+      })
+    }
     return { ok: true, instance: raced.value }
   }
 
@@ -568,6 +743,8 @@ export class Materializer {
     const settled = new Promise<void>(resolve => { resolveSettled = resolve })
     let abandon: () => void = () => undefined
     const abandoned = new Promise<void>(resolve => { abandon = resolve })
+    let markUnreachable: () => void = () => undefined
+    const unreachable = new Promise<void>(resolve => { markUnreachable = resolve })
     return {
       id: this.nextAttemptId++,
       slot,
@@ -580,16 +757,39 @@ export class Materializer {
       resolveSettled,
       abandoned,
       abandon,
+      unreachable,
+      markUnreachable,
+      watched: false,
     }
+  }
+
+  /** The attempt's first waiter timed out: it is overdue, listed as `timed-out` while it keeps running under its live owner. */
+  private registerOverdue(attempt: SetupAttempt, owner: SlotOwnerEnv): void {
+    this.registerUnsettled(attempt, owner, 'timed-out')
+    const rawPromise = attempt.rawRef?.deref()
+    if (rawPromise) this.watch(attempt, rawPromise)
+    else attempt.markUnreachable()
+  }
+
+  /** Drops the ledger entry of an overdue attempt once it settled; tells whether the attempt was overdue. */
+  private forgetOverdue(attempt: SetupAttempt): boolean {
+    if (attempt.overdueAt === undefined) return false
+    const record = this.unsettled.get(attempt.id)
+    if (record && record.attempt === attempt) this.unsettled.delete(attempt.id)
+    return true
   }
 
   private registerUnsettled(
     attempt: SetupAttempt,
-    rawPromise: Promise<unknown>,
     owner: SlotOwnerEnv,
     state: 'timed-out' | 'abandoned',
-  ): void {
-    this.unsettled.set(attempt.id, {
+  ): UnsettledRecord {
+    const existing = this.unsettled.get(attempt.id)
+    if (existing && existing.attempt === attempt) {
+      existing.state = state
+      return existing
+    }
+    const record: UnsettledRecord = {
       id: attempt.id,
       attempt,
       slot: attempt.slot.id,
@@ -597,10 +797,20 @@ export class Materializer {
       env: owner.id,
       startedAt: attempt.startedAt,
       state,
-    })
-    // The held value keeps the attempt reachable until the raw Promise is
-    // collected; the attempt holds no reference to that Promise, so this never
-    // delays its collection.
+    }
+    this.unsettled.set(attempt.id, record)
+    return record
+  }
+
+  /**
+   * Registers the raw Promise for the unreachable diagnosis, once per attempt.
+   * The held value keeps the attempt reachable until the raw Promise is
+   * collected; the attempt holds that Promise only weakly, so this never delays
+   * its collection.
+   */
+  private watch(attempt: SetupAttempt, rawPromise: Promise<unknown>): void {
+    if (attempt.watched) return
+    attempt.watched = true
     this.unreachable.register(rawPromise, { id: attempt.id, attempt }, attempt)
   }
 
@@ -640,6 +850,12 @@ export class Materializer {
     if (!record || record.attempt !== attempt) return
     if (attempt.rawSettled) {
       this.unsettled.delete(id)
+      return
+    }
+    if (attempt.state === 'running') {
+      // Overdue under a live owner: the attempt is still racing; the race ends
+      // as `unreachable` and the sequence takes the failure path.
+      attempt.markUnreachable()
       return
     }
     void this.settleRecord(record, undefined, 'unreachable')
@@ -706,6 +922,7 @@ export class Materializer {
         slot: slot.id,
         revision: slot.service.key,
         env: envId,
+        adopted: false,
         cleanupErrors,
       })
     }
@@ -737,7 +954,8 @@ export class Materializer {
         elapsedMs: now - attempt.startedAt,
         pendingLoads,
         ...(suspectedWaitCycle ? { suspectedWaitCycle } : {}),
-        note: 'The deadline expired while setup was still pending. The attempt may still finish later; its result will be discarded and reported.',
+        attemptStillRunning: true,
+        note: 'The deadline ended this wait while setup was still pending. The attempt keeps running; its result is adopted if the owner Env is still ready, and discarded only if the owner closes.',
       },
     )
   }
