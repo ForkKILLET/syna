@@ -144,16 +144,16 @@
       "path": "cases.warm-enter-dispose-100-depth-2.timing.p50Ms",
       "check": "±10%",
       "baseline": 0.11516699999999958,
-      "current": 0.11479200000000844,
-      "delta": -0.003256141082003783,
+      "current": 0.11504099999999085,
+      "delta": -0.0010940634036549213,
       "ok": true
     },
     {
       "path": "cases.warm-enter-dispose-100-depth-2.timing.p95Ms",
       "check": "±10%",
       "baseline": 0.19000000000001194,
-      "current": 0.18804199999999582,
-      "delta": -0.010305263157978861,
+      "current": 0.1885419999999982,
+      "delta": -0.0076736842105981085,
       "ok": true
     },
     {
@@ -312,16 +312,16 @@
       "path": "cases.warm-enter-dispose-100-depth-6.timing.p50Ms",
       "check": "±10%",
       "baseline": 0.10833400000001348,
-      "current": 0.10754099999999767,
-      "delta": -0.007319954954268404,
+      "current": 0.1088749999999834,
+      "delta": 0.004993815422396075,
       "ok": true
     },
     {
       "path": "cases.warm-enter-dispose-100-depth-6.timing.p95Ms",
       "check": "±10%",
       "baseline": 0.166499999999985,
-      "current": 0.16816599999998516,
-      "delta": 0.010006006006007873,
+      "current": 0.16949999999999932,
+      "delta": 0.018018018018105764,
       "ok": true
     },
     {
@@ -480,16 +480,16 @@
       "path": "cases.warm-enter-dispose-300-depth-2.timing.p50Ms",
       "check": "±10%",
       "baseline": 0.25929199999995944,
-      "current": 0.2600830000000087,
-      "delta": 0.003050614751127778,
+      "current": 0.260708999999963,
+      "delta": 0.005464881292148505,
       "ok": true
     },
     {
       "path": "cases.warm-enter-dispose-300-depth-2.timing.p95Ms",
       "check": "±10%",
       "baseline": 0.38766600000002427,
-      "current": 0.38529199999999264,
-      "delta": -0.0061238282439818326,
+      "current": 0.38741599999997334,
+      "delta": -0.0006448850300282416,
       "ok": true
     },
     {
@@ -648,16 +648,16 @@
       "path": "cases.warm-enter-dispose-300-depth-6.timing.p50Ms",
       "check": "±10%",
       "baseline": 0.2567500000000109,
-      "current": 0.257041000000072,
-      "delta": 0.0011333982475603133,
+      "current": 0.2585000000000264,
+      "delta": 0.006815968841345166,
       "ok": true
     },
     {
       "path": "cases.warm-enter-dispose-300-depth-6.timing.p95Ms",
       "check": "±10%",
       "baseline": 0.38212500000003047,
-      "current": 0.37999999999999545,
-      "delta": -0.005561007523807282,
+      "current": 0.38349999999996953,
+      "delta": 0.0035982989857741288,
       "ok": true
     },
     {
@@ -728,16 +728,16 @@
       "path": "cases.phase-breakdown-300.coldPlanWithNewSlotsMs.p50Ms",
       "check": "±10%",
       "baseline": 20.346042000000125,
-      "current": 20.20204200000012,
-      "delta": -0.007077543632319494,
+      "current": 20.383957999999893,
+      "delta": 0.001863556558065138,
       "ok": true
     },
     {
       "path": "cases.phase-breakdown-300.coldPlanWithNewSlotsMs.p95Ms",
       "check": "±10%",
       "baseline": 22.65949999999998,
-      "current": 22.77612499999998,
-      "delta": 0.005146847900439067,
+      "current": 22.598708999999985,
+      "delta": -0.002682804121891258,
       "ok": true
     },
     {
@@ -752,16 +752,16 @@
       "path": "cases.phase-breakdown-300.warmPlanMs.p50Ms",
       "check": "±10%",
       "baseline": 0.3623339999999189,
-      "current": 0.3626670000001013,
-      "delta": 0.0009190415478053104,
+      "current": 0.3682920000001104,
+      "delta": 0.01644339200901057,
       "ok": true
     },
     {
       "path": "cases.phase-breakdown-300.warmPlanMs.p95Ms",
       "check": "±10%",
       "baseline": 0.48366599999997106,
-      "current": 0.49662499999999454,
-      "delta": 0.026793282968048615,
+      "current": 0.5005840000000035,
+      "delta": 0.03497868363712442,
       "ok": true
     },
     {
@@ -776,16 +776,16 @@
       "path": "cases.phase-breakdown-300.materializationMs.p50Ms",
       "check": "±10%",
       "baseline": 0.03550000000018372,
-      "current": 0.02741599999990285,
-      "delta": -0.22771830986588815,
+      "current": 0.027540999999928317,
+      "delta": -0.22419718310462566,
       "ok": false
     },
     {
       "path": "cases.phase-breakdown-300.materializationMs.p95Ms",
       "check": "±10%",
       "baseline": 0.0714580000000069,
-      "current": 0.05412499999999909,
-      "delta": -0.24256206442954098,
+      "current": 0.05987500000003365,
+      "delta": -0.16209521677030048,
       "ok": false
     },
     {
@@ -800,16 +800,16 @@
       "path": "cases.phase-breakdown-300.disposeMs.p50Ms",
       "check": "±10%",
       "baseline": 0.10829199999989214,
-      "current": 0.0965000000001055,
-      "delta": -0.10889077678682069,
+      "current": 0.09633400000006986,
+      "delta": -0.11042366933692416,
       "ok": false
     },
     {
       "path": "cases.phase-breakdown-300.disposeMs.p95Ms",
       "check": "±10%",
       "baseline": 0.1318340000000262,
-      "current": 0.11941600000000108,
-      "delta": -0.0941942139358789,
+      "current": 0.12454099999990831,
+      "delta": -0.055319568549209275,
       "ok": true
     },
     {
@@ -840,16 +840,16 @@
       "path": "cases.site-enter-tenant-input-reverse-closure-200.timing.p50Ms",
       "check": "±10%",
       "baseline": 0.19916599999987739,
-      "current": 0.18479200000001583,
-      "delta": -0.0721709528728317,
+      "current": 0.1868329999999787,
+      "delta": -0.06192321982620663,
       "ok": true
     },
     {
       "path": "cases.site-enter-tenant-input-reverse-closure-200.timing.p95Ms",
       "check": "±10%",
       "baseline": 0.3030839999998989,
-      "current": 0.21175000000016553,
-      "delta": -0.30134880099168493,
+      "current": 0.2162909999999556,
+      "delta": -0.2863661559170798,
       "ok": false
     },
     {
@@ -928,16 +928,16 @@
       "path": "cases.bound-entry-private-range-request-enter-dispose-100.timing.p50Ms",
       "check": "±10%",
       "baseline": 0.12295800000038071,
-      "current": 0.11987500000009277,
-      "delta": -0.02507360237055245,
+      "current": 0.12320899999986068,
+      "delta": 0.002041347447739872,
       "ok": true
     },
     {
       "path": "cases.bound-entry-private-range-request-enter-dispose-100.timing.p95Ms",
       "check": "±10%",
       "baseline": 0.18133299999999508,
-      "current": 0.16675000000009277,
-      "delta": -0.08042110371472766,
+      "current": 0.171291999999994,
+      "delta": -0.05537326355380079,
       "ok": true
     },
     {
@@ -1000,16 +1000,16 @@
       "path": "cases.override-and-all-request-enter-dispose-100.timing.p50Ms",
       "check": "±10%",
       "baseline": 0.120209000000159,
-      "current": 0.1192919999998594,
-      "delta": -0.007628380572988536,
+      "current": 0.11995799999976953,
+      "delta": -0.002088030017628806,
       "ok": true
     },
     {
       "path": "cases.override-and-all-request-enter-dispose-100.timing.p95Ms",
       "check": "±10%",
       "baseline": 0.1719169999996666,
-      "current": 0.17991600000004837,
-      "delta": 0.04652826654954012,
+      "current": 0.1804589999997006,
+      "delta": 0.0496867674520296,
       "ok": true
     },
     {
@@ -1032,8 +1032,8 @@
       "path": "cases.churn-10000-requests.perOperationMs",
       "check": "±10%",
       "baseline": 0.1229215291,
-      "current": 0.1229966417,
-      "delta": 0.0006110613864793724,
+      "current": 0.1235901875,
+      "delta": 0.005439717557174539,
       "ok": true
     },
     {
@@ -1153,8 +1153,10 @@
   "currentResult": {
     "sourceCommit": "4a67b9934bdf2186fb6a7d27433fc0442f51ab33",
     "builtFrom": "git archive of the commit, npm ci, npm run build, in a scratch directory",
-    "runs": 7,
-    "generatedAt": "2026-09-06T08:28:02.673Z",
+    "runs": 21,
+    "warmUpRuns": 1,
+    "order": "alternating rounds, both sides in every round",
+    "generatedAt": "2026-09-06T08:48:36.428Z",
     "quick": false,
     "environment": {
       "node": "v26.0.0",
@@ -1177,36 +1179,36 @@
     "methodology": {
       "note": "Setups are empty and involve no network. Warm cases measure enter+dispose of a sibling Entry with a cached plan template; percentiles are over individual iterations after warmup. Numbers are machine-specific; cache cardinality and bounded growth are the portable assertions.",
       "warmupIterations": 50,
-      "aggregation": "element-wise median of 7 runs of benchmarks/v0.5-planning.mjs",
-      "runs": 7
+      "aggregation": "element-wise median of 21 runs of benchmarks/v0.5-planning.mjs",
+      "runs": 21
     },
     "budgets": [
       {
         "budget": "warm-enter-dispose-300-depth-2",
         "metric": "p95Ms",
         "max": 2,
-        "value": 0.38529199999999264,
+        "value": 0.38741599999997334,
         "ok": true
       },
       {
         "budget": "warm-enter-dispose-300-depth-6",
         "metric": "p95Ms",
         "max": 2,
-        "value": 0.37999999999999545,
+        "value": 0.38349999999996953,
         "ok": true
       },
       {
         "budget": "warm-enter-dispose-100-depth-2",
         "metric": "p95Ms",
         "max": 1,
-        "value": 0.18804199999999582,
+        "value": 0.1885419999999982,
         "ok": true
       },
       {
         "budget": "bound-entry-private-range-request-enter-dispose-100",
         "metric": "p95Ms",
         "max": 1,
-        "value": 0.16675000000009277,
+        "value": 0.171291999999994,
         "ok": true
       },
       {
@@ -1237,7 +1239,7 @@
         "name": "warm-enter-dispose-100-depth-2",
         "serviceCount": 100,
         "depth": 2,
-        "coldPlanMs": 5.1349170000000015,
+        "coldPlanMs": 5.198666000000003,
         "requestShape": {
           "services": {
             "inherited": 100,
@@ -1258,13 +1260,13 @@
         },
         "timing": {
           "samples": 500,
-          "minMs": 0.09266700000000583,
-          "p50Ms": 0.11479200000000844,
-          "p90Ms": 0.17029100000000597,
-          "p95Ms": 0.18804199999999582,
-          "p99Ms": 0.23758300000000077,
-          "maxMs": 0.2991669999999971,
-          "meanMs": 0.12986176399999974
+          "minMs": 0.09316599999999653,
+          "p50Ms": 0.11504099999999085,
+          "p90Ms": 0.17216599999999005,
+          "p95Ms": 0.1885419999999982,
+          "p99Ms": 0.22779199999999378,
+          "maxMs": 0.28308300000000486,
+          "meanMs": 0.13109475600000017
         },
         "warmup": 50,
         "heapDeltaBytes": 194000,
@@ -1280,7 +1282,7 @@
         "name": "warm-enter-dispose-100-depth-6",
         "serviceCount": 100,
         "depth": 6,
-        "coldPlanMs": 1.1371249999999975,
+        "coldPlanMs": 1.1481660000000034,
         "requestShape": {
           "services": {
             "inherited": 100,
@@ -1301,16 +1303,16 @@
         },
         "timing": {
           "samples": 500,
-          "minMs": 0.08845800000000281,
-          "p50Ms": 0.10754099999999767,
-          "p90Ms": 0.1316669999999931,
-          "p95Ms": 0.16816599999998516,
-          "p99Ms": 0.208500000000015,
-          "maxMs": 0.35512500000001523,
-          "meanMs": 0.11447832199999994
+          "minMs": 0.08912499999999568,
+          "p50Ms": 0.1088749999999834,
+          "p90Ms": 0.13358399999998483,
+          "p95Ms": 0.16949999999999932,
+          "p99Ms": 0.205332999999996,
+          "maxMs": 0.29770899999999756,
+          "meanMs": 0.11556943000000086
         },
         "warmup": 50,
-        "heapDeltaBytes": 14016,
+        "heapDeltaBytes": 13976,
         "planCache": {
           "hits": 550,
           "misses": 8,
@@ -1323,7 +1325,7 @@
         "name": "warm-enter-dispose-300-depth-2",
         "serviceCount": 300,
         "depth": 2,
-        "coldPlanMs": 4.892333000000008,
+        "coldPlanMs": 5.002874999999989,
         "requestShape": {
           "services": {
             "inherited": 260,
@@ -1344,13 +1346,13 @@
         },
         "timing": {
           "samples": 500,
-          "minMs": 0.22316699999998946,
-          "p50Ms": 0.2600830000000087,
-          "p90Ms": 0.33166700000003857,
-          "p95Ms": 0.38529199999999264,
-          "p99Ms": 0.4457919999999831,
-          "maxMs": 0.561333999999988,
-          "meanMs": 0.27621771199999806
+          "minMs": 0.22466700000001083,
+          "p50Ms": 0.260708999999963,
+          "p90Ms": 0.3363329999999678,
+          "p95Ms": 0.38741599999997334,
+          "p99Ms": 0.43950000000000955,
+          "maxMs": 0.5363330000000133,
+          "meanMs": 0.2780924439999989
         },
         "warmup": 50,
         "heapDeltaBytes": 31400,
@@ -1366,7 +1368,7 @@
         "name": "warm-enter-dispose-300-depth-6",
         "serviceCount": 300,
         "depth": 6,
-        "coldPlanMs": 4.948915999999997,
+        "coldPlanMs": 4.982457999999951,
         "requestShape": {
           "services": {
             "inherited": 260,
@@ -1387,16 +1389,16 @@
         },
         "timing": {
           "samples": 500,
-          "minMs": 0.22220900000002075,
-          "p50Ms": 0.257041000000072,
-          "p90Ms": 0.31570900000002666,
-          "p95Ms": 0.37999999999999545,
-          "p99Ms": 0.42566599999997834,
-          "maxMs": 0.49662499999999454,
-          "meanMs": 0.2725454240000008
+          "minMs": 0.22504200000003038,
+          "p50Ms": 0.2585000000000264,
+          "p90Ms": 0.32237499999996544,
+          "p95Ms": 0.38349999999996953,
+          "p99Ms": 0.4415000000000191,
+          "maxMs": 0.5169579999999883,
+          "meanMs": 0.27812357
         },
         "warmup": 50,
-        "heapDeltaBytes": -65728,
+        "heapDeltaBytes": -64984,
         "planCache": {
           "hits": 550,
           "misses": 8,
@@ -1410,43 +1412,43 @@
         "serviceCount": 300,
         "coldPlanWithNewSlotsMs": {
           "samples": 60,
-          "minMs": 19.44066699999985,
-          "p50Ms": 20.20204200000012,
-          "p90Ms": 21.687291999999843,
-          "p95Ms": 22.77612499999998,
-          "p99Ms": 26.761375000000044,
-          "maxMs": 26.761375000000044,
-          "meanMs": 20.58281039999997
+          "minMs": 19.588250000000016,
+          "p50Ms": 20.383957999999893,
+          "p90Ms": 21.98524999999995,
+          "p95Ms": 22.598708999999985,
+          "p99Ms": 27.079791999999998,
+          "maxMs": 27.079791999999998,
+          "meanMs": 20.735262450000004
         },
         "warmPlanMs": {
           "samples": 60,
-          "minMs": 0.26841699999999946,
-          "p50Ms": 0.3626670000001013,
-          "p90Ms": 0.48308299999996507,
-          "p95Ms": 0.49662499999999454,
-          "p99Ms": 0.5548749999999245,
-          "maxMs": 0.5548749999999245,
-          "meanMs": 0.38636528333335607
+          "minMs": 0.2772499999998672,
+          "p50Ms": 0.3682920000001104,
+          "p90Ms": 0.48833300000001145,
+          "p95Ms": 0.5005840000000035,
+          "p99Ms": 0.5910000000000082,
+          "maxMs": 0.5910000000000082,
+          "meanMs": 0.3933827166666731
         },
         "materializationMs": {
           "samples": 60,
-          "minMs": 0.01583400000004076,
-          "p50Ms": 0.02741599999990285,
-          "p90Ms": 0.04924999999991542,
-          "p95Ms": 0.05412499999999909,
-          "p99Ms": 0.6693750000000591,
-          "maxMs": 0.6693750000000591,
-          "meanMs": 0.04154584999999808
+          "minMs": 0.015958999999838852,
+          "p50Ms": 0.027540999999928317,
+          "p90Ms": 0.05475000000001273,
+          "p95Ms": 0.05987500000003365,
+          "p99Ms": 0.6744589999999562,
+          "maxMs": 0.6744589999999562,
+          "meanMs": 0.04272576666667192
         },
         "disposeMs": {
           "samples": 60,
-          "minMs": 0.0679170000000795,
-          "p50Ms": 0.0965000000001055,
-          "p90Ms": 0.11554200000000492,
-          "p95Ms": 0.11941600000000108,
-          "p99Ms": 0.3167080000000624,
-          "maxMs": 0.3167080000000624,
-          "meanMs": 0.09924519999997869
+          "minMs": 0.06912499999998545,
+          "p50Ms": 0.09633400000006986,
+          "p90Ms": 0.11308299999996052,
+          "p95Ms": 0.12454099999990831,
+          "p99Ms": 0.32416699999998855,
+          "maxMs": 0.32416699999998855,
+          "meanMs": 0.10071945000000444
         }
       },
       {
@@ -1455,16 +1457,16 @@
         "inherited": 140,
         "timing": {
           "samples": 300,
-          "minMs": 0.16233299999998962,
-          "p50Ms": 0.18479200000001583,
-          "p90Ms": 0.20420899999999165,
-          "p95Ms": 0.21175000000016553,
-          "p99Ms": 0.37008300000002237,
-          "maxMs": 0.4259999999999309,
-          "meanMs": 0.1916930866666659
+          "minMs": 0.16449999999986176,
+          "p50Ms": 0.1868329999999787,
+          "p90Ms": 0.20716700000002675,
+          "p95Ms": 0.2162909999999556,
+          "p99Ms": 0.3794580000001133,
+          "maxMs": 0.4406250000001819,
+          "meanMs": 0.19465068666666033
         },
         "warmup": 20,
-        "heapDeltaBytes": -26144,
+        "heapDeltaBytes": -25160,
         "planCache": {
           "hits": 321,
           "misses": 2,
@@ -1479,16 +1481,16 @@
         "newServices": 21,
         "timing": {
           "samples": 500,
-          "minMs": 0.10262499999998909,
-          "p50Ms": 0.11987500000009277,
-          "p90Ms": 0.13450000000011642,
-          "p95Ms": 0.16675000000009277,
-          "p99Ms": 0.21199999999998909,
-          "maxMs": 0.3581669999998667,
-          "meanMs": 0.12652582400000575
+          "minMs": 0.10470799999984592,
+          "p50Ms": 0.12320899999986068,
+          "p90Ms": 0.1360410000002048,
+          "p95Ms": 0.171291999999994,
+          "p99Ms": 0.23816699999997581,
+          "maxMs": 0.3758330000000569,
+          "meanMs": 0.12899608600000648
         },
         "warmup": 50,
-        "heapDeltaBytes": 19264,
+        "heapDeltaBytes": 19096,
         "planCache": {
           "hits": 550,
           "misses": 4,
@@ -1501,22 +1503,22 @@
         "name": "override-and-all-request-enter-dispose-100",
         "timing": {
           "samples": 500,
-          "minMs": 0.10329100000035396,
-          "p50Ms": 0.1192919999998594,
-          "p90Ms": 0.1716670000000704,
-          "p95Ms": 0.17991600000004837,
-          "p99Ms": 0.21916700000019773,
-          "maxMs": 0.3577919999997903,
-          "meanMs": 0.13661714000000758
+          "minMs": 0.10458299999982046,
+          "p50Ms": 0.11995799999976953,
+          "p90Ms": 0.17124999999987267,
+          "p95Ms": 0.1804589999997006,
+          "p99Ms": 0.21220899999980247,
+          "maxMs": 0.36283300000013696,
+          "meanMs": 0.13795684199999597
         },
         "warmup": 50,
-        "heapDeltaBytes": 114240
+        "heapDeltaBytes": 113416
       },
       {
         "name": "churn-10000-requests",
         "operations": 10000,
-        "elapsedMs": 1229.966417,
-        "perOperationMs": 0.1229966417,
+        "elapsedMs": 1235.901875,
+        "perOperationMs": 0.1235901875,
         "planCacheEntriesMax": 4,
         "liveEnvCountAfter": 2,
         "planCache": {
@@ -1529,27 +1531,27 @@
         "heapSamples": [
           {
             "index": 0,
-            "heapUsed": 7261104,
+            "heapUsed": 7317624,
             "liveEnvs": 2
           },
           {
             "index": 2000,
-            "heapUsed": 7461640,
+            "heapUsed": 7461792,
             "liveEnvs": 2
           },
           {
             "index": 4000,
-            "heapUsed": 7546304,
+            "heapUsed": 7546424,
             "liveEnvs": 2
           },
           {
             "index": 6000,
-            "heapUsed": 7535888,
+            "heapUsed": 7536008,
             "liveEnvs": 2
           },
           {
             "index": 8000,
-            "heapUsed": 7558624,
+            "heapUsed": 7558856,
             "liveEnvs": 2
           }
         ]
