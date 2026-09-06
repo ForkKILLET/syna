@@ -262,8 +262,8 @@ class EnvImpl<Requires extends DependencyMap> implements Env<Requires> {
     return withCall(args[0], args[1], call => this.runtime.explainFrom(this, descriptor, call, PUBLIC_REALM))
   }
 
-  derive(reuse: ReuseConstraints = {}): Promise<Env<{}>> {
-    return this.runtime.enterFrom(this, internalDeriveEntry, { parameters: undefined, reuse }, PUBLIC_REALM)
+  derive(options?: EntryOptions): Promise<Env<{}>> {
+    return withCall(undefined, options, call => this.runtime.enterFrom(this, internalDeriveEntry, call, PUBLIC_REALM))
   }
 
   anchor<E extends Entry>(descriptor: E): AnchoredEntry<E> {
@@ -370,7 +370,7 @@ class RuntimeImpl implements Runtime, ImplementationViewHost {
         this.directory.implementations(contract),
       resolve: <C extends Contract>(ref: ImplementationRef<C>) =>
         this.directory.resolveCatalog(ref),
-      revisions: (familyId: string) => this.directory.revisions(familyId),
+      revisions: (family: ServiceFamily) => this.directory.revisions(family.id),
     })
   }
 

@@ -230,6 +230,8 @@ void runtime.catalog.resolve(implementationRef)
 
 // R3 (v0.6, alias removed in 0.7): createRuntime() returns a Runtime.
 const typedRuntime: Runtime = runtime
+void typedRuntime.catalog.revisions(Minimal.family)
+// @ts-expect-error S2 (v0.8): catalog.revisions() takes the ServiceFamily descriptor, not its id.
 void typedRuntime.catalog.revisions('type-test.package/minimal')
 
 // R2 (v0.6): env.anchor(entry) creates an AnchoredEntry; a Service requiring an Entry receives one.
@@ -240,6 +242,11 @@ void someEnv.bind(NoParams)
 void anchoredNoParams
 void anchoredNoParams.run(async ({ minimal }) => (await minimal.load()).ping())
 void anchoredNoParams.enter({}, { reuse: { fresh: [Minimal] } })
+// S1 (v0.8): derive() takes the Entry call options.
+void someEnv.derive({ reuse: { fresh: [Minimal] } })
+void someEnv.derive()
+// @ts-expect-error S1 (v0.8): the 0.7 bare constraints are not the options; write derive({ reuse: { fresh } }).
+void someEnv.derive({ fresh: [Minimal] })
 const UnitOfWork = define.service('unit-of-work', {
   requires: { work: NoParams },
   async setup({ work }) {

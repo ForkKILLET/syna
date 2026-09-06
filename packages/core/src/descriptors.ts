@@ -479,7 +479,7 @@ export interface RuntimeCatalog {
     ref: ImplementationRef<C>,
   ): ImplementationRecord<C>
   /** Publicly admitted exact revisions of one Service family, highest first. */
-  revisions(familyId: string): readonly string[]
+  revisions(family: ServiceFamily): readonly string[]
 }
 
 export interface ServiceOverride<
@@ -830,7 +830,8 @@ export interface Env<Requires extends DependencyMap = DependencyMap> {
     ...args: EntryCallArguments<E>
   ): Promise<EntryExplanation>
 
-  derive(reuse?: ReuseConstraints): Promise<Env<{}>>
+  /** A child Env of this one with no Entry of its own; `options.reuse` as for `enter()`. */
+  derive(options?: EntryOptions): Promise<Env<{}>>
   /** An `AnchoredEntry` anchored at this Env (public authority). */
   anchor<E extends Entry>(entry: E): AnchoredEntry<E>
   inspect(): EnvInspection
