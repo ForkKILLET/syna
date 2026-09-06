@@ -181,7 +181,7 @@ test('R14 C.all is unsatisfiable as a whole when members cannot coexist, and a c
   const second = await fine.enter(Entry)
   const firstSet = await (await first.deps.manager.load()).plugins.load()
   const secondSet = await (await second.deps.manager.load()).plugins.load()
-  await assert.rejects(secondSet.load(firstSet.candidates[0].ref), error => error.code === 'CONSTRAINT_VIOLATION')
+  await assert.rejects(secondSet.load(firstSet.candidates[0].ref), error => error.code === 'FRESH_CONSTRAINT_FAILED')
   await fine.dispose()
 })
 
@@ -287,6 +287,6 @@ test('K03 fresh/share accept exact and family targets; conflicts fail explicitly
   assert.equal(slotOf(shared, `service:${State.key}`), slotOf(root, `service:${State.key}`))
   await assert.rejects(root.derive({ fresh: [State], share: [State.family] }), error => error.code === 'SHARE_CONSTRAINT_FAILED')
   const Unknown = makeDefine('v05.scope.unknown').service({ setup: () => ({}) })
-  await assert.rejects(root.derive({ fresh: [Unknown] }), error => error.code === 'CONSTRAINT_VIOLATION')
+  await assert.rejects(root.derive({ fresh: [Unknown] }), error => error.code === 'FRESH_CONSTRAINT_FAILED')
   await runtime.dispose()
 })

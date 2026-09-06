@@ -21,6 +21,8 @@ const RENAMED = {
     { from: 'implementationId', to: 'familyId', within: 'persistent-implementation-ref' },
   ],
   values: [
+    // M3: the error code CONSTRAINT_VIOLATION is FRESH_CONSTRAINT_FAILED (same trigger conditions, same details)
+    { key: 'code', from: 'CONSTRAINT_VIOLATION', to: 'FRESH_CONSTRAINT_FAILED' },
     { key: 'pickerRefJson', from: '{"kind":"persistent-implementation-ref","contractId":"snap/storage/v1","implementationId":"snap-memory","version":"^1.0.0"}', to: '{"kind":"persistent-implementation-ref","contractId":"snap/storage/v1","familyId":"snap-memory","version":"^1.0.0"}' },
   ],
 }

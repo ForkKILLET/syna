@@ -419,7 +419,7 @@ export type ScopeTarget = ReuseTarget
  * Reuse constraints of an Entry or of one call. `fresh` targets never reuse the
  * parent's slot (their reverse dependency closure is forked); `share` targets
  * must reuse it (`SHARE_CONSTRAINT_FAILED` otherwise). Targets that are not
- * active in the parent world fail with `CONSTRAINT_VIOLATION`.
+ * active in the parent world fail with `FRESH_CONSTRAINT_FAILED`.
  */
 export interface ReuseConstraints {
   readonly fresh?: readonly ReuseTarget[]

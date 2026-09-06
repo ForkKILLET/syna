@@ -318,7 +318,7 @@ export class GraphBuilder {
       const selected = candidates.find(candidate => candidate.key === selectedKey)
       if (!selected) {
         throw new SynaError(
-          'CONSTRAINT_VIOLATION',
+          'FRESH_CONSTRAINT_FAILED',
           `The inherited resolution ${selectedKey} is no longer valid at ${site}.`,
           { site, selectedKey, candidates: candidates.map(candidate => candidate.key) },
         )

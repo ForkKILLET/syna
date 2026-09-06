@@ -79,14 +79,14 @@ test('R1 call: options.reuse and the deprecated parameters.scope plan, explain, 
   await root.run(Child, { flag: 3 }, undefined, async (deps, env) => { seen.push(['no-options', env.inspect().nodes.length, typeof deps.app.load]) })
   assert.deepEqual(seen.map(([, count, type]) => [count, type]), [[seen[0][1], 'function'], [seen[0][1], 'function'], [seen[0][1], 'function']])
 
-  // Errors: an inactive target is CONSTRAINT_VIOLATION whichever form names it; a bad target is INVALID_DESCRIPTOR.
+  // Errors: an inactive target is FRESH_CONSTRAINT_FAILED whichever form names it; a bad target is INVALID_DESCRIPTOR.
   for (const call of [
     () => root.check(Child, { flag: 2 }, { reuse: { fresh: [Other] } }),
     () => root.check(Child, { flag: 2, scope: { fresh: [Other] } }),
   ]) {
     const result = await call()
     assert.equal(result.ok, false)
-    assert.equal(result.error.code, 'CONSTRAINT_VIOLATION')
+    assert.equal(result.error.code, 'FRESH_CONSTRAINT_FAILED')
     assert.equal(result.error.message, `fresh targets inactive Service Revision ${Other.key}.`)
   }
   await assert.rejects(root.enter(Child, { flag: 2 }, { reuse: { fresh: ['not-a-service'] } }), { code: 'INVALID_DESCRIPTOR', message: 'Reuse targets must be Service revisions or families.' })
@@ -115,7 +115,7 @@ test('R1 derive(): the argument is ReuseConstraints; behaviour unchanged', async
   assert.equal(derived.inspect().parentId, root.id)
   const cacheNode = derived.inspect().nodes.find(node => node.nodeId === `service:${Cache.key}`)
   assert.equal(cacheNode.ownerEnvId, derived.id)
-  await assert.rejects(root.derive({ fresh: [makeDefine('r1-unknown').service({ setup: () => ({}) })] }), { code: 'CONSTRAINT_VIOLATION' })
+  await assert.rejects(root.derive({ fresh: [makeDefine('r1-unknown').service({ setup: () => ({}) })] }), { code: 'FRESH_CONSTRAINT_FAILED' })
   await runtime.dispose()
 })
 

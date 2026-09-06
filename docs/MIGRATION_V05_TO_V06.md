@@ -35,6 +35,8 @@ v0.6 只收束 API 的名字与类型。语义——默认值、错误触发条�
 
 | M2 | `EntryParameters<E>` = 调用期取值记录；`EntryArguments<E>` = `enter/check/explain` 的参数元组；从包入口导出的辅助类型 `EntryParameter`、`EntryParameterMap`、`EntryParameterValue`、`EntryParameterValues`、`EntryRunArguments`、`DependencyOutput`、`NormalizedServiceFailurePolicy`、`SetupResult` | `EntryParameters<E>` = Entry 声明的参数映射类型（`E['parameters']`）；`EntryArguments<E>` = 调用期取值记录；`LoadedDependencies<Refs>`（`loadAll` 的结果）保留；其余不再从包入口导出。含义变化无法用别名过渡，对照：`EntryParameterValues<E['parameters']>` → `EntryArguments<E>`；`E['parameters']` → `EntryParameters<E>`；`DependencyOutput<D>` → 直接标注实例类型或 `Awaited<ReturnType<ServiceRef<T>['load']>>`；`SetupResult<T>` → `T \| Promise<T>`；`NormalizedServiceFailurePolicy` → `Required<ServiceFailurePolicy>` 形状（只在内部使用） | (3) 同一概念（调用期取值）两个名字，且 `EntryParameters` 字面上就是"参数声明" | 无别名（含义变化，0.6 直接生效） |
 
+| M3 | 错误码 `CONSTRAINT_VIOLATION` | `FRESH_CONSTRAINT_FAILED`（与 `SHARE_CONSTRAINT_FAILED` 对称）。触发条件与 `details` 逐字不变（F3：四个抛出点纯改名——`fresh`/`share` 目标在父世界不活动的修订或族、继承的选择在该位点不再有效、CandidateRef 属于另一个集合；后两种情形挂在"fresh"名下并不贴切，记入 `docs/DEFERRED.md`）；`SHARE_CONSTRAINT_FAILED` 不变；`UNKNOWN_ERROR` 仍只出现在 `DiagnosticCode` | (3)/(1) 与 `SHARE_CONSTRAINT_FAILED` 不对称，也不说明违反了哪种约束 | 无别名（一个错误只有一个 `code`；0.6 直接生效，`isSynaError(error, 'FRESH_CONSTRAINT_FAILED')`） |
+
 ## 删除（无别名）
 
 | # | 删除 | 替代 | 改写的测试 | 删除的测试 |

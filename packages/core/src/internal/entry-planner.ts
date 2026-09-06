@@ -826,7 +826,7 @@ export class EntryPlanner implements GraphBuilderHost {
     for (const key of targets.revisionKeys) {
       if (!activeKeys.has(key)) {
         throw new SynaError(
-          'CONSTRAINT_VIOLATION',
+          'FRESH_CONSTRAINT_FAILED',
           `${kind} targets inactive Service Revision ${key}.`,
           { env: envId, revision: key },
         )
@@ -835,7 +835,7 @@ export class EntryPlanner implements GraphBuilderHost {
     for (const family of targets.familyIds) {
       if (!activeFamilies.has(family)) {
         throw new SynaError(
-          'CONSTRAINT_VIOLATION',
+          'FRESH_CONSTRAINT_FAILED',
           `${kind} targets inactive Service Family ${family}.`,
           { env: envId, family },
         )
