@@ -24,7 +24,6 @@ import type {
   ServiceDefinition,
   ServiceFamily,
   ServiceInstance,
-  ServiceRange,
   ServiceRevision,
   ServiceOverride,
 } from './descriptors.js'
@@ -499,13 +498,6 @@ export function withDeprecatedScope<E extends Omit<EntryDescriptor, 'scope'>>(
     configurable: false,
   })
   return descriptor as E & { readonly scope: Readonly<ReuseConstraints> }
-}
-
-export function serviceRange<S extends ServiceRevision<any, any>>(
-  service: S,
-  range = '*',
-): ServiceRange<S['family']> {
-  return service.range(range)
 }
 
 export type { ContractApi, ServiceInstance }

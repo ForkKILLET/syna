@@ -2,7 +2,6 @@ import {
   createRuntime,
   definePackage,
   loadAll,
-  serviceRange,
   type AnchoredEntry,
   type BoundEntry,
   type DependencyRef,
@@ -263,8 +262,9 @@ const ViaRange = define.service('via-range', {
   },
 })
 void ViaRange
-const viaHelper: ServiceRange<ServiceFamily<Capability>> = serviceRange(Implementation, '^2')
-void viaHelper
+// D4 (v0.6): `serviceRange(revision, range)` is gone; `revision.range(range)` is the one form.
+const viaRange: ServiceRange<ServiceFamily<Capability>> = Implementation.range('^2')
+void viaRange
 const exactStillFull: DependencyRef<Implementation> = null as unknown as DependencyRef<ServiceInstance<typeof Implementation>>
 void exactStillFull
 

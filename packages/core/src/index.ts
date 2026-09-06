@@ -3,7 +3,6 @@ export {
   definePackage,
   forward,
   parseImplementationRef,
-  serviceRange,
   override,
 } from './definition.js'
 
