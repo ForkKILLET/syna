@@ -9,7 +9,7 @@
 //
 // This is a transparent runner: every sub-command is spawned, awaited, and recorded with exit code, timing,
 // pass/fail/skip counts (parsed from TAP) and a log path. Nothing here writes "passed" by hand.
-import { spawn } from 'node:child_process'
+import { spawn, spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync, rmSync } from 'node:fs'
 import { mkdtemp } from 'node:fs/promises'
@@ -34,6 +34,9 @@ const previousManifest = existsSync(manifestPath) ? JSON.parse(readFileSync(mani
 let postgresInfo = null
 
 const BENCHMARK_BASELINE = 'benchmarks/results-v0.5.0-baseline-same-machine.json'
+// The 0.5.0 source: the records commit on top of the released 09e2931 (identical core). Exported and benchmarked
+// in the same session when the history is available; otherwise the recorded file above is the baseline.
+const BASELINE_COMMIT = '4a67b99'
 const BENCHMARK_RUNS = 7
 const ANY_BASELINE = 'scripts/any-baseline-v0.5.0.json'
 const INVENTORY_BEFORE = 'work/v06/API_INVENTORY_BEFORE.json'
@@ -206,9 +209,15 @@ async function developmentGate() {
   await run('hyla-demo-filesystem', 'node', ['apps/hyla-mini/bin/hyla-mini.mjs', 'demo', '--root', path.join(root, 'work', 'demo-content')], { expectStdout: demoServedAllCells })
   rmSync(path.join(root, 'work', 'demo-content'), { recursive: true, force: true })
   await run('benchmarks', 'node', ['--expose-gc', 'benchmarks/v0.5-planning.mjs', path.join(validationDir, 'benchmark-v0.5.json')])
-  // v0.6 evidence: same-machine comparison with the 0.5.0 baseline (A09): every p50/p95 within ±10 %, every plan-cache counter equal.
+  // v0.6 evidence: same-machine comparison with 0.5.0 (A09): every p50/p95 within ±10 %, every plan-cache counter equal.
+  // Same session when the 0.5.0 commit can be exported (both sides measured under the same machine state); else the
+  // recorded baseline file, and only where the host matches the machine it was recorded on.
+  const baselineExportable = spawnSync('git', ['cat-file', '-e', `${BASELINE_COMMIT}^{commit}`], { cwd: root, stdio: 'ignore' }).status === 0
   const comparability = benchmarkBaselineEnvironment()
-  if (comparability.comparable) {
+  if (baselineExportable) {
+    await run('benchmark-compare', 'node', ['scripts/benchmark-same-session.mjs', '--commit', BASELINE_COMMIT, '--runs', String(BENCHMARK_RUNS), '--out-dir', path.join(validationDir, 'benchmark-compare')], { expectStdout: output => /^SAME-SESSION BENCHMARK COMPARISON OK$/m.test(output) })
+  }
+  else if (comparability.comparable) {
     await run('benchmark-compare', 'node', ['scripts/benchmark-compare.mjs', 'compare', '--baseline', BENCHMARK_BASELINE, '--runs', String(BENCHMARK_RUNS), '--out', path.join(validationDir, 'benchmark-compare.json')], { expectStdout: output => /^BENCHMARK COMPARISON OK$/m.test(output) })
   }
   else {
@@ -320,11 +329,11 @@ const result = await runtime.run(Main, { answer: 21 }, async ({ doubler }, env) 
   const shared = await doubler.load()
   const anchored = env.anchor(Again)
   const own = await anchored.run(async deps => (await deps.doubler.load()).result)
-  return shared.result + own.result
+  return shared.result + own
 })
 const explanation = await runtime.explain(Main, { answer: 1 })
 let missing = 'none'
-try { await runtime.enter(Main, {}) }
+try { await runtime.enter(Main, {} as { answer: number }) }
 catch (error) { if (isSynaError(error, 'MISSING_INPUT')) missing = error.details.missing.join(',') }
 console.log(JSON.stringify({ result, revision: Doubler.version, explainOk: explanation.ok, missing }))
 await runtime.dispose()

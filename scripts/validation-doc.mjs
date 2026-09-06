@@ -21,8 +21,14 @@ const v4 = json('benchmarks/results-v0.4.0-baseline-same-machine.json')
 const v4onv5 = json('benchmarks/results-v0.4-workload-on-v0.5-same-machine.json')
 const consumerLog = readFileSync(path.resolve(root, runDir, 'logs/consumer-run.log'), 'utf8').trim().split('\n').filter(Boolean)
 const gate = manifest.gate ?? 'scripts/verify-v05.mjs'
-const compareFile = path.join(runDir, 'benchmark-compare.json')
+const sameSessionFile = path.join(runDir, 'benchmark-compare/same-session.json')
+const recordFile = path.join(runDir, 'benchmark-compare.json')
+const compareFile = existsSync(path.resolve(root, sameSessionFile)) ? sameSessionFile : recordFile
 const comparison = existsSync(path.resolve(root, compareFile)) ? json(compareFile) : null
+const sameSession = compareFile === sameSessionFile
+const sessionBaseline = sameSession ? json(path.join(runDir, 'benchmark-compare/baseline-v0.5.0-same-session.json')) : null
+const driftFile = path.join(runDir, 'benchmark-compare/record-drift.json')
+const drift = sameSession && existsSync(path.resolve(root, driftFile)) ? json(driftFile) : null
 
 const ms = value => (typeof value === 'number' ? value.toFixed(3) : '—')
 const mib = bytes => (bytes / (1024 * 1024)).toFixed(1)
@@ -105,7 +111,16 @@ if (comparison) {
   const rows = comparison.rows
   const equal = rows.filter(row => row.check === 'equal')
   const timed = rows.filter(row => row.check !== 'equal')
-  out(`\`scripts/benchmark-compare.mjs compare\` ran \`benchmarks/v0.5-planning.mjs\` ${comparison.current.replace('median of ', '').replace(' fresh runs', '')} times on this host, took the element-wise median and compared it with \`${comparison.baseline}\` (the 0.5.0 median of 7 runs on the same machine): environment ${comparison.comparable ? 'identical' : 'DIFFERENT'} (${comparison.environment.map(row => `${row.key} ${row.current}`).join(', ')}); ${timed.filter(row => row.ok).length}/${timed.length} p50/p95/per-operation values within ±${tolerance} %; ${equal.filter(row => row.ok).length}/${equal.length} plan-cache counters and shape counts equal; overall ${comparison.ok ? 'OK' : 'FAILED'}.`, '')
+  const runCount = comparison.current.replace('median of ', '').replace(' fresh runs', '')
+  const baselineText = sameSession
+    ? `the 0.5.0 source (commit \`${short(sessionBaseline.sourceCommit)}\`) exported from git into a scratch directory, installed from its lockfile, built and benchmarked ${sessionBaseline.runs} times in the same session (\`scripts/benchmark-same-session.mjs\`; median in \`${path.join(runDir, 'benchmark-compare/baseline-v0.5.0-same-session.json')}\`)`
+    : `\`${comparison.baseline}\` (the 0.5.0 median of 7 runs recorded earlier on the same machine)`
+  out(`\`scripts/benchmark-compare.mjs compare\` ran \`benchmarks/v0.5-planning.mjs\` ${runCount} times on this host, took the element-wise median and compared it with ${baselineText}: environment ${comparison.comparable ? 'identical' : 'DIFFERENT'} (${comparison.environment.map(row => `${row.key} ${row.current}`).join(', ')}); ${timed.filter(row => row.ok).length}/${timed.length} p50/p95/per-operation values within ±${tolerance} %; ${equal.filter(row => row.ok).length}/${equal.length} plan-cache counters and shape counts equal; overall ${comparison.ok ? 'OK' : 'FAILED'}.`, '')
+  if (drift) {
+    const driftTimed = drift.rows.filter(row => row.check !== 'equal')
+    const outside = driftTimed.filter(row => !row.ok)
+    out(`Machine-state drift (informational): this session's 0.5.0 against the file recorded on ${json(drift.baseline).generatedAt} (\`${drift.baseline}\`) has ${driftTimed.length - outside.length}/${driftTimed.length} timings within ±${tolerance} %${outside.length > 0 ? `; outside: ${outside.map(row => `${row.path} ${row.delta >= 0 ? '+' : ''}${(row.delta * 100).toFixed(1)} %`).join(', ')}` : ''} — the same code measured at two moments, which is why both sides are measured in one session.`, '')
+  }
   out('| value | baseline | v0.6 | delta |', '|---|---:|---:|---:|')
   for (const row of timed) out(`| ${row.path} | ${ms(row.baseline)} | ${ms(row.current)} | ${row.delta === null ? '—' : `${row.delta >= 0 ? '+' : ''}${(row.delta * 100).toFixed(1)} %`}${row.ok ? '' : ' (outside tolerance)'} |`)
   out('')
