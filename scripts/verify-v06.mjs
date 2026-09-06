@@ -113,8 +113,12 @@ function gitInfo() {
   try {
     const { execSync } = process.getBuiltinModule('node:child_process')
     const commit = execSync('git rev-parse HEAD', { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim()
-    const dirty = execSync('git status --porcelain', { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim().length > 0
-    return { commit, dirty }
+    // `dirty` keeps its 0.5 meaning (any porcelain line); `modified` and `untracked` say what made the tree dirty,
+    // so an untracked file outside the archived set (a local task document) is not mistaken for a source change.
+    const lines = execSync('git status --porcelain', { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).split('\n').filter(Boolean)
+    const untracked = lines.filter(line => line.startsWith('??')).map(line => line.slice(3))
+    const modified = lines.filter(line => !line.startsWith('??')).map(line => line.slice(3))
+    return { commit, dirty: lines.length > 0, modified, untracked }
   }
   catch {
     return { commit: null, dirty: null, note: 'not a git repository or git unavailable' }
