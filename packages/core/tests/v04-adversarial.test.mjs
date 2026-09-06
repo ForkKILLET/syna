@@ -57,8 +57,8 @@ test('equivalent sibling Entry invocations share templates without sharing Env-l
   const secondHandler = await second.deps.handler.load()
 
   assert.notStrictEqual(firstHandler, secondHandler)
-  assert.equal(await firstHandler.request.load(), 'first')
-  assert.equal(await secondHandler.request.load(), 'second')
+  assert.equal(firstHandler.request.read(), 'first')
+  assert.equal(secondHandler.request.read(), 'second')
   assert.ok(runtime.inspect().planCache.hits >= 1)
   await runtime.dispose()
 })

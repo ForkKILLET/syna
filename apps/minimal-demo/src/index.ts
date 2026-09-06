@@ -15,7 +15,7 @@ const Greeter = define.service({
   setup({ name }): Greeter {
     return {
       async greet() {
-        return `Hello, ${await name.load()}!`
+        return `Hello, ${name.read()}!`
       },
     }
   },

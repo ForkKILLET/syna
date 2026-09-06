@@ -78,7 +78,7 @@ test('owner-bound Entry context is explicit: app-owned capabilities do not inher
   const CurrentRequest = define.input('current-request')
   const RequestWorker = define.service('request-worker', {
     requires: { request: CurrentRequest },
-    setup: async ({ request }) => ({ request: await request.load() }),
+    setup: async ({ request }) => ({ request: request.read() }),
   })
   const WorkerEntry = define.entry('worker', { requires: { worker: RequestWorker } })
   const AppOwnedFactory = define.service('app-factory', {

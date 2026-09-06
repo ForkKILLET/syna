@@ -44,7 +44,6 @@ An Input is an external, lifecycle-free fact. An Entry parameter creates a new I
 ```ts
 interface InputRef<T> {
   read(): T                          // synchronous; payload returned exactly as provided
-  /** @deprecated */ load(): Promise<Awaited<T>>
 }
 ```
 

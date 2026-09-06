@@ -149,7 +149,7 @@ test('Binding choices persist by family/range and are inherited by descendants',
   const Provider = makeDefine('test.binding-provider', '2.4.1').service({
     provides: [Capability],
     requires: { context: Context },
-    setup({ context }) { return { context: async () => context.load() } },
+    setup({ context }) { return { context: async () => context.read() } },
   })
   const Consumer = define.service('consumer', {
     requires: { choice: Choice },

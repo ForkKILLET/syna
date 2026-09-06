@@ -114,7 +114,7 @@ test('preload and un-awaited load are both non-blocking background operations', 
     requires: { a: A, mode: Access },
     async setup({ a, mode }) {
       const readyA = await a.load()
-      if (await mode.load() === 'preload') readyA.prewarm()
+      if (mode.read() === 'preload') readyA.prewarm()
       else readyA.strong()
       return { id: 'b' }
     },

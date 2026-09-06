@@ -82,7 +82,7 @@ test('re-providing an Input forks exactly its reverse dependency closure', async
     requires: { context: Context },
     setup({ context }) {
       const id = ++dependentStarts
-      return { id, read: async () => context.load() }
+      return { id, read: async () => context.read() }
     },
   })
   const Unrelated = define.service('unrelated', {

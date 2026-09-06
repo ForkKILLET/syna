@@ -119,7 +119,7 @@ test('an Entry dependency is bound to the owner Env of the Service slot', async 
       const instance = ++workerStarts
       return {
         instance,
-        context: async () => context.load(),
+        context: async () => context.read(),
       }
     },
   })
@@ -291,7 +291,7 @@ test('plan templates are reused for repeated request-shaped Entries with differe
   const Request = define.input('request')
   const Handler = define.service('handler', {
     requires: { request: Request },
-    setup: ({ request }) => ({ request: async () => request.load() }),
+    setup: ({ request }) => ({ request: async () => request.read() }),
   })
   const Root = define.entry('root', {})
   const RequestEntry = define.entry('request', {

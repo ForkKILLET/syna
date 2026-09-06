@@ -181,7 +181,6 @@ export class Materializer {
   createInputRef<T>(slot: InputSlot): InputRef<T> {
     return Object.freeze({
       read: () => slot.payload as T,
-      load: () => Promise.resolve(slot.payload as Awaited<T>),
     })
   }
 

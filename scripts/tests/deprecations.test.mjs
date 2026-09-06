@@ -26,7 +26,6 @@ const EXPECTED = [
   // 0.5 deprecations that Phase C deletes (no removal version required until then)
   { path: 'Contract.selector', legacy: true },
   { path: 'ServiceRef.preload', legacy: true },
-  { path: 'InputRef.load', legacy: true },
   { path: 'ImplementationSelector', legacy: true },
   { path: 'ImplementationSelectorDependency', legacy: true },
 ]

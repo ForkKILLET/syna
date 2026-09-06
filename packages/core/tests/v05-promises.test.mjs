@@ -23,7 +23,7 @@ test('R05 Input.read() preserves payload identity for Promise, thenable, functio
   const Payload = define.input('payload')
   const Reader = define.service('reader', {
     requires: { payload: Payload },
-    setup: ({ payload }) => ({ read: () => payload.read(), legacy: () => payload.load() }),
+    setup: ({ payload }) => ({ read: () => payload.read() }),
   })
   const Entry = define.entry({ requires: { reader: Reader }, parameters: { payload: Payload } })
   const runtime = createRuntime({ services: [Reader] })
@@ -40,7 +40,6 @@ test('R05 Input.read() preserves payload identity for Promise, thenable, functio
   }
   // The deprecated load() form awaits the payload: identity is NOT preserved there.
   const env = await runtime.enter(Entry, { payload: thenable })
-  assert.equal(await (await env.deps.reader.load()).legacy(), 'assimilated')
   // Presence is distinct from undefined: omitting the parameter is MISSING_INPUT.
   await assert.rejects(runtime.enter(Entry, {}), error => error.code === 'MISSING_INPUT')
   await runtime.dispose()

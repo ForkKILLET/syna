@@ -226,7 +226,7 @@ const UnitOfWork = define.service('unit-of-work', {
 })
 void UnitOfWork
 
-// Input refs have no preload(); loadAll() therefore rejects them at compile time.
+// Input refs have no load(); loadAll() therefore rejects them at compile time.
 const InputConsumer = define.service('input-consumer', {
   requires: { context: Context, minimal: Minimal },
   async setup({ context, minimal }) {
@@ -236,6 +236,8 @@ const InputConsumer = define.service('input-consumer', {
     await loadAll({ context })
     // @ts-expect-error Service refs have no read().
     minimal.read()
+    // @ts-expect-error Input refs have no load(); read() returns the payload as provided.
+    void context.load()
     return {}
   },
 })

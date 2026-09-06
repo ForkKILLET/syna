@@ -284,8 +284,6 @@ export interface ServiceRef<T> {
 /** Synchronous access to an Input payload. The payload is returned exactly as provided. */
 export interface InputRef<T> {
   read(): T
-  /** @deprecated Use `read()`. Thenable payloads are awaited by this form. */
-  load(): Promise<Awaited<T>>
 }
 
 /**
