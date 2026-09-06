@@ -1,6 +1,6 @@
 import type {
   Awaitable,
-  DependencyRef,
+  ServiceRef,
   InputRef,
   LoadOptions,
   RuntimeEvent,
@@ -171,7 +171,7 @@ export class Materializer {
     if (closing.length > 0) await settlesWithin(Promise.all(closing), graceMs)
   }
 
-  createRef<T>(slot: RuntimeSlot, requester?: SetupAttempt): DependencyRef<T> {
+  createRef<T>(slot: RuntimeSlot, requester?: SetupAttempt): ServiceRef<T> {
     return Object.freeze({
       load: (options?: LoadOptions) => this.load(slot, options, requester) as Promise<T>,
       preload: () => { void this.load(slot, undefined, undefined).catch(() => undefined) },
@@ -463,7 +463,7 @@ export class Materializer {
     slot.attempt = attempt
     slot.attemptCount += 1
 
-    const dependencyRefs: Record<string, DependencyRef<unknown> | InputRef<unknown>> = {}
+    const dependencyRefs: Record<string, ServiceRef<unknown> | InputRef<unknown>> = {}
     for (const [key, dependencySlot] of slot.requires) {
       dependencyRefs[key] = dependencySlot.kind === 'input'
         ? this.createInputRef(dependencySlot)

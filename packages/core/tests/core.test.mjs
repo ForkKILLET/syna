@@ -56,7 +56,7 @@ test('Runtime construction creates no Env or instance; access order does not aff
   await root.dispose()
 })
 
-test('DependencyRef is safely destructurable and materializes only when load() is called', async () => {
+test('ServiceRef is safely destructurable and materializes only when load() is called', async () => {
   let starts = 0
   const define = makeDefine('test.dependency-ref')
   const Service = define.service({ setup: () => ({ id: ++starts }) })

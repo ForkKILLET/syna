@@ -106,6 +106,7 @@ export type {
   ServiceInstance,
   ServiceLifecycle,
   ServiceRange,
+  ServiceRef,
   ServiceRevision,
   ServiceOverride,
   SetupResult,

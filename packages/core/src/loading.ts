@@ -1,7 +1,7 @@
-import type { DependencyRef, LoadOptions } from './descriptors.js'
+import type { LoadOptions, ServiceRef } from './descriptors.js'
 
-export type LoadedDependencies<Refs extends Readonly<Record<string, DependencyRef<unknown>>>> = {
-  readonly [Key in keyof Refs]: Refs[Key] extends DependencyRef<infer Value> ? Value : never
+export type LoadedDependencies<Refs extends Readonly<Record<string, ServiceRef<unknown>>>> = {
+  readonly [Key in keyof Refs]: Refs[Key] extends ServiceRef<infer Value> ? Value : never
 }
 
 /**
@@ -11,7 +11,7 @@ export type LoadedDependencies<Refs extends Readonly<Record<string, DependencyRe
  * `ref.read()` so their payloads are never assimilated.
  */
 export async function loadAll<
-  const Refs extends Readonly<Record<string, DependencyRef<unknown>>>,
+  const Refs extends Readonly<Record<string, ServiceRef<unknown>>>,
 >(refs: Refs, options?: LoadOptions): Promise<LoadedDependencies<Refs>> {
   const entries = await Promise.all(
     Object.entries(refs).map(async ([key, ref]) => [key, await ref.load(options)] as const),

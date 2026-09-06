@@ -16,9 +16,11 @@ const EXPECTED = [
   { path: 'BoundEntry', replacement: 'AnchoredEntry' },
   // R3 SynaRuntime → Runtime
   { path: 'SynaRuntime', replacement: 'Runtime' },
+  // R4 DependencyRef → ServiceRef (the old name is the union alias for one minor)
+  { path: 'DependencyRef', replacement: 'ServiceRef' },
   // 0.5 deprecations that Phase C deletes (no removal version required until then)
   { path: 'Contract.selector', legacy: true },
-  { path: 'DependencyRef.preload', legacy: true },
+  { path: 'ServiceRef.preload', legacy: true },
   { path: 'InputRef.load', legacy: true },
   { path: 'ImplementationSelector', legacy: true },
   { path: 'ImplementationSelectorDependency', legacy: true },

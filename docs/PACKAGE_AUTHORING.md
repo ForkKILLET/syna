@@ -84,7 +84,7 @@ setup({ database }) {
 }
 ```
 
-Do not store a loaded instance beyond the lifetime of its Env. A `DependencyRef` may be stored safely; loading it after owner disposal fails.
+Do not store a loaded instance beyond the lifetime of its Env. A `ServiceRef` may be stored safely; loading it after owner disposal fails.
 
 ## Structural cycles
 

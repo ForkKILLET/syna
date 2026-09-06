@@ -16,6 +16,7 @@ import {
   type ReuseTarget,
   type Runtime,
   type ScopeTarget,
+  type ServiceRef,
   type SynaRuntime,
   type ServiceFamily,
   type ServiceInstance,
@@ -65,9 +66,12 @@ const Consumer = define.service('consumer', {
     configured: Selected,
   },
   setup({ exact, automatic, selector, configured }) {
-    const exactRef: DependencyRef<Implementation> = exact
-    const automaticRef: DependencyRef<Capability> = automatic
-    void [exactRef, automaticRef]
+    const exactRef: ServiceRef<Implementation> = exact
+    const automaticRef: ServiceRef<Capability> = automatic
+    // R4 (v0.6): the deprecated name is the union of both ref kinds; the loadable kind is ServiceRef.
+    const legacyExact: DependencyRef<Implementation> = exact
+    const narrowed: ServiceRef<Implementation> | undefined = 'load' in legacyExact ? legacyExact : undefined
+    void [exactRef, automaticRef, narrowed]
 
     return {
       async test() {
@@ -212,6 +216,8 @@ void UnitOfWork
 const InputConsumer = define.service('input-consumer', {
   requires: { context: Context, minimal: Minimal },
   async setup({ context, minimal }) {
+    const eitherKind: DependencyRef<{ readonly tenant: string }> = context
+    void eitherKind
     // @ts-expect-error Input refs must be read with read(), not batched with loadAll().
     await loadAll({ context })
     // @ts-expect-error Service refs have no read().

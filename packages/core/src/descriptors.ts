@@ -246,11 +246,12 @@ export interface LoadOptions {
 }
 
 /**
- * Lazy access to one already-planned canonical slot. `load()` returns a plain
- * Promise; the Runtime attaches no hidden barrier or completion tracking to it.
- * The ref itself is never thenable.
+ * Lazy access to one already-planned Service-like slot (a Service, a range, a
+ * Contract, a Binding, a collection or an anchored Entry). `load()` returns a
+ * plain Promise; the Runtime attaches no hidden barrier or completion tracking
+ * to it. The ref itself is never thenable.
  */
-export interface DependencyRef<T> {
+export interface ServiceRef<T> {
   load(options?: LoadOptions): Promise<T>
   /**
    * Start materialization of the real slot without waiting. Failures follow
@@ -271,10 +272,16 @@ export interface InputRef<T> {
   load(): Promise<Awaited<T>>
 }
 
+/**
+ * @deprecated Use `ServiceRef` for the loadable ref. In 0.6 this name means a
+ * ref of either kind (`ServiceRef<T> | InputRef<T>`). Removed in 0.7.0.
+ */
+export type DependencyRef<T> = ServiceRef<T> | InputRef<T>
+
 export type DependencyRefFor<D> =
   UnwrapForward<D> extends Input<infer T>
     ? InputRef<T>
-    : DependencyRef<DependencyOutput<D>>
+    : ServiceRef<DependencyOutput<D>>
 
 export type DependencyRefs<Requires extends DependencyMap> = {
   readonly [Key in keyof Requires]: DependencyRefFor<Requires[Key]>
@@ -386,7 +393,7 @@ export type AvailableImplementationCandidate<C extends Contract<any> = Contract<
 
 export interface ImplementationLease<C extends Contract<any> = Contract<any>> {
   readonly env: EnvHandle
-  readonly implementation: DependencyRef<ContractApi<C>>
+  readonly implementation: ServiceRef<ContractApi<C>>
   dispose(): Promise<void>
   [Symbol.asyncDispose](): Promise<void>
 }
@@ -406,7 +413,7 @@ export interface ImplementationSelector<C extends Contract<any> = Contract<any>>
   run<Result>(
     candidate: ImplementationCandidate<C> | CandidateRef<C> | PersistentImplementationRef<C>,
     callback: (
-      implementation: DependencyRef<ContractApi<C>>,
+      implementation: ServiceRef<ContractApi<C>>,
       env: EnvHandle,
     ) => Awaitable<Result>,
   ): Promise<Result>

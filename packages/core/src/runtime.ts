@@ -4,7 +4,6 @@ import type {
   Contract,
   CreateRuntimeOptions,
   DependencyMap,
-  DependencyRef,
   DependencyRefs,
   EntryArguments,
   EntryCallback,
@@ -28,6 +27,7 @@ import type {
   RuntimePolicyContext,
   Runtime,
   ServiceFamily,
+  ServiceRef,
   ServiceRevision,
 } from './descriptors.js'
 import { withDeprecatedScope } from './definition.js'
@@ -209,7 +209,7 @@ class EnvImpl<Requires extends DependencyMap> implements EnvHandle<Requires> {
     rootSiteByEntryKey: ReadonlyMap<string, string>,
   ) {
     this.finalized = new Promise<void>(resolve => { this.markFinalized = resolve })
-    const refs: Record<string, DependencyRef<unknown> | InputRef<unknown>> = {}
+    const refs: Record<string, ServiceRef<unknown> | InputRef<unknown>> = {}
     for (const [key, rootSiteId] of rootSiteByEntryKey) {
       const nodeId = plan.rootNodeBySite.get(rootSiteId)!
       const slot = plan.slotsByNode.get(nodeId)!
@@ -607,7 +607,7 @@ class RuntimeImpl implements Runtime, ImplementationViewHost {
     }
   }
 
-  createRefFor(slot: RuntimeSlot): DependencyRef<unknown> | InputRef<unknown> {
+  createRefFor(slot: RuntimeSlot): ServiceRef<unknown> | InputRef<unknown> {
     return slot.kind === 'input'
       ? this.materializer.createInputRef(slot)
       : this.materializer.createRef(slot)
