@@ -18,7 +18,6 @@ import type {
 } from '../descriptors.js'
 import { SynaError } from '../errors.js'
 import { satisfiesVersion } from '../semver.js'
-import { familyIdOf } from '../definition.js'
 import { DefinitionCompiler } from './definition-compiler.js'
 import { GraphBuilder, type GraphBuilderHost } from './graph-builder.js'
 import { ImplementationDirectory } from './implementation-directory.js'
@@ -83,7 +82,7 @@ export function entryDefinitionSignature(entry: EntryDescriptor): string {
         .map(([key, value]) => [key, `${value.kind}:${value.id}`]),
     ),
     // The key is named after the 0.5 field on purpose: plan-template keys are unchanged by the rename.
-    scope: {
+    scope: { // syna-v05-compat: template key field, not the removed Entry option
       fresh: (entry.reuse.fresh ?? []).map(scopeTargetIdentity).sort(),
       share: (entry.reuse.share ?? []).map(scopeTargetIdentity).sort(),
     },
@@ -959,9 +958,10 @@ export class EntryPlanner implements GraphBuilderHost {
           { binding: binding.id, contract: binding.contract.id, reference: assignment.contractId },
         )
       }
-      const familyId = familyIdOf(assignment)
+      const site = `binding:${binding.id}`
+      const familyId = this.directory.familyOf(assignment, site)
       const candidates = this.directory
-        .candidatesForImplementationId(familyId)
+        .candidatesForFamily(familyId)
         .filter(candidate => satisfiesVersion(candidate.version, assignment.version))
         .filter(candidate => providesContract(candidate, binding.contract))
       if (candidates.length === 0) {
@@ -976,7 +976,6 @@ export class EntryPlanner implements GraphBuilderHost {
           },
         )
       }
-      const site = `binding:${binding.id}`
       revision = this.orderCandidates(
         candidates,
         revisions => this.policy.orderVersionCandidates(

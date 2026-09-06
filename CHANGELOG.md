@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.7.0
+
+Removed (the 23 aliases the 0.6 line carried as `@deprecated … Removed in 0.7.0`, plus the 0.5 call form; `docs/MIGRATION_V06_TO_V07.md` §1 has the item-by-item table, `scripts/tests/api-inventory.test.mjs` asserts the public API differs from the 0.6.0 record by exactly these items and carries no deprecated item):
+
+- `EntryDefinition.scope` / `EntryDescriptor.scope` and `scope` inside the parameter record of `enter` / `run` / `check` / `explain` (`reuse` and the options argument `{ reuse }`); `DeriveOptions` (`ReuseConstraints`); `ScopeTarget` (`ReuseTarget`); `env.bind()` (`env.anchor()`); `BoundEntry` (`AnchoredEntry`); `SynaRuntime` (`Runtime`); `DependencyRef` (`ServiceRef` / `InputRef`, `DependencyRefFor<D>`); `PersistentImplementationRef` (`ImplementationRef`); `ref.implementationId` (`ref.familyId`); `RuntimePolicyContext.site` (`dependencySite`); the nested option records `planCache` / `initialization` / `disposal` / `planning` and their types `PlanCacheOptions` / `InitializationOptions` / `DisposalOptions` / `PlanningOptions` (`limits`, `RuntimeLimits`; defaults unchanged).
+- An expired form given at runtime is refused, never ignored: `scope` in a definition, `scope` or `reuse` inside a parameter record, and a nested option record (even next to `limits`) are `TypeError`s that name the current form.
+- Kept permanently: `Binding.parse()` / `parseImplementationRef()` and every Runtime read path accept the 0.5 serialized key `implementationId`; from 0.7.0 each Runtime read of that form is reported once as the diagnostics event `legacy-implementation-ref { contractId, familyId, version, site }`. `kind === 'persistent-implementation-ref'` never changes.
+- Tests: `packages/core/tests/v07-expired-forms.test.mjs` and `v07-legacy-implementation-key.test.mjs` replace the seven 0.6 alias-equivalence suites (`v06-r1` … `v06-r6`, `v06-m1-limits`); `packages/core/type-tests/api.ts` marks every expired form `@ts-expect-error`; `scripts/tests/no-old-names.test.mjs` also scans the core source for the deleted public names.
+
 ## 0.6.0
 
 API consolidation only: names and types. Semantics — defaults, error trigger conditions, `explain()` content, plan-cache behaviour, the `C.all` coexistence requirement, deadlines, the `env.state` / GC relationship, the absence of default implementations — are those of 0.5.0 verbatim (`packages/core/tests/v06-snapshots.test.mjs` compares check/explain/inspect/catalog/error snapshots recorded on 0.5.0; the reference-planner differential passes unchanged; the same-machine benchmark stays within ±10 % with identical plan-cache counters). `docs/MIGRATION_V05_TO_V06.md` has the item-by-item table with reason numbers, `docs/API_STABILITY.md` the frozen surface, the deprecation policy and the naming guidelines, `docs/DEFERRED.md` what was noticed and left alone.

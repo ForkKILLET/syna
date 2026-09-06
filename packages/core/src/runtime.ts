@@ -31,7 +31,6 @@ import type {
   ServiceRef,
   ServiceRevision,
 } from './descriptors.js'
-import { withDeprecatedScope } from './definition.js'
 import { diagnosticFromError, SynaError } from './errors.js'
 import type {
   EnvState,
@@ -64,7 +63,7 @@ const internalPackage = Object.freeze({
   metadata: Object.freeze({}),
 })
 
-const internalDeriveEntry: EntryDescriptor<{}, {}> = Object.freeze(withDeprecatedScope({
+const internalDeriveEntry: EntryDescriptor<{}, {}> = Object.freeze({
   kind: 'entry' as const,
   package: internalPackage,
   id: '@syna/core/entry/derive/v1',
@@ -73,7 +72,7 @@ const internalDeriveEntry: EntryDescriptor<{}, {}> = Object.freeze(withDeprecate
   parameters: Object.freeze({}),
   reuse: Object.freeze({ fresh: Object.freeze([]), share: Object.freeze([]) }),
   metadata: Object.freeze({}),
-}))
+})
 
 /** One Entry call after the public argument shapes are normalized. */
 interface EntryCall {
@@ -83,11 +82,11 @@ interface EntryCall {
 
 /**
  * Splits `(parameters?, options?)` into the parameter record and the reuse
- * constraints. The 0.5 form carried `scope` inside the parameter record (R1
- * alias, removed in 0.7.0): it is lifted into the constraints and refused when
- * the options argument is present as well, so one call never has two sources.
- * `reuse` is never a parameter key. A non-object parameter value is passed on
- * unchanged and rejected by the planner (`INVALID_DESCRIPTOR`) as before.
+ * constraints. `reuse` is never a parameter key, and neither is `scope`: the
+ * 0.5 call form carried the constraints under that key inside the parameter
+ * record and is refused (removed in 0.7.0), never read as a parameter. A
+ * non-object parameter value is passed on unchanged and rejected by the
+ * planner (`INVALID_DESCRIPTOR`) as before.
  */
 function entryCall(parameters: unknown, options: unknown): EntryCall {
   if (options !== undefined && (typeof options !== 'object' || options === null)) {
@@ -101,12 +100,10 @@ function entryCall(parameters: unknown, options: unknown): EntryCall {
   if ('reuse' in record) {
     throw new TypeError('reuse is a call option, not a parameter: enter(entry, parameters, { reuse }).')
   }
-  if (!('scope' in record)) return { parameters: record, reuse }
-  if (options !== undefined) {
-    throw new TypeError('Reuse constraints were given both as parameters.scope (deprecated) and as options.reuse; use options.reuse.')
+  if ('scope' in record) {
+    throw new TypeError('scope is no longer a call parameter (removed in 0.7.0): pass the reuse constraints as the options argument, enter(entry, parameters, { reuse }).')
   }
-  const { scope, ...rest } = record
-  return { parameters: rest, reuse: scope as ReuseConstraints | undefined }
+  return { parameters: record, reuse }
 }
 
 /**
@@ -159,25 +156,28 @@ function positiveNumber(value: number | undefined, fallback: number, name: strin
   return value
 }
 
-/**
- * `limits` with the 0.5 nested records (`planCache`, `initialization`, `disposal`,
- * `planning`) accepted as deprecated aliases: each old key maps to exactly one
- * limit, and giving a limit in both forms is a TypeError. Removed in 0.7.0.
- */
+/** The 0.5 nested option records, each of which named one limit; refused since 0.7.0 so an old call is never silently unlimited. */
+const REMOVED_LIMIT_RECORDS: ReadonlyMap<string, keyof RuntimeLimits> = new Map([
+  ['planCache', 'planCacheEntries'],
+  ['initialization', 'setupDeadlineMs'],
+  ['disposal', 'disposalGraceMs'],
+  ['planning', 'planningBudget'],
+])
+
+/** `limits` is the one form; an expired nested record is a TypeError naming the limit it used to set. */
 function resolveLimits(options: CreateRuntimeOptions): Required<RuntimeLimits> {
+  for (const [record, limit] of REMOVED_LIMIT_RECORDS) {
+    if ((options as unknown as Readonly<Record<string, unknown>>)[record] !== undefined) {
+      throw new TypeError(`createRuntime() option ${record} was removed in 0.7.0; use limits.${limit}.`)
+    }
+  }
   const limits = options.limits ?? {}
   if (typeof limits !== 'object' || limits === null) throw new TypeError('limits must be an object.')
-  const pick = (key: keyof RuntimeLimits, legacy: number | undefined, legacyName: string): number | undefined => {
-    if (limits[key] !== undefined && legacy !== undefined) {
-      throw new TypeError(`createRuntime() received limits.${key} and its deprecated alias ${legacyName}; use limits.${key}.`)
-    }
-    return limits[key] ?? legacy
-  }
   return {
-    setupDeadlineMs: positiveNumber(pick('setupDeadlineMs', options.initialization?.deadlineMs, 'initialization.deadlineMs'), DEFAULT_SETUP_DEADLINE_MS, 'limits.setupDeadlineMs'),
-    disposalGraceMs: positiveNumber(pick('disposalGraceMs', options.disposal?.graceMs, 'disposal.graceMs'), DEFAULT_DISPOSAL_GRACE_MS, 'limits.disposalGraceMs'),
-    planningBudget: pick('planningBudget', options.planning?.searchBudget, 'planning.searchBudget') ?? DEFAULT_PLANNING_BUDGET,
-    planCacheEntries: pick('planCacheEntries', options.planCache?.maxEntries, 'planCache.maxEntries') ?? DEFAULT_PLAN_CACHE_ENTRIES,
+    setupDeadlineMs: positiveNumber(limits.setupDeadlineMs, DEFAULT_SETUP_DEADLINE_MS, 'limits.setupDeadlineMs'),
+    disposalGraceMs: positiveNumber(limits.disposalGraceMs, DEFAULT_DISPOSAL_GRACE_MS, 'limits.disposalGraceMs'),
+    planningBudget: limits.planningBudget ?? DEFAULT_PLANNING_BUDGET,
+    planCacheEntries: limits.planCacheEntries ?? DEFAULT_PLAN_CACHE_ENTRIES,
   }
 }
 
@@ -276,11 +276,6 @@ class EnvImpl<Requires extends DependencyMap> implements EnvHandle<Requires> {
     return this.runtime.createAnchoredEntry(descriptor, this.id, PUBLIC_REALM)
   }
 
-  /** @deprecated R2 alias of `anchor()`; removed in 0.7.0. */
-  bind<E extends EntryDescriptor>(descriptor: E): AnchoredEntry<E> {
-    return this.anchor(descriptor)
-  }
-
   inspect(): EnvInspection {
     const nodes: EnvInspectionNode[] = [...this.plan.nodes.values()]
       .map(node => {
@@ -358,7 +353,7 @@ class RuntimeImpl implements Runtime, ImplementationViewHost {
       options.overrides ?? [],
       entryDefinitionSignature,
     )
-    this.directory = new ImplementationDirectory(this.compiler.admitted, this.policy)
+    this.directory = new ImplementationDirectory(this.compiler.admitted, this.policy, this.onEvent)
     this.planner = new EntryPlanner(
       this.compiler,
       this.directory,

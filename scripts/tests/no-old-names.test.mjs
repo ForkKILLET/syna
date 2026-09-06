@@ -1,8 +1,9 @@
-// v0.6 (Phase D): the applications, demos, benchmarks, scripts, workflow and the core test suites use the
-// 0.6 names only. The deprecated 0.5 aliases live in `packages/core/src` (policed by deprecations.test.mjs);
-// the only places allowed to spell an old name are files or lines marked `syna-v05-compat` (the
-// migration-equivalence tests and the 0.5 stored-document compatibility in Hyla-mini), and, in the current
-// documentation, the deprecation table and lines that explain the 0.5 → 0.6 change.
+// v0.6 (Phase D) / v0.7 (A11): the applications, demos, benchmarks, scripts, workflow and the core test suites use
+// the current names only. The 0.5 names deleted in 0.6 and the 0.6 aliases removed in 0.7.0 exist nowhere in the
+// public API (api-inventory.test.mjs, deprecations.test.mjs); the only places allowed to spell an old name are
+// files or lines marked `syna-v05-compat` (the tests that assert an expired form is refused, the permanent 0.5
+// stored-document compatibility in the core and in Hyla-mini), and, in the current documentation, lines that
+// explain the removal. The core source is scanned too, for the deleted public names.
 import assert from 'node:assert/strict'
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
@@ -106,16 +107,38 @@ test('no 0.5 name survives in the applications, benchmarks, scripts, workflow an
   assert.deepEqual(exempt, [
     'apps/hyla-mini/src/domain/recipe-schema.ts',
     'apps/hyla-mini/tests/v06-compat.test.mjs',
-    'packages/core/tests/v06-m1-limits.test.mjs',
-    'packages/core/tests/v06-r1-reuse.test.mjs',
-    'packages/core/tests/v06-r2-anchor.test.mjs',
-    'packages/core/tests/v06-r3-runtime.test.mjs',
-    'packages/core/tests/v06-r4-service-ref.test.mjs',
-    'packages/core/tests/v06-r5-implementation-ref.test.mjs',
-    'packages/core/tests/v06-r6-dependency-site.test.mjs',
     'packages/core/tests/v06-snapshots.test.mjs',
+    'packages/core/tests/v07-expired-forms.test.mjs',
+    'packages/core/tests/v07-legacy-implementation-key.test.mjs',
     'packages/core/type-tests/api.ts',
   ])
+})
+
+// The names that were un-exported (M2) still exist inside the core as internal types; every other old name is a
+// deleted public name and must not survive in the core source either, except on a marked line or in a comment
+// that explains the 0.5 compatibility or the removal.
+const INTERNAL_REPLACEMENTS = new Set(['EntryArguments', 'EntryParameters', '(no longer exported)'])
+const SOURCE_NAMES = OLD_NAMES.filter(([, replacement]) => !INTERNAL_REPLACEMENTS.has(replacement))
+const SOURCE_ROOT = 'packages/core/src'
+
+test('the core source spells no deleted public name outside marked lines and removal comments', () => {
+  const files = [...walk(join(root, SOURCE_ROOT))].map(path => relative(root, path)).sort()
+  assert.ok(files.length > 10, `scanned ${files.length} files`)
+  const hits = []
+  for (const file of files) {
+    const lines = readFileSync(join(root, file), 'utf8').split('\n')
+    assert.ok(!lines.slice(0, 5).some(line => line.includes(MARKER)), `${file} must not carry a file-level ${MARKER} marker`)
+    lines.forEach((line, index) => {
+      if (line.includes(MARKER)) return
+      if (/^\s*(\*|\/\/|\/\*)/.test(line) && DOC_CONTEXT.test(line)) return
+      // The inspection counters are declared under `planCache`; the removed option record is caught by the inventory test.
+      if (/^\s*readonly planCache: \{$/.test(line)) return
+      for (const [pattern, replacement] of SOURCE_NAMES) {
+        if (pattern.test(line)) hits.push(`${file}:${index + 1}: ${pattern.source} → use ${replacement}: ${line.trim().slice(0, 120)}`)
+      }
+    })
+  }
+  assert.deepEqual(hits, [], `deleted names found in the core source:\n${hits.join('\n')}`)
 })
 
 test('the current documentation spells old names only in the deprecation table or next to the 0.6 name', () => {

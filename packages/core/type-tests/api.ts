@@ -1,4 +1,4 @@
-// syna-v05-compat: this file exercises the deprecated 0.5 forms on purpose, next to their 0.6 replacements (aliases removed in 0.7.0).
+// syna-v05-compat: this file spells the expired 0.5/0.6 forms on purpose — each one must fail to compile (@ts-expect-error) next to its replacement.
 import {
   createRuntime,
   definePackage,
@@ -10,9 +10,7 @@ import {
   type EnvState,
   type SynaErrorCode,
   type SynaErrorDetails,
-  type BoundEntry,
-  type DependencyRef,
-  type DeriveOptions,
+  type DependencyRefFor,
   type EntryExplanation,
   type EntryOptions,
   type Contract,
@@ -25,13 +23,10 @@ import {
   type EnvHandle,
   type ImplementationRef,
   type InputRef,
-  type PersistentImplementationRef,
   type ReuseConstraints,
   type ReuseTarget,
   type Runtime,
-  type ScopeTarget,
   type ServiceRef,
-  type SynaRuntime,
   type ServiceFamily,
   type ServiceInstance,
   type ServiceRange,
@@ -82,10 +77,10 @@ const Consumer = define.service('consumer', {
   setup({ exact, automatic, implementations, configured }) {
     const exactRef: ServiceRef<Implementation> = exact
     const automaticRef: ServiceRef<Capability> = automatic
-    // R4 (v0.6): the deprecated name is the union of both ref kinds; the loadable kind is ServiceRef.
-    const legacyExact: DependencyRef<Implementation> = exact
-    const narrowed: ServiceRef<Implementation> | undefined = 'load' in legacyExact ? legacyExact : undefined
-    void [exactRef, automaticRef, narrowed]
+    // R4 (v0.6, alias removed in 0.7): `DependencyRefFor<D>` is the ref type of a declared dependency; a Service dependency is a ServiceRef.
+    const forExact: DependencyRefFor<typeof Implementation> = exact
+    const stillService: ServiceRef<Implementation> = forExact
+    void [exactRef, automaticRef, stillService]
 
     return {
       async test() {
@@ -172,14 +167,12 @@ const wrongInput: EntryArguments<typeof Root> = {
 }
 void wrongInput
 
-// R1 (v0.6): reuse constraints at definition time and per call; the deprecated 0.5 forms still compile.
+// R1 (v0.6, aliases removed in 0.7): reuse constraints at definition time and per call.
 const Scoped = define.entry('scoped', { requires: { minimal: Minimal }, reuse: { fresh: [Minimal], share: [Minimal.family] } })
 const constraints: ReuseConstraints = Scoped.reuse
-const legacyConstraints: DeriveOptions = constraints
 const target: ReuseTarget = Minimal.family
-const legacyTarget: ScopeTarget = target
 const options: EntryOptions = { reuse: constraints }
-void [legacyConstraints, legacyTarget]
+void target
 void runtime.enter(Scoped)
 void runtime.enter(Scoped, {}, options)
 void runtime.enter(Scoped, undefined, { reuse: { fresh: [Minimal] } })
@@ -190,13 +183,16 @@ void runtime.run(Scoped, async ({ minimal }) => (await minimal.load()).ping())
 void runtime.run(Scoped, {}, options, async ({ minimal }) => (await minimal.load()).ping())
 void runtime.run(Root, validInput, options, async ({ consumer }) => (await consumer.load()).test())
 void runtime.run(Root, validInput, undefined, async ({ consumer }) => (await consumer.load()).test())
-const LegacyScoped = define.entry('legacy-scoped', { requires: { minimal: Minimal }, scope: { fresh: [Minimal] } })
-const legacyDescriptorScope: ReuseConstraints = LegacyScoped.scope
-void legacyDescriptorScope
-void runtime.enter(LegacyScoped, { scope: { fresh: [Minimal] } })
+// @ts-expect-error `scope` is not a definition option (removed in 0.7.0); the constraints are `reuse`.
+const ScopedByOldName = define.entry('legacy-scoped', { requires: { minimal: Minimal }, scope: { fresh: [Minimal] } })
+void ScopedByOldName
+// @ts-expect-error a descriptor carries `reuse`, not `scope` (removed in 0.7.0).
+const descriptorScope: ReuseConstraints = Scoped.scope
+void descriptorScope
+// @ts-expect-error `scope` is not a call parameter (removed in 0.7.0); pass `{ reuse }` as the options argument.
 void runtime.enter(Root, { ...validInput, scope: { share: [Implementation] } })
+// @ts-expect-error run() has no scoped form either; the options argument carries `reuse`.
 void runtime.run(Root, { ...validInput, scope: { fresh: [Implementation] } }, async ({ consumer }) => (await consumer.load()).test())
-void runtime.run(LegacyScoped, { scope: { fresh: [Minimal] } }, async ({ minimal }) => (await minimal.load()).ping())
 // @ts-expect-error `reuse` is a call option, never a parameter key.
 void runtime.enter(Root, { ...validInput, reuse: { fresh: [Implementation] } })
 // @ts-expect-error The parameter values type no longer admits `scope`.
@@ -205,28 +201,28 @@ void scopedValues
 // @ts-expect-error Options carry only `reuse`.
 void runtime.enter(Scoped, {}, { fresh: [Minimal] })
 
-// R5 (v0.6): Binding.to()/parse() produce an ImplementationRef with `familyId`; the 0.5 names still compile.
+// R5 (v0.6, alias removed in 0.7): Binding.to()/parse() produce an ImplementationRef whose family is `familyId`.
 const implementationRef: ImplementationRef<typeof Capability> = Selected.to(Implementation)
-const legacyRef: PersistentImplementationRef<typeof Capability> = implementationRef
 const familyId: string = implementationRef.familyId
-const legacyFamilyId: string | undefined = legacyRef.implementationId
+// @ts-expect-error the 0.6 alias getter is gone (removed in 0.7.0); the family is `familyId`.
+const familyByOldName: string = implementationRef.implementationId
+void familyByOldName
 const plainRef: ImplementationRef<typeof Capability> = { kind: 'persistent-implementation-ref', contractId: Capability.id, familyId, version: '^1.0.0' }
-void plainRef
-void [familyId, legacyFamilyId, Selected.parse({ kind: 'persistent-implementation-ref', contractId: Capability.id, familyId, version: '^1.0.0' })]
+// @ts-expect-error a ref written in code carries `familyId`; the 0.5 serialized key is accepted by parse() only.
+const refByOldKey: ImplementationRef<typeof Capability> = { kind: 'persistent-implementation-ref', contractId: Capability.id, implementationId: familyId, version: '^1.0.0' }
+void [plainRef, refByOldKey, familyId, Selected.parse({ kind: 'persistent-implementation-ref', contractId: Capability.id, familyId, version: '^1.0.0' })]
 void runtime.catalog.resolve(implementationRef)
 
-// R3 (v0.6): createRuntime() returns a Runtime; SynaRuntime is the deprecated alias of the same type.
+// R3 (v0.6, alias removed in 0.7): createRuntime() returns a Runtime.
 const typedRuntime: Runtime = runtime
-const legacyRuntime: SynaRuntime = typedRuntime
-const backToRuntime: Runtime = legacyRuntime
-void backToRuntime.catalog.revisions('type-test.package/minimal')
+void typedRuntime.catalog.revisions('type-test.package/minimal')
 
 // R2 (v0.6): env.anchor(entry) creates an AnchoredEntry; a Service requiring an Entry receives one.
 declare const someEnv: EnvHandle
 const anchoredNoParams: AnchoredEntry<typeof NoParams> = someEnv.anchor(NoParams)
-const legacyBound: BoundEntry<typeof NoParams> = someEnv.bind(NoParams)
-const stillAnchored: AnchoredEntry<typeof NoParams> = legacyBound
-void [anchoredNoParams, stillAnchored]
+// @ts-expect-error env.bind() is gone (removed in 0.7.0); env.anchor() is the one form.
+void someEnv.bind(NoParams)
+void anchoredNoParams
 void anchoredNoParams.run(async ({ minimal }) => (await minimal.load()).ping())
 void anchoredNoParams.enter({}, { reuse: { fresh: [Minimal] } })
 const UnitOfWork = define.service('unit-of-work', {
@@ -242,8 +238,9 @@ void UnitOfWork
 const InputConsumer = define.service('input-consumer', {
   requires: { context: Context, minimal: Minimal },
   async setup({ context, minimal }) {
-    const eitherKind: DependencyRef<{ readonly tenant: string }> = context
-    void eitherKind
+    const inputKind: DependencyRefFor<typeof Context> = context
+    const stillInput: InputRef<{ readonly tenant: string }> = inputKind
+    void stillInput
     // @ts-expect-error Input refs must be read with read(), not batched with loadAll().
     await loadAll({ context })
     // @ts-expect-error Service refs have no read().
@@ -262,7 +259,7 @@ const ViaRange = define.service('via-range', {
   requires: { impl: Implementation.range('^2'), bare: Minimal.range() },
   async setup({ impl, bare }) {
     const api: Capability = await impl.load()
-    const rangeRef: DependencyRef<Capability> = impl
+    const rangeRef: ServiceRef<Capability> = impl
     void rangeRef
     // @ts-expect-error `privateMethod` belongs to the revision, not to the Contract view a range loads.
     void (await impl.load()).privateMethod()
@@ -276,16 +273,15 @@ void ViaRange
 // D4 (v0.6): `serviceRange(revision, range)` is gone; `revision.range(range)` is the one form.
 const viaRange: ServiceRange<ServiceFamily<Capability>> = Implementation.range('^2')
 void viaRange
-const exactStillFull: DependencyRef<Implementation> = null as unknown as DependencyRef<ServiceInstance<typeof Implementation>>
+const exactStillFull: ServiceRef<Implementation> = null as unknown as ServiceRef<ServiceInstance<typeof Implementation>>
 void exactStillFull
 
-// R6 (v0.6): the policy context names the dependency site as `dependencySite`; `site` is the deprecated 0.5 name
-// and reads the same string.
+// R6 (v0.6, alias removed in 0.7): the policy context names the dependency site as `dependencySite`.
 const policy: RuntimePolicy = {
   orderAutoCandidates(_contract, candidates, context) {
     const site: string = context.dependencySite
-    const legacy: string = context.site
-    void legacy
+    // @ts-expect-error `site` is gone (removed in 0.7.0); the name is `dependencySite`.
+    void context.site
     return candidates.filter(() => site.length > 0)
   },
   orderVersionCandidates(_family, candidates, context) {
@@ -295,18 +291,28 @@ const policy: RuntimePolicy = {
   },
 }
 void policy
-const policyContext: RuntimePolicyContext = { dependencySite: 'x', site: 'x', parentActiveRevisionKeys: new Set() }
+const policyContext: RuntimePolicyContext = { dependencySite: 'x', parentActiveRevisionKeys: new Set() }
 void policyContext
+// @ts-expect-error `site` is not a member of the context.
+const contextByOldName: RuntimePolicyContext = { dependencySite: 'x', site: 'x', parentActiveRevisionKeys: new Set() }
+void contextByOldName
 // @ts-expect-error `dependencySite` is required.
 const partialContext: RuntimePolicyContext = { parentActiveRevisionKeys: new Set() }
 void partialContext
 
-// M1 (v0.6): one `limits` record; the 0.5 nested records still type-check as deprecated aliases.
+// M1 (v0.6, nested records removed in 0.7): one `limits` record.
 const limited: Runtime = createRuntime({ services: [Implementation], limits: { setupDeadlineMs: 5_000, disposalGraceMs: 1_000, planningBudget: 100, planCacheEntries: 8 } })
-const legacyLimited: Runtime = createRuntime({ services: [Implementation], planCache: { maxEntries: 8 }, initialization: { deadlineMs: 5_000 }, disposal: { graceMs: 1_000 }, planning: { searchBudget: 100 } })
-void [limited, legacyLimited]
+void limited
 // @ts-expect-error the old key names do not exist inside `limits`.
 createRuntime({ services: [Implementation], limits: { deadlineMs: 5_000 } })
+// @ts-expect-error the 0.5 nested records are gone (removed in 0.7.0): the plan cache size is limits.planCacheEntries.
+createRuntime({ services: [Implementation], planCache: { maxEntries: 8 } })
+// @ts-expect-error the setup deadline is limits.setupDeadlineMs.
+createRuntime({ services: [Implementation], initialization: { deadlineMs: 5_000 } })
+// @ts-expect-error the disposal grace is limits.disposalGraceMs.
+createRuntime({ services: [Implementation], disposal: { graceMs: 1_000 } })
+// @ts-expect-error the planning budget is limits.planningBudget.
+createRuntime({ services: [Implementation], planning: { searchBudget: 100 } })
 
 // M2 (v0.6): `EntryParameters<E>` is the declared parameter map; `EntryArguments<E>` the call-time values record.
 const declaredParameters: EntryParameters<typeof Root> = { context: Context, selected: Selected }
@@ -403,3 +409,27 @@ void diagnosticCode
 // @ts-expect-error UNKNOWN_ERROR is a diagnostic code, not a SynaError code.
 const notAnErrorCode: SynaErrorCode = 'UNKNOWN_ERROR'
 void notAnErrorCode
+
+// The ten 0.6 alias type names are not exported any more (removed in 0.7.0).
+// @ts-expect-error BoundEntry → AnchoredEntry
+import type { BoundEntry } from '../src/index.js'
+// @ts-expect-error DependencyRef → ServiceRef | InputRef (DependencyRefFor<D> for a declared dependency)
+import type { DependencyRef } from '../src/index.js'
+// @ts-expect-error DeriveOptions → ReuseConstraints
+import type { DeriveOptions } from '../src/index.js'
+// @ts-expect-error DisposalOptions → RuntimeLimits.disposalGraceMs
+import type { DisposalOptions } from '../src/index.js'
+// @ts-expect-error InitializationOptions → RuntimeLimits.setupDeadlineMs
+import type { InitializationOptions } from '../src/index.js'
+// @ts-expect-error PersistentImplementationRef → ImplementationRef
+import type { PersistentImplementationRef } from '../src/index.js'
+// @ts-expect-error PlanCacheOptions → RuntimeLimits.planCacheEntries
+import type { PlanCacheOptions } from '../src/index.js'
+// @ts-expect-error PlanningOptions → RuntimeLimits.planningBudget
+import type { PlanningOptions } from '../src/index.js'
+// @ts-expect-error ScopeTarget → ReuseTarget
+import type { ScopeTarget } from '../src/index.js'
+// @ts-expect-error SynaRuntime → Runtime
+import type { SynaRuntime } from '../src/index.js'
+declare const deletedNames: [BoundEntry, DependencyRef, DeriveOptions, DisposalOptions, InitializationOptions, PersistentImplementationRef, PlanCacheOptions, PlanningOptions, ScopeTarget, SynaRuntime]
+void deletedNames

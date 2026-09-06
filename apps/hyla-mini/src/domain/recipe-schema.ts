@@ -1,4 +1,4 @@
-// syna-v05-compat: stored references written on Syna 0.5 carry `implementationId`; accepted until 0.7.0 (docs/MIGRATION_V05_TO_V06.md).
+// syna-v05-compat: stored references written on Syna 0.5 carry `implementationId`; read permanently, never written (docs/MIGRATION_V06_TO_V07.md).
 /**
  * JSON schema of a recipe document. Lives in the domain layer because the site
  * configuration schema embeds it (a stored SiteConfig carries three recipes);
@@ -9,9 +9,10 @@ import type { StoredImplementationRef } from './model.js'
 export const RECIPE_FORMAT_VERSION = 1
 
 /**
- * A stored implementation reference: Syna 0.6 writes `familyId`; documents
- * written by 0.5 carry `implementationId`. Both are accepted until the 0.7.0
- * line drops the old key (docs/MIGRATION_V05_TO_V06.md).
+ * A stored implementation reference: Syna writes `familyId`; documents written
+ * by the 0.5 line carry `implementationId`. The old key is accepted permanently
+ * (persisted-data compatibility, docs/MIGRATION_V06_TO_V07.md) and normalized to
+ * `familyId` at the store boundary, so the Runtime never reads the 0.5 form.
  */
 export const storedImplementationRefSchema = {
   type: 'object',
@@ -24,7 +25,7 @@ export const storedImplementationRefSchema = {
     implementationId: { type: 'string', minLength: 1 },
     version: { type: 'string', minLength: 1 },
   },
-  // Syna 0.6 writes `familyId`; documents written on Syna 0.5 carry `implementationId` (accepted until 0.7.0).
+  // Syna writes `familyId`; documents written on Syna 0.5 carry `implementationId` (accepted permanently).
   anyOf: [
     { required: ['familyId'], properties: { familyId: { type: 'string', minLength: 1 } } },
     { required: ['implementationId'], properties: { implementationId: { type: 'string', minLength: 1 } } },

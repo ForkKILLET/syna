@@ -4,11 +4,12 @@ import type {
   ImplementationCandidate,
   ImplementationDescriptor,
   ImplementationRef,
+  RuntimeEvent,
   RuntimePolicy,
   ServiceRevision,
 } from '../descriptors.js'
 import { SynaError } from '../errors.js'
-import { createImplementationRef, familyIdOf, normalizeImplementationRef } from '../definition.js'
+import { createImplementationRef, familyIdOf, isLegacyImplementationRef, normalizeImplementationRef } from '../definition.js'
 import { caretRange, satisfiesVersion } from '../semver.js'
 import { PolicyContext, type CompiledService, type InternalCandidateRef } from './runtime-model.js'
 import { compareRevisionIdentity, providesContract } from './identity.js'
@@ -33,6 +34,7 @@ export class ImplementationDirectory {
   constructor(
     private readonly admitted: readonly CompiledService[],
     private readonly policy: RuntimePolicy,
+    private readonly onEvent: (event: RuntimeEvent) => void = () => undefined,
   ) {
     const mutable = new Map<string, CompiledService[]>()
     for (const revision of admitted) {
@@ -45,8 +47,21 @@ export class ImplementationDirectory {
     }
   }
 
-  candidatesForImplementationId(implementationId: string): readonly CompiledService[] {
-    return this.byFamily.get(implementationId) ?? Object.freeze([])
+  candidatesForFamily(familyId: string): readonly CompiledService[] {
+    return this.byFamily.get(familyId) ?? Object.freeze([])
+  }
+
+  /**
+   * The family a caller's implementation reference names. A reference in the
+   * 0.5 serialized form (family under the old key, or parsed from such a
+   * document) is accepted and reported once per read as `legacy-implementation-ref`.
+   */
+  familyOf(ref: ImplementationRef, site: string): string {
+    const familyId = familyIdOf(ref)
+    if (isLegacyImplementationRef(ref)) {
+      this.onEvent({ type: 'legacy-implementation-ref', contractId: ref.contractId, familyId, version: ref.version, site })
+    }
+    return familyId
   }
 
   candidatesForContract(contract: Pick<Contract, 'id'>): readonly CompiledService[] {
@@ -67,7 +82,7 @@ export class ImplementationDirectory {
   }
 
   revisions(familyId: string): readonly string[] {
-    return Object.freeze(this.candidatesForImplementationId(familyId).map(revision => revision.version))
+    return Object.freeze(this.candidatesForFamily(familyId).map(revision => revision.version))
   }
 
   resolveCatalog<C extends Contract<any>>(ref: ImplementationRef<C>): ImplementationDescriptor<C> {
@@ -120,8 +135,8 @@ export class ImplementationDirectory {
       )
     }
     const allowedKeys = new Set(allowed.map(candidate => candidate.key))
-    const familyId = familyIdOf(ref)
-    const family = this.candidatesForImplementationId(familyId)
+    const familyId = this.familyOf(ref, site)
+    const family = this.candidatesForFamily(familyId)
     if (family.length === 0) {
       throw new SynaError(
         'MISSING_IMPLEMENTATION',

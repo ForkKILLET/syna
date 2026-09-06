@@ -32,30 +32,10 @@ Removed in 0.6.0 without alias (D items): `ServiceRef.preload()`, `InputRef.load
 
 ## Deprecation policy
 
-- A name that is deprecated keeps working for **one minor**: every 0.6.x release carries it with the same object or a forwarding alias, the same checks and the same errors as the new name. It is removed in **0.7.0**.
-- Every deprecated declaration carries `@deprecated Use \`<new name>\`. Removed in 0.7.0.` in `dist/*.d.ts`; `scripts/tests/deprecations.test.mjs` verifies the list below against the compiled declarations and fails if anything else is deprecated.
-- A deprecated alias is never the migration path for code in this repository: applications, demos, benchmarks and scripts use the new names only (`scripts/tests/no-old-names.test.mjs`).
-- Persisted data: a serialized key that changed (R5) is *written* in the new form from 0.6.0 and *read* in both forms for the whole 0.6.x line; 0.7.0 reads only the new form.
-
-Deprecated in 0.6.0, removed in 0.7.0:
-
-| Deprecated | Use instead | Kind |
-|---|---|---|
-| `EntryDefinition.scope`, `EntryDescriptor.scope` | `reuse` | same frozen object (`descriptor.scope` is a non-enumerable getter) |
-| `scope` inside the parameter record of `enter` / `run` / `check` / `explain` | the options argument `{ reuse }` | typed overload; one form per call |
-| `DeriveOptions` | `ReuseConstraints` | type alias |
-| `ScopeTarget` | `ReuseTarget` | type alias |
-| `EnvHandle.bind(entry)` | `EnvHandle.anchor(entry)` | forwarder |
-| `BoundEntry` | `AnchoredEntry` | type alias |
-| `SynaRuntime` | `Runtime` | type alias |
-| `DependencyRef<T>` | `ServiceRef<T>` (`DependencyRef<T>` means `ServiceRef<T> \| InputRef<T>` in 0.6) | type alias |
-| `PersistentImplementationRef` | `ImplementationRef` | type alias |
-| `ImplementationRef.implementationId` | `ImplementationRef.familyId` | non-enumerable getter; `parse()` / `resolve()` accept both keys |
-| `RuntimePolicyContext.site` | `RuntimePolicyContext.dependencySite` | prototype getter |
-| `CreateRuntimeOptions.planCache` (`PlanCacheOptions.maxEntries`) | `limits.planCacheEntries` | mapped option; both forms together are a `TypeError` |
-| `CreateRuntimeOptions.initialization` (`InitializationOptions.deadlineMs`) | `limits.setupDeadlineMs` | mapped option |
-| `CreateRuntimeOptions.disposal` (`DisposalOptions.graceMs`) | `limits.disposalGraceMs` | mapped option |
-| `CreateRuntimeOptions.planning` (`PlanningOptions.searchBudget`) | `limits.planningBudget` | mapped option |
+- A name that is deprecated keeps working for **one minor** with the same object or a forwarding alias, the same checks and the same errors as the new name, and is removed in the next minor. The 23 aliases the 0.6 line carried were removed in **0.7.0** (`docs/MIGRATION_V06_TO_V07.md` §1 lists each with its replacement and what happens to code that still spells it: a missing export or an excess property at compile time, a `TypeError` that names the current form at runtime — never a silently ignored option).
+- Every deprecated declaration carries `@deprecated Use \`<new name>\`. Removed in <version>.` in `dist/*.d.ts`; `scripts/tests/deprecations.test.mjs` keeps the register of deprecated items and fails if anything outside it is deprecated. From 0.7.0 the register is empty: no public item is deprecated, and `scripts/tests/api-inventory.test.mjs` asserts the count is 0.
+- A deprecated alias is never the migration path for code in this repository: applications, demos, benchmarks and scripts use the current names only (`scripts/tests/no-old-names.test.mjs`, which also scans the core source for the deleted public names).
+- Persisted data outlives API lines: a serialized key that changed (R5, `implementationId` → `familyId`) is *written* in the new form from 0.6.0 and *read* in both forms permanently. From 0.7.0 each Runtime read of the old form is reported as the diagnostics event `legacy-implementation-ref`, so stored documents can be rewritten at leisure; `kind: 'persistent-implementation-ref'` is the stable discriminator and never changes.
 
 ## Naming guidelines
 

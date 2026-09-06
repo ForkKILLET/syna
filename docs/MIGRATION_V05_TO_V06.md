@@ -1,5 +1,7 @@
 # 从 v0.5 迁移到 v0.6（MIGRATION_V05_TO_V06）
 
+> 历史文档（0.6.0 发布时的原文）。0.7.0 按此文宣布的时间表删除了全部 23 个别名（`docs/MIGRATION_V06_TO_V07.md` §1）；唯一与本文预告不同的是 R5 的序列化键 `implementationId`：它**永久**可解析（持久化数据比 API 线活得久），不是「0.7.0 起只接受 `familyId`」，见 `docs/MIGRATION_V06_TO_V07.md` §2。
+
 v0.6 只收束 API 的名字与类型。语义——默认值、错误触发条件、`explain` 内容、计划缓存行为、`C.all` 的共存要求、deadline、GC 相关状态、默认实现——与 v0.5 逐字相同：`packages/core/tests/v06-snapshots.test.mjs` 把 0.5.0 记录的 check/explain/inspect/catalog/错误快照与 0.6 逐项比对，唯一允许的差异是本文列出的改名；`packages/core/tests/reference-planner.test.mjs` 的参考 planner 差分同样通过。想改语义的地方记录在 `docs/DEFERRED.md`。
 
 理由编号（`docs/API_STABILITY.md` 命名守则）：

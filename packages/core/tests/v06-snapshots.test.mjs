@@ -1,4 +1,4 @@
-// syna-v05-compat: this file exercises the deprecated 0.5 forms on purpose, next to their 0.6 replacements (aliases removed in 0.7.0).
+// syna-v05-compat: the recorded 0.5 data spells the 0.5 serialized key of implementation references; RENAMED maps it.
 // Zero-semantics guard for the v0.6 API consolidation (A03): the check/explain/inspect/catalog output and the
 // error diagnostics of one fixed world, recorded on 0.5.0 (snapshots/v05-explain-inspect.json) before the first
 // rename. A rename commit may add an entry to RENAMED (the field or value it renames); the recorded data itself

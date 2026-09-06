@@ -20,7 +20,6 @@ import type {
   PackageManifest,
   ImplementationRef,
   ProvidedShape,
-  ReuseConstraints,
   ServiceDefinition,
   ServiceFamily,
   ServiceInstance,
@@ -99,32 +98,62 @@ function mergeMetadata(
 }
 
 /**
- * The family an implementation reference names: the 0.6 key `familyId`, or the
- * 0.5 key `implementationId` on a raw (unparsed) object. Removed in 0.7.0.
+ * Marks a ref `parseImplementationRef()` produced from a document that named
+ * the family under the 0.5 serialized key. Symbol-keyed and non-enumerable:
+ * invisible to JSON, `Object.keys()` and object spread, and not part of the
+ * public type. Runtime read paths report such refs once per read as a
+ * `legacy-implementation-ref` diagnostics event.
  */
-export function familyIdOf(ref: { readonly familyId?: unknown; readonly implementationId?: unknown }): string {
-  const id = ref.familyId ?? ref.implementationId
+const LEGACY_KEY_MARKER: unique symbol = Symbol('syna.legacy-implementation-key')
+
+/** The 0.5 serialized key of `familyId`; read permanently (persisted data compatibility), never written. */
+const LEGACY_FAMILY_KEY = 'implementationId' // syna-v05-compat: the 0.5 serialized key is read permanently
+
+/** A raw implementation reference as a caller may hand it over: the serialized shape, possibly under the 0.5 key. */
+interface RawImplementationRef {
+  readonly familyId?: unknown
+  readonly [LEGACY_FAMILY_KEY]?: unknown
+}
+
+/**
+ * The family an implementation reference names: the `familyId` key, or, for a
+ * raw (unparsed) object written by the 0.5 line, the 0.5 key. Accepted
+ * permanently; `isLegacyImplementationRef()` tells whether the read must be
+ * reported.
+ */
+export function familyIdOf(ref: RawImplementationRef): string {
+  const id = ref.familyId ?? ref[LEGACY_FAMILY_KEY]
   return typeof id === 'string' ? id : String(id)
 }
 
 /**
- * A ref in the 0.6 shape for a raw object that may carry the 0.5 key: what the
- * catalog reports as `persistentRef` after resolving a caller's reference. No
- * validation — the reference has already resolved. Removed in 0.7.0.
+ * Whether a Runtime read of `ref` is reported as `legacy-implementation-ref`:
+ * the ref was parsed from a document carrying the 0.5 key only, or is a raw
+ * object that names its family under that key only. A document carrying both
+ * keys (equal) is read through `familyId` and is not legacy.
+ */
+export function isLegacyImplementationRef(ref: object): boolean {
+  if ((ref as { readonly [LEGACY_KEY_MARKER]?: true })[LEGACY_KEY_MARKER] === true) return true
+  const raw = ref as RawImplementationRef
+  return typeof raw.familyId !== 'string' && typeof raw[LEGACY_FAMILY_KEY] === 'string'
+}
+
+/**
+ * A ref in the serialized shape for a raw object that may carry the 0.5 key:
+ * what the catalog reports as `persistentRef` after resolving a caller's
+ * reference. No validation — the reference has already resolved — and no
+ * legacy marker: the reported ref is the Runtime's own.
  */
 export function normalizeImplementationRef<C extends Contract>(ref: ImplementationRef<C>): ImplementationRef<C> {
-  const keys = Object.keys(ref)
-  if (keys.includes('familyId') && !keys.includes('implementationId')) return ref
-  const familyId = familyIdOf(ref)
-  const normalized = { kind: 'persistent-implementation-ref' as const, contractId: ref.contractId, familyId, version: ref.version }
-  Object.defineProperty(normalized, 'implementationId', { get: () => familyId, enumerable: false, configurable: false })
-  return Object.freeze(normalized) as unknown as ImplementationRef<C>
+  if (!isLegacyImplementationRef(ref) && !(LEGACY_FAMILY_KEY in ref)) return ref
+  return createImplementationRef(ref, familyIdOf(ref), ref.version)
 }
 
 export function createImplementationRef<C extends Contract<any>>(
-  contract: Pick<Contract, 'id'>,
+  contract: Pick<ImplementationRef, 'contractId'> | Pick<Contract, 'id'>,
   familyId: string,
   version: string,
+  options: { readonly legacyKey?: boolean } = {},
 ): ImplementationRef<C> {
   assertId(familyId, 'Implementation')
   if (version.trim().length === 0) {
@@ -133,13 +162,13 @@ export function createImplementationRef<C extends Contract<any>>(
   assertValidRange(version, `Implementation version intent for ${familyId}`)
   const ref = {
     kind: 'persistent-implementation-ref' as const,
-    contractId: contract.id,
+    contractId: 'contractId' in contract ? contract.contractId : contract.id,
     familyId,
     version,
   }
-  // R5 alias (0.6): `implementationId` reads `familyId`; not enumerable, so JSON
-  // carries `familyId` only. Removed in 0.7.0.
-  Object.defineProperty(ref, 'implementationId', { get: () => familyId, enumerable: false, configurable: false })
+  if (options.legacyKey) {
+    Object.defineProperty(ref, LEGACY_KEY_MARKER, { value: true, enumerable: false, writable: false, configurable: false })
+  }
   return Object.freeze(ref) as unknown as ImplementationRef<C>
 }
 
@@ -152,14 +181,14 @@ export function parseImplementationRef<C extends Contract<any>>(
   }
   const value = input as Readonly<Record<string, unknown>>
   const hasFamilyId = typeof value.familyId === 'string'
-  const hasLegacyId = typeof value.implementationId === 'string'
-  const familyId = hasFamilyId ? value.familyId as string : hasLegacyId ? value.implementationId as string : undefined
+  const hasLegacyId = typeof value[LEGACY_FAMILY_KEY] === 'string'
+  const familyId = hasFamilyId ? value.familyId as string : hasLegacyId ? value[LEGACY_FAMILY_KEY] as string : undefined
   if (
     value.kind !== 'persistent-implementation-ref'
     || value.contractId !== contract.id
     || familyId === undefined
     || familyId.trim().length === 0
-    || (hasFamilyId && hasLegacyId && value.familyId !== value.implementationId)
+    || (hasFamilyId && hasLegacyId && value.familyId !== value[LEGACY_FAMILY_KEY])
     || typeof value.version !== 'string'
     || value.version.trim().length === 0
   ) {
@@ -167,7 +196,7 @@ export function parseImplementationRef<C extends Contract<any>>(
       `Invalid persistent implementation reference for Contract ${contract.id}.`,
     )
   }
-  return createImplementationRef(contract, familyId, value.version)
+  return createImplementationRef(contract, familyId, value.version, { legacyKey: !hasFamilyId })
 }
 
 export function auto<C extends Contract<any>>(contract: C): AutoImplementation<C> {
@@ -234,7 +263,11 @@ function normalizeDeadline(value: number | undefined): number | undefined {
   return value
 }
 
-/** Parameter keys that name call-time reuse constraints (`reuse`, and its deprecated 0.5 form `scope`). */
+/**
+ * Parameter keys reserved for call-time reuse constraints: `reuse` (the options
+ * key) and `scope` (its expired 0.5 name, still reserved so a call record can
+ * never carry it as a parameter and an old call form is refused, not misread).
+ */
 const RESERVED_PARAMETER_KEYS: ReadonlySet<string> = new Set(['reuse', 'scope'])
 
 function assertUniqueParameterIds(parameters: EntryParameterMap): void {
@@ -453,12 +486,13 @@ export function definePackage(manifest: PackageManifest): PackageDefinitions {
     }
     assertUniqueParameterIds(parameters)
     const apiVersion = assertApiVersion(definition.apiVersion)
-    if (definition.reuse !== undefined && definition.scope !== undefined) {
-      throw new TypeError(`Entry ${entryId(name, apiVersion)} defines both reuse and its deprecated alias scope; use reuse.`)
+    // The expired 0.5 option is refused, never silently ignored (removed in 0.7.0).
+    if ((definition as { readonly scope?: unknown }).scope !== undefined) { // syna-v05-compat: refusal of the expired form
+      throw new TypeError(`Entry ${entryId(name, apiVersion)} uses the removed option scope; use reuse.`)
     }
-    const constraints = definition.reuse ?? definition.scope
+    const constraints = definition.reuse
 
-    return Object.freeze(withDeprecatedScope({
+    return Object.freeze({
       kind: 'entry',
       package: packageDescriptor,
       id: entryId(name, apiVersion),
@@ -470,7 +504,7 @@ export function definePackage(manifest: PackageManifest): PackageDefinitions {
         fresh: Object.freeze([...(constraints?.fresh ?? [])]),
         share: Object.freeze([...(constraints?.share ?? [])]),
       }),
-    }))
+    })
   }
 
   return Object.freeze({
@@ -481,23 +515,6 @@ export function definePackage(manifest: PackageManifest): PackageDefinitions {
     service: defineService,
     entry: defineEntry,
   }) as PackageDefinitions
-}
-
-/**
- * R1 alias (0.6): `descriptor.scope` reads `descriptor.reuse` — the same frozen
- * object — through a non-enumerable property, so a descriptor serializes and
- * enumerates with one name. Removed in 0.7.0.
- */
-export function withDeprecatedScope<E extends Omit<EntryDescriptor, 'scope'>>(
-  descriptor: E,
-): E & { readonly scope: Readonly<ReuseConstraints> } {
-  Object.defineProperty(descriptor, 'scope', {
-    value: descriptor.reuse,
-    enumerable: false,
-    writable: false,
-    configurable: false,
-  })
-  return descriptor as E & { readonly scope: Readonly<ReuseConstraints> }
 }
 
 export type { ContractApi, ServiceInstance }

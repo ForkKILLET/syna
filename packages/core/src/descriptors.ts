@@ -87,8 +87,11 @@ export type InputType<I> = I extends Input<infer T> ? T : never
 /**
  * JSON-safe implementation preference (a Binding assignment, a catalog lookup);
  * never an Env-local slot reference. Serializes as
- * `{ kind, contractId, familyId, version }`; `parse()` also accepts the 0.5 key
- * `implementationId` for `familyId`.
+ * `{ kind, contractId, familyId, version }`. Persisted data compatibility:
+ * `parse()` and every Runtime read path permanently accept the 0.5 key (`implementationId`)
+ * the 0.5 line wrote for `familyId`, and report each such read as a
+ * `legacy-implementation-ref` diagnostics event; `kind` is the stable
+ * on-disk discriminator (its value dates from 0.4 and never changes).
  */
 export interface ImplementationRef<
   C extends Contract<any> = Contract<any>,
@@ -98,18 +101,8 @@ export interface ImplementationRef<
   /** The implementation family (`ServiceFamily.id`). */
   readonly familyId: string
   readonly version: string
-  /**
-   * @deprecated Use `familyId` (the same value). Optional in the type so a plain
-   * `{ kind, contractId, familyId, version }` object is an `ImplementationRef`;
-   * refs created by `to()`/`parse()` always carry it as a non-enumerable,
-   * non-serialized alias. Removed in 0.7.0.
-   */
-  readonly implementationId?: string
   readonly __type?: C
 }
-
-/** @deprecated Use `ImplementationRef`. Removed in 0.7.0. */
-export type PersistentImplementationRef<C extends Contract<any> = Contract<any>> = ImplementationRef<C>
 
 /** Stable identity shared by installed revisions of one implementation. */
 export interface ServiceFamily<PublicApi = unknown> {
@@ -201,9 +194,6 @@ export interface AnchoredEntry<E extends EntryDescriptor<any, any>> {
   explain(...args: EntryCallArguments<E>): Promise<EntryExplanation>
 }
 
-/** @deprecated Use `AnchoredEntry`. Removed in 0.7.0. */
-export type BoundEntry<E extends EntryDescriptor> = AnchoredEntry<E>
-
 /** Every descriptor accepted in a Service or Entry `requires` map. */
 export type Dependency =
   | ServiceRevision<any, any>
@@ -259,12 +249,6 @@ export interface ServiceRef<T> {
 export interface InputRef<T> {
   read(): T
 }
-
-/**
- * @deprecated Use `ServiceRef` for the loadable ref. In 0.6 this name means a
- * ref of either kind (`ServiceRef<T> | InputRef<T>`). Removed in 0.7.0.
- */
-export type DependencyRef<T> = ServiceRef<T> | InputRef<T>
 
 export type DependencyRefFor<D> =
   UnwrapForward<D> extends Input<infer T>
@@ -412,9 +396,6 @@ export type EntryParameterValues<Parameters extends EntryParameterMap> = {
 /** A Service revision or family named by a reuse constraint. */
 export type ReuseTarget = ServiceRevision<any> | ServiceFamily<any>
 
-/** @deprecated Use `ReuseTarget`. Removed in 0.7.0. */
-export type ScopeTarget = ReuseTarget
-
 /**
  * Reuse constraints of an Entry or of one call. `fresh` targets never reuse the
  * parent's slot (their reverse dependency closure is forked); `share` targets
@@ -425,9 +406,6 @@ export interface ReuseConstraints {
   readonly fresh?: readonly ReuseTarget[]
   readonly share?: readonly ReuseTarget[]
 }
-
-/** @deprecated Use `ReuseConstraints`. Removed in 0.7.0. */
-export type DeriveOptions = ReuseConstraints
 
 /** Call-time options of `enter`, `run`, `check` and `explain`. */
 export interface EntryOptions {
@@ -446,8 +424,6 @@ export interface EntryDescriptor<
   readonly requires: Requires
   readonly parameters: Parameters
   readonly reuse: Readonly<ReuseConstraints>
-  /** @deprecated Use `reuse` (the same object). Removed in 0.7.0. */
-  readonly scope: Readonly<ReuseConstraints>
   readonly metadata: Readonly<DescriptorMetadata>
 }
 
@@ -458,20 +434,11 @@ export type EntryParameters<E extends EntryDescriptor<any, any>> = E['parameters
 export type EntryArguments<E extends EntryDescriptor<any, any>> =
   EntryParameterValues<E['parameters']>
 
-/** The 0.5 call form: reuse constraints inside the parameter record. */
-type ScopedEntryParameters<E extends EntryDescriptor> =
-  EntryParameterValues<E['parameters']> & {
-    /** @deprecated Pass `{ reuse }` as the separate options argument. Removed in 0.7.0. */
-    readonly scope: ReuseConstraints
-  }
-
 /** The argument tuple of `enter`/`check`/`explain` (module-internal; not part of the package surface). */
 export type EntryCallArguments<E extends EntryDescriptor<any, any>> =
   keyof E['parameters'] extends never
-    ? | [parameters?: EntryArguments<E> | undefined, options?: EntryOptions | undefined]
-      | [parameters: ScopedEntryParameters<E>]
-    : | [parameters: EntryArguments<E>, options?: EntryOptions | undefined]
-      | [parameters: ScopedEntryParameters<E>]
+    ? [parameters?: EntryArguments<E> | undefined, options?: EntryOptions | undefined]
+    : [parameters: EntryArguments<E>, options?: EntryOptions | undefined]
 
 export type EntryDependencies<E extends EntryDescriptor<any, any>> =
   DependencyRefs<E['requires']>
@@ -487,16 +454,12 @@ export type EntryRunCallArguments<E extends EntryDescriptor<any, any>, Result> =
     ? | [callback: EntryCallback<E, Result>]
       | [parameters: EntryArguments<E> | undefined, callback: EntryCallback<E, Result>]
       | [parameters: EntryArguments<E> | undefined, options: EntryOptions | undefined, callback: EntryCallback<E, Result>]
-      | [parameters: ScopedEntryParameters<E>, callback: EntryCallback<E, Result>]
     : | [parameters: EntryArguments<E>, callback: EntryCallback<E, Result>]
       | [parameters: EntryArguments<E>, options: EntryOptions | undefined, callback: EntryCallback<E, Result>]
-      | [parameters: ScopedEntryParameters<E>, callback: EntryCallback<E, Result>]
 
 export interface RuntimePolicyContext {
   /** The dependency site being resolved. */
   readonly dependencySite: string
-  /** @deprecated Use `dependencySite`. Removed in 0.7.0. */
-  readonly site: string
   readonly parentActiveRevisionKeys: ReadonlySet<string>
 }
 
@@ -557,30 +520,6 @@ export interface RuntimeLimits {
   readonly planCacheEntries?: number
 }
 
-/** @deprecated Use `limits.planCacheEntries`. Removed in 0.7.0. */
-export interface PlanCacheOptions {
-  /** @deprecated Use `limits.planCacheEntries`. Removed in 0.7.0. */
-  readonly maxEntries?: number
-}
-
-/** @deprecated Use `limits.setupDeadlineMs`. Removed in 0.7.0. */
-export interface InitializationOptions {
-  /** @deprecated Use `limits.setupDeadlineMs`. Removed in 0.7.0. */
-  readonly deadlineMs?: number
-}
-
-/** @deprecated Use `limits.disposalGraceMs`. Removed in 0.7.0. */
-export interface DisposalOptions {
-  /** @deprecated Use `limits.disposalGraceMs`. Removed in 0.7.0. */
-  readonly graceMs?: number
-}
-
-/** @deprecated Use `limits.planningBudget`. Removed in 0.7.0. */
-export interface PlanningOptions {
-  /** @deprecated Use `limits.planningBudget`. Removed in 0.7.0. */
-  readonly searchBudget?: number
-}
-
 export type RuntimeEvent =
   | {
       readonly type: 'late-setup-result'
@@ -625,6 +564,21 @@ export type RuntimeEvent =
       readonly revision: string
       readonly env: string
     }
+  | {
+      /**
+       * The Runtime read an implementation reference whose family was given
+       * under the 0.5 serialized key `implementationId` (a raw object carrying
+       * only that key, or a ref `parse()` produced from one). The reference is
+       * accepted permanently; the event is reported once per read so stored
+       * documents can be rewritten to the `familyId` form at leisure.
+       */
+      readonly type: 'legacy-implementation-ref'
+      readonly contractId: string
+      readonly familyId: string
+      readonly version: string
+      /** Where the reference was read: a Binding site, `catalog.resolve()` or an `ImplementationSet` site. */
+      readonly site: string
+    }
 
 export interface DiagnosticsOptions {
   readonly onEvent?: (event: RuntimeEvent) => void
@@ -635,14 +589,6 @@ export interface CreateRuntimeOptions {
   readonly policy?: Partial<RuntimePolicy>
   readonly overrides?: readonly ServiceOverride[]
   readonly limits?: RuntimeLimits
-  /** @deprecated Use `limits.planCacheEntries`. Removed in 0.7.0. */
-  readonly planCache?: PlanCacheOptions
-  /** @deprecated Use `limits.setupDeadlineMs`. Removed in 0.7.0. */
-  readonly initialization?: InitializationOptions
-  /** @deprecated Use `limits.disposalGraceMs`. Removed in 0.7.0. */
-  readonly disposal?: DisposalOptions
-  /** @deprecated Use `limits.planningBudget`. Removed in 0.7.0. */
-  readonly planning?: PlanningOptions
   readonly diagnostics?: DiagnosticsOptions
 }
 
@@ -837,8 +783,6 @@ export interface EnvHandle<Requires extends DependencyMap = DependencyMap> {
   derive(reuse?: ReuseConstraints): Promise<EnvHandle<{}>>
   /** An `AnchoredEntry` anchored at this Env (public authority). */
   anchor<E extends EntryDescriptor>(entry: E): AnchoredEntry<E>
-  /** @deprecated Use `anchor()`. Removed in 0.7.0. */
-  bind<E extends EntryDescriptor>(entry: E): AnchoredEntry<E>
   inspect(): EnvInspection
   dispose(): Promise<void>
   [Symbol.asyncDispose](): Promise<void>
@@ -872,9 +816,6 @@ export interface Runtime {
   [Symbol.asyncDispose](): Promise<void>
 }
 
-/** @deprecated Use `Runtime`. Removed in 0.7.0. */
-export type SynaRuntime = Runtime
-
 type ContractApiUnion<Provides extends readonly Contract[]> =
   Provides[number] extends infer C
     ? C extends Contract<infer Api> ? Api : never
@@ -898,8 +839,6 @@ export interface EntryDefinition<
   readonly requires?: Requires
   readonly parameters?: Parameters
   readonly reuse?: ReuseConstraints
-  /** @deprecated Use `reuse`. Removed in 0.7.0. */
-  readonly scope?: ReuseConstraints
 }
 
 export interface PackageDefinitions {

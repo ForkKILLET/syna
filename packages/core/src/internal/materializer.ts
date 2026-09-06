@@ -202,7 +202,7 @@ export class Materializer {
   }
 
   /**
-   * Gives every in-flight attempt of the given slots at most `disposal.graceMs`
+   * Gives every in-flight attempt of the given slots at most `limits.disposalGraceMs`
    * to settle after the owner's stop signal: running sequences as well as
    * attempts whose deadline already passed. Slots are waited for concurrently,
    * so the whole step is bounded by one grace period regardless of the
