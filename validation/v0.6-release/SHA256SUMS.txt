@@ -1,4 +1,4 @@
-3cf901e41cdc72a09bc8db870e6f20d4488e2657ccb908b4a7d7a6c64deb2eaa  work/release/syna-v0.6.0-source.tar.gz
-52c8a4c43aa85ce3d618520b05c140c34fb7309020118283ba35eb40479f3994  work/release/syna-v0.6.0-source.zip
+1a0a007d27e768536362d9bdb6280eba186b4f6f2fb9868b78e72e0ae6d5a06c  work/release/syna-v0.6.0-source.tar.gz
+387165f6b56dd578eae9a459d2977522a7096c5eac00a87d612010a43c033fde  work/release/syna-v0.6.0-source.zip
 0c795e6c06a9f651ef73ce33317f4b2f418e4e12ce4c74dad8cf00c5bbd978c7  work/release/pack/syna-core-0.6.0.tgz
 dca6cc0fa080859fd5319a3939c5c3a01ef42e3a167111b3503372202ec23c3d  work/release/pack/syna-tsconfig-0.6.0.tgz
