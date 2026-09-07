@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Hyla-mini command line: serve | build | seed | explain | demo
+// multitenant-blog command line: serve | build | seed | explain | demo
 import http from 'node:http'
 import path from 'node:path'
 import process from 'node:process'
@@ -81,7 +81,7 @@ async function seed(app, options) {
 async function main() {
   const { command, options } = parseArgs(process.argv.slice(2))
   if (command === 'help') {
-    console.log(`hyla-mini <command> [--backend postgres|filesystem] [--database <url>] [--schema <name>] [--root <dir>] [--layout default|blog]
+    console.log(`multitenant-blog <command> [--backend postgres|filesystem] [--database <url>] [--schema <name>] [--root <dir>] [--layout default|blog]
   seed                      write fixture content and site configurations
   serve [--port N]          preflight, seed if empty, start the HTTP server
   build --tenant <id> --out <dir>   static build of one tenant

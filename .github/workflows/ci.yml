@@ -21,17 +21,17 @@ jobs:
       - run: npm test
       - run: npm run test:app
       # Real PostgreSQL: ubuntu runners ship PostgreSQL binaries; the script starts a temporary cluster.
-      - run: node scripts/pg-test-cluster.mjs with -- node --test apps/hyla-mini/tests/postgres.test.mjs apps/hyla-mini/tests/matrix.test.mjs
+      - run: node scripts/pg-test-cluster.mjs with -- node --test apps/multitenant-blog/tests/postgres.test.mjs apps/multitenant-blog/tests/matrix.test.mjs
         env:
           SYNA_PG_BIN: /usr/lib/postgresql/16/bin
       # The gate's own tooling (step runner process groups, cluster script signal forwarding).
       - run: npm run test:scripts
         env:
           SYNA_PG_BIN: /usr/lib/postgresql/16/bin
-      # The four core demos check their own results and print `demo: OK`.
+      # The seven examples (apps/01-* … apps/07-*) assert their own results and each prints `<name>: OK`.
       - run: npm run demo
-      # Self-asserting three-cell demo (exit 1 unless every cell — HTTP alpha, HTTP beta, static alpha — answers 200 with the tenant's page).
-      - run: npm run demo:hyla-mini
+      # Self-asserting three-cell demo of the reference application (exit 1 unless every cell — HTTP alpha, HTTP beta, static alpha — answers 200 with the tenant's page).
+      - run: npm run demo:multitenant-blog
 
   # The release gate (G0 + G1: archive, rebuild from the archive, pack, consumer smoke, manifest) with its outputs kept
   # as a workflow artifact. The gate reads the version from package.json (scripts/verify-release.mjs, 1.0.0-rc.1 on), so

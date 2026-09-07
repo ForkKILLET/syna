@@ -21,8 +21,8 @@
     "typecheck": "tsc -b tsconfig.json --pretty false && npm run type-tests",
     "type-tests": "tsc -p packages/core/tsconfig.type-tests.json --pretty false",
     "test": "npm run build && node --test packages/core/tests/*.test.mjs",
-    "test:app": "node --test apps/hyla-mini/tests/filesystem.test.mjs apps/hyla-mini/tests/render.test.mjs apps/hyla-mini/tests/tenants-auth.test.mjs apps/hyla-mini/tests/preflight.test.mjs apps/hyla-mini/tests/audit-app.test.mjs apps/hyla-mini/tests/review-app.test.mjs && node --test --expose-gc apps/hyla-mini/tests/site-manager.test.mjs",
-    "test:postgres": "node scripts/pg-test-cluster.mjs with -- node --test apps/hyla-mini/tests/postgres.test.mjs apps/hyla-mini/tests/matrix.test.mjs",
+    "test:app": "node --test apps/multitenant-blog/tests/filesystem.test.mjs apps/multitenant-blog/tests/render.test.mjs apps/multitenant-blog/tests/tenants-auth.test.mjs apps/multitenant-blog/tests/preflight.test.mjs apps/multitenant-blog/tests/audit-app.test.mjs apps/multitenant-blog/tests/review-app.test.mjs && node --test --expose-gc apps/multitenant-blog/tests/site-manager.test.mjs",
+    "test:postgres": "node scripts/pg-test-cluster.mjs with -- node --test apps/multitenant-blog/tests/postgres.test.mjs apps/multitenant-blog/tests/matrix.test.mjs",
     "test:scripts": "node --test scripts/tests/*.test.mjs",
     "test:coverage": "npm run build && node --test --experimental-test-coverage packages/core/tests/*.test.mjs",
     "demo:01": "node apps/01-basics/dist/index.js",
@@ -32,7 +32,7 @@
     "demo:05": "node apps/05-scheduled-jobs/dist/index.js",
     "demo:06": "node apps/06-testing/dist/index.js",
     "demo:07": "node apps/07-failure-modes/dist/index.js",
-    "demo:hyla-mini": "node apps/hyla-mini/bin/hyla-mini.mjs demo --root ./work/demo-content",
+    "demo:multitenant-blog": "node apps/multitenant-blog/bin/multitenant-blog.mjs demo --root ./work/demo-content",
     "demo": "npm run build && npm run demo:01 && npm run demo:02 && npm run demo:03 && npm run demo:04 && npm run demo:05 && npm run demo:06 && npm run demo:07",
     "check": "npm run typecheck && npm test && npm run test:app && npm run test:scripts && npm run demo",
     "benchmark:v05": "npm run build && node --expose-gc benchmarks/v0.5-planning.mjs benchmarks/results-v0.5.0.json",
@@ -48,7 +48,7 @@
     "node": ">=22"
   },
   "packageManager": "npm@11.12.1",
-  "description": "Syna core, demos and the Hyla-mini application",
+  "description": "Syna core, the seven examples and the multitenant-blog reference application",
   "devDependencies": {
     "@types/node": "^22.19.7",
     "typescript": "~5.9.3"

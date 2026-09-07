@@ -1,4 +1,4 @@
-// Hyla-mini request latency, report only (no budget): full HTTP round trips through the dynamic
+// multitenant-blog request latency, report only (no budget): full HTTP round trips through the dynamic
 // path (host → tenant → leased SiteEnv → RequestEntry → renderer/page cache) on the filesystem
 // backend and, when SYNA_TEST_PG_URL is set, on PostgreSQL.
 // Usage: node benchmarks/hyla-request-latency.mjs [output.json] [--quick]
@@ -6,8 +6,8 @@ import { writeFile } from 'node:fs/promises'
 import { cpus, platform, release } from 'node:os'
 import { performance } from 'node:perf_hooks'
 import process from 'node:process'
-import { startHttpServer } from '../apps/hyla-mini/dist/index.js'
-import { createFilesystemApp, createPostgresApp, fetchText } from '../apps/hyla-mini/tests/helpers/app-harness.mjs'
+import { startHttpServer } from '../apps/multitenant-blog/dist/index.js'
+import { createFilesystemApp, createPostgresApp, fetchText } from '../apps/multitenant-blog/tests/helpers/app-harness.mjs'
 
 const quick = process.argv.includes('--quick')
 const outputFile = process.argv.slice(2).find(argument => !argument.startsWith('--'))

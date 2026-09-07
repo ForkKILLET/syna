@@ -211,7 +211,7 @@ export const RehypeStringifyFactory = define.service('rehype-stringify-factory',
   },
 })
 
-/** Every factory Service Hyla-mini ships. Deployments admit these (plus any third-party factory). */
+/** Every factory Service the application ships. Deployments admit these (plus any third-party factory). */
 export const STAGE_FACTORIES = Object.freeze([
   RemarkParseFactory,
   RemarkGfmFactory,

@@ -1,9 +1,9 @@
 {
-  "name": "@hyla/mini",
+  "name": "@syna-app/multitenant-blog",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Hyla-mini: a narrow but complete multi-tenant blog engine built on Syna v0.5",
+  "description": "multitenant-blog: the reference application of Syna \u2014 a narrow but complete multi-tenant blog engine (real PostgreSQL and filesystem backends, dynamic HTTP and static builds)",
   "imports": {
     "#syna/package": "./package.json"
   },
@@ -16,12 +16,12 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "bin": {
-    "hyla-mini": "./bin/hyla-mini.mjs"
+    "multitenant-blog": "./bin/multitenant-blog.mjs"
   },
   "syna": {
     "id": "hyla.mini",
     "metadata": {
-      "displayName": "Hyla-mini"
+      "displayName": "multitenant-blog"
     }
   },
   "scripts": {

@@ -2,7 +2,7 @@ import { escapeIdentifier, escapeLiteral } from 'pg'
 import type { DatabasePool } from './pool.js'
 
 /**
- * Idempotent DDL for the Hyla-mini content tables. All statements are qualified
+ * Idempotent DDL for the application's content tables. All statements are qualified
  * with the configured schema, and the whole batch runs under a transaction-scoped
  * advisory lock so concurrent starts do not race `CREATE ... IF NOT EXISTS`.
  *

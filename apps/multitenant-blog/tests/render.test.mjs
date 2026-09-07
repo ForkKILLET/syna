@@ -278,7 +278,7 @@ test('H07 recipes round-trip through JSON, resolve inside the saved version inte
   assert.deepEqual(parsed, JSON.parse(JSON.stringify(defaultRecipes())))
 
   // Two admitted revisions of the gfm family; the saved ref keeps the user's intent; the resolved version is diagnostics.
-  const gfmNext = definePackage({ name: '@hyla/mini', version: '0.2.0', syna: { id: 'hyla.mini' } })
+  const gfmNext = definePackage({ name: '@syna-app/multitenant-blog', version: '0.2.0', syna: { id: 'hyla.mini' } })
     .service('remark-gfm-factory', { provides: [MarkdownStageFactoryContract], setup: () => (RemarkGfmFactory.setup({}, { signal: new AbortController().signal, onDispose() {} })) })
   const runtime = createRuntime({ services: [PipelineBuilder, ...STAGE_FACTORIES, gfmNext] })
   const env = await runtime.enter(define.entry('builder-multi', { requires: { pipelines: PipelineBuilder } }))

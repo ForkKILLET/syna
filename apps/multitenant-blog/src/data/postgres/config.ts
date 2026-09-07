@@ -2,7 +2,7 @@ import { define } from '../../syna.js'
 
 export interface DatabaseSettings {
   readonly connectionString: string
-  /** Schema that holds all Hyla-mini tables; created if missing. Lets tests isolate themselves. */
+  /** Schema that holds all the application's tables; created if missing. Lets tests isolate themselves. */
   readonly schema: string
   readonly max?: number
   /**

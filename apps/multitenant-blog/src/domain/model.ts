@@ -1,5 +1,5 @@
 /**
- * Hyla-mini data model. Deliberately small: enough for Site, Post, Category,
+ * The application's data model. Deliberately small: enough for Site, Post, Category,
  * Tag, navigation/title configuration and render recipes. Language is ordinary
  * business data (a `locale` field), not a framework concept.
  */

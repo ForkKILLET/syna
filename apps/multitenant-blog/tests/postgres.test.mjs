@@ -20,7 +20,7 @@ const connectionString = process.env.SYNA_TEST_PG_URL
 if (!connectionString) {
   throw new Error(
     'SYNA_TEST_PG_URL is not set. The PostgreSQL tests never skip: run them through '
-    + '`node scripts/pg-test-cluster.mjs with -- node --test apps/hyla-mini/tests/postgres.test.mjs` '
+    + '`node scripts/pg-test-cluster.mjs with -- node --test apps/multitenant-blog/tests/postgres.test.mjs` '
     + 'or export SYNA_TEST_PG_URL=postgres://user@host:port/db.',
   )
 }

@@ -5,7 +5,7 @@
 // against the record — removed, added and changed signatures — is exactly the 0.8 rename table
 // (work/v08/RENAME_TABLE.md; docs/MIGRATION_V07_TO_V08.md), nothing outside it, and the committed AFTER is current.
 // 1.0.0-rc.1: the surface is frozen from 0.8.0 (docs/API_STABILITY.md) — where the 0.8.0 release gate's record is
-// present, this inventory is identical to it item by item.
+// present, this inventory is identical to it item by item. 1.0.0-rc.2: identical to the 1.0.0-rc.1 record as well.
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
@@ -158,4 +158,20 @@ test('1.0: the inventory is identical to the 0.8.0 record, item by item — path
   assert.equal(record.version, '0.8.0', 'the record is the 0.8.0 inventory')
   assert.equal(record.items.length, 374)
   assert.deepEqual(after.items, record.items, 'the public API differs from the 0.8.0 record')
+})
+
+// 1.0.0-rc.2: nothing changed since the previous release candidate either — the record the 1.0.0-rc.1 release gate wrote
+// (validation/v1.0.0-rc.1-release/api-inventory.json, provenance 77d6440), itself identical to the 0.8.0 record.
+const previous = path.join(root, 'validation/v1.0.0-rc.1-release/api-inventory.json')
+test('1.0.0-rc.2: the inventory is identical to the 1.0.0-rc.1 record, item by item: 0 added, 0 removed, 0 changed (asserted where the record is present)', () => {
+  if (!existsSync(previous)) return
+  const record = JSON.parse(readFileSync(previous, 'utf8'))
+  assert.equal(record.version, '1.0.0-rc.1', 'the record is the 1.0.0-rc.1 inventory')
+  assert.equal(record.items.length, 374)
+  const key = item => JSON.stringify([item.path, item.kind, item.signature, item.doc ?? '', item.deprecated === true, item.note ?? ''])
+  const recordKeys = new Set(record.items.map(key))
+  const afterKeys = new Set(after.items.map(key))
+  assert.deepEqual(after.items.filter(item => !recordKeys.has(key(item))).map(item => item.path), [], 'items added or changed since 1.0.0-rc.1')
+  assert.deepEqual(record.items.filter(item => !afterKeys.has(key(item))).map(item => item.path), [], 'items removed or changed since 1.0.0-rc.1')
+  assert.deepEqual(after.items, record.items, 'the public API differs from the 1.0.0-rc.1 record')
 })

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Same-session benchmark comparison with the previous release (0.6 compared with 0.5.0, 0.7 with 0.6.0, 0.8 with 0.7.0,
-// 1.0.0-rc.1 with 0.8.0). The
+// 1.0.0-rc.1 with 0.8.0, 1.0.0-rc.2 with 1.0.0-rc.1). The
 // baseline source is exported from its git commit into a scratch directory, installed from its lockfile and built;
 // then both it and the current tree are benchmarked in
 // the same session: one discarded warm-up run per side, then N rounds that run both sides in alternating order.
@@ -18,7 +18,7 @@
 // The flags are recorded in every run file (`environment.nodeOptions`) and in the median files (`nodeFlags`);
 // scripts/benchmark-compare.mjs treats two records measured under different flags as not comparable.
 //
-//   node scripts/benchmark-same-session.mjs --commit e24859f --baseline-label 0.8.0 --out-dir validation/v1.0.0-rc.1-dev/benchmark-compare [--runs 21] [--tolerance 0.10] [--record benchmarks/results-v0.8.0-baseline-same-machine.json]
+//   node scripts/benchmark-same-session.mjs --commit 4a5a978 --baseline-label 1.0.0-rc.1 --out-dir validation/v1.0.0-rc.2-dev/benchmark-compare [--runs 21] [--tolerance 0.10] [--record benchmarks/results-v1.0.0-rc.1-baseline-same-machine.json]
 //
 // Exit 0 when the same-session comparison is OK, 1 when it fails, 3 when the baseline commit cannot be exported.
 import { spawnSync } from 'node:child_process'
@@ -33,11 +33,11 @@ const option = (name, fallback) => { const index = args.indexOf(name); return in
 const commit = option('--commit')
 const runs = Number(option('--runs', '21'))
 const tolerance = option('--tolerance', '0.10')
-const record = option('--record', 'benchmarks/results-v0.8.0-baseline-same-machine.json')
-const label = option('--baseline-label', '0.8.0')
+const record = option('--record', 'benchmarks/results-v1.0.0-rc.1-baseline-same-machine.json')
+const label = option('--baseline-label', '1.0.0-rc.1')
 const outDir = option('--out-dir')
 if (!commit || !outDir) {
-  console.error('usage: benchmark-same-session.mjs --commit <baseline commit> --out-dir <dir> [--baseline-label 0.8.0] [--runs N] [--tolerance 0.10] [--record <file>]')
+  console.error('usage: benchmark-same-session.mjs --commit <baseline commit> --out-dir <dir> [--baseline-label 1.0.0-rc.1] [--runs N] [--tolerance 0.10] [--record <file>]')
   process.exit(2)
 }
 const out = path.resolve(root, outDir)

@@ -44,7 +44,7 @@
       "path": "./apps/07-failure-modes"
     },
     {
-      "path": "./apps/hyla-mini"
+      "path": "./apps/multitenant-blog"
     }
   ]
 }

@@ -1,15 +1,20 @@
 #!/usr/bin/env node
 // Syna release acceptance orchestrator (1.0.0-rc.1 on): the 0.8 gate with the version read from package.json — the
-// validation directory, the archive name and the manifest carry it — and with the 0.8.0 records as the baselines: the
-// public API inventory must be identical to the 0.8.0 record (the surface is frozen from 0.8.0, docs/API_STABILITY.md),
-// the same-session benchmark comparison runs against the 0.8.0 source with `--no-maglev` on both sides (the recorded
-// 0.8.0 baseline was re-measured on this machine the same way), the `any` budget stays at the last recorded baseline
-// (0.7.0; 0.8.0 measured the same count). Everything else is the 0.8 gate unchanged: no @deprecated item, the rename
-// codemod idempotent over the tree, no pre-0.8 reference token in the core, the demos, the benchmarks and their budgets.
+// validation directory, the archive name and the manifest carry it — and with the records of the previous release as
+// the baselines. 1.0.0-rc.2: the public API inventory must be identical to the 0.8.0 record (the surface is frozen from
+// 0.8.0, docs/API_STABILITY.md) and its diff against the 1.0.0-rc.1 record empty; the same-session benchmark comparison
+// runs against the 1.0.0-rc.1 source with `--no-maglev` on both sides (its recorded baseline is the 1.0.0-rc.1 side of
+// the 1.0.0-rc.1 release run on this machine); the `any` budget stays at the 0.7.0 record, re-keyed under the rename of
+// the reference application. The demos are the seven examples (apps/01-* … apps/07-*, each a step that must print the
+// stable lines of its README) and the multitenant-blog demo (apps/multitenant-blog, the reference application under
+// its 1.0.0-rc.2 name, docs/HISTORY.md: the same three cells). Everything else is the 0.8 gate unchanged: no
+// @deprecated item, the rename codemod idempotent over the tree, no pre-0.8 reference token in the core, the
+// benchmarks and their budgets.
 //
 //   node scripts/verify-release.mjs --dev       G0: build + type tests + core/regression + real PostgreSQL/FS + app matrix + tooling
-//                                                + API inventory (0 deprecated items; identical to the 0.8.0 record) + codemod idempotency
-//                                                + old-token scan + same-machine benchmark comparison + `any` budget + benchmarks
+//                                                + API inventory (0 deprecated items; identical to the 0.8.0 record; unchanged since 1.0.0-rc.1)
+//                                                + codemod idempotency + old-token scan + same-machine benchmark comparison with 1.0.0-rc.1
+//                                                + `any` budget + the seven examples + the multitenant-blog demo + benchmarks
 //   node scripts/verify-release.mjs --release   G0 + G1: source archive, rebuild from the archive in an empty dir, pack + consumer smoke,
 //                                                release manifest and SHA256SUMS. Prints COMPLETE / PARTIAL / BLOCKED and exits 0 only on COMPLETE.
 //
@@ -42,22 +47,28 @@ const manifestPath = path.join(validationDir, 'manifest.json')
 const previousManifest = existsSync(manifestPath) ? JSON.parse(readFileSync(manifestPath, 'utf8')) : null
 let postgresInfo = null
 
-// The 0.8.0 side of a same-session comparison measured on this machine with `--no-maglev` on both sides
-// (scripts/benchmark-same-session.mjs on commit e24859f, 21 rounds): the re-recorded 0.8.0 baseline — the reference of
-// the informational record-drift check, and the baseline itself only when the commit cannot be exported.
-const BENCHMARK_BASELINE = 'benchmarks/results-v0.8.0-baseline-same-machine.json'
-// The 0.8.0 source: the evidence commit of the final 0.8 release run (identical core to the released 38a722e).
-// Exported and benchmarked in the same session when the history is available; otherwise the recorded file above is the baseline.
-const BASELINE_COMMIT = 'e24859f'
-const BASELINE_LABEL = '0.8.0'
+// The 1.0.0-rc.1 side of the same-session comparison of the 1.0.0-rc.1 release run, measured on this machine with
+// `--no-maglev` on both sides (scripts/benchmark-same-session.mjs, 21 rounds, provenance 77d6440): the recorded
+// 1.0.0-rc.1 baseline — the reference of the informational record-drift check, and the baseline itself only when the
+// commit cannot be exported.
+const BENCHMARK_BASELINE = 'benchmarks/results-v1.0.0-rc.1-baseline-same-machine.json'
+// The 1.0.0-rc.1 source: the release commit of 1.0.0-rc.1 (its core is the 0.8.0 core unchanged). Exported and
+// benchmarked in the same session when the history is available; otherwise the recorded file above is the baseline.
+const BASELINE_COMMIT = '4a5a978'
+const BASELINE_LABEL = '1.0.0-rc.1'
 // Rounds per side of the same-session comparison (each round benchmarks both sides); the element-wise median of the
 // rounds is compared, within ±10 %. Both benchmark processes run with `--no-maglev` (scripts/benchmark-same-session.mjs).
 const BENCHMARK_RUNS = 21
-// The `any` budget: the last recorded baseline (0.7.0, 178 in 84 files); 0.8.0 measured the same count under it.
-const ANY_BASELINE = 'scripts/any-baseline-v0.7.0.json'
+// The `any` budget: the 0.7.0 record (178; 0.8.0 and 1.0.0-rc.1 measured the same count) re-keyed under the 1.0.0-rc.2
+// name of the reference application (apps/multitenant-blog), the deleted demos and fixtures dropped (each carried 0).
+// The seven examples and the rebuilt fixtures are absent from it: they may not use `any` at all.
+const ANY_BASELINE = 'scripts/any-baseline-v1.0.0-rc.2.json'
 // The public API of 0.8.0 as the 0.8.0 release gate recorded it (commit 38a722e): the frozen surface. This source's
 // inventory must be identical to it, item by item.
-const INVENTORY_RECORD = 'validation/v0.8-release/api-inventory.json'
+const INVENTORY_FROZEN = 'validation/v0.8-release/api-inventory.json'
+// The public API as the 1.0.0-rc.1 release gate recorded it (provenance 77d6440; identical to the 0.8.0 record): the
+// diff of this source against the previous release candidate, and the assertion that it is empty.
+const INVENTORY_PREVIOUS = 'validation/v1.0.0-rc.1-release/api-inventory.json'
 
 const startedAt = new Date()
 const steps = []
@@ -79,13 +90,68 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
   })
 }
 
-/** The Hyla-mini demo must have served all three cells (two HTTP tenants, one static build) with 200 and said so. */
+/** The multitenant-blog demo must have served all three cells (two HTTP tenants, one static build) with 200 and said so. */
 function demoServedAllCells(output) {
   return /^demo: .* → HTTP alpha \/posts\/shared-slug: 200 /m.test(output)
     && /^demo: .* → HTTP beta \/posts\/shared-slug: 200 /m.test(output)
     && /^demo: .* → static alpha \/posts\/shared-slug\/ \(\d+ files\): 200 /m.test(output)
     && /^demo: OK$/m.test(output)
 }
+
+/**
+ * The seven examples (apps/01-basics … apps/07-failure-modes; docs/EXAMPLES.md): each program asserts its own results
+ * and exits non-zero otherwise, and each must print the stable lines its README lists and its `<name>: OK` line —
+ * exit 0 alone is not enough. The lines are the ones the READMEs show under "What it prints".
+ */
+const EXAMPLES = [
+  { name: '01-basics', lines: [
+    /^01-basics: delivered welcome-1 to ada@example\.test \(receipt acme-1\)$/m,
+    /^01-basics: connection opened only on the first delivery: true$/m,
+    /^01-basics: connection closed after the world ended: true$/m,
+    /^01-basics: logger closed last, by its own cleanup: true$/m,
+  ] },
+  { name: '02-per-tenant', lines: [
+    /^02-per-tenant: a tenant world: 3 new, 0 forked, 2 reused services$/m,
+    /^02-per-tenant: acme-corp → acme\/2\/1-1; globex-fans → acme\/2\/2-1$/m,
+    /^02-per-tenant: separate outboxes and Acme clients per tenant: true; one store pool and one logger for all: true$/m,
+    /^02-per-tenant: a sandbox world below acme-corp: 0 new, 3 forked, 2 reused services$/m,
+    /^02-per-tenant: the sandbox has its own Acme client \(true\) on the shared pool #1: acme\/2\/3-1$/m,
+    /^02-per-tenant: a caller asking for a fresh store under a shared one is refused: SHARE_CONSTRAINT_FAILED$/m,
+  ] },
+  { name: '03-user-configurable', lines: [
+    /^03-user-configurable: settings page of globex-fans: Acme Notify 2\.4\.1, Globex Notify 3\.1\.0$/m,
+    /^03-user-configurable: stored choice of globex-fans: \{"kind":"implementation-ref","contractId":"demo\.notify\.contract\/notifier\/v1","familyId":"demo\.notify\.globex","range":"\^3\.1\.0"\}$/m,
+    /^03-user-configurable: acme-corp → Acme 2\.4\.1 \(receipt acme\/2\/1-1\); globex-fans → Globex 3\.1\.0 \(receipt globex\/1-1\)$/m,
+    /^03-user-configurable: a hand-written document without a range is refused: INVALID_DESCRIPTOR \(malformed-implementation-ref\)$/m,
+  ] },
+  { name: '04-two-versions', lines: [
+    /^04-two-versions: catalog: demo\.notify\.acme@2\.4\.1, demo\.notify\.acme@1\.8\.4, demo\.notify\.globex@3\.1\.0; Acme revisions: 2\.4\.1, 1\.8\.4$/m,
+    /^04-two-versions: legacy tenant \(stored \^1\.8\.0\) → Acme 1\.8\.4, batches: no; new tenant \(\^2\.4\.1\) → Acme 2\.4\.1, batches: yes$/m,
+    /^04-two-versions: a range taken from the 1\.x code: >=1\.8\.0 → 2\.4\.1, \^1\.8\.0 → 1\.8\.4$/m,
+    /^04-two-versions: a stored choice for \^0\.9\.0 is refused: MISSING_IMPLEMENTATION \(available: 2\.4\.1, 1\.8\.4\); a world entered with it: MISSING_IMPLEMENTATION$/m,
+  ] },
+  { name: '05-scheduled-jobs', lines: [
+    /^05-scheduled-jobs: the scheduler planned a digest world while it was starting: ok$/m,
+    /^05-scheduled-jobs: digests for 2026-09-07: acme-corp \(pool #1\), globex-fans \(pool #1\); batches: acme\/2\/batch-1-1, acme\/2\/batch-2-1$/m,
+    /^05-scheduled-jobs: worlds alive after the run: 1 \(each digest world closed when its run\(\) returned\)$/m,
+    /^05-scheduled-jobs: entering a child world from inside setup is refused: ENTRY_ACTIVATION_FAILED \(cause OWNER_NOT_READY\)$/m,
+  ] },
+  { name: '06-testing', lines: [
+    /^06-testing: real runtime: acme-corp\/welcome-1 via Acme 2\.4\.1, globex-fans\/invoice-2 via Acme 2\.4\.1$/m,
+    /^06-testing: fake runtime: acme-corp\/welcome-1 via Acme fake, globex-fans\/invoice-2 via Acme fake$/m,
+    /^06-testing: same tenants, notifications and outcomes under both: true$/m,
+    /^06-testing: the fake recorded: acme-corp:welcome-1, globex-fans:invoice-2; overridden in the fake runtime: demo\.notify\.acme@2\.4\.1$/m,
+  ] },
+  { name: '07-failure-modes', lines: [
+    /^07-failure-modes: sticky failure: 2 loads, 1 attempt; both rejected with "Acme refused the API key"; slot state: failed$/m,
+    /^07-failure-modes: retry: flaky provider ready after attempt 3 of 3; provider down after 2 attempts \("Acme is down \(attempt 2\)"\); the next load after the cooldown started a new sequence: ready after 3 attempts in total$/m,
+    /^07-failure-modes: slow start: LOAD_TIMEOUT for slot slow-start@1\.0\.0 after ≥ 50 ms \(attempt still running: true\); the slot stayed starting and overdue: true; a later load got the instance: true; events: attempt-overdue, attempt-succeeded-late \(adopted: true\); cleanup ran at close: true$/m,
+    /^07-failure-modes: bounded close: dispose\(\) returned within the grace: true; env state: disposed; unsettled attempts on the runtime: 1 \(abandoned\); attempt-abandoned phase=setup dependencies=\[credentials: ready\]; runtime-attempts-outstanding: 1$/m,
+    /^07-failure-modes: wait cycle: LOAD_TIMEOUT; suspected cycle over cycle-audit@1\.0\.0, cycle-client@1\.0\.0 \(an observation, not a proof\); pending loads: 1$/m,
+  ] },
+]
+/** Every stable line of the example and its `<name>: OK` line are in the output. */
+const examplePrinted = example => output => example.lines.every(line => line.test(output)) && new RegExp(`^${example.name}: OK$`, 'm').test(output)
 
 /** The cluster script prints the server the step ran against; the manifest records it instead of a hand-typed version (I-115). */
 function describePostgres(step) {
@@ -200,16 +266,17 @@ async function developmentGate() {
   await run('build', 'npm', ['run', 'build'])
   await run('type-tests', 'npm', ['run', 'type-tests'])
   await run('core-tests', 'node', ['--test', '--test-reporter=tap', ...glob('packages/core/tests', '.test.mjs')], { noSkip: true })
-  await run('hyla-filesystem-tests', 'node', ['--test', '--test-reporter=tap', 'apps/hyla-mini/tests/filesystem.test.mjs'], { noSkip: true })
-  await run('hyla-render-tests', 'node', ['--test', '--test-reporter=tap', 'apps/hyla-mini/tests/render.test.mjs'], { noSkip: true })
-  await run('hyla-tenants-auth-preflight-tests', 'node', ['--test', '--test-reporter=tap', 'apps/hyla-mini/tests/tenants-auth.test.mjs', 'apps/hyla-mini/tests/preflight.test.mjs'], { noSkip: true })
-  await run('hyla-audit-regression-tests', 'node', ['--test', '--test-reporter=tap', 'apps/hyla-mini/tests/audit-app.test.mjs'], { noSkip: true })
-  await run('hyla-review-regression-tests', 'node', ['--test', '--test-reporter=tap', 'apps/hyla-mini/tests/review-app.test.mjs'], { noSkip: true })
-  await run('hyla-site-manager-working-set-tests', 'node', ['--test', '--test-reporter=tap', '--expose-gc', 'apps/hyla-mini/tests/site-manager.test.mjs'], { noSkip: true, env: { SYNA_WORKING_SET_OUT: path.join(validationDir, 'working-set.json') } })
+  // The reference application (apps/multitenant-blog): the same suites the runs up to 1.0.0-rc.1 ran under its former name.
+  await run('blog-filesystem-tests', 'node', ['--test', '--test-reporter=tap', 'apps/multitenant-blog/tests/filesystem.test.mjs'], { noSkip: true })
+  await run('blog-render-tests', 'node', ['--test', '--test-reporter=tap', 'apps/multitenant-blog/tests/render.test.mjs'], { noSkip: true })
+  await run('blog-tenants-auth-preflight-tests', 'node', ['--test', '--test-reporter=tap', 'apps/multitenant-blog/tests/tenants-auth.test.mjs', 'apps/multitenant-blog/tests/preflight.test.mjs'], { noSkip: true })
+  await run('blog-audit-regression-tests', 'node', ['--test', '--test-reporter=tap', 'apps/multitenant-blog/tests/audit-app.test.mjs'], { noSkip: true })
+  await run('blog-review-regression-tests', 'node', ['--test', '--test-reporter=tap', 'apps/multitenant-blog/tests/review-app.test.mjs'], { noSkip: true })
+  await run('blog-site-manager-working-set-tests', 'node', ['--test', '--test-reporter=tap', '--expose-gc', 'apps/multitenant-blog/tests/site-manager.test.mjs'], { noSkip: true, env: { SYNA_WORKING_SET_OUT: path.join(validationDir, 'working-set.json') } })
   // Real PostgreSQL: a temporary cluster (or SYNA_TEST_PG_URL). Never skipped; a missing server is BLOCKED.
-  const pgStep = await run('hyla-postgres-and-matrix-tests', 'node', [
+  const pgStep = await run('blog-postgres-and-matrix-tests', 'node', [
     'scripts/pg-test-cluster.mjs', 'with', '--',
-    'node', '--test', '--test-reporter=tap', 'apps/hyla-mini/tests/postgres.test.mjs', 'apps/hyla-mini/tests/matrix.test.mjs',
+    'node', '--test', '--test-reporter=tap', 'apps/multitenant-blog/tests/postgres.test.mjs', 'apps/multitenant-blog/tests/matrix.test.mjs',
   ], { noSkip: true, env: { SYNA_PG_CLUSTER_DIR: path.join(root, 'work', release ? 'pg-release' : 'pg-dev') } })
   if (!pgStep.ok && !pgStep.tests) {
     blocked.push({ step: pgStep.name, reason: 'PostgreSQL could not be started or reached (see log). Provide SYNA_TEST_PG_URL or install postgresql@17 binaries.' })
@@ -219,8 +286,8 @@ async function developmentGate() {
   // the README example, the API inventory and its doc-aware diff, the codemod on a fixture, the `any` budget.
   await run('gate-self-tests', 'node', ['--test', '--test-reporter=tap', ...glob('scripts/tests', '.test.mjs')], { noSkip: true })
   // The public API inventory of this source, the gate's own assertion that no item of it is deprecated (A11 in 0.7,
-  // a success criterion of 0.8), its diff against the 0.8.0 record when the record is present, and — the frozen surface —
-  // the assertion that the inventory is identical to that record, item by item.
+  // a success criterion of 0.8), its diff against the 1.0.0-rc.1 record when that record is present, and — the frozen
+  // surface — the assertion that the inventory is identical to the 1.0.0-rc.1 record and to the 0.8.0 record, item by item.
   const inventoryStep = await run('api-inventory', 'node', ['scripts/api-inventory.mjs', '--out', path.join(validationDir, 'api-inventory.md'), '--json', path.join(validationDir, 'api-inventory.json')])
   {
     const inventoryFile = path.join(validationDir, 'api-inventory.json')
@@ -231,12 +298,11 @@ async function developmentGate() {
     steps.push({ name: 'api-inventory-no-deprecated', ok, exitCode: ok ? 0 : 1, mustRun: true, command: 'internal', log: path.relative(root, inventoryFile), note, ...(deprecated && deprecated.length > 0 ? { deprecated } : {}) })
     log(`${ok ? 'ok  ' : 'FAIL'} api-inventory-no-deprecated (${note})`)
   }
-  if (existsSync(path.join(root, INVENTORY_RECORD))) {
-    await run('api-inventory-diff', 'node', ['scripts/api-inventory.mjs', '--diff', INVENTORY_RECORD, path.join(validationDir, 'api-inventory.json'), '--out', path.join(validationDir, 'api-inventory-diff.md')])
-    // Frozen surface (docs/API_STABILITY.md): every item of the 0.8.0 record — path, kind, signature, JSDoc, deprecation —
-    // is in this source's inventory unchanged and nothing is new: the two item lists are the same set, of the same size.
+  // Identity with a recorded inventory: every item of the record — path, kind, signature, JSDoc, deprecation — is in
+  // this source's inventory unchanged and nothing is new: the two item lists are the same set, of the same size.
+  const identicalTo = (name, recordFile, logFile) => {
     const inventoryFile = path.join(validationDir, 'api-inventory.json')
-    const record = JSON.parse(readFileSync(path.join(root, INVENTORY_RECORD), 'utf8'))
+    const record = JSON.parse(readFileSync(path.join(root, recordFile), 'utf8'))
     const current = existsSync(inventoryFile) ? JSON.parse(readFileSync(inventoryFile, 'utf8')) : null
     const key = item => JSON.stringify([item.path, item.kind, item.signature, item.doc ?? '', item.deprecated === true, item.note ?? ''])
     const recordKeys = new Set(record.items.map(key))
@@ -245,15 +311,22 @@ async function developmentGate() {
     const added = current ? current.items.filter(item => !recordKeys.has(key(item))).map(item => item.path) : []
     const ok = current !== null && changed.length === 0 && added.length === 0 && current.items.length === record.items.length
     const note = current
-      ? `${current.items.length} items here, ${record.items.length} in the ${record.version} record (${INVENTORY_RECORD}, commit ${record.commit}); ${changed.length} of the record's items changed or removed, ${added.length} items new or changed`
+      ? `${current.items.length} items here, ${record.items.length} in the ${record.version} record (${recordFile}, commit ${record.commit}); ${changed.length} of the record's items changed or removed, ${added.length} items new or changed`
       : 'no inventory was produced'
-    steps.push({ name: 'api-inventory-frozen', ok, exitCode: ok ? 0 : 1, mustRun: true, command: 'internal', log: path.relative(root, path.join(validationDir, 'api-inventory-diff.md')), note, ...(changed.length > 0 ? { changed } : {}), ...(added.length > 0 ? { added } : {}) })
-    log(`${ok ? 'ok  ' : 'FAIL'} api-inventory-frozen (${note})`)
+    steps.push({ name, ok, exitCode: ok ? 0 : 1, mustRun: true, command: 'internal', log: path.relative(root, logFile), note, ...(changed.length > 0 ? { changed } : {}), ...(added.length > 0 ? { added } : {}) })
+    log(`${ok ? 'ok  ' : 'FAIL'} ${name} (${note})`)
+  }
+  if (existsSync(path.join(root, INVENTORY_PREVIOUS))) {
+    // The doc-aware diff against the previous release candidate, and the assertion that it is empty: 0 added, 0 removed, 0 changed.
+    await run('api-inventory-diff', 'node', ['scripts/api-inventory.mjs', '--diff', INVENTORY_PREVIOUS, path.join(validationDir, 'api-inventory.json'), '--out', path.join(validationDir, 'api-inventory-diff.md')])
+    identicalTo('api-inventory-unchanged', INVENTORY_PREVIOUS, path.join(validationDir, 'api-inventory-diff.md'))
   }
   else {
-    steps.push({ name: 'api-inventory-diff', ok: true, exitCode: 0, mustRun: false, command: 'internal', log: path.relative(root, path.join(validationDir, 'api-inventory.json')), note: `${INVENTORY_RECORD} is not part of this tree (the 0.8.0 record lives in the source repository); the inventory of this source was recorded` })
-    log(`skip api-inventory-diff (${INVENTORY_RECORD} absent; not a test)`)
+    steps.push({ name: 'api-inventory-diff', ok: true, exitCode: 0, mustRun: false, command: 'internal', log: path.relative(root, path.join(validationDir, 'api-inventory.json')), note: `${INVENTORY_PREVIOUS} is not part of this tree (the records live in the source repository); the inventory of this source was recorded` })
+    log(`skip api-inventory-diff (${INVENTORY_PREVIOUS} absent; not a test)`)
   }
+  // Frozen surface (docs/API_STABILITY.md): identical to the 0.8.0 record.
+  if (existsSync(path.join(root, INVENTORY_FROZEN))) identicalTo('api-inventory-frozen', INVENTORY_FROZEN, path.join(validationDir, 'api-inventory.json'))
   // v0.8 evidence: the rename codemod makes no edit on the migrated tree and finds no site that needs a hand (idempotent).
   await run('codemod-idempotent', 'node', ['scripts/codemod-v08.mjs', '--dry-run', '--json', path.join(validationDir, 'codemod-idempotent.json')], { expectStdout: output => /^codemod-v08 \(dry run\): 0 edits in 0 files; 0 manual$/m.test(output) })
   // v0.8 evidence (A05): the core source, tests and type tests spell none of the pre-0.8 reference tokens — the old
@@ -280,17 +353,18 @@ async function developmentGate() {
     steps.push({ name: 'no-old-reference-tokens', ok, exitCode: ok ? 0 : 1, mustRun: true, command: 'internal', log: path.relative(root, scanFile), note: `${scanned.length} files scanned, ${hits.length} hits`, ...(hits.length > 0 ? { hits } : {}) })
     log(`${ok ? 'ok  ' : 'FAIL'} no-old-reference-tokens (${scanned.length} files scanned, ${hits.length} hits)`)
   }
-  // v0.8 evidence: `any` per file at or under the 0.7.0 baseline (measured from 0.7.0, the last release).
+  // `any` per file at or under the 0.7.0 record re-keyed for this line (files absent from it may not use `any` at all).
   await run('any-count', 'node', ['scripts/any-count.mjs', '--check', ANY_BASELINE])
-  // The four core demos check their own results and each prints `demo: OK` (I-112).
-  await run('demos', 'npm', ['run', 'demo'], { expectStdout: output => (output.match(/^demo: OK$/gm) ?? []).length === 4 })
-  await run('hyla-demo-filesystem', 'node', ['apps/hyla-mini/bin/hyla-mini.mjs', 'demo', '--root', path.join(root, 'work', 'demo-content')], { expectStdout: demoServedAllCells })
+  // The seven examples, one step each: the program asserts its own results (exit 1 otherwise) and must print the
+  // stable lines of its README and its `<name>: OK` line.
+  for (const example of EXAMPLES) await run(`demo-${example.name}`, 'node', [`apps/${example.name}/dist/index.js`], { expectStdout: examplePrinted(example) })
+  await run('blog-demo-filesystem', 'node', ['apps/multitenant-blog/bin/multitenant-blog.mjs', 'demo', '--root', path.join(root, 'work', 'demo-content')], { expectStdout: demoServedAllCells })
   rmSync(path.join(root, 'work', 'demo-content'), { recursive: true, force: true })
   await run('benchmarks', 'node', ['--expose-gc', 'benchmarks/v0.5-planning.mjs', path.join(validationDir, 'benchmark-v0.5.json')])
-  // Same-machine comparison with 0.8.0: every p50/p95 within ±10 %, every plan-cache counter equal; both benchmark
-  // processes run with `--no-maglev`. Same session when the 0.8.0 commit can be exported (both sides measured under the
-  // same machine state, interleaved rounds); else the recorded baseline file, and only where the host matches the machine
-  // it was recorded on.
+  // Same-machine comparison with 1.0.0-rc.1: every p50/p95 within ±10 %, every plan-cache counter equal; both benchmark
+  // processes run with `--no-maglev`. Same session when the 1.0.0-rc.1 commit can be exported (both sides measured under
+  // the same machine state, interleaved rounds); else the recorded baseline file, and only where the host matches the
+  // machine it was recorded on.
   const baselineExportable = spawnSync('git', ['cat-file', '-e', `${BASELINE_COMMIT}^{commit}`], { cwd: root, stdio: 'ignore' }).status === 0
   const comparability = benchmarkBaselineEnvironment()
   if (baselineExportable) {
@@ -304,9 +378,9 @@ async function developmentGate() {
     log(`skip benchmark-compare (${comparability.differences.join('; ')}; not a test)`)
   }
   // Report only (no budget): end-to-end request latency on both backends, PostgreSQL through the temporary cluster.
-  await run('hyla-request-latency', 'node', [
+  await run('blog-request-latency', 'node', [
     'scripts/pg-test-cluster.mjs', 'with', '--',
-    'node', 'benchmarks/hyla-request-latency.mjs', path.join(validationDir, 'hyla-request-latency.json'),
+    'node', 'benchmarks/blog-request-latency.mjs', path.join(validationDir, 'blog-request-latency.json'),
   ], { env: { SYNA_PG_CLUSTER_DIR: path.join(root, 'work', release ? 'pg-release' : 'pg-dev') } })
   if (!existsSync(path.join(validationDir, 'working-set.json'))) {
     steps.push({ name: 'working-set-report', ok: false, exitCode: 1, mustRun: true, command: 'internal', log: path.relative(root, path.join(validationDir, 'working-set.json')), note: 'site-manager tests did not write the working-set report' })
@@ -362,12 +436,14 @@ async function releaseGate(sourceFingerprint) {
   await run('rebuild-build', 'npm', ['run', 'build'], rebuildLogs)
   await run('rebuild-type-tests', 'npm', ['run', 'type-tests'], rebuildLogs)
   await run('rebuild-core-tests', 'node', ['--test', '--test-reporter=tap', ...readdirSync(path.join(unpacked, 'packages/core/tests')).filter(f => f.endsWith('.test.mjs')).sort().map(f => `packages/core/tests/${f}`)], { ...rebuildLogs, noSkip: true })
-  await run('rebuild-app-tests', 'node', ['--test', '--test-reporter=tap', '--expose-gc', 'apps/hyla-mini/tests/filesystem.test.mjs', 'apps/hyla-mini/tests/render.test.mjs', 'apps/hyla-mini/tests/tenants-auth.test.mjs', 'apps/hyla-mini/tests/preflight.test.mjs', 'apps/hyla-mini/tests/audit-app.test.mjs', 'apps/hyla-mini/tests/review-app.test.mjs', 'apps/hyla-mini/tests/site-manager.test.mjs'], { ...rebuildLogs, noSkip: true })
-  await run('rebuild-postgres-matrix-tests', 'node', ['scripts/pg-test-cluster.mjs', 'with', '--', 'node', '--test', '--test-reporter=tap', 'apps/hyla-mini/tests/postgres.test.mjs', 'apps/hyla-mini/tests/matrix.test.mjs'], { ...rebuildLogs, noSkip: true, env: { SYNA_PG_CLUSTER_DIR: path.join(rebuildDir, 'pg') } })
+  await run('rebuild-app-tests', 'node', ['--test', '--test-reporter=tap', '--expose-gc', 'apps/multitenant-blog/tests/filesystem.test.mjs', 'apps/multitenant-blog/tests/render.test.mjs', 'apps/multitenant-blog/tests/tenants-auth.test.mjs', 'apps/multitenant-blog/tests/preflight.test.mjs', 'apps/multitenant-blog/tests/audit-app.test.mjs', 'apps/multitenant-blog/tests/review-app.test.mjs', 'apps/multitenant-blog/tests/site-manager.test.mjs'], { ...rebuildLogs, noSkip: true })
+  await run('rebuild-postgres-matrix-tests', 'node', ['scripts/pg-test-cluster.mjs', 'with', '--', 'node', '--test', '--test-reporter=tap', 'apps/multitenant-blog/tests/postgres.test.mjs', 'apps/multitenant-blog/tests/matrix.test.mjs'], { ...rebuildLogs, noSkip: true, env: { SYNA_PG_CLUSTER_DIR: path.join(rebuildDir, 'pg') } })
   // Inside the archive the gate self-tests also re-run the deprecation list, the no-old-names scan, the README example, the codemod fixture and the `any` budget.
   await run('rebuild-gate-self-tests', 'node', ['--test', '--test-reporter=tap', ...readdirSync(path.join(unpacked, 'scripts/tests')).filter(f => f.endsWith('.test.mjs')).sort().map(f => `scripts/tests/${f}`)], { ...rebuildLogs, noSkip: true })
   await run('rebuild-codemod-idempotent', 'node', ['scripts/codemod-v08.mjs', '--dry-run'], { ...rebuildLogs, expectStdout: output => /^codemod-v08 \(dry run\): 0 edits in 0 files; 0 manual$/m.test(output) })
-  await run('rebuild-demo', 'node', ['apps/hyla-mini/bin/hyla-mini.mjs', 'demo', '--root', path.join(rebuildDir, 'demo-content')], { ...rebuildLogs, expectStdout: demoServedAllCells })
+  await run('rebuild-demo', 'node', ['apps/multitenant-blog/bin/multitenant-blog.mjs', 'demo', '--root', path.join(rebuildDir, 'demo-content')], { ...rebuildLogs, expectStdout: demoServedAllCells })
+  // The seven examples as the README runs them (`npm run demo`: build, then the seven programs), every stable line of every example in the output.
+  await run('rebuild-examples', 'npm', ['run', 'demo'], { ...rebuildLogs, expectStdout: output => EXAMPLES.every(example => examplePrinted(example)(output)) })
 
   // Package tarball + independent consumer project.
   const packDir = path.join(releaseDir, 'pack')
@@ -461,7 +537,7 @@ const isRebuild = step => step.name.startsWith('rebuild-')
 const sumTests = (predicate, key) => steps.filter(predicate).reduce((sum, step) => sum + (step.tests?.[key] ?? 0), 0)
 const status = blocked.length > 0 ? 'BLOCKED' : failed.length === 0 && skipped === 0 ? 'COMPLETE' : 'PARTIAL'
 const manifest = {
-  name: `Syna v${version} + Hyla-mini`,
+  name: `Syna v${version} + multitenant-blog`,
   version,
   gate: 'scripts/verify-release.mjs',
   status,

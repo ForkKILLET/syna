@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Temporary PostgreSQL test cluster for Syna/Hyla-mini integration tests.
+// Temporary PostgreSQL test cluster for the Syna / multitenant-blog integration tests.
 //
 //   node scripts/pg-test-cluster.mjs start   → initdb (if needed) + start; prints SYNA_TEST_PG_URL
 //   node scripts/pg-test-cluster.mjs stop    → stop and remove the cluster data

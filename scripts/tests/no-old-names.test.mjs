@@ -96,7 +96,7 @@ const INVENTORY_TEST = 'scripts/tests/api-inventory.test.mjs' // asserts the abs
 // Current documentation. Ledgers and the migration tables describe history and are not scanned.
 const DOCS = [
   'README.md', 'README.zh-CN.md', 'packages/core/README.md',
-  'docs/API_REFERENCE.md', 'docs/ARCHITECTURE.md', 'docs/HYLA_MINI.md', 'docs/PACKAGE_AUTHORING.md', 'docs/PLUGIN_AUTHORING.md', 'docs/SEMANTIC_MODEL.md', 'docs/API_STABILITY.md',
+  'docs/API_REFERENCE.md', 'docs/ARCHITECTURE.md', 'docs/MULTITENANT_BLOG.md', 'docs/PACKAGE_AUTHORING.md', 'docs/PLUGIN_AUTHORING.md', 'docs/SEMANTIC_MODEL.md', 'docs/API_STABILITY.md',
   'docs/GLOSSARY.md', 'docs/DEFERRED.md',
 ]
 const DOC_CONTEXT = /0\.7\.0|0\.8\.0|deprecated|弃用|removed|删除|renamed|改名|0\.5|compat/i
@@ -148,7 +148,7 @@ test('no 0.5 name survives in the applications, benchmarks, scripts, workflow an
   }
   assert.deepEqual(hits, [], `old names found:\n${hits.join('\n')}`)
   // The exemptions are the expired-form tests, the codemod and its fixture test, nothing else (0.8: the 0.5
-  // stored-document compatibility of the core and of Hyla-mini is gone, and with it every file that carried it).
+  // stored-document compatibility of the core and of the reference application is gone, and with it every file that carried it).
   assert.deepEqual(exempt, [
     'packages/core/tests/v07-expired-forms.test.mjs',
     'packages/core/tests/v08-expired-forms.test.mjs',

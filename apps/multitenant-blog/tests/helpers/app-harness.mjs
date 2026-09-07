@@ -1,4 +1,4 @@
-// Shared harness: creates a Hyla-mini app on a real backend seeded from the fixture.
+// Shared harness: creates a multitenant-blog app on a real backend seeded from the fixture.
 import assert from 'node:assert/strict'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
