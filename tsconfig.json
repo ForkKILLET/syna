@@ -32,6 +32,9 @@
       "path": "./apps/03-user-configurable"
     },
     {
+      "path": "./apps/04-two-versions"
+    },
+    {
       "path": "./apps/hyla-mini"
     }
   ]
