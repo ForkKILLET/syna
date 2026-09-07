@@ -93,6 +93,10 @@ function entryCall(parameters: unknown, options: unknown): EntryCall {
   if (options !== undefined && (typeof options !== 'object' || options === null)) {
     throw new TypeError('Entry call options must be an object.')
   }
+  if (options !== undefined && ('fresh' in options || 'share' in options)) {
+    // The 0.7 `derive(constraints)` form (removed in 0.8.0, `docs/MIGRATION_V07_TO_V08.md` S1): refused, never read as no constraint.
+    throw new TypeError('fresh and share are reuse constraints, not call options: pass them as { reuse: { fresh, share } }.')
+  }
   const reuse = (options as EntryOptions | undefined)?.reuse
   if (typeof parameters !== 'object' || parameters === null) {
     return { parameters: parameters as undefined, reuse }
@@ -174,6 +178,10 @@ function resolveLimits(options: CreateRuntimeOptions): Required<RuntimeLimits> {
   }
   const limits = options.limits ?? {}
   if (typeof limits !== 'object' || limits === null) throw new TypeError('limits must be an object.')
+  // The limit renamed in 0.8.0 (`docs/MIGRATION_V07_TO_V08.md` F16): refused, so an old call is never silently on the default.
+  if ((limits as Readonly<Record<string, unknown>>)['setupDeadlineMs'] !== undefined) { // syna-v08-rename
+    throw new TypeError('limits.setupDeadlineMs was renamed in 0.8.0; use limits.loadTimeoutMs.') // syna-v08-rename
+  }
   return {
     loadTimeoutMs: positiveNumber(limits.loadTimeoutMs, DEFAULT_LOAD_TIMEOUT_MS, 'limits.loadTimeoutMs'),
     disposalGraceMs: positiveNumber(limits.disposalGraceMs, DEFAULT_DISPOSAL_GRACE_MS, 'limits.disposalGraceMs'),
@@ -370,7 +378,16 @@ class RuntimeImpl implements Runtime, ImplementationViewHost {
         this.directory.implementations(contract),
       resolve: <C extends Contract>(ref: ImplementationRef<C>) =>
         this.directory.resolveCatalog(ref),
-      revisions: (family: ServiceFamily) => this.directory.revisions(family.id),
+      revisions: (family: ServiceFamily) => {
+        // The 0.7 `revisions(familyId)` form (removed in 0.8.0, `docs/MIGRATION_V07_TO_V08.md` S2): refused, never an empty list.
+        if (typeof family !== 'object' || family === null) {
+          throw new SynaError('INVALID_DESCRIPTOR', 'catalog.revisions() expects a ServiceFamily descriptor (revision.family), not a family id.', { descriptor: 'ServiceFamily', problem: 'not-an-object' })
+        }
+        if (family.kind !== 'service-family') {
+          throw new SynaError('INVALID_DESCRIPTOR', 'catalog.revisions() expects a ServiceFamily descriptor.', { descriptor: 'ServiceFamily', problem: 'wrong-kind' })
+        }
+        return this.directory.revisions(family.id)
+      },
     })
   }
 

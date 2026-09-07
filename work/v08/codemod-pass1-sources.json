@@ -1,0 +1,557 @@
+{
+  "dryRun": false,
+  "targets": [
+    "apps/hyla-mini/src",
+    "apps/hyla-mini/bin",
+    "apps/features-demo",
+    "apps/fluida-demo",
+    "apps/hyla-demo",
+    "apps/minimal-demo",
+    "packages/claude",
+    "packages/fluida",
+    "packages/hyla",
+    "packages/llm-contract",
+    "packages/logger",
+    "packages/openai-v1",
+    "packages/openai-v2",
+    "packages/postgres",
+    "benchmarks",
+    "scripts"
+  ],
+  "files": [
+    {
+      "file": "apps/features-demo/src/index.ts",
+      "edits": 2,
+      "changes": [
+        {
+          "line": 165,
+          "rule": "D1",
+          "from": "INITIALIZATION_TIMEOUT",
+          "to": "LOAD_TIMEOUT"
+        },
+        {
+          "line": 116,
+          "rule": "F16",
+          "from": "setupDeadlineMs",
+          "to": "loadTimeoutMs"
+        }
+      ],
+      "manual": []
+    },
+    {
+      "file": "apps/hyla-demo/src/index.ts",
+      "edits": 1,
+      "changes": [
+        {
+          "line": 104,
+          "rule": "F7",
+          "from": "persistentRef",
+          "to": "implementationRef"
+        }
+      ],
+      "manual": []
+    },
+    {
+      "file": "apps/hyla-mini/src/app.ts",
+      "edits": 17,
+      "changes": [
+        {
+          "line": 255,
+          "rule": "T1",
+          "from": "EnvHandle",
+          "to": "Env"
+        },
+        {
+          "line": 154,
+          "rule": "T1",
+          "from": "EnvHandle",
+          "to": "Env"
+        },
+        {
+          "line": 133,
+          "rule": "T1",
+          "from": "EnvHandle",
+          "to": "Env"
+        },
+        {
+          "line": 82,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 81,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 80,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 73,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 73,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 73,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 71,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 70,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 69,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 68,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 57,
+          "rule": "T1",
+          "from": "EnvHandle",
+          "to": "Env"
+        },
+        {
+          "line": 56,
+          "rule": "T1",
+          "from": "EnvHandle",
+          "to": "Env"
+        },
+        {
+          "line": 46,
+          "rule": "D8",
+          "from": "attempts-outstanding",
+          "to": "runtime-attempts-outstanding"
+        },
+        {
+          "line": 1,
+          "rule": "T1",
+          "from": "EnvHandle",
+          "to": "Env"
+        }
+      ],
+      "manual": []
+    },
+    {
+      "file": "apps/hyla-mini/src/data/filesystem/store.ts",
+      "edits": 1,
+      "changes": [
+        {
+          "line": 467,
+          "rule": "F4",
+          "from": "metadata",
+          "to": "familyMetadata"
+        }
+      ],
+      "manual": []
+    },
+    {
+      "file": "apps/hyla-mini/src/data/postgres/pool.ts",
+      "edits": 1,
+      "changes": [
+        {
+          "line": 144,
+          "rule": "F4",
+          "from": "metadata",
+          "to": "familyMetadata"
+        }
+      ],
+      "manual": []
+    },
+    {
+      "file": "apps/hyla-mini/src/data/postgres/store.ts",
+      "edits": 1,
+      "changes": [
+        {
+          "line": 380,
+          "rule": "F4",
+          "from": "metadata",
+          "to": "familyMetadata"
+        }
+      ],
+      "manual": []
+    },
+    {
+      "file": "apps/hyla-mini/src/domain/model.ts",
+      "edits": 2,
+      "changes": [
+        {
+          "line": 81,
+          "rule": "F9",
+          "from": "version",
+          "to": "range"
+        },
+        {
+          "line": 78,
+          "rule": "F19",
+          "from": "persistent-implementation-ref",
+          "to": "implementation-ref"
+        }
+      ],
+      "manual": []
+    },
+    {
+      "file": "apps/hyla-mini/src/domain/recipe-schema.ts",
+      "edits": 8,
+      "changes": [
+        {
+          "line": 39,
+          "rule": "F9",
+          "from": "version",
+          "to": "range"
+        },
+        {
+          "line": 39,
+          "rule": "F9",
+          "from": "version",
+          "to": "range"
+        },
+        {
+          "line": 39,
+          "rule": "F19",
+          "from": "persistent-implementation-ref",
+          "to": "implementation-ref"
+        },
+        {
+          "line": 36,
+          "rule": "F9",
+          "from": "version",
+          "to": "range"
+        },
+        {
+          "line": 36,
+          "rule": "F19",
+          "from": "persistent-implementation-ref",
+          "to": "implementation-ref"
+        },
+        {
+          "line": 26,
+          "rule": "F9",
+          "from": "version",
+          "to": "range"
+        },
+        {
+          "line": 22,
+          "rule": "F19",
+          "from": "persistent-implementation-ref",
+          "to": "implementation-ref"
+        },
+        {
+          "line": 20,
+          "rule": "F9",
+          "from": "'version'",
+          "to": "'range'"
+        }
+      ],
+      "manual": [
+        {
+          "line": 13,
+          "rule": "F9",
+          "reason": "the 0.5 key is not read any more: write { kind: \"implementation-ref\", contractId, familyId, range } and delete the old-key form",
+          "text": "* by the 0.5 line carry `implementationId`. The old key is accepted permanently"
+        },
+        {
+          "line": 25,
+          "rule": "F9",
+          "reason": "the 0.5 key is not read any more: write { kind: \"implementation-ref\", contractId, familyId, range } and delete the old-key form",
+          "text": "implementationId: { type: 'string', minLength: 1 },"
+        },
+        {
+          "line": 28,
+          "rule": "F9",
+          "reason": "the 0.5 key is not read any more: write { kind: \"implementation-ref\", contractId, familyId, range } and delete the old-key form",
+          "text": "// Syna writes `familyId`; documents written on Syna 0.5 carry `implementationId` (accepted permanently)."
+        },
+        {
+          "line": 31,
+          "rule": "F9",
+          "reason": "the 0.5 key is not read any more: write { kind: \"implementation-ref\", contractId, familyId, range } and delete the old-key form",
+          "text": "{ required: ['implementationId'], properties: { implementationId: { type: 'string', minLength: 1 } } },"
+        },
+        {
+          "line": 36,
+          "rule": "F9",
+          "reason": "the 0.5 key is not read any more: write { kind: \"implementation-ref\", contractId, familyId, range } and delete the old-key form",
+          "text": "export function normalizeStoredImplementationRef(ref: { readonly kind: 'persistent-implementation-ref'; readonly contrac"
+        },
+        {
+          "line": 37,
+          "rule": "F9",
+          "reason": "the 0.5 key is not read any more: write { kind: \"implementation-ref\", contractId, familyId, range } and delete the old-key form",
+          "text": "const familyId = ref.familyId ?? ref.implementationId"
+        }
+      ]
+    },
+    {
+      "file": "apps/hyla-mini/src/site/http.ts",
+      "edits": 2,
+      "changes": [
+        {
+          "line": 16,
+          "rule": "T1",
+          "from": "EnvHandle",
+          "to": "Env"
+        },
+        {
+          "line": 5,
+          "rule": "T1",
+          "from": "EnvHandle",
+          "to": "Env"
+        }
+      ],
+      "manual": []
+    },
+    {
+      "file": "apps/hyla-mini/src/site/manager.ts",
+      "edits": 4,
+      "changes": [
+        {
+          "line": 365,
+          "rule": "T1",
+          "from": "EnvHandle",
+          "to": "Env"
+        },
+        {
+          "line": 120,
+          "rule": "T1",
+          "from": "EnvHandle",
+          "to": "Env"
+        },
+        {
+          "line": 16,
+          "rule": "T1",
+          "from": "EnvHandle",
+          "to": "Env"
+        },
+        {
+          "line": 1,
+          "rule": "T1",
+          "from": "EnvHandle",
+          "to": "Env"
+        }
+      ],
+      "manual": []
+    },
+    {
+      "file": "apps/hyla-mini/src/site/preflight.ts",
+      "edits": 13,
+      "changes": [
+        {
+          "line": 86,
+          "rule": "T1",
+          "from": "EnvHandle",
+          "to": "Env"
+        },
+        {
+          "line": 84,
+          "rule": "T1",
+          "from": "EnvHandle",
+          "to": "Env"
+        },
+        {
+          "line": 83,
+          "rule": "T1",
+          "from": "EnvHandle",
+          "to": "Env"
+        },
+        {
+          "line": 73,
+          "rule": "F13",
+          "from": "disposition",
+          "to": "placement"
+        },
+        {
+          "line": 73,
+          "rule": "F13",
+          "from": "disposition",
+          "to": "placement"
+        },
+        {
+          "line": 70,
+          "rule": "D5",
+          "from": "inherited",
+          "to": "reused"
+        },
+        {
+          "line": 61,
+          "rule": "F13",
+          "from": "disposition",
+          "to": "placement"
+        },
+        {
+          "line": 60,
+          "rule": "D4",
+          "from": "'inherited'",
+          "to": "'reused'"
+        },
+        {
+          "line": 60,
+          "rule": "F13",
+          "from": "disposition",
+          "to": "placement"
+        },
+        {
+          "line": 44,
+          "rule": "D4",
+          "from": "'inherited'",
+          "to": "'reused'"
+        },
+        {
+          "line": 44,
+          "rule": "F13",
+          "from": "disposition",
+          "to": "placement"
+        },
+        {
+          "line": 23,
+          "rule": "F13",
+          "from": "disposition",
+          "to": "placement"
+        },
+        {
+          "line": 1,
+          "rule": "T1",
+          "from": "EnvHandle",
+          "to": "Env"
+        }
+      ],
+      "manual": []
+    },
+    {
+      "file": "benchmarks/v0.5-planning.mjs",
+      "edits": 2,
+      "changes": [
+        {
+          "line": 210,
+          "rule": "D5",
+          "from": "inherited",
+          "to": "reused"
+        },
+        {
+          "line": 175,
+          "rule": "D5",
+          "from": "inherited",
+          "to": "reused"
+        }
+      ],
+      "manual": []
+    },
+    {
+      "file": "packages/postgres/src/index.ts",
+      "edits": 1,
+      "changes": [
+        {
+          "line": 47,
+          "rule": "F4",
+          "from": "metadata",
+          "to": "familyMetadata"
+        }
+      ],
+      "manual": []
+    },
+    {
+      "file": "scripts/benchmark-compare.mjs",
+      "edits": 1,
+      "changes": [
+        {
+          "line": 62,
+          "rule": "D5",
+          "from": "eagerInherited",
+          "to": "eagerReused"
+        }
+      ],
+      "manual": []
+    },
+    {
+      "file": "scripts/validation-doc.mjs",
+      "edits": 2,
+      "changes": [
+        {
+          "line": 106,
+          "rule": "F11",
+          "from": "maxEntries",
+          "to": "limit"
+        },
+        {
+          "line": 89,
+          "rule": "D5",
+          "from": "inherited",
+          "to": "reused"
+        }
+      ],
+      "manual": []
+    },
+    {
+      "file": "scripts/verify-v06.mjs",
+      "edits": 1,
+      "changes": [
+        {
+          "line": 333,
+          "rule": "F16",
+          "from": "setupDeadlineMs",
+          "to": "loadTimeoutMs"
+        }
+      ],
+      "manual": []
+    },
+    {
+      "file": "scripts/verify-v07.mjs",
+      "edits": 1,
+      "changes": [
+        {
+          "line": 348,
+          "rule": "F16",
+          "from": "setupDeadlineMs",
+          "to": "loadTimeoutMs"
+        }
+      ],
+      "manual": []
+    }
+  ],
+  "rules": {
+    "D1": 1,
+    "F16": 3,
+    "F7": 1,
+    "T1": 16,
+    "F1": 10,
+    "D8": 1,
+    "F4": 4,
+    "F9": 6,
+    "F19": 4,
+    "F13": 6,
+    "D5": 5,
+    "D4": 2,
+    "F11": 1
+  },
+  "edits": 60,
+  "filesChanged": 17,
+  "manual": 6
+}

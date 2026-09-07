@@ -24,7 +24,7 @@ test('definePackage derives stable service identities and exact versions from th
   assert.equal(v1.family.id, 'test.package-version')
   assert.equal(v1.version, '1.8.4')
   assert.equal(v2.version, '2.4.2')
-  assert.equal(v1.key, 'test.package-version@1.8.4')
+  assert.equal(v1.id, 'test.package-version@1.8.4')
 })
 
 test('Runtime construction creates no Env or instance; access order does not affect ownership', async () => {
@@ -308,8 +308,8 @@ test('private transitive services are usable internally but not publicly admitte
   const runtime = createRuntime({ services: [Public] })
   const env = await runtime.enter(Root)
   assert.equal(await (await env.deps.service.load()).read(), 42)
-  assert.deepEqual(runtime.inspect().admittedServices, [Public.key])
-  assert.deepEqual([...runtime.inspect().internalServices].sort(), [Private.key, Public.key].sort())
+  assert.deepEqual(runtime.inspect().admittedServices, [Public.id])
+  assert.deepEqual([...runtime.inspect().privateServices].sort(), [Private.id, Public.id].sort())
 
   const Invalid = define.entry('invalid', { requires: { private: Private } })
   await assert.rejects(runtime.enter(Invalid), error => error.code === 'MISSING_SERVICE')
@@ -363,5 +363,5 @@ test('descriptor API identities are independent from package semver and change o
   assert.notEqual(BindingV2.id, BindingV2Api2.id)
   assert.notEqual(EntryV2.id, EntryV2Api2.id)
   assert.equal(ServiceV1.family.id, ServiceV2.family.id)
-  assert.notEqual(ServiceV1.key, ServiceV2.key)
+  assert.notEqual(ServiceV1.id, ServiceV2.id)
 })

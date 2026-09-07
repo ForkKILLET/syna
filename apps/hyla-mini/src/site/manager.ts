@@ -1,4 +1,4 @@
-import type { EnvHandle } from '@syna/core'
+import type { Env } from '@syna/core'
 import { define } from '../syna.js'
 import { ContentBackend } from '../domain/content.js'
 import type { SiteConfig } from '../domain/model.js'
@@ -13,7 +13,7 @@ export interface SiteLease {
   readonly key: string
   readonly tenantId: string
   readonly configRevision: number
-  readonly env: EnvHandle<typeof SiteEntry['requires']>
+  readonly env: Env<typeof SiteEntry['requires']>
   readonly context: SiteContext
   /** Idempotent. */
   release(): void
@@ -117,7 +117,7 @@ interface SiteRecord {
   state: 'creating' | 'active' | 'draining' | 'disposing' | 'disposed'
   leases: number
   lastReleasedAt: number
-  env?: EnvHandle<typeof SiteEntry['requires']>
+  env?: Env<typeof SiteEntry['requires']>
   context?: SiteContext
   creation?: Promise<void>
   disposal?: Promise<void>
@@ -362,7 +362,7 @@ export const SiteEnvironmentManager = define.service('site-environment-manager',
 
     const create = (record: SiteRecord, config: SiteConfig): Promise<void> => {
       record.creation = (async () => {
-        let env: EnvHandle<typeof SiteEntry['requires']> | undefined
+        let env: Env<typeof SiteEntry['requires']> | undefined
         try {
           env = await boundSites.enter({
             tenant: record.tenantId,

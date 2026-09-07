@@ -1,4 +1,4 @@
-import type { EntryExplanation, EntryExplanationSuccess, EnvHandle } from '@syna/core'
+import type { EntryExplanation, EntryExplanationSuccess, Env } from '@syna/core'
 import type { ExplainedNode } from '@syna/core'
 
 export interface ForkBudget {
@@ -20,7 +20,7 @@ export interface BudgetReport {
   readonly synthetic: number
   readonly eagerToStart: number
   readonly violations: readonly string[]
-  readonly forks: readonly { readonly nodeId: string; readonly disposition: string; readonly cause: string; readonly path: readonly string[] }[]
+  readonly forks: readonly { readonly nodeId: string; readonly placement: string; readonly cause: string; readonly path: readonly string[] }[]
 }
 
 const describeCause = (node: ExplainedNode): string => node.cause ? JSON.stringify(node.cause) : 'inherited'
@@ -41,7 +41,7 @@ export function evaluateBudget(explanation: EntryExplanation, budget: ForkBudget
     }
   }
   const success: EntryExplanationSuccess = explanation
-  const localServiceNodes = success.nodes.filter(node => node.kind === 'service' && node.disposition !== 'inherited')
+  const localServiceNodes = success.nodes.filter(node => node.kind === 'service' && node.placement !== 'reused')
   const violations: string[] = []
   const localServices = success.services.new + success.services.forked
   if (localServices > budget.maxLocalServices) {
@@ -57,8 +57,8 @@ export function evaluateBudget(explanation: EntryExplanation, budget: ForkBudget
       violations.push(`${nodeId} is not part of the plan`)
       continue
     }
-    if (node.disposition !== 'inherited') {
-      violations.push(`${nodeId} must be inherited but is ${node.disposition}: ${describeCause(node)} via ${node.path.join(' -> ')}`)
+    if (node.placement !== 'reused') {
+      violations.push(`${nodeId} must be inherited but is ${node.placement}: ${describeCause(node)} via ${node.path.join(' -> ')}`)
     }
   }
   return {
@@ -67,10 +67,10 @@ export function evaluateBudget(explanation: EntryExplanation, budget: ForkBudget
     localServices,
     cost,
     inputs: success.inputs.provided + success.inputs.inherited,
-    synthetic: success.synthetic.new + success.synthetic.forked + success.synthetic.inherited,
+    synthetic: success.synthetic.new + success.synthetic.forked + success.synthetic.reused,
     eagerToStart: success.services.eagerToStart,
     violations,
-    forks: success.forks.map(node => ({ nodeId: node.nodeId, disposition: node.disposition, cause: describeCause(node), path: node.path })),
+    forks: success.forks.map(node => ({ nodeId: node.nodeId, placement: node.placement, cause: describeCause(node), path: node.path })),
   }
 }
 
@@ -80,10 +80,10 @@ export interface PreflightResult {
 }
 
 /** Runs explain() from a Ready anchor for one Entry and evaluates it against a budget. Planning only; no Env is published. */
-export async function preflightEntry<E extends Parameters<EnvHandle['explain']>[0]>(
-  anchor: EnvHandle<any>,
+export async function preflightEntry<E extends Parameters<Env['explain']>[0]>(
+  anchor: Env<any>,
   entry: E,
-  parameters: Parameters<EnvHandle['explain']>[1],
+  parameters: Parameters<Env['explain']>[1],
   budget: ForkBudget,
 ): Promise<BudgetReport> {
   const explanation = await anchor.explain(entry, parameters as never)

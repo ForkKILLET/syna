@@ -79,14 +79,14 @@ test('sites 2 and 3 (graph builder): a bare Contract site and an auto() site wit
   const RootSite = define.entry('root-site', { requires: { cap: Capability } })
   const runtime = createRuntime({ services: [Bare, Auto] })
   const message = `No admitted Service implements Contract ${Capability.id}.`
-  expectMissing(await capture(() => runtime.enter(BareRoot)), message, { contract: Capability.id, site: `service:${Bare.key}/dependency:cap` })
-  expectMissing(await capture(() => runtime.enter(AutoRoot)), message, { contract: Capability.id, site: `service:${Auto.key}/dependency:cap` })
+  expectMissing(await capture(() => runtime.enter(BareRoot)), message, { contract: Capability.id, site: `service:${Bare.id}/dependency:cap` })
+  expectMissing(await capture(() => runtime.enter(AutoRoot)), message, { contract: Capability.id, site: `service:${Auto.id}/dependency:cap` })
   const root = await capture(() => runtime.enter(RootSite))
   expectMissing(root, message, { contract: Capability.id, site: root.details.site })
   assert.match(root.details.site, /\/require:cap$/)
   const checked = await runtime.check(AutoRoot)
   assert.equal(checked.ok, false)
-  assert.deepEqual(checked.error.details, { contract: Capability.id, site: `service:${Auto.key}/dependency:cap` })
+  assert.deepEqual(checked.error.details, { contract: Capability.id, site: `service:${Auto.id}/dependency:cap` })
   await runtime.dispose()
 })
 
@@ -107,10 +107,10 @@ test('sites 4 and 5 (catalog and collection): an implementation reference to an 
     expectMissing(await capture(() => resolve(unknownVersion)), versionMessage,
       { contract: Capability.id, implementation: Provider.family.id, version: '^9.0.0', available: ['1.0.0'] })
   }
-  // The 0.5 serialized key reads the same way.
-  const legacy = { kind: 'persistent-implementation-ref', contractId: Capability.id, implementationId: Stranger.family.id, version: '^1.0.0' } // syna-v05-compat
-  expectMissing(await capture(() => runtime.catalog.resolve(legacy)), familyMessage,
-    { contract: Capability.id, implementation: Stranger.family.id, version: '^1.0.0', available: [] })
+  // F9 (0.8): the read path accepts the one serialized shape only; a reference without a family is refused, not read.
+  const malformed = await capture(() => runtime.catalog.resolve({ kind: 'implementation-ref', contractId: Capability.id, range: '^1.0.0' }))
+  assert.equal(malformed.code, 'INVALID_DESCRIPTOR')
+  assert.deepEqual(malformed.details, { descriptor: 'ImplementationRef', problem: 'malformed-implementation-ref' })
   await runtime.dispose()
 })
 
@@ -125,12 +125,12 @@ test('site 6 (collection): a CandidateRef this collection does not hold — anot
   const providerSet = await setOf(providers)
   const strangerSet = await setOf(strangers)
   const message = 'Candidate does not belong to this implementation collection.'
-  expectMissing(await capture(() => providerSet.load(strangerSet.candidates[0].ref)), message,
+  expectMissing(await capture(() => providerSet.load(strangerSet.candidates[0].candidateRef)), message,
     { contract: Capability.id, implementation: Stranger.family.id, version: '1.0.0', available: [] })
   expectMissing(await capture(() => strangerSet.load(providerSet.candidates[0])), message,
     { contract: Capability.id, implementation: Provider.family.id, version: '1.0.0', available: [] })
   // A key of a held family with a version the collection lacks lists the versions it holds.
-  const foreign = await capture(() => providerSet.load({ kind: 'candidate-ref', sourceSlotId: 'slot-0', revisionKey: Provider.key }))
+  const foreign = await capture(() => providerSet.load({ kind: 'candidate-ref', sourceSlotId: 'slot-0', revisionKey: Provider.id }))
   assert.equal(foreign.code, 'FOREIGN_CANDIDATE_REF')
   const own = foreign.details.expectedSourceSlot
   expectMissing(await capture(() => providerSet.load({ kind: 'candidate-ref', sourceSlotId: own, revisionKey: `${Provider.family.id}@9.9.9` })), message,
@@ -138,7 +138,7 @@ test('site 6 (collection): a CandidateRef this collection does not hold — anot
   // A scoped family id keeps its own `@`: the version is what follows the last one.
   expectMissing(await capture(() => providerSet.load({ kind: 'candidate-ref', sourceSlotId: own, revisionKey: '@scope/pkg/service@2.0.0' })), message,
     { contract: Capability.id, implementation: '@scope/pkg/service', version: '2.0.0', available: [] })
-  assert.equal((await providerSet.load(providerSet.candidates[0].ref)).id, 'provider')
+  assert.equal((await providerSet.load(providerSet.candidates[0].candidateRef)).id, 'provider')
   await providers.dispose()
   await strangers.dispose()
 })

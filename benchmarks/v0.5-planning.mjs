@@ -172,7 +172,7 @@ async function inputClosureCase() {
   await siteA.dispose()
   const inspection = runtime.inspect()
   await runtime.dispose()
-  return { name: 'site-enter-tenant-input-reverse-closure-200', forked: explanation.services.forked, inherited: explanation.services.inherited, ...result, planCache: inspection.planCache }
+  return { name: 'site-enter-tenant-input-reverse-closure-200', forked: explanation.services.forked, inherited: explanation.services.reused, ...result, planCache: inspection.planCache }
 }
 
 /**
@@ -207,7 +207,7 @@ async function privateRangeAndAnchoredEntryCase() {
   })
   const planCache = runtime.inspect().planCache
   await runtime.dispose()
-  return { name: 'bound-entry-private-range-request-enter-dispose-100', inherited: explanation.services.inherited, newServices: explanation.services.new, ...result, planCache }
+  return { name: 'bound-entry-private-range-request-enter-dispose-100', inherited: explanation.services.reused, newServices: explanation.services.new, ...result, planCache }
 }
 
 async function overrideAndAllCase() {

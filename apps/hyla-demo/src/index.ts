@@ -101,7 +101,7 @@ const panel = await blogEnv.run(
     )
     if (!legacyOpenAi) throw new Error('Expected OpenAI v1 candidate.')
     const completion = await providerPanel.run(
-      legacyOpenAi.persistentRef,
+      legacyOpenAi.implementationRef,
       'Run a provider chosen from the admitted set.',
     )
     console.log(completion)

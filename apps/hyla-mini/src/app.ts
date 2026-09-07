@@ -1,4 +1,4 @@
-import { createRuntime, type CreateRuntimeOptions, type EnvHandle, type Runtime, type ServiceRevision, type UnsettledAttemptInspection } from '@syna/core'
+import { createRuntime, type CreateRuntimeOptions, type Env, type Runtime, type ServiceRevision, type UnsettledAttemptInspection } from '@syna/core'
 import { AUTHENTICATORS } from './auth/implementations.js'
 import { DatabasePool } from './data/postgres/pool.js'
 import { PostgresContentStore } from './data/postgres/store.js'
@@ -43,7 +43,7 @@ export interface HylaShutdownReport {
   /**
    * Setup attempts that ignored the stop signal past the disposal grace and are
    * still pending when `close()` returns (from `runtime.inspect().unsettledAttempts`;
-   * the Runtime also reports them once as `attempts-outstanding`). Their
+   * the Runtime also reports them once as `runtime-attempts-outstanding`). Their
    * resources are outside Syna control; the Runtime retains only this ledger.
    */
   readonly unsettledAttempts: readonly UnsettledAttemptInspection[]
@@ -53,8 +53,8 @@ export interface HylaShutdownReport {
 
 export interface HylaApp {
   readonly runtime: Runtime
-  readonly infrastructure: EnvHandle<any>
-  readonly app: EnvHandle<typeof AppEntry['requires']>
+  readonly infrastructure: Env<any>
+  readonly app: Env<typeof AppEntry['requires']>
   readonly preflight: readonly BudgetReport[]
   domains(): Promise<DomainTable>
   /** Shuts the site manager down first (reporting unreleased leases), then disposes the Runtime. */
@@ -65,21 +65,21 @@ export interface HylaApp {
 export const REQUEST_BUDGET: ForkBudget = Object.freeze({
   maxLocalServices: 10,
   mustInherit: Object.freeze([
-    `service:${PipelineBuilder.key}`,
-    `service:${Renderer.key}`,
-    `service:${SiteContext.key}`,
-    ...STAGE_FACTORIES.map(factory => `service:${factory.key}`),
+    `service:${PipelineBuilder.id}`,
+    `service:${Renderer.id}`,
+    `service:${SiteContext.id}`,
+    ...STAGE_FACTORIES.map(factory => `service:${factory.id}`),
   ]),
-  costs: Object.freeze({ [DatabasePool.key]: 10, [PostgresContentStore.key]: 10, [FilesystemContentStore.key]: 5 }),
+  costs: Object.freeze({ [DatabasePool.id]: 10, [PostgresContentStore.id]: 10, [FilesystemContentStore.id]: 5 }),
   maxCost: 10,
 })
 
 export const SITE_BUDGET: ForkBudget = Object.freeze({
   maxLocalServices: 4,
   mustInherit: Object.freeze([
-    `service:${PipelineBuilder.key}`,
-    `service:${Renderer.key}`,
-    ...STAGE_FACTORIES.map(factory => `service:${factory.key}`),
+    `service:${PipelineBuilder.id}`,
+    `service:${Renderer.id}`,
+    ...STAGE_FACTORIES.map(factory => `service:${factory.id}`),
   ]),
 })
 
@@ -130,7 +130,7 @@ export async function createHylaApp(options: HylaAppOptions): Promise<HylaApp> {
   reports.push(evaluateBudget(infrastructureExplanation, { maxLocalServices: Number.POSITIVE_INFINITY, mustInherit: [] }))
   if (!reports.at(-1)!.ok) return refuse()
 
-  let infrastructure: EnvHandle<any>
+  let infrastructure: Env<any>
   let backend
   if (options.backend.kind === 'postgres') {
     infrastructure = await runtime.enter(PostgresInfrastructureEntry, { database: options.backend.database })
@@ -151,7 +151,7 @@ export async function createHylaApp(options: HylaAppOptions): Promise<HylaApp> {
     await runtime.dispose()
     throw new Error(`App entry does not plan: ${appCheck.error.code} ${appCheck.error.message}`)
   }
-  let app: EnvHandle<typeof AppEntry['requires']>
+  let app: Env<typeof AppEntry['requires']>
   try {
     app = await infrastructure.enter(AppEntry, appParameters)
     // Touch the backend now: an unreachable database or a bad schema fails startup,
@@ -252,7 +252,7 @@ export const PROBE_REQUEST: RequestFacts = Object.freeze({
 
 /** Explains one request from a live site Env and evaluates the request budget. Planning only. */
 export async function explainRequest(
-  siteEnv: EnvHandle<typeof SiteEntry['requires']>,
+  siteEnv: Env<typeof SiteEntry['requires']>,
   facts: RequestFacts = PROBE_REQUEST,
   budget: ForkBudget = REQUEST_BUDGET,
 ): Promise<BudgetReport> {

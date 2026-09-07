@@ -117,12 +117,26 @@ export function createImplementationRef<C extends Contract<any>>(
 }
 
 /**
- * The one read path of a serialized implementation reference: a plain object
- * `{ kind: 'implementation-ref', contractId, familyId, range }` naming this
- * Contract, a non-empty family and a valid version range. Anything else — another
- * `kind` (the pre-0.8 kind included), another Contract, a missing or empty family
- * or range, a range that does not parse — is refused with `INVALID_DESCRIPTOR`
- * (`problem`: `not-an-object`, `wrong-kind` or `malformed-implementation-ref`).
+ * The one serialized shape of an implementation reference: kind
+ * `implementation-ref`, a string `contractId`, a non-empty `familyId` and a
+ * non-empty, valid semver `range`. `parse()` and every Runtime read path
+ * (`catalog.resolve()`, a Binding assignment, `set.resolve()` / `set.load(ref)`)
+ * accept this shape and nothing else; the rest is `INVALID_DESCRIPTOR`.
+ */
+export function isWellFormedImplementationRef(value: object): value is ImplementationRef {
+  const ref = value as Readonly<Record<string, unknown>>
+  return ref.kind === 'implementation-ref'
+    && typeof ref.contractId === 'string'
+    && typeof ref.familyId === 'string' && ref.familyId.trim().length > 0
+    && typeof ref.range === 'string' && ref.range.trim().length > 0 && isValidRange(ref.range)
+}
+
+/**
+ * Reads a serialized implementation reference for `contract`. Anything but the
+ * one shape naming this Contract — a non-object, another `kind` (the pre-0.8 kind
+ * included), another Contract, a missing or empty family or range, a range that
+ * does not parse — is refused with `INVALID_DESCRIPTOR` (`problem`:
+ * `not-an-object`, `wrong-kind` or `malformed-implementation-ref`).
  */
 export function parseImplementationRef<C extends Contract<any>>(
   contract: C,
@@ -135,17 +149,10 @@ export function parseImplementationRef<C extends Contract<any>>(
   if (value.kind !== 'implementation-ref') {
     throw new SynaError('INVALID_DESCRIPTOR', `Invalid implementation reference for Contract ${contract.id}: kind must be "implementation-ref".`, { descriptor: 'ImplementationRef', problem: 'wrong-kind' })
   }
-  if (
-    value.contractId !== contract.id
-    || typeof value.familyId !== 'string'
-    || value.familyId.trim().length === 0
-    || typeof value.range !== 'string'
-    || value.range.trim().length === 0
-    || !isValidRange(value.range)
-  ) {
+  if (value.contractId !== contract.id || !isWellFormedImplementationRef(input)) {
     throw new SynaError('INVALID_DESCRIPTOR', `Invalid implementation reference for Contract ${contract.id}.`, { descriptor: 'ImplementationRef', problem: 'malformed-implementation-ref' })
   }
-  return createImplementationRef(contract, value.familyId, value.range)
+  return createImplementationRef(contract, input.familyId, input.range)
 }
 
 export function auto<C extends Contract<any>>(contract: C): AutoImplementation<C> {
@@ -370,6 +377,15 @@ export function definePackage(manifest: PackageManifest): PackageDefinitions {
     return Object.freeze(binding)
   }
 
+  /**
+   * Definition options renamed in 0.8.0 (`docs/MIGRATION_V07_TO_V08.md` F4, F16); an
+   * old spelling is refused so a definition is never silently unbounded or unlabelled.
+   */
+  const RENAMED_SERVICE_OPTIONS: ReadonlyMap<string, string> = new Map([
+    ['setupDeadlineMs', 'loadTimeoutMs'], // syna-v08-rename
+    ['metadata', 'familyMetadata'],
+  ])
+
   function defineService<
     const Requires extends DependencyMap = {},
     const Provides extends readonly Contract[] = readonly [],
@@ -385,6 +401,11 @@ export function definePackage(manifest: PackageManifest): PackageDefinitions {
     }
     if (definition.uniqueWithin !== undefined && definition.uniqueWithin !== 'lineage') {
       throw new TypeError('uniqueWithin must be "lineage" when provided.')
+    }
+    for (const [expired, current] of RENAMED_SERVICE_OPTIONS) {
+      if ((definition as unknown as Readonly<Record<string, unknown>>)[expired] !== undefined) {
+        throw new TypeError(`Service ${serviceId(name)} uses the option ${expired}, renamed in 0.8.0; use ${current}.`)
+      }
     }
     const family: ServiceFamily<PublicApi> = Object.freeze({
       kind: 'service-family',

@@ -3,7 +3,7 @@
 // recorded in `runtime.inspect().unsettledAttempts` and `env.inspect().abandonedAttempts` until they settle
 // (`late-setup-*`) or their setup Promise is collected (`attempt-unreachable`); `dispose()` never rejects because
 // user code ignored cancellation (only a cleanup that threw is a close error), `attempt-abandoned` carries the
-// dependencies list, and `runtime.dispose()` reports a non-empty ledger once as `attempts-outstanding`.
+// dependencies list, and `runtime.dispose()` reports a non-empty ledger once as `runtime-attempts-outstanding`.
 // No test here uses `--expose-gc`: the state never depends on garbage collection.
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
@@ -28,8 +28,8 @@ const waitFor = async (condition, timeoutMs = 2_000) => {
     await sleep(2)
   }
 }
-const nodeOf = (env, revision) => env.inspect().nodes.find(node => node.nodeId === `service:${revision.key}`)
-const withoutTiming = entries => entries.map(({ runningForMs, ...rest }) => (assert.equal(typeof runningForMs, 'number'), rest))
+const nodeOf = (env, revision) => env.inspect().nodes.find(node => node.nodeId === `service:${revision.id}`)
+const withoutTiming = entries => entries.map(({ elapsedMs, ...rest }) => (assert.equal(typeof elapsedMs, 'number'), rest))
 
 test('1. a setup that never settles: dispose() fulfils after the grace, the Env is disposed, liveEnvCount drops, the ledger and the Env list the abandoned attempt, attempt-abandoned names the dependencies', async () => {
   const define = makeDefine('s2-never-settles')
@@ -54,17 +54,17 @@ test('1. a setup that never settles: dispose() fulfils after the grace, the Env 
   assert.equal(stuck.state, 'abandoned')
   assert.equal(nodeOf(env, Dep).state, 'disposed', 'the dependency was closed in the normal order after the grace')
   const ledger = runtime.inspect().unsettledAttempts
-  assert.deepEqual(withoutTiming(ledger), [{ attempt: ledger[0].attempt, slot: stuck.slotId, revision: Stuck.key, env: env.id, state: 'abandoned' }])
+  assert.deepEqual(withoutTiming(ledger), [{ attemptNumber: ledger[0].attemptNumber, slot: stuck.slotId, revision: Stuck.id, env: env.id, state: 'abandoned' }])
   assert.deepEqual(withoutTiming(env.inspect().abandonedAttempts), withoutTiming(ledger), 'the Env lists the attempt its close left behind')
   assert.deepEqual(events.map(event => event.type), ['attempt-abandoned'])
   assert.deepEqual(events[0], {
     type: 'attempt-abandoned',
     phase: 'setup',
     slot: stuck.slotId,
-    revision: Stuck.key,
+    revision: Stuck.id,
     env: env.id,
     elapsedMs: events[0].elapsedMs,
-    dependencies: [{ dependency: 'dep', slot: nodeOf(env, Dep).slotId, revision: Dep.key, state: 'ready' }],
+    dependencies: [{ dependency: 'dep', slot: nodeOf(env, Dep).slotId, revision: Dep.id, state: 'ready' }],
   })
   assert.ok(events[0].elapsedMs >= 15)
   await runtime.dispose()
@@ -99,7 +99,7 @@ test('2. the state does not depend on the setup Promise: disposed before and aft
   await runtime.dispose()
 })
 
-test('3. late settlement of an abandoned attempt: the entry leaves the ledger, late-setup-result reports adopted: false, the cleanup ran, the slot is disposed', async () => {
+test('3. late settlement of an abandoned attempt: the entry leaves the ledger, attempt-succeeded-late reports adopted: false, the cleanup ran, the slot is disposed', async () => {
   const define = makeDefine('s2-late-settlement')
   const gate = deferred()
   const events = []
@@ -122,17 +122,17 @@ test('3. late settlement of an abandoned attempt: the entry leaves the ledger, l
   assert.equal(env.inspect().abandonedAttempts.length, 1)
   assert.deepEqual(log, [])
   gate.resolve()
-  await waitFor(() => events.some(event => event.type === 'late-setup-result'))
+  await waitFor(() => events.some(event => event.type === 'attempt-succeeded-late'))
   const slot = nodeOf(env, Slow)
-  assert.deepEqual(events.map(event => event.type), ['attempt-abandoned', 'late-setup-result'])
-  assert.deepEqual(events[1], { type: 'late-setup-result', slot: slot.slotId, revision: Slow.key, env: env.id, adopted: false, cleanupErrors: [] })
+  assert.deepEqual(events.map(event => event.type), ['attempt-abandoned', 'attempt-succeeded-late'])
+  assert.deepEqual(events[1], { type: 'attempt-succeeded-late', slot: slot.slotId, revision: Slow.id, env: env.id, adopted: false, cleanupErrors: [] })
   assert.deepEqual(log, ['cleanup'])
   assert.equal(slot.state, 'disposed')
   assert.deepEqual(env.inspect().abandonedAttempts, [])
   assert.deepEqual(runtime.inspect().unsettledAttempts, [])
   assert.equal(env.state, 'disposed')
   await runtime.dispose()
-  assert.deepEqual(events.map(event => event.type), ['attempt-abandoned', 'late-setup-result'], 'nothing outstanding: no summary event')
+  assert.deepEqual(events.map(event => event.type), ['attempt-abandoned', 'attempt-succeeded-late'], 'nothing outstanding: no summary event')
 })
 
 test('4. a parent whose child abandoned an attempt: the parent\'s dispose() fulfils, both are disposed, the child lists the attempt and the parent does not', async () => {
@@ -159,7 +159,7 @@ test('4. a parent whose child abandoned an attempt: the parent\'s dispose() fulf
   await runtime.dispose()
 })
 
-test('5. runtime.dispose() with a non-empty ledger fulfils and reports attempts-outstanding once; a cleanup that throws still rejects, without any coded member', async () => {
+test('5. runtime.dispose() with a non-empty ledger fulfils and reports runtime-attempts-outstanding once; a cleanup that throws still rejects, without any coded member', async () => {
   const define = makeDefine('s2-runtime-close')
   const events = []
   const Stuck = define.service('stuck', { setup: () => new Promise(() => {}) })
@@ -175,14 +175,14 @@ test('5. runtime.dispose() with a non-empty ledger fulfils and reports attempts-
   const leaves = item => item instanceof AggregateError ? item.errors.flatMap(leaves) : [item]
   assert.deepEqual(leaves(error).map(item => [item.message, item.code]), [['cleanup failed', undefined]], 'no coded member: an abandoned attempt is not an error of the close')
   assert.equal(env.state, 'disposed')
-  const summary = events.filter(event => event.type === 'attempts-outstanding')
+  const summary = events.filter(event => event.type === 'runtime-attempts-outstanding')
   assert.equal(summary.length, 1)
   assert.deepEqual(withoutTiming(summary[0].attempts), withoutTiming(runtime.inspect().unsettledAttempts))
-  assert.deepEqual(summary[0].attempts.map(item => [item.env, item.revision, item.state]), [[env.id, Stuck.key, 'abandoned']])
-  assert.deepEqual(events.map(event => event.type), ['attempt-abandoned', 'attempts-outstanding'])
+  assert.deepEqual(summary[0].attempts.map(item => [item.env, item.revision, item.state]), [[env.id, Stuck.id, 'abandoned']])
+  assert.deepEqual(events.map(event => event.type), ['attempt-abandoned', 'runtime-attempts-outstanding'])
   // A Runtime closes once: a later call returns the same close and reports nothing again.
   assert.strictEqual(await runtime.dispose().catch(item => item), error)
-  assert.equal(events.filter(event => event.type === 'attempts-outstanding').length, 1)
+  assert.equal(events.filter(event => event.type === 'runtime-attempts-outstanding').length, 1)
 
   // Control: a clean ledger and a clean close report nothing and fulfil.
   const control = makeDefine('s2-runtime-close-control')
@@ -251,7 +251,7 @@ test('8. the public surface: the unsettled-attempt code left SynaErrorCode (26 m
   assert.equal([...union.matchAll(/'[A-Z_]+'/g)].length, 26)
   const descriptors = readFileSync(path.join(dist, 'descriptors.d.ts'), 'utf8')
   assert.match(descriptors, /readonly abandonedAttempts: readonly UnsettledAttemptInspection\[\];/)
-  assert.match(descriptors, /readonly type: 'attempts-outstanding';\s*readonly attempts: readonly UnsettledAttemptInspection\[\];/)
+  assert.match(descriptors, /readonly type: 'runtime-attempts-outstanding';\s*readonly attempts: readonly UnsettledAttemptInspection\[\];/)
   assert.match(descriptors, /readonly type: 'attempt-abandoned';[\s\S]*?readonly dependencies: readonly \{/)
   assert.match(descriptors, /export type EnvState = 'activating' \| 'ready' \| 'disposing' \| 'disposed';/)
   const define = makeDefine('s2-surface')

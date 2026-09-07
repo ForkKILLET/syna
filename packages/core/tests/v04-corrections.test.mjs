@@ -184,8 +184,8 @@ test('a Service-owned Entry may resolve its declared exact private roots', async
   const env = await runtime.enter(App)
   const uow = await env.deps.unitOfWork.load()
   assert.equal(typeof await uow.run(), 'symbol')
-  assert.ok(runtime.inspect().internalServices.includes(Transaction.key))
-  assert.ok(!runtime.inspect().admittedServices.includes(Transaction.key))
+  assert.ok(runtime.inspect().privateServices.includes(Transaction.id))
+  assert.ok(!runtime.inspect().admittedServices.includes(Transaction.id))
   await runtime.dispose()
 })
 

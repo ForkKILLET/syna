@@ -32,7 +32,7 @@ const rejection = async promise => {
   catch (error) { return error }
   assert.fail('expected a rejection')
 }
-const slotOf = (env, revision) => env.inspect().nodes.find(node => node.nodeId === `service:${revision.key}`).slotId
+const slotOf = (env, revision) => env.inspect().nodes.find(node => node.nodeId === `service:${revision.id}`).slotId
 
 const expectClosed = (error, message, details) => {
   assert.ok(isSynaError(error), `expected a SynaError, got ${error?.stack ?? error}`)
@@ -156,8 +156,8 @@ test('site 6 SLOT_NOT_LOADABLE { slot, revision, state }: load() on a disposed, 
     await env.dispose()
     const error = await rejection(ref.load())
     assert.equal(error.code, 'SLOT_NOT_LOADABLE')
-    assert.equal(error.message, `Service slot ${slot} (${Lazy.key}) is disposed.`)
-    assert.deepEqual(error.details, { slot, revision: Lazy.key, state: 'disposed' })
+    assert.equal(error.message, `Service slot ${slot} (${Lazy.id}) is disposed.`)
+    assert.deepEqual(error.details, { slot, revision: Lazy.id, state: 'disposed' })
     assert.equal(starts, 0)
     await runtime.dispose()
   }
@@ -175,8 +175,8 @@ test('site 6 SLOT_NOT_LOADABLE { slot, revision, state }: load() on a disposed, 
     await started.promise
     const error = await rejection(env.deps.held.load())
     assert.equal(error.code, 'SLOT_NOT_LOADABLE')
-    assert.equal(error.message, `Service slot ${slot} (${Held.key}) is disposing.`)
-    assert.deepEqual(error.details, { slot, revision: Held.key, state: 'disposing' })
+    assert.equal(error.message, `Service slot ${slot} (${Held.id}) is disposing.`)
+    assert.deepEqual(error.details, { slot, revision: Held.id, state: 'disposing' })
     gate.resolve()
     await disposing
     await runtime.dispose()
@@ -185,22 +185,22 @@ test('site 6 SLOT_NOT_LOADABLE { slot, revision, state }: load() on a disposed, 
   {
     const Stuck = define.service('stuck', { setup: () => new Promise(() => undefined) })
     const Root = define.entry('root-stuck', { requires: { stuck: Stuck } })
-    const runtime = createRuntime({ services: [Stuck], limits: { setupDeadlineMs: 20, disposalGraceMs: 20 } })
+    const runtime = createRuntime({ services: [Stuck], limits: { loadTimeoutMs: 20, disposalGraceMs: 20 } })
     const env = await runtime.enter(Root)
     const slot = slotOf(env, Stuck)
-    assert.equal((await rejection(env.deps.stuck.load())).code, 'INITIALIZATION_TIMEOUT')
+    assert.equal((await rejection(env.deps.stuck.load())).code, 'LOAD_TIMEOUT')
     await env.dispose() // the attempt that ignores cancellation is abandoned onto the ledger (S2)
     const error = await rejection(env.deps.stuck.load())
     assert.equal(error.code, 'SLOT_NOT_LOADABLE')
-    assert.equal(error.message, `Service slot ${slot} (${Stuck.key}) is abandoned.`)
-    assert.deepEqual(error.details, { slot, revision: Stuck.key, state: 'abandoned' })
+    assert.equal(error.message, `Service slot ${slot} (${Stuck.id}) is abandoned.`)
+    assert.deepEqual(error.details, { slot, revision: Stuck.id, state: 'abandoned' })
     await runtime.dispose()
   }
 })
 
 test('site 9 LIFECYCLE_MISUSE { slot, revision, attempt, state }: onDispose() on a lifecycle whose attempt succeeded or failed', async () => {
   const define = makeDefine('s7-lifecycle-misuse')
-  const message = revision => `onDispose() for ${revision.key} may only be called while its setup attempt is still executing.`
+  const message = revision => `onDispose() for ${revision.id} may only be called while its setup attempt is still executing.`
   {
     let stale
     const Svc = define.service('svc', { setup(_deps, lifecycle) { stale = lifecycle; return {} } })
@@ -212,7 +212,7 @@ test('site 9 LIFECYCLE_MISUSE { slot, revision, attempt, state }: onDispose() on
       assert.ok(isSynaError(error))
       assert.equal(error.code, 'LIFECYCLE_MISUSE')
       assert.equal(error.message, message(Svc))
-      assert.deepEqual(error.details, { slot: slotOf(env, Svc), revision: Svc.key, attempt: 1, state: 'succeeded' })
+      assert.deepEqual(error.details, { slot: slotOf(env, Svc), revision: Svc.id, attemptNumber: 1, state: 'succeeded' })
       return true
     })
     // A lifecycle is only stale after the attempt settled: a cleanup registered during setup runs.
@@ -228,7 +228,7 @@ test('site 9 LIFECYCLE_MISUSE { slot, revision, attempt, state }: onDispose() on
     assert.throws(() => stale.onDispose(() => undefined), error => {
       assert.equal(error.code, 'LIFECYCLE_MISUSE')
       assert.equal(error.message, message(Broken))
-      assert.deepEqual(error.details, { slot: slotOf(env, Broken), revision: Broken.key, attempt: 1, state: 'failed' })
+      assert.deepEqual(error.details, { slot: slotOf(env, Broken), revision: Broken.id, attemptNumber: 1, state: 'failed' })
       return true
     })
     await runtime.dispose()
@@ -247,8 +247,8 @@ test('site 11 ENV_CLOSED { env, state, slot, revision }: a setup still pending w
   await env.dispose()
   expectClosed(
     await loading,
-    `Setup of ${Stuck.key} was still pending when owner Env ${env.id} closed; its eventual result will be discarded.`,
-    { env: env.id, state: 'disposing', slot, revision: Stuck.key },
+    `Setup of ${Stuck.id} was still pending when owner Env ${env.id} closed; its eventual result will be discarded.`,
+    { env: env.id, state: 'disposing', slot, revision: Stuck.id },
   )
   await runtime.dispose()
 })
@@ -277,8 +277,8 @@ test('site 12 ENV_CLOSED { env, state, slot, revision }: a setup that completed 
   await disposing
   expectClosed(
     await loading,
-    `Setup of ${Slow.key} completed after owner Env ${env.id} began closing; the instance was discarded.`,
-    { env: env.id, state: 'disposing', slot, revision: Slow.key },
+    `Setup of ${Slow.id} completed after owner Env ${env.id} began closing; the instance was discarded.`,
+    { env: env.id, state: 'disposing', slot, revision: Slow.id },
   )
   assert.deepEqual(events, ['cleanup'])
   await runtime.dispose()
@@ -304,13 +304,13 @@ test('sites 13/14 ENV_CLOSED { env, state, slot, revision }: materialize and rec
   await started.promise
   expectClosed(
     await rejection(root.deps.lazy.load()),
-    `Cannot materialize ${Lazy.key}: owner Env ${root.id} is closing.`,
-    { env: root.id, state: 'disposing', slot: slotOf(root, Lazy), revision: Lazy.key },
+    `Cannot materialize ${Lazy.id}: owner Env ${root.id} is closing.`,
+    { env: root.id, state: 'disposing', slot: slotOf(root, Lazy), revision: Lazy.id },
   )
   expectClosed(
     await rejection(root.deps.broken.load()),
-    `Cannot recover ${Broken.key}: owner Env ${root.id} is closing.`,
-    { env: root.id, state: 'disposing', slot: slotOf(root, Broken), revision: Broken.key },
+    `Cannot recover ${Broken.id}: owner Env ${root.id} is closing.`,
+    { env: root.id, state: 'disposing', slot: slotOf(root, Broken), revision: Broken.id },
   )
   assert.equal(lazyStarts, 0)
   gate.resolve()
@@ -334,8 +334,8 @@ test('site 15 ENV_CLOSED { env, state, slot, revision }: a retry backoff cancell
   assert.ok(Date.now() - started < 300, 'the backoff was cancelled by the close')
   expectClosed(
     await loading,
-    `Retry of ${Flaky.key} was cancelled because owner Env ${env.id} is closing.`,
-    { env: env.id, state: 'disposing', slot, revision: Flaky.key },
+    `Retry of ${Flaky.id} was cancelled because owner Env ${env.id} is closing.`,
+    { env: env.id, state: 'disposing', slot, revision: Flaky.id },
   )
   assert.equal(attempts, 1)
   await runtime.dispose()
@@ -360,8 +360,8 @@ test('site 16 ENV_CLOSED { env, state, slot, revision }: a recovery cooldown can
   assert.ok(Date.now() - started < 300, 'the cooldown was cancelled by the close')
   expectClosed(
     await recovering,
-    `Recovery of ${Broken.key} was cancelled because owner Env ${env.id} is closing.`,
-    { env: env.id, state: 'disposing', slot, revision: Broken.key },
+    `Recovery of ${Broken.id} was cancelled because owner Env ${env.id} is closing.`,
+    { env: env.id, state: 'disposing', slot, revision: Broken.id },
   )
   assert.equal(attempts, 1)
   await runtime.dispose()

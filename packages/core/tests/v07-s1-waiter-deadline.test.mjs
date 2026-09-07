@@ -1,9 +1,9 @@
-// v0.7 (Phase D, S1): the setup deadline is the waiter's timeout, not the attempt's. `setupDeadlineMs` bounds one
+// v0.7 (Phase D, S1): the setup deadline is the waiter's timeout, not the attempt's. `loadTimeoutMs` bounds one
 // `load()` wait on the current attempt (default 30_000, locked by v07-expired-forms); at expiry that wait rejects
-// with INITIALIZATION_TIMEOUT (`attemptStillRunning: true`), the slot stays `starting`, `inspect()` shows
-// `overdueMs`, the ledger lists the attempt as `timed-out` and `attempt-overdue` is reported once per attempt.
+// with LOAD_TIMEOUT (`attemptStillRunning: true`), the slot stays `starting`, `inspect()` shows
+// `overdueMs`, the ledger lists the attempt as `overdue` and `attempt-overdue` is reported once per attempt.
 // The attempt keeps running: a later success is adopted while the owner Env is `ready` (no cleanup runs,
-// `late-setup-result` with `adopted: true`) and only a close discards it; a later failure follows the existing
+// `attempt-succeeded-late` with `adopted: true`) and only a close discards it; a later failure follows the existing
 // failure policy. A timeout consumes no attempt and triggers no backoff. `load({ signal })` with
 // `AbortSignal.timeout()` is the documented shorter wait. The four counter-examples of the task book (§2.4) are
 // cases 1–4; no case depends on `--expose-gc` except the ledger/event case at the end.
@@ -35,7 +35,7 @@ const rejection = async promise => {
   catch (error) { return error }
   assert.fail('expected a rejection')
 }
-const nodeOf = (env, revision) => env.inspect().nodes.find(node => node.nodeId === `service:${revision.key}`)
+const nodeOf = (env, revision) => env.inspect().nodes.find(node => node.nodeId === `service:${revision.id}`)
 const child = (flags, script) =>
   run(process.execPath, [...flags, '--input-type=module', '-e', script])
     .then(result => ({ code: 0, ...result }), error => ({ code: error.code, stdout: error.stdout, stderr: error.stderr }))
@@ -47,7 +47,7 @@ const slowWorld = (id, { deadlineMs = 100, resolveAfterMs = 250, eager = false, 
   const events = []
   let setups = 0
   const Slow = define.service('slow', {
-    setupDeadlineMs: deadlineMs,
+    loadTimeoutMs: deadlineMs,
     ...(eager ? { eager: true } : {}),
     ...(failure ? { failure } : {}),
     async setup(_deps, { onDispose }) {
@@ -72,24 +72,24 @@ test('1. a 250 ms success under a 100 ms deadline: the first load() times out, a
   const started = Date.now()
   const error = await rejection(env.deps.slow.load())
   const elapsed = Date.now() - started
-  assert.equal(error.code, 'INITIALIZATION_TIMEOUT')
+  assert.equal(error.code, 'LOAD_TIMEOUT')
   assert.ok(elapsed >= 95 && elapsed < 240, `the wait ended at the deadline, not at the attempt's end (${elapsed} ms)`)
   const node = nodeOf(env, Slow)
   assert.deepEqual(error.details, {
     slot: node.slotId,
-    revision: Slow.key,
+    revision: Slow.id,
     env: env.id,
-    attempt: error.details.attempt,
+    attemptNumber: error.details.attemptNumber,
     deadlineMs: 100,
     elapsedMs: error.details.elapsedMs,
     pendingLoads: [],
     attemptStillRunning: true,
     note: error.details.note,
   })
-  assert.equal(typeof error.details.attempt, 'number')
+  assert.equal(typeof error.details.attemptNumber, 'number')
   assert.ok(error.details.elapsedMs >= 95, 'elapsedMs is the attempt\'s running time')
   assert.match(error.details.note, /The attempt keeps running; its result is adopted if the owner Env is still ready, and discarded only if the owner closes/)
-  assert.equal(error.message, `Setup of ${Slow.key} did not complete within 100 ms.`)
+  assert.equal(error.message, `Setup of ${Slow.id} did not complete within 100 ms.`)
   // The slot stays starting and is overdue; the attempt is listed as timed-out; one event so far.
   assert.equal(node.state, 'starting')
   assert.equal(typeof node.overdueMs, 'number')
@@ -97,16 +97,16 @@ test('1. a 250 ms success under a 100 ms deadline: the first load() times out, a
   assert.deepEqual(events, [{
     type: 'attempt-overdue',
     slot: node.slotId,
-    revision: Slow.key,
+    revision: Slow.id,
     env: env.id,
-    attempt: error.details.attempt,
+    attemptNumber: error.details.attemptNumber,
     deadlineMs: 100,
     elapsedMs: events[0].elapsedMs,
   }])
   assert.ok(events[0].elapsedMs >= 95)
   assert.deepEqual(
-    runtime.inspect().unsettledAttempts.map(item => [item.attempt, item.slot, item.revision, item.env, item.state]),
-    [[error.details.attempt, node.slotId, Slow.key, env.id, 'timed-out']],
+    runtime.inspect().unsettledAttempts.map(item => [item.attemptNumber, item.slot, item.revision, item.env, item.state]),
+    [[error.details.attemptNumber, node.slotId, Slow.id, env.id, 'overdue']],
   )
   assert.equal(env.state, 'ready')
 
@@ -117,8 +117,8 @@ test('1. a 250 ms success under a 100 ms deadline: the first load() times out, a
   const ready = nodeOf(env, Slow)
   assert.equal(ready.state, 'ready')
   assert.equal('overdueMs' in ready, false, 'overdueMs is gone once the slot is ready')
-  assert.deepEqual(events.map(event => event.type), ['attempt-overdue', 'late-setup-result'])
-  assert.deepEqual(events[1], { type: 'late-setup-result', slot: node.slotId, revision: Slow.key, env: env.id, adopted: true, cleanupErrors: [] })
+  assert.deepEqual(events.map(event => event.type), ['attempt-overdue', 'attempt-succeeded-late'])
+  assert.deepEqual(events[1], { type: 'attempt-succeeded-late', slot: node.slotId, revision: Slow.id, env: env.id, adopted: true, cleanupErrors: [] })
   assert.deepEqual(runtime.inspect().unsettledAttempts, [], 'adoption removes the attempt from the ledger')
   assert.equal(setups(), 1, 'one setup() call: the timeout started nothing')
   assert.strictEqual(await env.deps.slow.load(), instance)
@@ -132,15 +132,15 @@ test('2. the same setup with the owner disposed at 150 ms: the result is discard
     const { runtime, Entry, Slow, events, log } = slowWorld('s1-discarded-late', { limits: { disposalGraceMs: 20 } })
     const env = await runtime.enter(Entry)
     const error = await rejection(env.deps.slow.load())
-    assert.equal(error.code, 'INITIALIZATION_TIMEOUT')
+    assert.equal(error.code, 'LOAD_TIMEOUT')
     const node = nodeOf(env, Slow)
     await sleep(50) // t ≈ 150 ms
     await env.dispose() // S2: the close fulfils; the overdue attempt is abandoned onto the ledger
     assert.equal(nodeOf(env, Slow).state, 'abandoned')
     assert.deepEqual(runtime.inspect().unsettledAttempts.map(item => item.state), ['abandoned'])
-    await waitFor(() => events.some(event => event.type === 'late-setup-result'))
-    assert.deepEqual(events.map(event => event.type), ['attempt-overdue', 'attempt-abandoned', 'late-setup-result'])
-    assert.deepEqual(events.at(-1), { type: 'late-setup-result', slot: node.slotId, revision: Slow.key, env: env.id, adopted: false, cleanupErrors: [] })
+    await waitFor(() => events.some(event => event.type === 'attempt-succeeded-late'))
+    assert.deepEqual(events.map(event => event.type), ['attempt-overdue', 'attempt-abandoned', 'attempt-succeeded-late'])
+    assert.deepEqual(events.at(-1), { type: 'attempt-succeeded-late', slot: node.slotId, revision: Slow.id, env: env.id, adopted: false, cleanupErrors: [] })
     assert.deepEqual(log, ['cleanup'], 'only a close discards a late success, and then its cleanup runs')
     assert.equal(nodeOf(env, Slow).state, 'disposed')
     assert.deepEqual(runtime.inspect().unsettledAttempts, [])
@@ -150,14 +150,14 @@ test('2. the same setup with the owner disposed at 150 ms: the result is discard
   {
     const { runtime, Entry, Slow, events, log } = slowWorld('s1-discarded-in-grace')
     const env = await runtime.enter(Entry)
-    await assert.rejects(env.deps.slow.load(), error => error.code === 'INITIALIZATION_TIMEOUT')
+    await assert.rejects(env.deps.slow.load(), error => error.code === 'LOAD_TIMEOUT')
     const node = nodeOf(env, Slow)
     await sleep(50)
     const closedAt = Date.now()
     await env.dispose()
     assert.ok(Date.now() - closedAt >= 80 && Date.now() - closedAt < 1_000, 'the close waited for the attempt inside the grace')
-    assert.deepEqual(events.map(event => event.type), ['attempt-overdue', 'late-setup-result'])
-    assert.deepEqual(events.at(-1), { type: 'late-setup-result', slot: node.slotId, revision: Slow.key, env: env.id, adopted: false, cleanupErrors: [] })
+    assert.deepEqual(events.map(event => event.type), ['attempt-overdue', 'attempt-succeeded-late'])
+    assert.deepEqual(events.at(-1), { type: 'attempt-succeeded-late', slot: node.slotId, revision: Slow.id, env: env.id, adopted: false, cleanupErrors: [] })
     assert.deepEqual(log, ['cleanup'])
     assert.equal(nodeOf(env, Slow).state, 'disposed')
     assert.equal(env.state, 'disposed')
@@ -166,7 +166,7 @@ test('2. the same setup with the owner disposed at 150 ms: the result is discard
   }
 })
 
-test('3. two waiters time out one after the other (the second joins at 50 ms), then the attempt succeeds: both got INITIALIZATION_TIMEOUT, a third load() gets the instance, nothing stale remains', async () => {
+test('3. two waiters time out one after the other (the second joins at 50 ms), then the attempt succeeds: both got LOAD_TIMEOUT, a third load() gets the instance, nothing stale remains', async () => {
   const { runtime, Entry, Slow, events, log, setups } = slowWorld('s1-two-waiters')
   const env = await runtime.enter(Entry)
   const first = rejection(env.deps.slow.load())
@@ -176,10 +176,10 @@ test('3. two waiters time out one after the other (the second joins at 50 ms), t
   const firstAt = Date.now()
   const secondError = await second
   const secondAt = Date.now()
-  assert.equal(firstError.code, 'INITIALIZATION_TIMEOUT')
-  assert.equal(secondError.code, 'INITIALIZATION_TIMEOUT')
+  assert.equal(firstError.code, 'LOAD_TIMEOUT')
+  assert.equal(secondError.code, 'LOAD_TIMEOUT')
   assert.ok(secondAt - firstAt >= 40, `each waiter has its own window (${secondAt - firstAt} ms apart)`)
-  assert.equal(firstError.details.attempt, secondError.details.attempt, 'both waited on the same attempt')
+  assert.equal(firstError.details.attemptNumber, secondError.details.attemptNumber, 'both waited on the same attempt')
   assert.ok(secondError.details.elapsedMs > firstError.details.elapsedMs)
   assert.equal(firstError.details.attemptStillRunning, true)
   assert.equal(secondError.details.attemptStillRunning, true)
@@ -189,7 +189,7 @@ test('3. two waiters time out one after the other (the second joins at 50 ms), t
 
   const third = await env.deps.slow.load() // joins at ~150 ms; the attempt succeeds at 250 ms
   assert.deepEqual(third, { id: 'slow', setups: 1 })
-  assert.deepEqual(events.map(event => event.type), ['attempt-overdue', 'late-setup-result'])
+  assert.deepEqual(events.map(event => event.type), ['attempt-overdue', 'attempt-succeeded-late'])
   assert.equal(events[1].adopted, true)
   // No waiter holds stale state: the ready slot answers at once, the ledger and the overdue mark are gone.
   const started = Date.now()
@@ -204,21 +204,21 @@ test('3. two waiters time out one after the other (the second joins at 50 ms), t
   assert.deepEqual(log, ['cleanup'])
 })
 
-test('4. eager: an eager slot that succeeds after the deadline fails the activation (ENTRY_ACTIVATION_FAILED, cause INITIALIZATION_TIMEOUT) and the rollback close discards the late success', async () => {
+test('4. eager: an eager slot that succeeds after the deadline fails the activation (ENTRY_ACTIVATION_FAILED, cause LOAD_TIMEOUT) and the rollback close discards the late success', async () => {
   const { runtime, Entry, Slow, events, log, setups } = slowWorld('s1-eager', { eager: true, limits: { disposalGraceMs: 20 } })
   const started = Date.now()
   const error = await rejection(runtime.enter(Entry))
   assert.ok(Date.now() - started < 240, 'enter() rejected at the deadline plus the rollback grace, before the attempt ended')
   assert.equal(error.code, 'ENTRY_ACTIVATION_FAILED')
   assert.equal(error.details.entry, Entry.id)
-  assert.equal(error.details.causeCode, 'INITIALIZATION_TIMEOUT')
-  assert.equal(error.details.causeDetails.revision, Slow.key, 'causeDetails.slot / revision name the overdue slot')
+  assert.equal(error.details.causeCode, 'LOAD_TIMEOUT')
+  assert.equal(error.details.causeDetails.revision, Slow.id, 'causeDetails.slot / revision name the overdue slot')
   assert.equal(error.details.causeDetails.attemptStillRunning, true)
-  assert.equal(error.cause.code, 'INITIALIZATION_TIMEOUT')
+  assert.equal(error.cause.code, 'LOAD_TIMEOUT')
   assert.equal(runtime.inspect().liveEnvCount, 0, 'the rollback closed the new Env')
   assert.equal(runtime.inspect().rootEnvCount, 0)
-  await waitFor(() => events.some(event => event.type === 'late-setup-result'))
-  assert.deepEqual(events.map(event => event.type), ['attempt-overdue', 'attempt-abandoned', 'late-setup-result'])
+  await waitFor(() => events.some(event => event.type === 'attempt-succeeded-late'))
+  assert.deepEqual(events.map(event => event.type), ['attempt-overdue', 'attempt-abandoned', 'attempt-succeeded-late'])
   assert.equal(events.at(-1).adopted, false, 'discarded by the rollback close — a corollary of "only a close discards", not an exception')
   assert.deepEqual(log, ['cleanup'])
   assert.deepEqual(runtime.inspect().unsettledAttempts, [])
@@ -231,13 +231,13 @@ test('5. a timeout consumes no attempt and triggers no backoff (attempts 2, dela
   const env = await runtime.enter(Entry)
   const started = Date.now()
   const error = await rejection(env.deps.slow.load())
-  assert.equal(error.code, 'INITIALIZATION_TIMEOUT')
-  assert.equal(error.details.attempt, events[0].attempt)
+  assert.equal(error.code, 'LOAD_TIMEOUT')
+  assert.equal(error.details.attemptNumber, events[0].attemptNumber)
   await sleep(200) // t ≈ 300 ms
   assert.deepEqual(await env.deps.slow.load(), { id: 'slow', setups: 1 })
   assert.ok(Date.now() - started < 400, 'no 200 ms backoff ran')
   assert.equal(setups(), 1, 'the timeout consumed no attempt: setup() ran once')
-  assert.deepEqual(events.map(event => event.type), ['attempt-overdue', 'late-setup-result'])
+  assert.deepEqual(events.map(event => event.type), ['attempt-overdue', 'attempt-succeeded-late'])
   await runtime.dispose()
 
   // Control: a failure consumes an attempt, the backoff runs, and the waiter is re-armed for the new attempt,
@@ -249,7 +249,7 @@ test('5. a timeout consumes no attempt and triggers no backoff (attempts 2, dela
   const controlStart = Date.now()
   const Flaky = define.service('flaky', {
     failure: { attempts: 2, delayMs: 150 },
-    setupDeadlineMs: 100,
+    loadTimeoutMs: 100,
     async setup() {
       calls += 1
       stamps.push(Date.now() - controlStart)
@@ -268,14 +268,14 @@ test('5. a timeout consumes no attempt and triggers no backoff (attempts 2, dela
   await controlRuntime.dispose()
 })
 
-test('7. a late failure of an overdue attempt follows the failure policy: sticky rejects later loads with the setup\'s own error, retry-on-next-load recovers after the cooldown; late-setup-failure is reported', async () => {
+test('7. a late failure of an overdue attempt follows the failure policy: sticky rejects later loads with the setup\'s own error, retry-on-next-load recovers after the cooldown; attempt-failed-late is reported', async () => {
   const define = makeDefine('s1-late-failure')
   const gates = { sticky: deferred(), recovering: deferred() }
   const counts = { sticky: 0, recovering: 0 }
   const events = []
   const service = (name, failure) => define.service(name, {
     failure,
-    setupDeadlineMs: 30,
+    loadTimeoutMs: 30,
     async setup(_deps, { onDispose }) {
       counts[name] += 1
       const call = counts[name]
@@ -292,21 +292,21 @@ test('7. a late failure of an overdue attempt follows the failure policy: sticky
   const Entry = define.entry('entry', { requires: { sticky: Sticky, recovering: Recovering } })
   const runtime = createRuntime({ services: [Sticky, Recovering], diagnostics: { onEvent: event => events.push(event) } })
   const env = await runtime.enter(Entry)
-  await assert.rejects(env.deps.sticky.load(), error => error.code === 'INITIALIZATION_TIMEOUT')
-  await assert.rejects(env.deps.recovering.load(), error => error.code === 'INITIALIZATION_TIMEOUT')
-  assert.deepEqual(runtime.inspect().unsettledAttempts.map(item => item.state), ['timed-out', 'timed-out'])
+  await assert.rejects(env.deps.sticky.load(), error => error.code === 'LOAD_TIMEOUT')
+  await assert.rejects(env.deps.recovering.load(), error => error.code === 'LOAD_TIMEOUT')
+  assert.deepEqual(runtime.inspect().unsettledAttempts.map(item => item.state), ['overdue', 'overdue'])
   const joined = { sticky: rejection(env.deps.sticky.load()), recovering: rejection(env.deps.recovering.load()) }
   gates.sticky.resolve()
   gates.recovering.resolve()
   assert.equal((await joined.sticky).message, 'sticky failed late', 'a waiter that joined the overdue attempt sees its failure')
   assert.equal((await joined.recovering).message, 'recovering failed late')
-  const failures = events.filter(event => event.type === 'late-setup-failure')
+  const failures = events.filter(event => event.type === 'attempt-failed-late')
   assert.deepEqual(
     failures.map(event => [event.revision, event.env, event.error.message, event.cleanupErrors]).sort(),
-    [[Recovering.key, env.id, 'recovering failed late', []], [Sticky.key, env.id, 'sticky failed late', []]],
+    [[Recovering.id, env.id, 'recovering failed late', []], [Sticky.id, env.id, 'sticky failed late', []]],
   )
   assert.deepEqual(events.filter(event => typeof event === 'string').sort(), ['cleanup:recovering:1', 'cleanup:sticky:1'], 'the failed attempts rolled back')
-  assert.equal(events.some(event => event.type === 'late-setup-result'), false)
+  assert.equal(events.some(event => event.type === 'attempt-succeeded-late'), false)
   assert.equal(nodeOf(env, Sticky).state, 'failed')
   assert.equal(nodeOf(env, Recovering).state, 'failed')
   assert.deepEqual(runtime.inspect().unsettledAttempts, [])
@@ -328,7 +328,7 @@ test('8. load({ signal: AbortSignal.timeout(20) }) is the shorter wait: LOAD_CAN
   assert.equal(error.code, 'LOAD_CANCELLED')
   assert.ok(Date.now() - started < 70, 'ended by the signal, not by the deadline or the attempt')
   const node = nodeOf(env, Slow)
-  assert.deepEqual(error.details, { slot: node.slotId, revision: Slow.key })
+  assert.deepEqual(error.details, { slot: node.slotId, revision: Slow.id })
   assert.equal(node.state, 'starting')
   assert.equal('overdueMs' in node, false)
   assert.deepEqual(events, [], 'the cancelled waiter takes its deadline with it: nothing is overdue')
@@ -344,7 +344,7 @@ test('9. a waiter that joins during a failed slot\'s recovery cooldown is armed 
   let calls = 0
   const Recovering = define.service('recovering', {
     failure: { attempts: 1, afterExhaustion: 'retry-on-next-load', cooldownMs: 100 },
-    setupDeadlineMs: 60,
+    loadTimeoutMs: 60,
     async setup() {
       calls += 1
       if (calls === 1) throw new Error('first attempt failed')
@@ -362,24 +362,24 @@ test('9. a waiter that joins during a failed slot\'s recovery cooldown is armed 
   assert.ok(Date.now() - started >= 120, 'waited through the cooldown and the attempt without timing out')
   await runtime.dispose()
 
-  // A setup waiting on a dependency is a waiter with the dependency's deadline; its INITIALIZATION_TIMEOUT is
+  // A setup waiting on a dependency is a waiter with the dependency's deadline; its LOAD_TIMEOUT is
   // the setup's own rejection, so the consumer fails while the dependency's attempt keeps running and is adopted.
   const world = makeDefine('s1-dependency-waiter')
   const events = []
-  const Dep = world.service('dep', { setupDeadlineMs: 30, async setup() { await sleep(80); return { id: 'dep' } } })
+  const Dep = world.service('dep', { loadTimeoutMs: 30, async setup() { await sleep(80); return { id: 'dep' } } })
   const Consumer = world.service('consumer', { requires: { dep: Dep }, async setup({ dep }) { return { dep: await dep.load() } } })
   const DepEntry = world.entry('entry', { requires: { consumer: Consumer, dep: Dep } })
   const depRuntime = createRuntime({ services: [Dep, Consumer], diagnostics: { onEvent: event => events.push(event.type) } })
   const depEnv = await depRuntime.enter(DepEntry)
   const failure = await rejection(depEnv.deps.consumer.load())
-  assert.equal(failure.code, 'INITIALIZATION_TIMEOUT')
-  assert.equal(failure.details.revision, Dep.key)
+  assert.equal(failure.code, 'LOAD_TIMEOUT')
+  assert.equal(failure.details.revision, Dep.id)
   assert.equal(nodeOf(depEnv, Consumer).state, 'failed', 'the consumer\'s setup rejected with its dependency wait\'s timeout')
   assert.equal(nodeOf(depEnv, Dep).state, 'starting')
-  await waitFor(() => events.includes('late-setup-result'))
+  await waitFor(() => events.includes('attempt-succeeded-late'))
   assert.equal(nodeOf(depEnv, Dep).state, 'ready', 'the dependency\'s attempt was adopted')
   assert.deepEqual(await depEnv.deps.dep.load(), { id: 'dep' })
-  assert.deepEqual(events, ['attempt-overdue', 'late-setup-result'])
+  assert.deepEqual(events, ['attempt-overdue', 'attempt-succeeded-late'])
   await depRuntime.dispose()
 })
 
@@ -392,7 +392,7 @@ test('an overdue attempt whose setup Promise is garbage-collected is closed as u
     let calls = 0
     const Stuck = define.service('stuck', {
       failure: { attempts: 1, afterExhaustion: 'retry-on-next-load', cooldownMs: 1 },
-      setupDeadlineMs: 20,
+      loadTimeoutMs: 20,
       setup(_deps, { onDispose }) {
         calls += 1
         onDispose(() => events.push('cleanup:' + calls))
@@ -416,8 +416,8 @@ test('an overdue attempt whose setup Promise is garbage-collected is closed as u
   const result = await child(['--expose-gc', '--unhandled-rejections=strict'], script)
   assert.equal(result.code, 0, `child failed:\n${result.stderr}`)
   const out = JSON.parse(result.stdout.trim().split('\n').at(-1))
-  assert.equal(out.code, 'INITIALIZATION_TIMEOUT')
-  assert.deepEqual(out.before, ['timed-out'], 'overdue and listed while the Promise is alive')
+  assert.equal(out.code, 'LOAD_TIMEOUT')
+  assert.deepEqual(out.before, ['overdue'], 'overdue and listed while the Promise is alive')
   assert.deepEqual(out.events, ['attempt-overdue', 'cleanup:1', 'attempt-unreachable'], 'closed as unreachable after its cleanup ran')
   assert.equal(out.after, 0, 'the ledger shrank')
   assert.deepEqual(out.recovered, { calls: 2 }, 'the failure path: retry-on-next-load recovered')

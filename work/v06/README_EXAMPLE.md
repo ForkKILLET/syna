@@ -72,7 +72,7 @@ import { Greeter } from './greeter.js'
 
 const runtime = createRuntime({
   services: [Greeter],
-  limits: { setupDeadlineMs: 5_000, disposalGraceMs: 1_000 },
+  limits: { loadTimeoutMs: 5_000, disposalGraceMs: 1_000 },
 })
 
 const plan = await runtime.explain(Conversation, { audience: { name: 'world' } })

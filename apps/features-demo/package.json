@@ -10,7 +10,7 @@
     "build": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@syna/core": "0.7.0"
+    "@syna/core": "0.8.0"
   },
   "syna": {
     "id": "syna-demo.features-app"
@@ -19,6 +19,6 @@
     "node": ">=22"
   },
   "devDependencies": {
-    "@syna/tsconfig": "0.7.0"
+    "@syna/tsconfig": "0.8.0"
   }
 }

@@ -113,7 +113,7 @@ D = define.service('setup-cycle-d', {
   },
 })
 const BadEntry = define.entry('bad-cycle', { requires: { c: C } })
-const badRuntime = createRuntime({ services: [C, D], limits: { setupDeadlineMs: 1_000 } })
+const badRuntime = createRuntime({ services: [C, D], limits: { loadTimeoutMs: 1_000 } })
 const badEnv = await badRuntime.enter(BadEntry)
 let waitCycleError: unknown
 try {
@@ -162,7 +162,7 @@ assert.equal(rootCounter.id, 1)
 assert.deepEqual([aSeesB, bSeesA], ['b', 'a'])
 assert.notEqual(childCounter.id, rootCounter.id)
 assert.equal(liveEnvs, 0)
-assert.equal(codeOf(waitCycleError), 'INITIALIZATION_TIMEOUT')
+assert.equal(codeOf(waitCycleError), 'LOAD_TIMEOUT')
 assert.match(messageOf(waitCycleError), /form a cycle/)
 assert.equal(codeOf(lineageError), 'LINEAGE_UNIQUENESS_CONFLICT')
 console.log('demo: OK')

@@ -136,7 +136,7 @@ test('override chains preserve the original public identity and reject cycles', 
   const env = await runtime.enter(Entry)
   assert.equal((await env.deps.value.load()).id, 'c')
   assert.equal((await env.deps.contract.load()).id, 'c')
-  assert.deepEqual(runtime.inspect().admittedServices, [A.key])
+  assert.deepEqual(runtime.inspect().admittedServices, [A.id])
   await runtime.dispose()
 
   assert.throws(

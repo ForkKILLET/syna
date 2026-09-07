@@ -103,7 +103,7 @@ test('Contract.all exposes every admitted revision and shares canonical slots', 
   const implementations = await consumer.implementations.load()
   assert.deepEqual(
     implementations.candidates.map(candidate => `${candidate.familyId}@${candidate.version}`),
-    [Other.key, Provider24.key, Provider18.key],
+    [Other.id, Provider24.id, Provider18.id],
   )
   assert.deepEqual([...implementations], implementations.candidates)
 
@@ -135,7 +135,7 @@ test('C.all CandidateRefs are exact and scoped to their own collection slot', as
   const candidate = firstSet.candidates[0]
   assert.ok(candidate)
   await assert.rejects(
-    secondSet.load(candidate.ref),
+    secondSet.load(candidate.candidateRef),
     error => error.code === 'FOREIGN_CANDIDATE_REF',
   )
   await runtime.dispose()

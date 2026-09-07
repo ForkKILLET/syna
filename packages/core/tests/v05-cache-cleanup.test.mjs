@@ -43,7 +43,7 @@ async function topology(limits) {
         const request = await site.enter(w.RequestEntry, { request: index })
         const explanation = await site.explain(w.RequestEntry, { request: index })
         observed.push(request.inspect().nodes.map(node => [node.nodeId, node.ownerEnvId === request.id ? 'owned' : node.ownerEnvId === site.id ? 'site' : 'app'].join('=')).join('|'))
-        observed.push(explanation.nodes.map(node => `${node.nodeId}:${node.disposition}`).join('|'))
+        observed.push(explanation.nodes.map(node => `${node.nodeId}:${node.placement}`).join('|'))
         await request.dispose()
       }
     }
@@ -141,7 +141,7 @@ test('R18 10,000 request/AnchoredEntry churns do not grow live Envs, plan templa
   assert.ok(after.planCache.entries <= 4, JSON.stringify(after.planCache))
   assert.ok(after.planCache.misses <= 4, JSON.stringify(after.planCache))
   assert.ok(after.planCache.hits >= 9_990)
-  assert.deepEqual(after.internalServices, baseline.internalServices)
+  assert.deepEqual(after.privateServices, baseline.privateServices)
   await runtime.dispose()
 })
 
@@ -174,10 +174,10 @@ test('R19 SCC members fork together and dispose in reverse completion order; a l
   const child = await root.enter(Child)
   const nodes = id => child.inspect().nodes.find(node => node.nodeId === id).slotId
   const rootNodes = id => root.inspect().nodes.find(node => node.nodeId === id).slotId
-  assert.notEqual(nodes(`service:${Y.key}`), rootNodes(`service:${Y.key}`))
-  assert.notEqual(nodes(`service:${X.key}`), rootNodes(`service:${X.key}`), 'the whole SCC forks')
-  assert.notEqual(nodes(`service:${User.key}`), rootNodes(`service:${User.key}`))
-  assert.equal(nodes(`service:${Late.key}`), rootNodes(`service:${Late.key}`))
+  assert.notEqual(nodes(`service:${Y.id}`), rootNodes(`service:${Y.id}`))
+  assert.notEqual(nodes(`service:${X.id}`), rootNodes(`service:${X.id}`), 'the whole SCC forks')
+  assert.notEqual(nodes(`service:${User.id}`), rootNodes(`service:${User.id}`))
+  assert.equal(nodes(`service:${Late.id}`), rootNodes(`service:${Late.id}`))
   await child.dispose()
   assert.deepEqual(events, [], 'the child owned only dormant slots')
   await root.dispose()
@@ -242,7 +242,7 @@ test('R17 plan templates are keyed by the lineage anchors: equal-shape gap Envs,
     const lineage = async anchored => {
       const app = await runtime.enter(App, { choice: anchored ? F1 : G })
       const site = await app.enter(Site, { tenant: anchored ? 'a' : 'b', choice: G })
-      return { app, site, anchorSlot: app.inspect().nodes.find(node => node.kind === 'service' && node.label.includes('/f@'))?.slotId }
+      return { app, site, pinnedSlot: app.inspect().nodes.find(node => node.kind === 'service' && node.label.includes('/f@'))?.slotId }
     }
     const observe = async ({ site, app }) => {
       const request = await site.enter(Request)
@@ -254,7 +254,7 @@ test('R17 plan templates are keyed by the lineage anchors: equal-shape gap Envs,
     return { runtime, lineage, observe }
   }
   const expected = (lineage, anchored) => (anchored
-    ? { version: '1.0.0', owner: 'app', slot: lineage.anchorSlot }
+    ? { version: '1.0.0', owner: 'app', slot: lineage.pinnedSlot }
     : { version: '2.0.0', owner: 'request' })
   const shape = ({ version, owner, slot }, anchored) => (anchored ? { version, owner, slot } : { version, owner })
 

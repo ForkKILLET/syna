@@ -35,12 +35,12 @@ test('INACTIVE_REUSE_TARGET: a fresh or share target that is not active in the p
   const runtime = createRuntime({ services: [Db, Cache, App, Other] })
   const root = await runtime.enter(Root)
   const cases = [
-    { constraint: 'fresh', reuse: { fresh: [Other] }, message: `fresh targets inactive Service Revision ${Other.key}.`, target: { revision: Other.key } },
-    { constraint: 'share', reuse: { share: [Other] }, message: `share targets inactive Service Revision ${Other.key}.`, target: { revision: Other.key } },
+    { constraint: 'fresh', reuse: { fresh: [Other] }, message: `fresh targets inactive Service Revision ${Other.id}.`, target: { revision: Other.id } },
+    { constraint: 'share', reuse: { share: [Other] }, message: `share targets inactive Service Revision ${Other.id}.`, target: { revision: Other.id } },
     { constraint: 'fresh', reuse: { fresh: [Other.family] }, message: `fresh targets inactive Service Family ${Other.family.id}.`, target: { family: Other.family.id } },
     { constraint: 'share', reuse: { share: [Other.family] }, message: `share targets inactive Service Family ${Other.family.id}.`, target: { family: Other.family.id } },
     // An active target next to the inactive one changes nothing: the inactive one is reported.
-    { constraint: 'fresh', reuse: { fresh: [Cache, Other] }, message: `fresh targets inactive Service Revision ${Other.key}.`, target: { revision: Other.key } },
+    { constraint: 'fresh', reuse: { fresh: [Cache, Other] }, message: `fresh targets inactive Service Revision ${Other.id}.`, target: { revision: Other.id } },
   ]
   for (const [index, { constraint, reuse, message, target }] of cases.entries()) {
     const expectDetails = (error, envPrefix) => {
@@ -62,7 +62,7 @@ test('INACTIVE_REUSE_TARGET: a fresh or share target that is not active in the p
     const ran = await rejection(root.run(Child, undefined, { reuse }, () => assert.fail('the callback never runs')))
     expectDetails(ran, /^env-\d+$/)
     // derive(): the same validation.
-    const derived = await rejection(root.derive(reuse))
+    const derived = await rejection(root.derive({ reuse }))
     expectDetails(derived, /^env-\d+$/)
     // The definition-time constraint of an Entry is validated the same way.
     const Constrained = define.entry(`constrained-${index}`, { requires: { app: App }, reuse })
@@ -89,8 +89,8 @@ test('INVALID_INHERITED_CHOICE: the resolution a site inherited from the parent 
   const Child = define.entry('child', { requires: { leaf: Leaf } })
   const runtime = createRuntime({ services: [F1, F2, Leaf] })
   const root = await runtime.enter(Root)
-  const site = `service:${Leaf.key}/dependency:f`
-  assert.equal(root.inspect().nodes.find(node => node.nodeId === `service:${F1.key}`)?.ownerEnvId, root.id, 'the parent chose 1.0.0 at the site')
+  const site = `service:${Leaf.id}/dependency:f`
+  assert.equal(root.inspect().nodes.find(node => node.nodeId === `service:${F1.id}`)?.ownerEnvId, root.id, 'the parent chose 1.0.0 at the site')
   // Unchanged target: a child inherits the choice and plans (its template is now cached; a cached template is not
   // re-solved, so the moved target below is observed by an Entry that has not been planned in this lineage yet).
   const same = await root.check(Same)
@@ -100,8 +100,8 @@ test('INVALID_INHERITED_CHOICE: the resolution a site inherited from the parent 
   assert.equal(checked.ok, false)
   const expectDetails = error => {
     assert.equal(error.code, 'INVALID_INHERITED_CHOICE')
-    assert.equal(error.message, `The inherited resolution ${F1.key} is no longer valid at ${site}.`)
-    assert.deepEqual(error.details, { site, selectedKey: F1.key, candidates: [F2.key] })
+    assert.equal(error.message, `The inherited resolution ${F1.id} is no longer valid at ${site}.`)
+    assert.deepEqual(error.details, { site, selectedRevision: F1.id, candidates: [F2.id] })
   }
   expectDetails(checked.error)
   const entered = await rejection(root.enter(Child))
@@ -109,13 +109,13 @@ test('INVALID_INHERITED_CHOICE: the resolution a site inherited from the parent 
   expectDetails(entered)
   // A fresh root lineage inherits nothing and plans with the moved target.
   const fresh = await runtime.enter(Child)
-  assert.equal(fresh.inspect().nodes.find(node => node.nodeId === `service:${F2.key}`)?.ownerEnvId, fresh.id)
+  assert.equal(fresh.inspect().nodes.find(node => node.nodeId === `service:${F2.id}`)?.ownerEnvId, fresh.id)
   await fresh.dispose()
   await root.dispose()
   await runtime.dispose()
 })
 
-test('FOREIGN_CANDIDATE_REF: a CandidateRef of another implementation collection, on set.load(ref) and set.load(candidate); set.resolve() takes persistent refs only', async () => {
+test('FOREIGN_CANDIDATE_REF: a CandidateRef of another implementation collection, on set.load(ref) and set.load(candidate); set.resolve() takes implementation refs only', async () => {
   const define = makeDefine('s6-foreign')
   const Capability = define.contract('capability')
   const A = makeDefine('s6-a').service({ provides: [Capability], setup: () => ({ id: 'a' }) })
@@ -128,9 +128,9 @@ test('FOREIGN_CANDIDATE_REF: a CandidateRef of another implementation collection
   const firstSet = await (await first.deps.host.load()).all.load()
   const secondSet = await (await second.deps.host.load()).all.load()
   const foreign = firstSet.candidates[0]
-  const own = secondSet.resolve(foreign.persistentRef)
+  const own = secondSet.resolve(foreign.implementationRef)
   assert.equal(own.familyId, foreign.familyId)
-  assert.notEqual(own.ref, foreign.ref)
+  assert.notEqual(own.candidateRef, foreign.candidateRef)
 
   const expectDetails = (error, expected, received) => {
     assert.ok(isSynaError(error))
@@ -143,15 +143,15 @@ test('FOREIGN_CANDIDATE_REF: a CandidateRef of another implementation collection
     if (expected !== undefined) assert.equal(error.details.expectedSourceSlot, expected)
     if (received !== undefined) assert.equal(error.details.receivedSourceSlot, received)
   }
-  const viaRef = await rejection(secondSet.load(foreign.ref))
+  const viaRef = await rejection(secondSet.load(foreign.candidateRef))
   expectDetails(viaRef)
   const { expectedSourceSlot: secondSlot, receivedSourceSlot: firstSlot } = viaRef.details
   expectDetails(await rejection(secondSet.load(foreign)), secondSlot, firstSlot)
-  assert.throws(() => secondSet.resolve(foreign.ref), { code: 'INVALID_DESCRIPTOR', message: 'resolve() expects a persistent implementation reference.' })
+  assert.throws(() => secondSet.resolve(foreign.candidateRef), { code: 'INVALID_DESCRIPTOR', message: 'resolve() expects an implementation reference.' })
   // The mirror image names the slots the other way round.
-  expectDetails(await rejection(firstSet.load(secondSet.candidates[0].ref)), firstSlot, secondSlot)
+  expectDetails(await rejection(firstSet.load(secondSet.candidates[0].candidateRef)), firstSlot, secondSlot)
   // The collection's own refs load.
-  assert.equal((await secondSet.load(own.ref)).id, own.familyId === A.family.id ? 'a' : 'b')
+  assert.equal((await secondSet.load(own.candidateRef)).id, own.familyId === A.family.id ? 'a' : 'b')
   await first.dispose()
   await second.dispose()
   await runtime.dispose()

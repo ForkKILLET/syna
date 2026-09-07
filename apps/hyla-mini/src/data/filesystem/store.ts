@@ -464,7 +464,7 @@ export function createFilesystemContentStore(rootDir: string, layout: ContentLay
 }
 
 export const FilesystemContentStore = define.service('filesystem-content-store', {
-  metadata: { displayName: 'Filesystem content store' },
+  familyMetadata: { displayName: 'Filesystem content store' },
   provides: [ContentStoreContract],
   requires: { root: ContentRoot, layout: ContentLayoutChoice },
   async setup({ root, layout }): Promise<ContentStore> {

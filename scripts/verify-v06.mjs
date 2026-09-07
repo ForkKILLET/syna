@@ -330,7 +330,7 @@ const Doubler = define.service('doubler', {
 })
 const Main = define.entry({ requires: { doubler: Doubler }, parameters: { answer: Answer } })
 const Again = define.entry('again', { requires: { doubler: Doubler }, reuse: { fresh: [Doubler] } })
-const runtime: Runtime = createRuntime({ services: [Doubler], limits: { setupDeadlineMs: 5_000, disposalGraceMs: 1_000 } })
+const runtime: Runtime = createRuntime({ services: [Doubler], limits: { loadTimeoutMs: 5_000, disposalGraceMs: 1_000 } })
 const result = await runtime.run(Main, { answer: 21 }, async ({ doubler }, env) => {
   const shared = await doubler.load()
   const anchored = env.anchor(Again)

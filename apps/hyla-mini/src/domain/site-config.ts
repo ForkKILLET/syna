@@ -1,6 +1,6 @@
 import { Ajv, type ValidateFunction } from 'ajv'
-import { LOCALES, isSafeSegment, normalizeDomain, type RecipeDocument, type SiteConfig, type SiteConfigInput } from './model.js'
-import { normalizeStoredImplementationRef, recipeDocumentSchema, storedImplementationRefSchema } from './recipe-schema.js'
+import { LOCALES, isSafeSegment, normalizeDomain, type SiteConfig, type SiteConfigInput } from './model.js'
+import { recipeDocumentSchema, storedImplementationRefSchema } from './recipe-schema.js'
 
 /**
  * Validation of site configurations at the store boundary. `input` is what a
@@ -147,21 +147,8 @@ export function parseSiteConfig(value: unknown, mode: SiteConfigMode): SiteConfi
     if (!isSafeHref(item.href)) problems.push(`/navigation/${index}/href must be a same-site path, a fragment, or an http(s)/mailto URL`)
   })
   if (problems.length > 0) throw new SiteConfigError(tenantId, mode, problems)
-  const normalized = normalizeStoredRefs(config)
-  if (mode === 'stored') return normalized
-  const { configRevision: _ignored, ...input } = normalized
+  if (mode === 'stored') return config
+  const { configRevision: _ignored, ...input } = config
   return input
 }
 
-/** Stored references in the 0.6 shape (`familyId`), whichever key the document carried. */
-function normalizeStoredRefs(config: SiteConfig): SiteConfig {
-  const recipe = (document: RecipeDocument): RecipeDocument => ({
-    ...document,
-    stages: document.stages.map(stage => ({ ...stage, ref: normalizeStoredImplementationRef(stage.ref) })),
-  })
-  return {
-    ...config,
-    recipes: { body: recipe(config.recipes.body), comment: recipe(config.recipes.comment), preview: recipe(config.recipes.preview) },
-    auth: { ...config.auth, implementation: normalizeStoredImplementationRef(config.auth.implementation) },
-  }
-}

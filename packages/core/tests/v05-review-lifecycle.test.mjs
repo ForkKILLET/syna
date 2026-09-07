@@ -85,8 +85,8 @@ test('R-1 a failed rollback is final: retry-on-next-load starts no further attem
   await runtime.dispose()
 })
 
-test('R-1 a late success after INITIALIZATION_TIMEOUT is adopted: its cleanups run at dispose(), where a throwing one is a disposal error, not a final slot', async () => {
-  // 0.7 (S1): the 0.6 case "a late cleanup that fails after INITIALIZATION_TIMEOUT makes the slot final
+test('R-1 a late success after LOAD_TIMEOUT is adopted: its cleanups run at dispose(), where a throwing one is a disposal error, not a final slot', async () => {
+  // 0.7 (S1): the 0.6 case "a late cleanup that fails after LOAD_TIMEOUT makes the slot final
   // (ROLLBACK_FAILED)" is withdrawn (docs/SEMANTIC_CHANGES_V07.md §撤回): nothing is cleaned up at adoption,
   // so no late cleanup can fail there. Rollback finality itself stays covered by the sibling R-1 test above.
   const define = makeDefine('v05.review.late-rollback')
@@ -95,7 +95,7 @@ test('R-1 a late success after INITIALIZATION_TIMEOUT is adopted: its cleanups r
   const counts = { leaky: 0, clean: 0 }
   const service = (name, cleanupThrows) => define.service(name, {
     failure: { attempts: 1, afterExhaustion: 'retry-on-next-load', cooldownMs: 1 },
-    setupDeadlineMs: 20,
+    loadTimeoutMs: 20,
     async setup(_deps, { onDispose }) {
       counts[name] += 1
       onDispose(() => {
@@ -112,19 +112,19 @@ test('R-1 a late success after INITIALIZATION_TIMEOUT is adopted: its cleanups r
   const runtime = createRuntime({ services: [Leaky, Clean], diagnostics: { onEvent: event => events.push(event) } })
   const env = await runtime.enter(Entry)
 
-  await assert.rejects(env.deps.leaky.load(), error => error.code === 'INITIALIZATION_TIMEOUT')
-  await assert.rejects(env.deps.clean.load(), error => error.code === 'INITIALIZATION_TIMEOUT')
+  await assert.rejects(env.deps.leaky.load(), error => error.code === 'LOAD_TIMEOUT')
+  await assert.rejects(env.deps.clean.load(), error => error.code === 'LOAD_TIMEOUT')
   assert.equal(runtime.inspect().unsettledAttempts.length, 2, 'overdue attempts are in the ledger while their owner lives')
-  assert.deepEqual(runtime.inspect().unsettledAttempts.map(item => item.state), ['timed-out', 'timed-out'])
+  assert.deepEqual(runtime.inspect().unsettledAttempts.map(item => item.state), ['overdue', 'overdue'])
   assert.deepEqual(
     env.inspect().nodes.filter(node => node.kind === 'service').map(node => [node.state, typeof node.overdueMs]),
     [['starting', 'number'], ['starting', 'number']],
   )
   gates.leaky.resolve()
   gates.clean.resolve()
-  await waitFor(() => events.filter(event => event.type === 'late-setup-result').length === 2)
+  await waitFor(() => events.filter(event => event.type === 'attempt-succeeded-late').length === 2)
   assert.deepEqual(
-    events.filter(event => event.type === 'late-setup-result').map(event => [event.adopted, event.cleanupErrors]),
+    events.filter(event => event.type === 'attempt-succeeded-late').map(event => [event.adopted, event.cleanupErrors]),
     [[true, []], [true, []]],
     'both adopted, nothing cleaned up',
   )
@@ -317,7 +317,7 @@ test('R-3 the bounded close ends the Runtime\'s hold on an Env: abandoned attemp
   const runtime = createRuntime({
     services: [Stuck, Big],
     limits: { disposalGraceMs: 10 },
-    diagnostics: { onEvent: event => events.push(event.type === 'attempts-outstanding' ? `attempts-outstanding:${event.attempts.length}` : event.type) },
+    diagnostics: { onEvent: event => events.push(event.type === 'runtime-attempts-outstanding' ? `runtime-attempts-outstanding:${event.attempts.length}` : event.type) },
   })
   const root = await runtime.enter(Root)
   const children = []
@@ -337,7 +337,7 @@ test('R-3 the bounded close ends the Runtime\'s hold on an Env: abandoned attemp
   assert.equal(runtime.inspect().rootEnvCount, 1)
   const ledger = runtime.inspect().unsettledAttempts
   assert.equal(ledger.length, 20)
-  assert.ok(ledger.every(item => item.state === 'abandoned' && item.revision.includes('stuck') && item.runningForMs >= 0))
+  assert.ok(ledger.every(item => item.state === 'abandoned' && item.revision.includes('stuck') && item.elapsedMs >= 0))
   assert.deepEqual([...new Set(ledger.map(item => item.env))].sort(), children.map(env => env.id).sort())
 
   // A new child of the same root is unaffected by the outstanding attempts.
@@ -359,12 +359,12 @@ test('R-3 the bounded close ends the Runtime\'s hold on an Env: abandoned attemp
   assert.ok(children.every(env => env.state === 'disposed'))
   assert.deepEqual([runtime.inspect().rootEnvCount, runtime.inspect().liveEnvCount], [0, 0])
   await runtime.dispose()
-  assert.deepEqual(events.filter(event => event.startsWith('attempts-outstanding')), ['attempts-outstanding:20'], 'runtime.dispose() fulfils and reports the ledger once instead of silently')
+  assert.deepEqual(events.filter(event => event.startsWith('runtime-attempts-outstanding')), ['runtime-attempts-outstanding:20'], 'runtime.dispose() fulfils and reports the ledger once instead of silently')
 
   for (const gate of gates) gate.resolve()
   await waitFor(() => runtime.inspect().unsettledAttempts.length === 0)
   assert.ok(children.every(env => env.state === 'disposed') && root.state === 'disposed')
-  assert.equal(events.filter(event => event === 'late-setup-result').length, 20)
+  assert.equal(events.filter(event => event === 'attempt-succeeded-late').length, 20)
   assert.equal(events.filter(event => event === 'cleanup').length, 21)
 })
 
@@ -473,9 +473,9 @@ test('R-4 the dependencies of an abandoned attempt are closed in the normal orde
   assert.equal(env.inspect().nodes.find(node => node.label.includes('slow')).state, 'abandoned')
 
   gate.resolve()
-  await waitFor(() => events.includes('late-setup-result'))
+  await waitFor(() => events.includes('attempt-succeeded-late'))
   assert.equal(lateUse, 'used after close', 'the non-cooperative setup observes the closed dependency: the Runtime cannot revoke an instance it handed out')
-  assert.deepEqual(events.slice(2), ['slow-resumed:aborted=true', 'slow-late-cleanup', 'late-setup-result'])
+  assert.deepEqual(events.slice(2), ['slow-resumed:aborted=true', 'slow-late-cleanup', 'attempt-succeeded-late'])
   assert.equal(env.state, 'disposed')
   assert.equal(runtime.inspect().unsettledAttempts.length, 0)
   await runtime.dispose()
@@ -492,7 +492,7 @@ test('R-5 a setup deadline that fires inside the disposal grace does not hide th
   const started = deferred()
   const events = []
   const Slow = define.service('slow', {
-    setupDeadlineMs: 10,
+    loadTimeoutMs: 10,
     async setup(_deps, { onDispose }) {
       onDispose(() => events.push('cleanup'))
       started.resolve()
@@ -508,7 +508,7 @@ test('R-5 a setup deadline that fires inside the disposal grace does not hide th
   await started.promise
   const closedAt = Date.now()
   await env.dispose()
-  await assert.rejects(load, error => error.code === 'INITIALIZATION_TIMEOUT')
+  await assert.rejects(load, error => error.code === 'LOAD_TIMEOUT')
   assert.ok(Date.now() - closedAt >= 390, 'the attempt got the whole grace: the waiter\'s timeout did not settle the sequence')
   assert.equal(env.state, 'disposed')
   assert.deepEqual(env.inspect().abandonedAttempts.map(item => item.state), ['abandoned'], 'the close reports the attempt that outlived it')
@@ -530,7 +530,7 @@ test('R-5 a setup deadline that fires inside the disposal grace does not hide th
   const controlGate = deferred()
   const controlEvents = []
   const SlowControl = control.service('slow', {
-    setupDeadlineMs: 10_000,
+    loadTimeoutMs: 10_000,
     async setup(_deps, { onDispose }) { onDispose(() => controlEvents.push('cleanup')); await controlGate.promise; return {} },
   })
   const ControlEntry = control.entry({ requires: { slow: SlowControl } })

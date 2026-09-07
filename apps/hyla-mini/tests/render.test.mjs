@@ -40,7 +40,7 @@ const siteConfig = (tenantId, recipes = defaultRecipes()) => ({
   theme: { name: 'paper', accent: '#3366cc' },
   navigation: [{ label: 'Home', href: '/' }],
   recipes,
-  auth: { implementation: { kind: 'persistent-implementation-ref', contractId: 'x', familyId: 'y', version: '*' }, options: {} },
+  auth: { implementation: { kind: 'implementation-ref', contractId: 'x', familyId: 'y', range: '*' }, options: {} },
   configRevision: 1,
 })
 
@@ -285,12 +285,12 @@ test('H07 recipes round-trip through JSON, resolve inside the saved version inte
   const builder = await env.deps.pipelines.load()
   const saved = parseRecipeDocument(parsed.body)
   const gfmStage = saved.stages.find(stage => stage.occurrence === 'gfm')
-  assert.equal(gfmStage.ref.version, '^0.1.0', 'saved intent is the caret of the version that authored it')
+  assert.equal(gfmStage.ref.range, '^0.1.0', 'saved intent is the caret of the version that authored it')
   const built = await builder.build(saved)
   assert.equal(built.stages.find(stage => stage.occurrence === 'gfm').resolvedVersion, '0.1.0', '^0.1.0 does not reach 0.2.0')
-  const widened = { ...saved, stages: saved.stages.map(stage => stage.occurrence === 'gfm' ? { ...stage, ref: { ...stage.ref, version: '>=0.1.0 <1' } } : stage) }
+  const widened = { ...saved, stages: saved.stages.map(stage => stage.occurrence === 'gfm' ? { ...stage, ref: { ...stage.ref, range: '>=0.1.0 <1' } } : stage) }
   assert.equal((await builder.build(widened)).stages.find(stage => stage.occurrence === 'gfm').resolvedVersion, '0.2.0', 'a user range that admits the upgrade resolves to it')
-  assert.deepEqual(runtime.catalog.revisions(RemarkGfmFactory.family.id), ['0.2.0', '0.1.0'])
+  assert.deepEqual(runtime.catalog.revisions(RemarkGfmFactory.family), ['0.2.0', '0.1.0'])
   assert.equal(gfmStage.ref.familyId, RemarkGfmFactory.family.id, 'exported names carry no version')
   await runtime.dispose()
 

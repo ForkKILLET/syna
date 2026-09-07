@@ -270,11 +270,11 @@ export class DefinitionCompiler {
       if (!isServiceRevision(item.from) || !isServiceRevision(item.to)) {
         throw new SynaError('INVALID_DESCRIPTOR', 'override() expects two ServiceRevision descriptors.', { descriptor: 'ServiceOverride', problem: 'not-service-revisions' })
       }
-      if (item.from.key === item.to.key) {
+      if (item.from.id === item.to.id) {
         throw new SynaError(
           'INVALID_DESCRIPTOR',
-          `Service ${item.from.key} cannot override itself.`,
-          { descriptor: item.from.key, problem: 'self-override' },
+          `Service ${item.from.id} cannot override itself.`,
+          { descriptor: item.from.id, problem: 'self-override' },
         )
       }
       this.collectInternalRevision(item.to)
@@ -282,12 +282,12 @@ export class DefinitionCompiler {
 
     const targets = new Map<string, ServiceRevision>()
     for (const item of overrides) {
-      const source = this.internalSources.get(item.from.key)
+      const source = this.internalSources.get(item.from.id)
       if (!source) {
         throw new SynaError(
           'MISSING_SERVICE',
-          `Override source ${item.from.key} is not known to this Runtime.`,
-          { revision: item.from.key },
+          `Override source ${item.from.id} is not known to this Runtime.`,
+          { revision: item.from.id },
         )
       }
       this.recordDefinitionWarning(assertEquivalentRevisionDefinitions(source, item.from))
@@ -298,7 +298,7 @@ export class DefinitionCompiler {
           { revision: source.id },
         )
       }
-      const target = this.internalSources.get(item.to.key)!
+      const target = this.internalSources.get(item.to.id)!
       this.recordDefinitionWarning(assertEquivalentRevisionDefinitions(target, item.to))
       targets.set(source.id, target)
     }

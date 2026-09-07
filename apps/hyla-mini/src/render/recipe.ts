@@ -1,6 +1,6 @@
 import { Ajv, type ValidateFunction } from 'ajv'
 import type { RecipeDocument, RecipeStage, StoredImplementationRef } from '../domain/model.js'
-import { RECIPE_FORMAT_VERSION, normalizeStoredImplementationRef, recipeDocumentSchema } from '../domain/recipe-schema.js'
+import { RECIPE_FORMAT_VERSION, recipeDocumentSchema } from '../domain/recipe-schema.js'
 import type { ServiceRevision } from '@syna/core'
 import { StageFactoryRef, type MarkdownStageFactory } from './stages.js'
 import {
@@ -44,8 +44,7 @@ export function parseRecipeDocument(input: unknown): RecipeDocument {
     }
     seen.add(stage.occurrence)
   }
-  // Stage refs in the 0.6 shape (`familyId`), whichever key the document carried.
-  return { ...document, stages: document.stages.map(stage => ({ ...stage, ref: normalizeStoredImplementationRef(stage.ref) })) }
+  return document
 }
 
 /** Compiles a JSON schema once per factory and validates/defaults options. */

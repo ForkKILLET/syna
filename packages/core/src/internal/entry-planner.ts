@@ -17,6 +17,7 @@ import type {
   ServiceRevision,
 } from '../descriptors.js'
 import { SynaError } from '../errors.js'
+import { isWellFormedImplementationRef } from '../definition.js'
 import { satisfiesVersion } from '../semver.js'
 import { DefinitionCompiler } from './definition-compiler.js'
 import { GraphBuilder, type GraphBuilderHost } from './graph-builder.js'
@@ -951,6 +952,9 @@ export class EntryPlanner implements GraphBuilderHost {
     else {
       if (typeof assignment !== 'object' || assignment === null || assignment.kind !== 'implementation-ref') {
         throw new SynaError('INVALID_DESCRIPTOR', `Invalid assignment for Binding ${binding.id}.`, { descriptor: binding.id, problem: 'invalid-assignment' })
+      }
+      if (!isWellFormedImplementationRef(assignment)) {
+        throw new SynaError('INVALID_DESCRIPTOR', `Malformed implementation reference assigned to Binding ${binding.id}.`, { descriptor: 'ImplementationRef', problem: 'malformed-implementation-ref' })
       }
       if (assignment.contractId !== binding.contract.id) {
         throw new SynaError(

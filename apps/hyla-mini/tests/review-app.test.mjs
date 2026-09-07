@@ -317,7 +317,7 @@ test('R-2/R-3 close() returns attempts that never settled and disposal errors in
   assert.match(report.unsettledAttempts[0].revision, /stubborn/)
   assert.equal(report.unsettledAttempts[0].state, 'abandoned')
   assert.deepEqual(report.errors, [], 'the outstanding attempt is reported in unsettledAttempts, not as an error')
-  assert.deepEqual(events.filter(type => type === 'attempt-abandoned' || type === 'attempts-outstanding'), ['attempt-abandoned', 'attempts-outstanding'], 'the Runtime reported the outstanding attempt once when it closed')
+  assert.deepEqual(events.filter(type => type === 'attempt-abandoned' || type === 'runtime-attempts-outstanding'), ['attempt-abandoned', 'runtime-attempts-outstanding'], 'the Runtime reported the outstanding attempt once when it closed')
   assert.equal(harness.app.runtime.inspect().liveEnvCount, 0, 'no Env is retained: the closed SiteEnv left the registries')
   assert.ok((await acquiring) instanceof Error)
 

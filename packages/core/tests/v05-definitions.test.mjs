@@ -30,20 +30,20 @@ test('R01 Binding.to resolves 0.2.x, 0.0.x and ordinary 2.x providers and never 
     await env.dispose()
     return value.v
   }
-  assert.equal(Choice.to(Zero20).version, '^0.2.0')
+  assert.equal(Choice.to(Zero20).range, '^0.2.0')
   assert.equal(await resolve(Choice.to(Zero20)), '0.2.3', 'highest compatible 0.2.x, never 0.1.0')
-  assert.equal(Choice.to(Tiny5).version, '^0.0.5')
+  assert.equal(Choice.to(Tiny5).range, '^0.0.5')
   assert.equal(await resolve(Choice.to(Tiny5)), '0.0.5', '^0.0.5 is exactly 0.0.5')
   assert.equal(await resolve(Choice.to(Two40)), '2.4.9', 'never 3.0.0')
   assert.equal(await resolve(Choice.to(Two40, '2.4.0')), '2.4.0')
   assert.equal(await resolve(Choice.to(Two40, '>=2.4.5 <4')), '3.0.0')
   await assert.rejects(resolve(Choice.to(Two40, '^4')), error => error.code === 'MISSING_IMPLEMENTATION')
   assert.throws(() => Choice.to(Two40, 'nonsense range'), /not a valid semver range/)
-  assert.deepEqual(runtime.catalog.revisions(Two40.family.id), ['3.0.0', '2.4.9', '2.4.0'])
+  assert.deepEqual(runtime.catalog.revisions(Two40.family), ['3.0.0', '2.4.9', '2.4.0'])
   await runtime.dispose()
 })
 
-test('R01 persistent refs: no target family means an explicit failure, never a supplier substitution; upgrades resolve inside the intent', () => {
+test('R01 implementation refs: no target family means an explicit failure, never a supplier substitution; upgrades resolve inside the intent', () => {
   const define = makeDefine('v05.persistent')
   const Capability = define.contract()
   const Choice = define.binding('choice', Capability)
@@ -60,14 +60,16 @@ test('R01 persistent refs: no target family means an explicit failure, never a s
   const breaking = createRuntime({ services: [Major2] })
   assert.throws(() => breaking.catalog.resolve(Choice.parse(saved)), error =>
     error.code === 'MISSING_IMPLEMENTATION' && error.details.available.includes('2.0.0'))
-  assert.throws(() => Choice.parse({ kind: 'persistent-implementation-ref', contractId: 'wrong', familyId: 'x', version: '*' }), TypeError)
+  // 0.8 (F9): another Contract's id is refused by parse() with INVALID_DESCRIPTOR, not a TypeError.
+  assert.throws(() => Choice.parse({ kind: 'implementation-ref', contractId: 'wrong', familyId: 'x', range: '*' }),
+    { code: 'INVALID_DESCRIPTOR', details: { descriptor: 'ImplementationRef', problem: 'malformed-implementation-ref' } })
 })
 
 test('R20 exported names stay stable, package version is injected, descriptor apiVersion is independent of package major, physical duplicates canonicalize', async () => {
   const manifest = { name: '@vendor/storage', version: '3.7.1', description: 'Storage', extra: { ignored: true }, syna: { id: 'vendor.storage' } }
   const define = definePackage(manifest)
   const Storage = define.service('storage', { setup: () => ({}) })
-  assert.equal(Storage.key, 'vendor.storage/storage@3.7.1')
+  assert.equal(Storage.id, 'vendor.storage/storage@3.7.1')
   assert.equal(Storage.version, '3.7.1')
   assert.equal(define.package.metadata.description, 'Storage')
   const Config = define.input('config')
@@ -85,7 +87,7 @@ test('R20 exported names stay stable, package version is injected, descriptor ap
   const copyB = definePackage(manifest).service('storage', { setup: () => ({ copy: 'same' }) })
   const Entry = define.entry({ requires: { storage: copyB } })
   const runtime = createRuntime({ services: [copyA, copyB] })
-  assert.deepEqual(runtime.inspect().admittedServices, [copyA.key])
+  assert.deepEqual(runtime.inspect().admittedServices, [copyA.id])
   const env = await runtime.enter(Entry)
   assert.equal((await env.deps.storage.load()).copy, 'same')
   await runtime.dispose()
@@ -109,7 +111,7 @@ test('K01 Runtime construction is closed and inert: no Env, slot or instance; un
   assert.equal(runtime.inspect().rootEnvCount, 0)
   assert.equal(runtime.inspect().liveEnvCount, 0)
   await assert.rejects(runtime.enter(define.entry('stranger', { requires: { stranger: Stranger } })), error => error.code === 'MISSING_SERVICE')
-  assert.throws(() => createRuntime({ services: [Eager], limits: { setupDeadlineMs: -1 } }), TypeError)
+  assert.throws(() => createRuntime({ services: [Eager], limits: { loadTimeoutMs: -1 } }), TypeError)
   assert.throws(() => createRuntime({ services: [Eager], limits: { planningBudget: 0 } }), TypeError)
   assert.throws(() => createRuntime({ services: [Eager], limits: { planCacheEntries: 0 } }), TypeError)
   assert.throws(() => createRuntime({ services: [{ kind: 'nope' }] }), error => error.code === 'INVALID_DESCRIPTOR')

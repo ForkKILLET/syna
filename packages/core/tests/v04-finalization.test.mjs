@@ -68,8 +68,8 @@ test('private Entry realms expose declared exact roots but do not discover priva
   assert.equal(strict.error.code, 'MISSING_IMPLEMENTATION')
   assert.equal(automatic.ok, false)
   assert.equal(automatic.error.code, 'MISSING_IMPLEMENTATION')
-  assert.ok(runtime.inspect().internalServices.includes(PrivateProvider.key))
-  assert.ok(!runtime.inspect().admittedServices.includes(PrivateProvider.key))
+  assert.ok(runtime.inspect().privateServices.includes(PrivateProvider.id))
+  assert.ok(!runtime.inspect().admittedServices.includes(PrivateProvider.id))
   await runtime.dispose()
 })
 

@@ -199,9 +199,9 @@ test('definition override preserves source admission identity across exact, Cont
   })
 
   assert.deepEqual(runtime.inspect().admittedServices, [
-    ExactConsumer.key,
-    ContractConsumer.key,
-    Real.key,
+    ExactConsumer.id,
+    ContractConsumer.id,
+    Real.id,
   ].sort())
   assert.equal(runtime.catalog.implementations(Db).length, 1)
   assert.equal(runtime.catalog.implementations(Db)[0].familyId, Real.family.id)
@@ -217,8 +217,8 @@ test('definition override preserves source admission identity across exact, Cont
 
   const fresh = await root.enter(Fresh)
   assert.notEqual(
-    root.inspect().nodes.find(node => node.nodeId === `service:${Real.key}`)?.slotId,
-    fresh.inspect().nodes.find(node => node.nodeId === `service:${Real.key}`)?.slotId,
+    root.inspect().nodes.find(node => node.nodeId === `service:${Real.id}`)?.slotId,
+    fresh.inspect().nodes.find(node => node.nodeId === `service:${Real.id}`)?.slotId,
   )
   await runtime.dispose()
 })
@@ -245,8 +245,8 @@ test('a Service-owned Entry may resolve exact private roots without exposing the
   const Root = define.entry({ requires: { uow: UnitOfWork } })
   const runtime = createRuntime({ services: [UnitOfWork] })
 
-  assert.deepEqual(runtime.inspect().admittedServices, [UnitOfWork.key])
-  assert.ok(runtime.inspect().internalServices.includes(Transaction.key))
+  assert.deepEqual(runtime.inspect().admittedServices, [UnitOfWork.id])
+  assert.ok(runtime.inspect().privateServices.includes(Transaction.id))
   const env = await runtime.enter(Root)
   assert.equal(await (await env.deps.uow.load()).run(), 'private-transaction')
   await runtime.dispose()

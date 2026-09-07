@@ -250,7 +250,8 @@ function migrateFile(sourceFile, checker) {
     } else if (name === 'maxEntries') { // F11 planCache.maxEntries → limit
       if (lastName(receiver) === 'planCache') rename('limit', 'F11')
     } else if (name === 'attempt') { // F15 attempt (events, ledger, details) → attemptNumber
-      const typed = typedWith(receiver, 'attempt', 'slot', 'revision')
+      // Typed with the 0.7 shape, or — the usual case, the codemod runs after the upgrade — with the 0.8 shape of the same record.
+      const typed = typedWith(receiver, 'attempt', 'slot', 'revision') === true || typedWith(receiver, 'attemptNumber', 'slot', 'revision')
       const heuristic = lastName(receiver) === 'details' || /event/i.test(lastName(receiver))
       if (typed === true || (typed === undefined && heuristic)) rename('attemptNumber', 'F15')
     }
@@ -341,7 +342,7 @@ function migrateFile(sourceFile, checker) {
     if (!source) return
     if (node.name.text === 'key' && typedAs(source, 'ServiceRevision') === true) edit(node.name.getStart(sourceFile), node.name.getEnd(), 'id: key', 'F1')
     if (node.name.text === 'attempt') {
-      const typed = typedWith(source, 'attempt', 'slot', 'revision')
+      const typed = typedWith(source, 'attempt', 'slot', 'revision') === true || typedWith(source, 'attemptNumber', 'slot', 'revision')
       if (typed === true || (typed === undefined && ts.isVariableDeclaration(declaration) && (lastName(declaration.initializer) === 'details' || /event/i.test(lastName(declaration.initializer))))) edit(node.name.getStart(sourceFile), node.name.getEnd(), 'attemptNumber: attempt', 'F15')
     }
   }

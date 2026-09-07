@@ -377,7 +377,7 @@ export function createPostgresContentStore(pool: DatabasePool): ContentStore {
 }
 
 export const PostgresContentStore = define.service('postgres-content-store', {
-  metadata: { displayName: 'PostgreSQL content store' },
+  familyMetadata: { displayName: 'PostgreSQL content store' },
   provides: [ContentStoreContract],
   requires: { pool: DatabasePool },
   async setup({ pool }): Promise<ContentStore> {

@@ -38,7 +38,7 @@ test('F-PL-01 dispose() of a non-cooperative setup is bounded by limits.disposal
   const Entry = define.entry({ requires: { stuck: Stuck } })
   const runtime = createRuntime({
     services: [Stuck],
-    limits: { setupDeadlineMs: 5_000, disposalGraceMs: 40 },
+    limits: { loadTimeoutMs: 5_000, disposalGraceMs: 40 },
   })
   const env = await runtime.enter(Entry)
   void env.deps.stuck.load().catch(() => undefined)
@@ -52,9 +52,9 @@ test('F-PL-01 dispose() of a non-cooperative setup is bounded by limits.disposal
   await runtime.dispose()
 })
 
-test('F-PL-01 setupDeadlineMs: Infinity cannot turn a stuck setup into a hanging dispose(), enter() or run()', async () => {
+test('F-PL-01 loadTimeoutMs: Infinity cannot turn a stuck setup into a hanging dispose(), enter() or run()', async () => {
   const define = makeDefine('v05.audit.infinite')
-  const Stuck = define.service('stuck', { setupDeadlineMs: Infinity, setup: never })
+  const Stuck = define.service('stuck', { loadTimeoutMs: Infinity, setup: never })
   const Eager = define.service('eager', {
     eager: true,
     requires: { stuck: Stuck },
@@ -114,7 +114,7 @@ test('F-PL-02 onDispose() registered after the deadline passed belongs to the ad
   const resource = { closed: false }
   const events = []
   const Slow = define.service({
-    setupDeadlineMs: 20,
+    loadTimeoutMs: 20,
     async setup(_deps, { onDispose }) {
       await gate.promise
       onDispose(() => { resource.closed = true })
@@ -127,16 +127,16 @@ test('F-PL-02 onDispose() registered after the deadline passed belongs to the ad
     diagnostics: { onEvent: event => events.push(event) },
   })
   const env = await runtime.enter(Entry)
-  await assert.rejects(env.deps.slow.load(), error => error.code === 'INITIALIZATION_TIMEOUT')
+  await assert.rejects(env.deps.slow.load(), error => error.code === 'LOAD_TIMEOUT')
   gate.resolve()
   await sleep(10)
   assert.equal(resource.closed, false, 'the late-acquired resource is the live instance, not an orphan')
   assert.strictEqual(await env.deps.slow.load(), resource)
-  const late = events.find(event => event.type === 'late-setup-result')
+  const late = events.find(event => event.type === 'attempt-succeeded-late')
   assert.ok(late, 'late result reported as a result, not as a runtime-injected failure')
   assert.equal(late.adopted, true)
   assert.deepEqual(late.cleanupErrors, [])
-  assert.equal(events.some(event => event.type === 'late-setup-failure'), false)
+  assert.equal(events.some(event => event.type === 'attempt-failed-late'), false)
   await runtime.dispose()
   assert.equal(resource.closed, true, 'released by disposal')
 })
@@ -246,7 +246,7 @@ test('F-PL-04 an Env whose close abandoned an attempt is disposed and uncounted;
   const gate = deferred()
   const events = []
   const Slow = define.service({
-    setupDeadlineMs: 20,
+    loadTimeoutMs: 20,
     async setup(_deps, { onDispose }) {
       onDispose(() => events.push('cleanup'))
       await gate.promise
@@ -260,7 +260,7 @@ test('F-PL-04 an Env whose close abandoned an attempt is disposed and uncounted;
     diagnostics: { onEvent: event => events.push(event.type) },
   })
   const env = await runtime.enter(Entry)
-  await assert.rejects(env.deps.slow.load(), error => error.code === 'INITIALIZATION_TIMEOUT')
+  await assert.rejects(env.deps.slow.load(), error => error.code === 'LOAD_TIMEOUT')
   // 0.7 (S2): the 0.6 assertions "dispose() rejects with the unsettled-attempt code" and "state stays
   // 'disposing' until the late result is cleaned up" are withdrawn (docs/SEMANTIC_CHANGES_V07.md §撤回).
   await env.dispose()
@@ -283,7 +283,7 @@ test('F-PL-04 an Env whose close abandoned an attempt is disposed and uncounted;
   assert.match(outstanding.revision, /honest-state/)
   await runtime.dispose()
   // runtime.dispose() fulfils and reports the outstanding attempt from the ledger once, as a diagnostic.
-  assert.deepEqual(events.filter(event => event !== 'cleanup'), ['attempt-overdue', 'attempt-abandoned', 'attempts-outstanding'])
+  assert.deepEqual(events.filter(event => event !== 'cleanup'), ['attempt-overdue', 'attempt-abandoned', 'runtime-attempts-outstanding'])
 
   gate.resolve()
   await sleep(10)
@@ -291,7 +291,7 @@ test('F-PL-04 an Env whose close abandoned an attempt is disposed and uncounted;
   assert.equal(env.inspect().nodes[0].state, 'disposed')
   assert.deepEqual(env.inspect().abandonedAttempts, [])
   // 0.7 (S1): the waiter's timeout marked the attempt overdue before the close abandoned it.
-  assert.deepEqual(events.filter(event => event !== 'cleanup'), ['attempt-overdue', 'attempt-abandoned', 'attempts-outstanding', 'late-setup-result'])
+  assert.deepEqual(events.filter(event => event !== 'cleanup'), ['attempt-overdue', 'attempt-abandoned', 'runtime-attempts-outstanding', 'attempt-succeeded-late'])
   assert.ok(events.includes('cleanup'))
   assert.equal(runtime.inspect().liveEnvCount, 0)
   assert.equal(runtime.inspect().unsettledAttempts.length, 0)

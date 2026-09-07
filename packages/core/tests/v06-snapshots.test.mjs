@@ -1,8 +1,8 @@
-// syna-v05-compat: the recorded 0.5 data spells the 0.5 serialized key of implementation references; RENAMED maps it.
-// Zero-semantics guard for the v0.6 API consolidation (A03): the check/explain/inspect/catalog output and the
-// error diagnostics of one fixed world, recorded on 0.5.0 (snapshots/v05-explain-inspect.json) before the first
-// rename. A rename commit may add an entry to RENAMED (the field or value it renames); the recorded data itself
-// never changes. Re-record only for a new baseline: SYNA_UPDATE_SNAPSHOTS=1 node --test packages/core/tests/v06-snapshots.test.mjs
+// Zero-semantics guard for the v0.6 API consolidation (A03), kept through 0.7 and the 0.8 rename: the
+// check/explain/inspect/catalog output and the error diagnostics of one fixed world, recorded on 0.5.0
+// (snapshots/v05-explain-inspect.json) before the first rename. A rename commit adds its entry to the mapping
+// (snapshots/v05-renames.json: the key, value or addition it introduces); the recorded data itself never changes.
+// Re-record only for a new baseline: SYNA_UPDATE_SNAPSHOTS=1 node --test packages/core/tests/v06-snapshots.test.mjs
 import assert from 'node:assert/strict'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
@@ -13,42 +13,34 @@ import { auto, createRuntime, definePackage } from '../dist/index.js'
 const here = path.dirname(fileURLToPath(import.meta.url))
 const snapshotFile = path.join(here, 'snapshots/v05-explain-inspect.json')
 
-// Fields and values renamed since 0.5.0, applied to the recorded data before the comparison.
-//   keys:   { from, to, within? }  rename an object key (only inside objects whose `kind` equals `within` when given)
-//   values: { key, from, to }      replace the value of `key` when it equals `from`
-const RENAMED = {
-  keys: [
-    // R5: ImplementationRef.familyId (serialized key) replaces implementationId
-    { from: 'implementationId', to: 'familyId', within: 'persistent-implementation-ref' },
-  ],
-  values: [
-    // M3 (0.6): the error code CONSTRAINT_VIOLATION became FRESH_CONSTRAINT_FAILED; S6 (0.7): the two recorded sites
-    // (an inactive `fresh` target) are INACTIVE_REUSE_TARGET (same trigger conditions, same message).
-    { key: 'code', from: 'CONSTRAINT_VIOLATION', to: 'INACTIVE_REUSE_TARGET' },
-    { key: 'pickerRefJson', from: '{"kind":"persistent-implementation-ref","contractId":"snap/storage/v1","implementationId":"snap-memory","version":"^1.0.0"}', to: '{"kind":"persistent-implementation-ref","contractId":"snap/storage/v1","familyId":"snap-memory","version":"^1.0.0"}' },
-  ],
-}
+// The mapping from the recorded 0.5 data to the current names (data, next to the record), applied before the comparison:
+//   keys:   { from, to, within?, whenHasKey? }   rename an object key (inside objects whose `kind` equals `within`, or
+//                                                that carry `whenHasKey`, when given)
+//   values: { key, from, to }                    replace the value of `key` when it equals `from`
+//   added:  { whenEquals?, whenHasKeys?, key, value | merge }   set (or merge into) `key` on every recorded object the
+//                                                predicates accept, after the renames
+const MAPPING = JSON.parse(readFileSync(path.join(here, 'snapshots/v05-renames.json'), 'utf8'))
 
-// Fields added since 0.5.0 — { when(recorded object), key, value(current mapped value) } — set on every recorded
-// object `when` accepts, after the renames.
-const ADDED = [
-  // S6 (0.7): INACTIVE_REUSE_TARGET details carry the constraint kind; every recorded case is a `fresh` target.
-  { when: object => object.code === 'CONSTRAINT_VIOLATION' && typeof object.details === 'object', key: 'details', value: details => ({ constraint: 'fresh', ...details }) },
-  // S2 (0.7): env.inspect() lists the attempts its close left behind; every recorded Env is open or closed cleanly.
-  { when: object => typeof object.id === 'string' && typeof object.state === 'string' && Array.isArray(object.nodes), key: 'abandonedAttempts', value: () => [] },
-]
+const accepts = (object, added) =>
+  (added.whenEquals === undefined || Object.entries(added.whenEquals).every(([key, value]) => object[key] === value))
+  && (added.whenHasKeys === undefined || added.whenHasKeys.every(key => key in object))
 
 const applyRenames = value => {
   if (Array.isArray(value)) return value.map(applyRenames)
   if (value === null || typeof value !== 'object') return value
   const out = {}
   for (const [key, inner] of Object.entries(value)) {
-    const rename = RENAMED.keys.find(entry => entry.from === key && (entry.within === undefined || value.kind === entry.within))
+    const rename = MAPPING.keys.find(entry => entry.from === key
+      && (entry.within === undefined || value.kind === entry.within)
+      && (entry.whenHasKey === undefined || entry.whenHasKey in value))
     const target = rename ? rename.to : key
-    const replaced = RENAMED.values.find(entry => entry.key === key && entry.from === inner)
+    const replaced = MAPPING.values.find(entry => entry.key === key && entry.from === inner)
     out[target] = replaced ? replaced.to : applyRenames(inner)
   }
-  for (const added of ADDED) if (added.when(value)) out[added.key] = added.value(out[added.key])
+  for (const added of MAPPING.added) {
+    if (!accepts(value, added)) continue
+    out[added.key] = 'merge' in added ? { ...added.merge, ...out[added.key] } : structuredClone(added.value)
+  }
   return out
 }
 
@@ -57,7 +49,10 @@ const DESCRIPTOR_KINDS = new Set(['contract', 'input', 'binding', 'service-famil
 const plain = (value, seen = new Set()) => {
   if (Array.isArray(value)) return value.map(item => plain(item, seen))
   if (value === null || typeof value !== 'object') return typeof value === 'function' ? '[function]' : value
-  if (typeof value.kind === 'string' && DESCRIPTOR_KINDS.has(value.kind)) return { $descriptor: value.kind, id: value.id ?? value.key ?? value.contract?.id ?? value.family?.id ?? null }
+  // Recorded on 0.5: every object whose `kind` is a descriptor kind is collapsed (a binding / input / entry node included); the
+  // collection node was recorded in full because its kind was `all` then — since 0.8 it shares `all-implementations` with `C.all`
+  // and is told apart by its `nodeId`.
+  if (typeof value.kind === 'string' && DESCRIPTOR_KINDS.has(value.kind) && !(value.kind === 'all-implementations' && 'nodeId' in value)) return { $descriptor: value.kind, id: value.id ?? value.contract?.id ?? value.family?.id ?? null }
   if (seen.has(value)) return '[circular]'
   seen.add(value)
   const out = {}
@@ -119,7 +114,7 @@ const recordWorld = async () => {
   record.inspectInitial = runtime.inspect()
   record.catalogStorage = runtime.catalog.implementations(Storage)
   record.catalogPlugin = runtime.catalog.implementations(Plugin)
-  record.revisionsDb = runtime.catalog.revisions('snap-db')
+  record.revisionsDb = runtime.catalog.revisions(Db1.family)
   const ref = Picker.to(Memory)
   record.pickerRef = ref
   record.pickerRefJson = JSON.stringify(ref)
@@ -141,13 +136,13 @@ const recordWorld = async () => {
   record.childInspect = child.inspect()
   record.inspectLive = runtime.inspect()
   record.errors = {
-    deriveFreshInactive: await capture(() => root.derive({ fresh: [Db2] })),
-    deriveShareForked: await capture(() => root.derive({ fresh: [Db1], share: [Cache] })),
-    deriveFreshDb: await capture(() => root.derive({ fresh: [Db1] })),
+    deriveFreshInactive: await capture(() => root.derive({ reuse: { fresh: [Db2] } })),
+    deriveShareForked: await capture(() => root.derive({ reuse: { fresh: [Db1], share: [Cache] } })),
+    deriveFreshDb: await capture(() => root.derive({ reuse: { fresh: [Db1] } })),
     enterMissingBinding: await capture(() => runtime.enter(Root, { tenant: { id: 't2' }, flag: true })),
     enterMissingInput: await capture(() => runtime.enter(Root, { picker: ref })),
     chooserWithoutPolicy: await capture(() => runtime.enter(Chooser)),
-    parseWithoutId: await capture(() => Picker.parse({ kind: 'persistent-implementation-ref', contractId: Storage.id, version: '1.0.0' })),
+    parseWithoutId: await capture(() => Picker.parse({ kind: 'implementation-ref', contractId: Storage.id, range: '1.0.0' })),
     parseForeignContract: await capture(() => Picker.parse({ ...JSON.parse(JSON.stringify(ref)), contractId: Plugin.id })),
     resolveUnavailable: await capture(() => runtime.catalog.resolve(Picker.to(Memory, '^9.0.0'))),
     enterUnavailable: await capture(() => runtime.enter(Root, { ...rootArgs, picker: Picker.to(Memory, '^9.0.0') })),

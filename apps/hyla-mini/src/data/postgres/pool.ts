@@ -141,7 +141,7 @@ function nonNegativeInteger(value: unknown, fallback: number, what: string): num
 const sleep = (ms: number): Promise<void> => new Promise(resolve => setTimeout(resolve, ms))
 
 export const DatabasePool = define.service('database-pool', {
-  metadata: {
+  familyMetadata: {
     displayName: 'PostgreSQL pool',
     description: 'One pg.Pool per deployment, pinned to the configured schema via search_path.',
   },

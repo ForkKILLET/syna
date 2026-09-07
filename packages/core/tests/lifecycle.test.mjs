@@ -44,15 +44,15 @@ test('structural cycles are legal after setup; pending setup wait cycles hit the
     async setup({ c }) { await c.load(); return {} },
   })
   const BadEntry = define.entry('bad', { requires: { c: C } })
-  const badRuntime = createRuntime({ services: [C, D], limits: { setupDeadlineMs: 40 } })
+  const badRuntime = createRuntime({ services: [C, D], limits: { loadTimeoutMs: 40 } })
   const badEnv = await badRuntime.enter(BadEntry)
   await assert.rejects(badEnv.deps.c.load(), error => {
-    assert.equal(error.code, 'INITIALIZATION_TIMEOUT')
+    assert.equal(error.code, 'LOAD_TIMEOUT')
     // Whichever attempt's deadline fires first reports the cycle from its own slot.
     const cycle = error.details.suspectedWaitCycle
     assert.equal(cycle.length, 3)
     assert.equal(cycle[0], cycle[2])
-    assert.deepEqual(new Set(cycle), new Set([C.key, D.key]))
+    assert.deepEqual(new Set(cycle), new Set([C.id, D.id]))
     assert.match(error.message, /observation, not a proof/)
     return true
   })
@@ -244,8 +244,8 @@ test('a setup that waits for a collection member which waits back on it hits the
     async setup({ manager }) { await manager.load(); return {} },
   })
   const Entry = define.entry({ requires: { manager: Manager } })
-  const runtime = createRuntime({ services: [Manager, Candidate], limits: { setupDeadlineMs: 40 } })
+  const runtime = createRuntime({ services: [Manager, Candidate], limits: { loadTimeoutMs: 40 } })
   const env = await runtime.enter(Entry)
-  await assert.rejects(env.deps.manager.load(), error => error.code === 'INITIALIZATION_TIMEOUT')
+  await assert.rejects(env.deps.manager.load(), error => error.code === 'LOAD_TIMEOUT')
   await env.dispose()
 })

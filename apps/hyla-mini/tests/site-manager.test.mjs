@@ -133,7 +133,7 @@ test('H10 a cold creation failure leaves no poisoned single-flight promise and b
     await repository.saveSiteConfig({
       tenantId: 'broken', title: 'Broken', domains: ['broken.test'], defaultLocale: 'en', theme: { name: 'paper', accent: '#000' }, navigation: [],
       recipes: defaultRecipes(),
-      auth: { implementation: { kind: 'persistent-implementation-ref', contractId: SiteAuth.contract.id, familyId: 'hyla.mini/signed-token-auth', version: '*' }, options: {} },
+      auth: { implementation: { kind: 'implementation-ref', contractId: SiteAuth.contract.id, familyId: 'hyla.mini/signed-token-auth', range: '*' }, options: {} },
     })
     await assert.rejects(manager.acquire('broken', 'request'), /secret/)
     assert.equal(manager.stats().creationFailures, 1)

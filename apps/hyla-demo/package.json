@@ -10,7 +10,7 @@
     "build": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@syna/core": "0.7.0",
+    "@syna/core": "0.8.0",
     "@syna-demo/hyla": "1.0.0",
     "@syna-demo/llm-contract": "1.0.0",
     "@syna-demo/logger": "1.1.0",
@@ -26,6 +26,6 @@
     "node": ">=22"
   },
   "devDependencies": {
-    "@syna/tsconfig": "0.7.0"
+    "@syna/tsconfig": "0.8.0"
   }
 }

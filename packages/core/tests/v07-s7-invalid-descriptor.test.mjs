@@ -1,5 +1,5 @@
 // v0.7 (Phase C, S7): INVALID_DESCRIPTOR keeps one code and gets one `details` shape,
-// `{ descriptor, problem, site?, path? }`, at every one of its 28 throw sites. `problem` is a token of a closed
+// `{ descriptor, problem, site?, path? }`, at every one of its 36 throw sites (28 in 0.7; 0.8 added six by the read-path shape check and two by the catalog.revisions() argument check). `problem` is a token of a closed
 // vocabulary; `descriptor` names the expected kind, the option, or the offending id / key. Messages are the
 // 0.6 ones. The table below has one row per site: the row's `file` is the module that throws (asserted from
 // the stack, so the two pairs of sites that share a message are told apart), and the compiled sources are
@@ -21,15 +21,18 @@ const VOCABULARY = [
   'not-an-object', 'not-an-array', 'wrong-kind', 'unknown-kind', 'empty-contract-id', 'self-override', 'override-cycle',
   'forward-cycle', 'not-service-revisions', 'parameters-not-an-object', 'invalid-assignment', 'not-from-this-runtime',
   'policy-result-not-an-array', 'policy-result-not-a-permutation',
+  // 0.8 (F9): the one serialized shape of an implementation reference
+  'malformed-implementation-ref',
 ]
 // Throw sites per compiled module (the table's rows are counted against these).
 const SITES_PER_FILE = {
+  'definition.js': 3,
   'definition-compiler.js': 12,
-  'entry-planner.js': 3,
+  'entry-planner.js': 4,
   'graph-builder.js': 1,
   'identity.js': 4,
-  'implementation-directory.js': 7,
-  'runtime.js': 1,
+  'implementation-directory.js': 9,
+  'runtime.js': 3,
 }
 
 const capture = async run => {
@@ -86,11 +89,11 @@ const table = () => {
   row(6, 'definition-compiler.js', 'override() expects two ServiceRevision descriptors.',
     { descriptor: 'ServiceOverride', problem: 'not-service-revisions' },
     () => createRuntime({ services: [Db], overrides: [{ kind: 'service-override', from: Db, to: 'nope' }] }))
-  row(7, 'definition-compiler.js', `Service ${Db.key} cannot override itself.`,
-    { descriptor: Db.key, problem: 'self-override' },
+  row(7, 'definition-compiler.js', `Service ${Db.id} cannot override itself.`,
+    { descriptor: Db.id, problem: 'self-override' },
     () => createRuntime({ services: [Db], overrides: [override(Db, Db)] }))
-  row(8, 'definition-compiler.js', `Runtime service overrides contain a cycle at ${Db.key}.`,
-    { descriptor: Db.key, problem: 'override-cycle', path: [Db.key, Fake.key, Db.key] },
+  row(8, 'definition-compiler.js', `Runtime service overrides contain a cycle at ${Db.id}.`,
+    { descriptor: Db.id, problem: 'override-cycle', path: [Db.id, Fake.id, Db.id] },
     () => createRuntime({ services: [Db], overrides: [override(Db, Fake), override(Fake, Db)] }))
   row(9, 'definition-compiler.js', 'Runtime services must be ServiceRevision descriptors.',
     { descriptor: 'ServiceRevision', problem: 'wrong-kind' },
@@ -105,8 +108,8 @@ const table = () => {
   row(11, 'definition-compiler.js', 'Unknown dependency descriptor kind weird.',
     { descriptor: 'Dependency', problem: 'unknown-kind' },
     () => createRuntime({ services: [define.service('odd-service', { requires: { dep: { kind: 'weird' } }, setup: () => ({}) })] }))
-  row(12, 'definition-compiler.js', `${define.service('empty-contract', { setup: () => ({}) }).key} provides a Contract with an empty id.`,
-    { descriptor: `${define.service('empty-contract', { setup: () => ({}) }).key}`, problem: 'empty-contract-id' },
+  row(12, 'definition-compiler.js', `${define.service('empty-contract', { setup: () => ({}) }).id} provides a Contract with an empty id.`,
+    { descriptor: `${define.service('empty-contract', { setup: () => ({}) }).id}`, problem: 'empty-contract-id' },
     () => createRuntime({ services: [define.service('empty-contract', { provides: [{ kind: 'contract', id: ' ', metadata: {} }], setup: () => ({}) })] }))
 
   // entry-planner.ts --------------------------------------------------------------------
@@ -140,7 +143,7 @@ const table = () => {
     let target = Db
     const Leaf = define.service('forward-leaf', { requires: { dep: forward(() => target) }, setup: () => ({}) })
     const LeafRoot = define.entry('forward-root', { requires: { leaf: Leaf } })
-    const site = `service:${Leaf.key}/dependency:dep`
+    const site = `service:${Leaf.id}/dependency:dep`
     row(16, 'graph-builder.js', `Unknown dependency descriptor at ${site}.`,
       { descriptor: 'Dependency', problem: 'unknown-kind', site },
       async () => {
@@ -177,7 +180,7 @@ const table = () => {
   row(21, 'implementation-directory.js', 'catalog.implementations() expects a Contract descriptor.',
     { descriptor: 'Contract', problem: 'wrong-kind' },
     () => createRuntime({ services: [Db] }).catalog.implementations('nope'))
-  row(22, 'implementation-directory.js', 'catalog.resolve() expects a persistent implementation reference.',
+  row(22, 'implementation-directory.js', 'catalog.resolve() expects an implementation reference.',
     { descriptor: 'ImplementationRef', problem: 'wrong-kind' },
     () => createRuntime({ services: [Db] }).catalog.resolve({ kind: 'nope' }))
   {
@@ -185,7 +188,7 @@ const table = () => {
     const V2 = makeDefine('s7-versioned', '2.0.0').service({ setup: () => ({}) })
     const RangeUser = define.service('version-user', { requires: { v: V1.range('*') }, setup: () => ({}) })
     const RangeRoot = define.entry('version-root', { requires: { user: RangeUser } })
-    const site = `service:${RangeUser.key}/dependency:v`
+    const site = `service:${RangeUser.id}/dependency:v`
     const withPolicy = async orderVersionCandidates => {
       const runtime = createRuntime({ services: [V1, V2, RangeUser], policy: { orderVersionCandidates } })
       try { await runtime.enter(RangeRoot) }
@@ -209,10 +212,10 @@ const table = () => {
       try { await use(await (await env.deps.host.load()).all.load()) }
       finally { await runtime.dispose() }
     }
-    row(25, 'implementation-directory.js', 'resolve() expects a persistent implementation reference.',
+    row(25, 'implementation-directory.js', 'resolve() expects an implementation reference.',
       { descriptor: 'ImplementationRef', problem: 'wrong-kind' },
-      () => withSet(set => set.resolve(set.candidates[0].ref)))
-    row(26, 'implementation-directory.js', 'Expected a candidate, candidate ref or persistent ref.',
+      () => withSet(set => set.resolve(set.candidates[0].candidateRef)))
+    row(26, 'implementation-directory.js', 'Expected a candidate, candidate ref or implementation ref.',
       { descriptor: 'ImplementationCandidate', problem: 'not-an-object' },
       () => withSet(set => set.load('nope')))
     row(27, 'implementation-directory.js', 'Expected a CandidateRef created by this Runtime.',
@@ -228,13 +231,63 @@ const table = () => {
       try { await runtime.enter({ kind: 'service-revision' }) }
       finally { await runtime.dispose() }
     })
+
+  // 0.8 (F9): parse() and every Runtime read path accept the one serialized shape of an implementation reference
+  // ({ kind: 'implementation-ref', contractId, familyId, range }) and refuse the rest — the sites added in 0.8.
+  row(29, 'definition.js', 'An implementation reference must be an object.',
+    { descriptor: 'ImplementationRef', problem: 'not-an-object' },
+    () => Auth.parse('nope'))
+  row(30, 'definition.js', `Invalid implementation reference for Contract ${Capability.id}: kind must be "implementation-ref".`,
+    { descriptor: 'ImplementationRef', problem: 'wrong-kind' },
+    () => Auth.parse({ kind: 'nope', contractId: Capability.id, familyId: 'x', range: '^1.0.0' }))
+  row(31, 'definition.js', `Invalid implementation reference for Contract ${Capability.id}.`,
+    { descriptor: 'ImplementationRef', problem: 'malformed-implementation-ref' },
+    () => Auth.parse({ kind: 'implementation-ref', contractId: Capability.id, familyId: 'x', range: 'not a range' }))
+  row(32, 'implementation-directory.js', 'catalog.resolve() received a malformed implementation reference.',
+    { descriptor: 'ImplementationRef', problem: 'malformed-implementation-ref' },
+    () => createRuntime({ services: [Db] }).catalog.resolve({ kind: 'implementation-ref', contractId: Capability.id, range: '^1.0.0' }))
+  row(33, 'implementation-directory.js', 'resolve() received a malformed implementation reference.',
+    { descriptor: 'ImplementationRef', problem: 'malformed-implementation-ref' },
+    async () => {
+      const Host = define.service('host-33', { requires: { all: Capability.all }, setup: ({ all }) => ({ all }) })
+      const Entry = define.entry('entry-33', { requires: { host: Host } })
+      const runtime = createRuntime({ services: [Db, Host] })
+      try {
+        const set = await (await (await runtime.enter(Entry)).deps.host.load()).all.load()
+        set.resolve({ kind: 'implementation-ref', contractId: Capability.id, familyId: 'x' })
+      }
+      finally { await runtime.dispose() }
+    })
+  row(34, 'entry-planner.js', `Malformed implementation reference assigned to Binding ${Auth.id}.`,
+    { descriptor: 'ImplementationRef', problem: 'malformed-implementation-ref' },
+    async () => {
+      const runtime = createRuntime({ services: [Db] })
+      try { await runtime.enter(WithAuth, { auth: { kind: 'implementation-ref', contractId: Capability.id, familyId: '', range: '^1.0.0' } }) }
+      finally { await runtime.dispose() }
+    })
+
+  // 0.8 (S2): catalog.revisions() takes the ServiceFamily descriptor; the 0.7 family-id argument and any other descriptor are refused.
+  row(35, 'runtime.js', 'catalog.revisions() expects a ServiceFamily descriptor (revision.family), not a family id.',
+    { descriptor: 'ServiceFamily', problem: 'not-an-object' },
+    async () => {
+      const runtime = createRuntime({ services: [Db] })
+      try { runtime.catalog.revisions(Db.family.id) } // codemod-v08: skip — the 0.7 argument form is the point of this row
+      finally { await runtime.dispose() }
+    })
+  row(36, 'runtime.js', 'catalog.revisions() expects a ServiceFamily descriptor.',
+    { descriptor: 'ServiceFamily', problem: 'wrong-kind' },
+    async () => {
+      const runtime = createRuntime({ services: [Db] })
+      try { runtime.catalog.revisions(Db) } // codemod-v08: skip — a revision where the Family descriptor belongs (wrong-kind)
+      finally { await runtime.dispose() }
+    })
   return rows
 }
 
-test('INVALID_DESCRIPTOR: every one of the 28 throw sites carries { descriptor, problem, site?, path? } with the 0.6 message', async () => {
+test('INVALID_DESCRIPTOR: every one of the 36 throw sites carries { descriptor, problem, site?, path? } with the 0.6 message', async () => {
   const rows = table()
-  assert.equal(rows.length, 28)
-  assert.deepEqual(rows.map(row => row.site), Array.from({ length: 28 }, (_, index) => index + 1))
+  assert.equal(rows.length, 36)
+  assert.deepEqual(rows.map(row => row.site), Array.from({ length: 36 }, (_, index) => index + 1))
   const seenProblems = new Set()
   const perFile = {}
   for (const { site, file, message, details, run } of rows) {
@@ -259,7 +312,7 @@ test('INVALID_DESCRIPTOR: every one of the 28 throw sites carries { descriptor, 
   assert.deepEqual(perFile, SITES_PER_FILE)
 })
 
-test('INVALID_DESCRIPTOR: the compiled sources have exactly the 28 throw sites of the table, and each passes details', () => {
+test('INVALID_DESCRIPTOR: the compiled sources have exactly the 36 throw sites of the table, and each passes details', () => {
   const counts = {}
   const files = [
     ...readdirSync(dist).filter(name => name.endsWith('.js')).map(name => path.join(dist, name)),
@@ -276,7 +329,7 @@ test('INVALID_DESCRIPTOR: the compiled sources have exactly the 28 throw sites o
     }
   }
   assert.deepEqual(counts, SITES_PER_FILE)
-  assert.equal(Object.values(counts).reduce((sum, count) => sum + count, 0), 28)
+  assert.equal(Object.values(counts).reduce((sum, count) => sum + count, 0), 36)
 })
 
 test('INVALID_DESCRIPTOR: the CandidateRef check covers revisionKey (Q8) and a foreign collection is still FOREIGN_CANDIDATE_REF', async () => {
@@ -288,7 +341,7 @@ test('INVALID_DESCRIPTOR: the CandidateRef check covers revisionKey (Q8) and a f
   const runtime = createRuntime({ services: [A, Host] })
   const env = await runtime.enter(Entry)
   const set = await (await env.deps.host.load()).all.load()
-  const foreign = await capture(() => set.load({ kind: 'candidate-ref', sourceSlotId: 'slot-0', revisionKey: A.key }))
+  const foreign = await capture(() => set.load({ kind: 'candidate-ref', sourceSlotId: 'slot-0', revisionKey: A.id }))
   assert.equal(foreign.code, 'FOREIGN_CANDIDATE_REF')
   const own = foreign.details.expectedSourceSlot
   // Not a string, or not the `family@version` key every Runtime writes: not a CandidateRef of any Runtime.
@@ -300,6 +353,6 @@ test('INVALID_DESCRIPTOR: the CandidateRef check covers revisionKey (Q8) and a f
   // A well-formed key this collection does not hold is a missing implementation (S8 has the details).
   const unknown = await capture(() => set.load({ kind: 'candidate-ref', sourceSlotId: own, revisionKey: 'nobody@1.0.0' }))
   assert.equal(unknown.code, 'MISSING_IMPLEMENTATION')
-  assert.equal((await set.load({ kind: 'candidate-ref', sourceSlotId: own, revisionKey: A.key })).id, 'a')
+  assert.equal((await set.load({ kind: 'candidate-ref', sourceSlotId: own, revisionKey: A.id })).id, 'a')
   await runtime.dispose()
 })

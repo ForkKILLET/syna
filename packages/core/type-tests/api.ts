@@ -200,7 +200,7 @@ void runtime.run(Scoped, {}, options, async ({ minimal }) => (await minimal.load
 void runtime.run(Root, validInput, options, async ({ consumer }) => (await consumer.load()).test())
 void runtime.run(Root, validInput, undefined, async ({ consumer }) => (await consumer.load()).test())
 // @ts-expect-error `scope` is not a definition option (removed in 0.7.0); the constraints are `reuse`.
-const ScopedByOldName = define.entry('legacy-scoped', { requires: { minimal: Minimal }, scope: { fresh: [Minimal] } })
+const ScopedByOldName = define.entry('expired-scoped', { requires: { minimal: Minimal }, scope: { fresh: [Minimal] } })
 void ScopedByOldName
 // @ts-expect-error a descriptor carries `reuse`, not `scope` (removed in 0.7.0).
 const descriptorScope: ReuseConstraints = Scoped.scope
@@ -327,6 +327,8 @@ const limited: Runtime = createRuntime({ services: [Implementation], limits: { l
 void limited
 // @ts-expect-error the old key names do not exist inside `limits`.
 createRuntime({ services: [Implementation], limits: { deadlineMs: 5_000 } })
+// @ts-expect-error F16 (v0.8): the load timeout is limits.loadTimeoutMs; the 0.7 spelling is refused at runtime too.
+createRuntime({ services: [Implementation], limits: { setupDeadlineMs: 5_000 } })
 // @ts-expect-error the 0.5 nested records are gone (removed in 0.7.0): the plan cache size is limits.planCacheEntries.
 createRuntime({ services: [Implementation], planCache: { maxEntries: 8 } })
 // @ts-expect-error the load timeout is limits.loadTimeoutMs.

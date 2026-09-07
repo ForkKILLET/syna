@@ -59,10 +59,34 @@ const aggregate = runs => {
 }
 
 const TOLERANCE_KEYS = new Set(['p50Ms', 'p95Ms', 'perOperationMs'])
-const EQUAL_KEYS = new Set(['hits', 'misses', 'entries', 'evictions', 'maxEntries', 'planCacheEntries', 'planCacheEntriesMax', 'liveEnvCountAfter', 'inherited', 'new', 'forked', 'eagerToStart', 'eagerInherited', 'provided', 'newServices', 'serviceCount', 'depth', 'operations', 'generatedEntryShapes', 'samples', 'warmup'])
+// `inherited` is the benchmark's own top-level key of two cases (kept as it is); the counts and the plan-cache record are normalized below.
+const EQUAL_KEYS = new Set(['hits', 'misses', 'entries', 'evictions', 'limit', 'planCacheEntries', 'planCacheEntriesMax', 'liveEnvCountAfter', 'inherited', 'reused', 'new', 'forked', 'eagerToStart', 'eagerReused', 'provided', 'newServices', 'serviceCount', 'depth', 'operations', 'generatedEntryShapes', 'samples', 'warmup'])
+
+// v0.8 (the last rename): the benchmark spreads `explanation.services` and `inspect().planCache` into its records, so a
+// record written before 0.8 spells the counts and the plan-cache capacity under the pre-0.8 keys. Both sides of every
+// comparison are read in the 0.8 spelling — the only key rename of the record format; no number changes. The record's
+// own top-level `inherited` (two cases) is the benchmark's name, not Syna's, and stays.
+const RECORD_KEY_RENAMES = [
+  { key: 'maxEntries', to: 'limit', within: keys => keys.includes('hits') && keys.includes('misses') }, // syna-v08-rename
+  { key: 'eagerInherited', to: 'eagerReused', within: () => true }, // syna-v08-rename
+  { key: 'inherited', to: 'reused', within: keys => keys.includes('eagerToStart') || keys.includes('eagerReused') || keys.includes('eagerInherited') || (keys.includes('new') && keys.includes('forked')) }, // syna-v08-rename
+]
+const normalizeRecord = value => {
+  if (Array.isArray(value)) return value.map(normalizeRecord)
+  if (!isPlainObject(value)) return value
+  const keys = Object.keys(value)
+  const out = {}
+  for (const [key, inner] of Object.entries(value)) {
+    const rename = RECORD_KEY_RENAMES.find(entry => entry.key === key && entry.within(keys))
+    out[rename ? rename.to : key] = normalizeRecord(inner)
+  }
+  return out
+}
 const ENVIRONMENT_KEYS = ['platform', 'arch', 'cpu', 'cpuCount']
 
-const compare = (baseline, current, tolerance) => {
+const compare = (baselineRecord, currentRecord, tolerance) => {
+  const baseline = normalizeRecord(baselineRecord)
+  const current = normalizeRecord(currentRecord)
   const rows = []
   const walk = (base, cur, trail) => {
     if (isPlainObject(base)) {

@@ -63,14 +63,14 @@ function generate(seed) {
 /** Brute-force parent-only greatest reuse set over the child's node closure. */
 function referenceReuse(world, parentNodeIds) {
   const { specs, services, inputs, reprovide, freshTargets, Child } = world
-  const freshKeys = new Set(freshTargets.map(target => target.kind === 'service-revision' ? target.key : target.id))
-  const isFresh = service => freshKeys.has(service.key) || freshKeys.has(service.family.id)
+  const freshKeys = new Set(freshTargets.map(target => target.kind === 'service-revision' ? target.id : target.id))
+  const isFresh = service => freshKeys.has(service.id) || freshKeys.has(service.family.id)
 
   // Child graph closure from the child's roots (inherited roots are the root Entry's: every service).
-  const childNodes = new Set(services.map(service => `service:${service.key}`))
+  const childNodes = new Set(services.map(service => `service:${service.id}`))
   for (const spec of specs) for (const target of Object.values(spec.inputDeps)) childNodes.add(`input:${inputs[target].id}`)
   void Child
-  const serviceNodes = services.filter(service => parentNodeIds.has(`service:${service.key}`) && !isFresh(service))
+  const serviceNodes = services.filter(service => parentNodeIds.has(`service:${service.id}`) && !isFresh(service))
   const edgesOf = service => {
     const spec = specs[Number(service.family.id.split('/s').at(-1))]
     return {
@@ -82,17 +82,17 @@ function referenceReuse(world, parentNodeIds) {
   const total = 1 << serviceNodes.length
   for (let mask = 0; mask < total; mask += 1) {
     const subset = serviceNodes.filter((_, index) => mask & (1 << index))
-    const keys = new Set(subset.map(service => service.key))
+    const keys = new Set(subset.map(service => service.id))
     const ok = subset.every(service => {
       const edges = edgesOf(service)
       if (edges.inputs.some(inputIndex => reprovide[inputIndex])) return false
-      return edges.services.every(target => keys.has(target.key))
+      return edges.services.every(target => keys.has(target.id))
     })
     if (ok) valid.add(mask)
   }
   const maximal = [...valid].filter(mask => ![...valid].some(other => other !== mask && (other & mask) === mask))
   return {
-    maximal: maximal.map(mask => new Set(serviceNodes.filter((_, index) => mask & (1 << index)).map(service => `service:${service.key}`))),
+    maximal: maximal.map(mask => new Set(serviceNodes.filter((_, index) => mask & (1 << index)).map(service => `service:${service.id}`))),
     candidateCount: serviceNodes.length,
     validCount: valid.size,
   }
@@ -115,14 +115,14 @@ async function compare(seed) {
       .map(node => node.nodeId),
   )
   const inheritedByExplain = new Set(
-    explanation.nodes.filter(node => node.kind === 'service' && node.disposition === 'inherited').map(node => node.nodeId),
+    explanation.nodes.filter(node => node.kind === 'service' && node.placement === 'reused').map(node => node.nodeId),
   )
   const reference = referenceReuse(world, parentNodeIds)
   const describe = () => JSON.stringify({
     seed,
     specs: world.specs,
     reprovide: world.reprovide,
-    fresh: world.freshTargets.map(target => target.kind === 'service-revision' ? target.key : `family:${target.id}`),
+    fresh: world.freshTargets.map(target => target.kind === 'service-revision' ? target.id : `family:${target.id}`),
     production: [...inheritedByEnter].sort(),
     reference: reference.maximal.map(set => [...set].sort()),
   })
@@ -158,10 +158,10 @@ test('reference planner: the greatest reuse set is the union of all valid subset
   const root = await runtime.enter(Root, { tenant: 'a' })
   const explanation = await root.explain(Child, { tenant: 'b' })
   const byId = Object.fromEntries(explanation.nodes.map(node => [node.nodeId, node]))
-  assert.equal(byId[`service:${Base.key}`].disposition, 'inherited')
-  assert.equal(byId[`service:${Right.key}`].disposition, 'inherited')
-  assert.equal(byId[`service:${Left.key}`].disposition, 'forked')
-  assert.equal(byId[`service:${Top.key}`].disposition, 'forked')
-  assert.deepEqual(byId[`service:${Top.key}`].path, [`service:${Top.key}`, `service:${Left.key}`, `input:${Tenant.id}`])
+  assert.equal(byId[`service:${Base.id}`].placement, 'reused')
+  assert.equal(byId[`service:${Right.id}`].placement, 'reused')
+  assert.equal(byId[`service:${Left.id}`].placement, 'forked')
+  assert.equal(byId[`service:${Top.id}`].placement, 'forked')
+  assert.deepEqual(byId[`service:${Top.id}`].path, [`service:${Top.id}`, `service:${Left.id}`, `input:${Tenant.id}`])
   await runtime.dispose()
 })

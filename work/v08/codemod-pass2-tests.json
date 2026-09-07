@@ -1,0 +1,2925 @@
+{
+  "dryRun": false,
+  "targets": [
+    "apps",
+    "benchmarks",
+    "packages/core/tests",
+    "packages/claude",
+    "packages/fluida",
+    "packages/hyla",
+    "packages/llm-contract",
+    "packages/logger",
+    "packages/openai-v1",
+    "packages/openai-v2",
+    "packages/postgres",
+    "scripts"
+  ],
+  "files": [
+    {
+      "file": "apps/hyla-mini/tests/helpers/repository-conformance.mjs",
+      "edits": 4,
+      "changes": [
+        {
+          "line": 35,
+          "rule": "F9",
+          "from": "version",
+          "to": "range"
+        },
+        {
+          "line": 35,
+          "rule": "F19",
+          "from": "persistent-implementation-ref",
+          "to": "implementation-ref"
+        },
+        {
+          "line": 19,
+          "rule": "F9",
+          "from": "version",
+          "to": "range"
+        },
+        {
+          "line": 19,
+          "rule": "F19",
+          "from": "persistent-implementation-ref",
+          "to": "implementation-ref"
+        }
+      ],
+      "manual": []
+    },
+    {
+      "file": "apps/hyla-mini/tests/preflight.test.mjs",
+      "edits": 13,
+      "changes": [
+        {
+          "line": 191,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 191,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 191,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 184,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 183,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 156,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 153,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 151,
+          "rule": "D5",
+          "from": "inherited",
+          "to": "reused"
+        },
+        {
+          "line": 151,
+          "rule": "D5",
+          "from": "inherited",
+          "to": "reused"
+        },
+        {
+          "line": 150,
+          "rule": "D5",
+          "from": "eagerInherited",
+          "to": "eagerReused"
+        },
+        {
+          "line": 150,
+          "rule": "D5",
+          "from": "inherited",
+          "to": "reused"
+        },
+        {
+          "line": 150,
+          "rule": "D5",
+          "from": "inherited",
+          "to": "reused"
+        },
+        {
+          "line": 43,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        }
+      ],
+      "manual": []
+    },
+    {
+      "file": "apps/hyla-mini/tests/render.test.mjs",
+      "edits": 5,
+      "changes": [
+        {
+          "line": 293,
+          "rule": "S2",
+          "from": "RemarkGfmFactory.family.id",
+          "to": "RemarkGfmFactory.family"
+        },
+        {
+          "line": 291,
+          "rule": "F9",
+          "from": "version",
+          "to": "range"
+        },
+        {
+          "line": 288,
+          "rule": "F9",
+          "from": "version",
+          "to": "range"
+        },
+        {
+          "line": 43,
+          "rule": "F9",
+          "from": "version",
+          "to": "range"
+        },
+        {
+          "line": 43,
+          "rule": "F19",
+          "from": "persistent-implementation-ref",
+          "to": "implementation-ref"
+        }
+      ],
+      "manual": []
+    },
+    {
+      "file": "apps/hyla-mini/tests/review-app.test.mjs",
+      "edits": 2,
+      "changes": [
+        {
+          "line": 320,
+          "rule": "D8",
+          "from": "attempts-outstanding",
+          "to": "runtime-attempts-outstanding"
+        },
+        {
+          "line": 320,
+          "rule": "D8",
+          "from": "attempts-outstanding",
+          "to": "runtime-attempts-outstanding"
+        }
+      ],
+      "manual": []
+    },
+    {
+      "file": "apps/hyla-mini/tests/site-manager.test.mjs",
+      "edits": 2,
+      "changes": [
+        {
+          "line": 136,
+          "rule": "F9",
+          "from": "version",
+          "to": "range"
+        },
+        {
+          "line": 136,
+          "rule": "F19",
+          "from": "persistent-implementation-ref",
+          "to": "implementation-ref"
+        }
+      ],
+      "manual": []
+    },
+    {
+      "file": "packages/core/tests/contracts.test.mjs",
+      "edits": 4,
+      "changes": [
+        {
+          "line": 138,
+          "rule": "F6",
+          "from": "ref",
+          "to": "candidateRef"
+        },
+        {
+          "line": 106,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 106,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 106,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        }
+      ],
+      "manual": []
+    },
+    {
+      "file": "packages/core/tests/core.test.mjs",
+      "edits": 7,
+      "changes": [
+        {
+          "line": 366,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 366,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 312,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 312,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 312,
+          "rule": "F10",
+          "from": "internalServices",
+          "to": "privateServices"
+        },
+        {
+          "line": 311,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 27,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        }
+      ],
+      "manual": []
+    },
+    {
+      "file": "packages/core/tests/hardening.test.mjs",
+      "edits": 8,
+      "changes": [
+        {
+          "line": 397,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 101,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 100,
+          "rule": "D1",
+          "from": "INITIALIZATION_TIMEOUT",
+          "to": "LOAD_TIMEOUT"
+        },
+        {
+          "line": 94,
+          "rule": "F16",
+          "from": "setupDeadlineMs",
+          "to": "loadTimeoutMs"
+        },
+        {
+          "line": 63,
+          "rule": "D1",
+          "from": "INITIALIZATION_TIMEOUT",
+          "to": "LOAD_TIMEOUT"
+        },
+        {
+          "line": 54,
+          "rule": "F9",
+          "from": "version",
+          "to": "range"
+        },
+        {
+          "line": 54,
+          "rule": "F7",
+          "from": "persistentRef",
+          "to": "implementationRef"
+        },
+        {
+          "line": 50,
+          "rule": "F9",
+          "from": "version",
+          "to": "range"
+        }
+      ],
+      "manual": []
+    },
+    {
+      "file": "packages/core/tests/lifecycle.test.mjs",
+      "edits": 6,
+      "changes": [
+        {
+          "line": 249,
+          "rule": "D1",
+          "from": "INITIALIZATION_TIMEOUT",
+          "to": "LOAD_TIMEOUT"
+        },
+        {
+          "line": 247,
+          "rule": "F16",
+          "from": "setupDeadlineMs",
+          "to": "loadTimeoutMs"
+        },
+        {
+          "line": 55,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 55,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 50,
+          "rule": "D1",
+          "from": "INITIALIZATION_TIMEOUT",
+          "to": "LOAD_TIMEOUT"
+        },
+        {
+          "line": 47,
+          "rule": "F16",
+          "from": "setupDeadlineMs",
+          "to": "loadTimeoutMs"
+        }
+      ],
+      "manual": []
+    },
+    {
+      "file": "packages/core/tests/reference-planner.test.mjs",
+      "edits": 23,
+      "changes": [
+        {
+          "line": 165,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 165,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 165,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 164,
+          "rule": "F13",
+          "from": "disposition",
+          "to": "placement"
+        },
+        {
+          "line": 164,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 163,
+          "rule": "F13",
+          "from": "disposition",
+          "to": "placement"
+        },
+        {
+          "line": 163,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 162,
+          "rule": "D4",
+          "from": "'inherited'",
+          "to": "'reused'"
+        },
+        {
+          "line": 162,
+          "rule": "F13",
+          "from": "disposition",
+          "to": "placement"
+        },
+        {
+          "line": 162,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 161,
+          "rule": "D4",
+          "from": "'inherited'",
+          "to": "'reused'"
+        },
+        {
+          "line": 161,
+          "rule": "F13",
+          "from": "disposition",
+          "to": "placement"
+        },
+        {
+          "line": 161,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 125,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 118,
+          "rule": "D4",
+          "from": "'inherited'",
+          "to": "'reused'"
+        },
+        {
+          "line": 118,
+          "rule": "F13",
+          "from": "disposition",
+          "to": "placement"
+        },
+        {
+          "line": 95,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 89,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 85,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 73,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 70,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 67,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 66,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        }
+      ],
+      "manual": []
+    },
+    {
+      "file": "packages/core/tests/v04-adversarial.test.mjs",
+      "edits": 1,
+      "changes": [
+        {
+          "line": 139,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        }
+      ],
+      "manual": []
+    },
+    {
+      "file": "packages/core/tests/v04-corrections.test.mjs",
+      "edits": 3,
+      "changes": [
+        {
+          "line": 188,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 187,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 187,
+          "rule": "F10",
+          "from": "internalServices",
+          "to": "privateServices"
+        }
+      ],
+      "manual": []
+    },
+    {
+      "file": "packages/core/tests/v04-finalization.test.mjs",
+      "edits": 3,
+      "changes": [
+        {
+          "line": 72,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 71,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 71,
+          "rule": "F10",
+          "from": "internalServices",
+          "to": "privateServices"
+        }
+      ],
+      "manual": []
+    },
+    {
+      "file": "packages/core/tests/v04-regressions.test.mjs",
+      "edits": 8,
+      "changes": [
+        {
+          "line": 249,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 249,
+          "rule": "F10",
+          "from": "internalServices",
+          "to": "privateServices"
+        },
+        {
+          "line": 248,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 221,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 220,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 204,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 203,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 202,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        }
+      ],
+      "manual": []
+    },
+    {
+      "file": "packages/core/tests/v05-attempts.test.mjs",
+      "edits": 8,
+      "changes": [
+        {
+          "line": 220,
+          "rule": "D8",
+          "from": "attempts-outstanding",
+          "to": "runtime-attempts-outstanding"
+        },
+        {
+          "line": 209,
+          "rule": "D1",
+          "from": "INITIALIZATION_TIMEOUT",
+          "to": "LOAD_TIMEOUT"
+        },
+        {
+          "line": 199,
+          "rule": "F16",
+          "from": "setupDeadlineMs",
+          "to": "loadTimeoutMs"
+        },
+        {
+          "line": 146,
+          "rule": "D8",
+          "from": "late-setup-result",
+          "to": "attempt-succeeded-late"
+        },
+        {
+          "line": 146,
+          "rule": "D8",
+          "from": "foreign-thenable-setup",
+          "to": "setup-returned-thenable"
+        },
+        {
+          "line": 144,
+          "rule": "D8",
+          "from": "late-setup-result",
+          "to": "attempt-succeeded-late"
+        },
+        {
+          "line": 138,
+          "rule": "D1",
+          "from": "INITIALIZATION_TIMEOUT",
+          "to": "LOAD_TIMEOUT"
+        },
+        {
+          "line": 124,
+          "rule": "F16",
+          "from": "setupDeadlineMs",
+          "to": "loadTimeoutMs"
+        }
+      ],
+      "manual": []
+    },
+    {
+      "file": "packages/core/tests/v05-audit-lifecycle.test.mjs",
+      "edits": 12,
+      "changes": [
+        {
+          "line": 294,
+          "rule": "D8",
+          "from": "late-setup-result",
+          "to": "attempt-succeeded-late"
+        },
+        {
+          "line": 294,
+          "rule": "D8",
+          "from": "attempts-outstanding",
+          "to": "runtime-attempts-outstanding"
+        },
+        {
+          "line": 286,
+          "rule": "D8",
+          "from": "attempts-outstanding",
+          "to": "runtime-attempts-outstanding"
+        },
+        {
+          "line": 263,
+          "rule": "D1",
+          "from": "INITIALIZATION_TIMEOUT",
+          "to": "LOAD_TIMEOUT"
+        },
+        {
+          "line": 249,
+          "rule": "F16",
+          "from": "setupDeadlineMs",
+          "to": "loadTimeoutMs"
+        },
+        {
+          "line": 139,
+          "rule": "D8",
+          "from": "late-setup-failure",
+          "to": "attempt-failed-late"
+        },
+        {
+          "line": 135,
+          "rule": "D8",
+          "from": "late-setup-result",
+          "to": "attempt-succeeded-late"
+        },
+        {
+          "line": 130,
+          "rule": "D1",
+          "from": "INITIALIZATION_TIMEOUT",
+          "to": "LOAD_TIMEOUT"
+        },
+        {
+          "line": 117,
+          "rule": "F16",
+          "from": "setupDeadlineMs",
+          "to": "loadTimeoutMs"
+        },
+        {
+          "line": 57,
+          "rule": "F16",
+          "from": "setupDeadlineMs",
+          "to": "loadTimeoutMs"
+        },
+        {
+          "line": 55,
+          "rule": "F16",
+          "from": "setupDeadlineMs",
+          "to": "loadTimeoutMs"
+        },
+        {
+          "line": 41,
+          "rule": "F16",
+          "from": "setupDeadlineMs",
+          "to": "loadTimeoutMs"
+        }
+      ],
+      "manual": []
+    },
+    {
+      "file": "packages/core/tests/v05-audit3-lifecycle-planning.test.mjs",
+      "edits": 10,
+      "changes": [
+        {
+          "line": 345,
+          "rule": "D8",
+          "from": "late-setup-result",
+          "to": "attempt-succeeded-late"
+        },
+        {
+          "line": 336,
+          "rule": "D1",
+          "from": "INITIALIZATION_TIMEOUT",
+          "to": "LOAD_TIMEOUT"
+        },
+        {
+          "line": 334,
+          "rule": "F16",
+          "from": "setupDeadlineMs",
+          "to": "loadTimeoutMs"
+        },
+        {
+          "line": 319,
+          "rule": "D8",
+          "from": "attempts-outstanding",
+          "to": "runtime-attempts-outstanding"
+        },
+        {
+          "line": 316,
+          "rule": "D8",
+          "from": "late-setup-result",
+          "to": "attempt-succeeded-late"
+        },
+        {
+          "line": 311,
+          "rule": "D8",
+          "from": "attempts-outstanding",
+          "to": "runtime-attempts-outstanding"
+        },
+        {
+          "line": 311,
+          "rule": "D8",
+          "from": "attempts-outstanding",
+          "to": "runtime-attempts-outstanding"
+        },
+        {
+          "line": 274,
+          "rule": "D8",
+          "from": "attempts-outstanding",
+          "to": "runtime-attempts-outstanding"
+        },
+        {
+          "line": 81,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 81,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        }
+      ],
+      "manual": []
+    },
+    {
+      "file": "packages/core/tests/v05-cache-cleanup.test.mjs",
+      "edits": 13,
+      "changes": [
+        {
+          "line": 257,
+          "rule": "F18",
+          "from": "anchorSlot",
+          "to": "pinnedSlot"
+        },
+        {
+          "line": 245,
+          "rule": "F18",
+          "from": "anchorSlot",
+          "to": "pinnedSlot"
+        },
+        {
+          "line": 180,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 180,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 179,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 179,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 178,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 178,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 177,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 177,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 144,
+          "rule": "F10",
+          "from": "internalServices",
+          "to": "privateServices"
+        },
+        {
+          "line": 144,
+          "rule": "F10",
+          "from": "internalServices",
+          "to": "privateServices"
+        },
+        {
+          "line": 46,
+          "rule": "F13",
+          "from": "disposition",
+          "to": "placement"
+        }
+      ],
+      "manual": []
+    },
+    {
+      "file": "packages/core/tests/v05-definitions.test.mjs",
+      "edits": 8,
+      "changes": [
+        {
+          "line": 112,
+          "rule": "F16",
+          "from": "setupDeadlineMs",
+          "to": "loadTimeoutMs"
+        },
+        {
+          "line": 88,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 70,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 63,
+          "rule": "F9",
+          "from": "version",
+          "to": "range"
+        },
+        {
+          "line": 63,
+          "rule": "F19",
+          "from": "persistent-implementation-ref",
+          "to": "implementation-ref"
+        },
+        {
+          "line": 42,
+          "rule": "S2",
+          "from": "Two40.family.id",
+          "to": "Two40.family"
+        },
+        {
+          "line": 35,
+          "rule": "F9",
+          "from": "version",
+          "to": "range"
+        },
+        {
+          "line": 33,
+          "rule": "F9",
+          "from": "version",
+          "to": "range"
+        }
+      ],
+      "manual": []
+    },
+    {
+      "file": "packages/core/tests/v05-explain.test.mjs",
+      "edits": 18,
+      "changes": [
+        {
+          "line": 97,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 97,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 93,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 93,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 87,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 87,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 44,
+          "rule": "D4",
+          "from": "'inherited'",
+          "to": "'reused'"
+        },
+        {
+          "line": 44,
+          "rule": "F13",
+          "from": "disposition",
+          "to": "placement"
+        },
+        {
+          "line": 44,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 42,
+          "rule": "F13",
+          "from": "disposition",
+          "to": "placement"
+        },
+        {
+          "line": 41,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 38,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 38,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 37,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 36,
+          "rule": "F13",
+          "from": "disposition",
+          "to": "placement"
+        },
+        {
+          "line": 35,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 33,
+          "rule": "D5",
+          "from": "eagerInherited",
+          "to": "eagerReused"
+        },
+        {
+          "line": 33,
+          "rule": "D5",
+          "from": "inherited",
+          "to": "reused"
+        }
+      ],
+      "manual": []
+    },
+    {
+      "file": "packages/core/tests/v05-planner.test.mjs",
+      "edits": 41,
+      "changes": [
+        {
+          "line": 290,
+          "rule": "S1",
+          "from": "{ fresh: [Unknown] }",
+          "to": "{ reuse: { fresh: [Unknown] } }"
+        },
+        {
+          "line": 288,
+          "rule": "S1",
+          "from": "{ fresh: [State], share: [State.family] }",
+          "to": "{ reuse: { fresh: [State], share: [State.family] } }"
+        },
+        {
+          "line": 287,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 287,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 286,
+          "rule": "S1",
+          "from": "{ share: [State] }",
+          "to": "{ reuse: { share: [State] } }"
+        },
+        {
+          "line": 285,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 285,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 284,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 284,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 282,
+          "rule": "S1",
+          "from": "{ fresh: [State.family] }",
+          "to": "{ reuse: { fresh: [State.family] } }"
+        },
+        {
+          "line": 269,
+          "rule": "F9",
+          "from": "version",
+          "to": "range"
+        },
+        {
+          "line": 269,
+          "rule": "F19",
+          "from": "persistent-implementation-ref",
+          "to": "implementation-ref"
+        },
+        {
+          "line": 251,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 251,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 207,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 207,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 207,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 206,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 206,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 206,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 204,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 184,
+          "rule": "F6",
+          "from": "ref",
+          "to": "candidateRef"
+        },
+        {
+          "line": 157,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 157,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 156,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 156,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 154,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 154,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 147,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 147,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 147,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 112,
+          "rule": "D2",
+          "from": "anchor-dependency-mismatch",
+          "to": "pinned-dependency-mismatch"
+        },
+        {
+          "line": 102,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 100,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 75,
+          "rule": "D4",
+          "from": "'inherited'",
+          "to": "'reused'"
+        },
+        {
+          "line": 75,
+          "rule": "F13",
+          "from": "disposition",
+          "to": "placement"
+        },
+        {
+          "line": 75,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 68,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 43,
+          "rule": "F13",
+          "from": "disposition",
+          "to": "placement"
+        },
+        {
+          "line": 42,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 12,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        }
+      ],
+      "manual": []
+    },
+    {
+      "file": "packages/core/tests/v05-promises.test.mjs",
+      "edits": 4,
+      "changes": [
+        {
+          "line": 265,
+          "rule": "D8",
+          "from": "foreign-thenable-setup",
+          "to": "setup-returned-thenable"
+        },
+        {
+          "line": 222,
+          "rule": "D1",
+          "from": "INITIALIZATION_TIMEOUT",
+          "to": "LOAD_TIMEOUT"
+        },
+        {
+          "line": 218,
+          "rule": "F16",
+          "from": "setupDeadlineMs",
+          "to": "loadTimeoutMs"
+        },
+        {
+          "line": 198,
+          "rule": "F16",
+          "from": "setupDeadlineMs",
+          "to": "loadTimeoutMs"
+        }
+      ],
+      "manual": []
+    },
+    {
+      "file": "packages/core/tests/v05-realms-override.test.mjs",
+      "edits": 17,
+      "changes": [
+        {
+          "line": 206,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 206,
+          "rule": "F10",
+          "from": "internalServices",
+          "to": "privateServices"
+        },
+        {
+          "line": 204,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 190,
+          "rule": "D5",
+          "from": "inherited",
+          "to": "reused"
+        },
+        {
+          "line": 143,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 106,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 105,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 105,
+          "rule": "F10",
+          "from": "internalServices",
+          "to": "privateServices"
+        },
+        {
+          "line": 72,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 72,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 72,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 54,
+          "rule": "S1",
+          "from": "{ fresh: [Real] }",
+          "to": "{ reuse: { fresh: [Real] } }"
+        },
+        {
+          "line": 49,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 49,
+          "rule": "F10",
+          "from": "internalServices",
+          "to": "privateServices"
+        },
+        {
+          "line": 48,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 47,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 47,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        }
+      ],
+      "manual": []
+    },
+    {
+      "file": "packages/core/tests/v05-review-lifecycle.test.mjs",
+      "edits": 20,
+      "changes": [
+        {
+          "line": 533,
+          "rule": "F16",
+          "from": "setupDeadlineMs",
+          "to": "loadTimeoutMs"
+        },
+        {
+          "line": 511,
+          "rule": "D1",
+          "from": "INITIALIZATION_TIMEOUT",
+          "to": "LOAD_TIMEOUT"
+        },
+        {
+          "line": 495,
+          "rule": "F16",
+          "from": "setupDeadlineMs",
+          "to": "loadTimeoutMs"
+        },
+        {
+          "line": 478,
+          "rule": "D8",
+          "from": "late-setup-result",
+          "to": "attempt-succeeded-late"
+        },
+        {
+          "line": 476,
+          "rule": "D8",
+          "from": "late-setup-result",
+          "to": "attempt-succeeded-late"
+        },
+        {
+          "line": 367,
+          "rule": "D8",
+          "from": "late-setup-result",
+          "to": "attempt-succeeded-late"
+        },
+        {
+          "line": 362,
+          "rule": "D8",
+          "from": "attempts-outstanding",
+          "to": "runtime-attempts-outstanding"
+        },
+        {
+          "line": 362,
+          "rule": "D8",
+          "from": "attempts-outstanding",
+          "to": "runtime-attempts-outstanding"
+        },
+        {
+          "line": 340,
+          "rule": "F14",
+          "from": "runningForMs",
+          "to": "elapsedMs"
+        },
+        {
+          "line": 320,
+          "rule": "D8",
+          "from": "attempts-outstanding",
+          "to": "runtime-attempts-outstanding"
+        },
+        {
+          "line": 320,
+          "rule": "D8",
+          "from": "attempts-outstanding",
+          "to": "runtime-attempts-outstanding"
+        },
+        {
+          "line": 127,
+          "rule": "D8",
+          "from": "late-setup-result",
+          "to": "attempt-succeeded-late"
+        },
+        {
+          "line": 125,
+          "rule": "D8",
+          "from": "late-setup-result",
+          "to": "attempt-succeeded-late"
+        },
+        {
+          "line": 118,
+          "rule": "D7",
+          "from": "'timed-out'",
+          "to": "'overdue'"
+        },
+        {
+          "line": 118,
+          "rule": "D7",
+          "from": "'timed-out'",
+          "to": "'overdue'"
+        },
+        {
+          "line": 116,
+          "rule": "D1",
+          "from": "INITIALIZATION_TIMEOUT",
+          "to": "LOAD_TIMEOUT"
+        },
+        {
+          "line": 115,
+          "rule": "D1",
+          "from": "INITIALIZATION_TIMEOUT",
+          "to": "LOAD_TIMEOUT"
+        },
+        {
+          "line": 98,
+          "rule": "F16",
+          "from": "setupDeadlineMs",
+          "to": "loadTimeoutMs"
+        },
+        {
+          "line": 89,
+          "rule": "D1",
+          "from": "INITIALIZATION_TIMEOUT",
+          "to": "LOAD_TIMEOUT"
+        },
+        {
+          "line": 88,
+          "rule": "D1",
+          "from": "INITIALIZATION_TIMEOUT",
+          "to": "LOAD_TIMEOUT"
+        }
+      ],
+      "manual": []
+    },
+    {
+      "file": "packages/core/tests/v06-snapshots.test.mjs",
+      "edits": 8,
+      "changes": [
+        {
+          "line": 150,
+          "rule": "F9",
+          "from": "version",
+          "to": "range"
+        },
+        {
+          "line": 150,
+          "rule": "F19",
+          "from": "persistent-implementation-ref",
+          "to": "implementation-ref"
+        },
+        {
+          "line": 146,
+          "rule": "S1",
+          "from": "{ fresh: [Db1] }",
+          "to": "{ reuse: { fresh: [Db1] } }"
+        },
+        {
+          "line": 145,
+          "rule": "S1",
+          "from": "{ fresh: [Db1], share: [Cache] }",
+          "to": "{ reuse: { fresh: [Db1], share: [Cache] } }"
+        },
+        {
+          "line": 144,
+          "rule": "S1",
+          "from": "{ fresh: [Db2] }",
+          "to": "{ reuse: { fresh: [Db2] } }"
+        },
+        {
+          "line": 28,
+          "rule": "F19",
+          "from": "persistent-implementation-ref",
+          "to": "implementation-ref"
+        },
+        {
+          "line": 28,
+          "rule": "F19",
+          "from": "persistent-implementation-ref",
+          "to": "implementation-ref"
+        },
+        {
+          "line": 22,
+          "rule": "F19",
+          "from": "persistent-implementation-ref",
+          "to": "implementation-ref"
+        }
+      ],
+      "manual": [
+        {
+          "line": 21,
+          "rule": "F9",
+          "reason": "the 0.5 key is not read any more: write { kind: \"implementation-ref\", contractId, familyId, range } and delete the old-key form",
+          "text": "// R5: ImplementationRef.familyId (serialized key) replaces implementationId"
+        },
+        {
+          "line": 22,
+          "rule": "F9",
+          "reason": "the 0.5 key is not read any more: write { kind: \"implementation-ref\", contractId, familyId, range } and delete the old-key form",
+          "text": "{ from: 'implementationId', to: 'familyId', within: 'persistent-implementation-ref' },"
+        },
+        {
+          "line": 28,
+          "rule": "F9",
+          "reason": "the 0.5 key is not read any more: write { kind: \"implementation-ref\", contractId, familyId, range } and delete the old-key form",
+          "text": "{ key: 'pickerRefJson', from: '{\"kind\":\"persistent-implementation-ref\",\"contractId\":\"snap/storage/v1\",\"implementationId\""
+        },
+        {
+          "line": 122,
+          "rule": "S2",
+          "reason": "catalog.revisions() takes the ServiceFamily descriptor (revision.family), not its id",
+          "text": "record.revisionsDb = runtime.catalog.revisions('snap-db')"
+        }
+      ]
+    },
+    {
+      "file": "packages/core/tests/v06-t1-errors.test.mjs",
+      "edits": 1,
+      "changes": [
+        {
+          "line": 16,
+          "rule": "D1",
+          "from": "INITIALIZATION_TIMEOUT",
+          "to": "LOAD_TIMEOUT"
+        }
+      ],
+      "manual": []
+    },
+    {
+      "file": "packages/core/tests/v07-expired-forms.test.mjs",
+      "edits": 33,
+      "changes": [
+        {
+          "line": 414,
+          "rule": "F7",
+          "from": "persistentRef",
+          "to": "implementationRef"
+        },
+        {
+          "line": 413,
+          "rule": "F6",
+          "from": "ref",
+          "to": "candidateRef"
+        },
+        {
+          "line": 411,
+          "rule": "F6",
+          "from": "ref",
+          "to": "candidateRef"
+        },
+        {
+          "line": 408,
+          "rule": "F7",
+          "from": "persistentRef",
+          "to": "implementationRef"
+        },
+        {
+          "line": 390,
+          "rule": "F16",
+          "from": "setupDeadlineMs",
+          "to": "loadTimeoutMs"
+        },
+        {
+          "line": 381,
+          "rule": "F16",
+          "from": "setupDeadlineMs",
+          "to": "loadTimeoutMs"
+        },
+        {
+          "line": 381,
+          "rule": "F16",
+          "from": "setupDeadlineMs",
+          "to": "loadTimeoutMs"
+        },
+        {
+          "line": 371,
+          "rule": "F16",
+          "from": "setupDeadlineMs",
+          "to": "loadTimeoutMs"
+        },
+        {
+          "line": 332,
+          "rule": "D1",
+          "from": "INITIALIZATION_TIMEOUT",
+          "to": "LOAD_TIMEOUT"
+        },
+        {
+          "line": 330,
+          "rule": "F16",
+          "from": "setupDeadlineMs",
+          "to": "loadTimeoutMs"
+        },
+        {
+          "line": 325,
+          "rule": "F11",
+          "from": "maxEntries",
+          "to": "limit"
+        },
+        {
+          "line": 313,
+          "rule": "F11",
+          "from": "maxEntries",
+          "to": "limit"
+        },
+        {
+          "line": 311,
+          "rule": "F16",
+          "from": "setupDeadlineMs",
+          "to": "loadTimeoutMs"
+        },
+        {
+          "line": 311,
+          "rule": "F16",
+          "from": "setupDeadlineMs",
+          "to": "loadTimeoutMs"
+        },
+        {
+          "line": 309,
+          "rule": "F16",
+          "from": "setupDeadlineMs",
+          "to": "loadTimeoutMs"
+        },
+        {
+          "line": 309,
+          "rule": "F16",
+          "from": "setupDeadlineMs",
+          "to": "loadTimeoutMs"
+        },
+        {
+          "line": 303,
+          "rule": "F16",
+          "from": "setupDeadlineMs",
+          "to": "loadTimeoutMs"
+        },
+        {
+          "line": 298,
+          "rule": "F16",
+          "from": "setupDeadlineMs",
+          "to": "loadTimeoutMs"
+        },
+        {
+          "line": 284,
+          "rule": "F2",
+          "from": "parentActiveRevisionKeys",
+          "to": "parentActiveRevisionIds"
+        },
+        {
+          "line": 281,
+          "rule": "F2",
+          "from": "parentActiveRevisionKeys",
+          "to": "parentActiveRevisionIds"
+        },
+        {
+          "line": 265,
+          "rule": "F2",
+          "from": "parentActiveRevisionKeys",
+          "to": "parentActiveRevisionIds"
+        },
+        {
+          "line": 261,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 258,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 257,
+          "rule": "F2",
+          "from": "parentActiveRevisionKeys",
+          "to": "parentActiveRevisionIds"
+        },
+        {
+          "line": 211,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 168,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 146,
+          "rule": "S1",
+          "from": "{ fresh: [makeDefine('expired-unknown').service({ setup: () => ({}) })] }",
+          "to": "{ reuse: { fresh: [makeDefine('expired-unknown').service({ setup: () => ({}) })] } }"
+        },
+        {
+          "line": 144,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 142,
+          "rule": "S1",
+          "from": "{ fresh: [Cache] }",
+          "to": "{ reuse: { fresh: [Cache] } }"
+        },
+        {
+          "line": 116,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 101,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 56,
+          "rule": "T2",
+          "from": "EntryDescriptor",
+          "to": "Entry"
+        },
+        {
+          "line": 44,
+          "rule": "F2",
+          "from": "parentActiveRevisionKeys",
+          "to": "parentActiveRevisionIds"
+        }
+      ],
+      "manual": []
+    },
+    {
+      "file": "packages/core/tests/v07-s1-waiter-deadline.test.mjs",
+      "edits": 68,
+      "changes": [
+        {
+          "line": 420,
+          "rule": "D7",
+          "from": "'timed-out'",
+          "to": "'overdue'"
+        },
+        {
+          "line": 419,
+          "rule": "D1",
+          "from": "INITIALIZATION_TIMEOUT",
+          "to": "LOAD_TIMEOUT"
+        },
+        {
+          "line": 395,
+          "rule": "F16",
+          "from": "setupDeadlineMs",
+          "to": "loadTimeoutMs"
+        },
+        {
+          "line": 382,
+          "rule": "D8",
+          "from": "late-setup-result",
+          "to": "attempt-succeeded-late"
+        },
+        {
+          "line": 379,
+          "rule": "D8",
+          "from": "late-setup-result",
+          "to": "attempt-succeeded-late"
+        },
+        {
+          "line": 376,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 375,
+          "rule": "D1",
+          "from": "INITIALIZATION_TIMEOUT",
+          "to": "LOAD_TIMEOUT"
+        },
+        {
+          "line": 369,
+          "rule": "F16",
+          "from": "setupDeadlineMs",
+          "to": "loadTimeoutMs"
+        },
+        {
+          "line": 365,
+          "rule": "D1",
+          "from": "INITIALIZATION_TIMEOUT",
+          "to": "LOAD_TIMEOUT"
+        },
+        {
+          "line": 347,
+          "rule": "F16",
+          "from": "setupDeadlineMs",
+          "to": "loadTimeoutMs"
+        },
+        {
+          "line": 331,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 309,
+          "rule": "D8",
+          "from": "late-setup-result",
+          "to": "attempt-succeeded-late"
+        },
+        {
+          "line": 306,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 306,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 303,
+          "rule": "D8",
+          "from": "late-setup-failure",
+          "to": "attempt-failed-late"
+        },
+        {
+          "line": 297,
+          "rule": "D7",
+          "from": "'timed-out'",
+          "to": "'overdue'"
+        },
+        {
+          "line": 297,
+          "rule": "D7",
+          "from": "'timed-out'",
+          "to": "'overdue'"
+        },
+        {
+          "line": 296,
+          "rule": "D1",
+          "from": "INITIALIZATION_TIMEOUT",
+          "to": "LOAD_TIMEOUT"
+        },
+        {
+          "line": 295,
+          "rule": "D1",
+          "from": "INITIALIZATION_TIMEOUT",
+          "to": "LOAD_TIMEOUT"
+        },
+        {
+          "line": 278,
+          "rule": "F16",
+          "from": "setupDeadlineMs",
+          "to": "loadTimeoutMs"
+        },
+        {
+          "line": 271,
+          "rule": "D8",
+          "from": "late-setup-failure",
+          "to": "attempt-failed-late"
+        },
+        {
+          "line": 252,
+          "rule": "F16",
+          "from": "setupDeadlineMs",
+          "to": "loadTimeoutMs"
+        },
+        {
+          "line": 240,
+          "rule": "D8",
+          "from": "late-setup-result",
+          "to": "attempt-succeeded-late"
+        },
+        {
+          "line": 235,
+          "rule": "F15",
+          "from": "attempt",
+          "to": "attemptNumber"
+        },
+        {
+          "line": 235,
+          "rule": "F15",
+          "from": "attempt",
+          "to": "attemptNumber"
+        },
+        {
+          "line": 234,
+          "rule": "D1",
+          "from": "INITIALIZATION_TIMEOUT",
+          "to": "LOAD_TIMEOUT"
+        },
+        {
+          "line": 221,
+          "rule": "D8",
+          "from": "late-setup-result",
+          "to": "attempt-succeeded-late"
+        },
+        {
+          "line": 220,
+          "rule": "D8",
+          "from": "late-setup-result",
+          "to": "attempt-succeeded-late"
+        },
+        {
+          "line": 217,
+          "rule": "D1",
+          "from": "INITIALIZATION_TIMEOUT",
+          "to": "LOAD_TIMEOUT"
+        },
+        {
+          "line": 215,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 214,
+          "rule": "D1",
+          "from": "INITIALIZATION_TIMEOUT",
+          "to": "LOAD_TIMEOUT"
+        },
+        {
+          "line": 207,
+          "rule": "D1",
+          "from": "INITIALIZATION_TIMEOUT",
+          "to": "LOAD_TIMEOUT"
+        },
+        {
+          "line": 192,
+          "rule": "D8",
+          "from": "late-setup-result",
+          "to": "attempt-succeeded-late"
+        },
+        {
+          "line": 182,
+          "rule": "F15",
+          "from": "attempt",
+          "to": "attemptNumber"
+        },
+        {
+          "line": 182,
+          "rule": "F15",
+          "from": "attempt",
+          "to": "attemptNumber"
+        },
+        {
+          "line": 180,
+          "rule": "D1",
+          "from": "INITIALIZATION_TIMEOUT",
+          "to": "LOAD_TIMEOUT"
+        },
+        {
+          "line": 179,
+          "rule": "D1",
+          "from": "INITIALIZATION_TIMEOUT",
+          "to": "LOAD_TIMEOUT"
+        },
+        {
+          "line": 169,
+          "rule": "D1",
+          "from": "INITIALIZATION_TIMEOUT",
+          "to": "LOAD_TIMEOUT"
+        },
+        {
+          "line": 160,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 160,
+          "rule": "D8",
+          "from": "late-setup-result",
+          "to": "attempt-succeeded-late"
+        },
+        {
+          "line": 159,
+          "rule": "D8",
+          "from": "late-setup-result",
+          "to": "attempt-succeeded-late"
+        },
+        {
+          "line": 153,
+          "rule": "D1",
+          "from": "INITIALIZATION_TIMEOUT",
+          "to": "LOAD_TIMEOUT"
+        },
+        {
+          "line": 143,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 143,
+          "rule": "D8",
+          "from": "late-setup-result",
+          "to": "attempt-succeeded-late"
+        },
+        {
+          "line": 142,
+          "rule": "D8",
+          "from": "late-setup-result",
+          "to": "attempt-succeeded-late"
+        },
+        {
+          "line": 141,
+          "rule": "D8",
+          "from": "late-setup-result",
+          "to": "attempt-succeeded-late"
+        },
+        {
+          "line": 135,
+          "rule": "D1",
+          "from": "INITIALIZATION_TIMEOUT",
+          "to": "LOAD_TIMEOUT"
+        },
+        {
+          "line": 121,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 121,
+          "rule": "D8",
+          "from": "late-setup-result",
+          "to": "attempt-succeeded-late"
+        },
+        {
+          "line": 120,
+          "rule": "D8",
+          "from": "late-setup-result",
+          "to": "attempt-succeeded-late"
+        },
+        {
+          "line": 109,
+          "rule": "D7",
+          "from": "'timed-out'",
+          "to": "'overdue'"
+        },
+        {
+          "line": 109,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 109,
+          "rule": "F15",
+          "from": "attempt",
+          "to": "attemptNumber"
+        },
+        {
+          "line": 102,
+          "rule": "F15",
+          "from": "attempt",
+          "to": "attemptNumber"
+        },
+        {
+          "line": 102,
+          "rule": "F15",
+          "from": "attempt",
+          "to": "attemptNumber"
+        },
+        {
+          "line": 100,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 92,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 89,
+          "rule": "F15",
+          "from": "attempt",
+          "to": "attemptNumber"
+        },
+        {
+          "line": 82,
+          "rule": "F15",
+          "from": "attempt",
+          "to": "attemptNumber"
+        },
+        {
+          "line": 82,
+          "rule": "F15",
+          "from": "attempt",
+          "to": "attemptNumber"
+        },
+        {
+          "line": 80,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 75,
+          "rule": "D1",
+          "from": "INITIALIZATION_TIMEOUT",
+          "to": "LOAD_TIMEOUT"
+        },
+        {
+          "line": 50,
+          "rule": "F16",
+          "from": "setupDeadlineMs",
+          "to": "loadTimeoutMs"
+        },
+        {
+          "line": 38,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 6,
+          "rule": "D8",
+          "from": "late-setup-result",
+          "to": "attempt-succeeded-late"
+        },
+        {
+          "line": 4,
+          "rule": "D7",
+          "from": "`timed-out`",
+          "to": "`overdue`"
+        },
+        {
+          "line": 3,
+          "rule": "D1",
+          "from": "INITIALIZATION_TIMEOUT",
+          "to": "LOAD_TIMEOUT"
+        },
+        {
+          "line": 1,
+          "rule": "F16",
+          "from": "setupDeadlineMs",
+          "to": "loadTimeoutMs"
+        }
+      ],
+      "manual": []
+    },
+    {
+      "file": "packages/core/tests/v07-s2-state-and-ledger.test.mjs",
+      "edits": 20,
+      "changes": [
+        {
+          "line": 254,
+          "rule": "D8",
+          "from": "attempts-outstanding",
+          "to": "runtime-attempts-outstanding"
+        },
+        {
+          "line": 185,
+          "rule": "D8",
+          "from": "attempts-outstanding",
+          "to": "runtime-attempts-outstanding"
+        },
+        {
+          "line": 182,
+          "rule": "D8",
+          "from": "attempts-outstanding",
+          "to": "runtime-attempts-outstanding"
+        },
+        {
+          "line": 181,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 178,
+          "rule": "D8",
+          "from": "attempts-outstanding",
+          "to": "runtime-attempts-outstanding"
+        },
+        {
+          "line": 162,
+          "rule": "D8",
+          "from": "attempts-outstanding",
+          "to": "runtime-attempts-outstanding"
+        },
+        {
+          "line": 135,
+          "rule": "D8",
+          "from": "late-setup-result",
+          "to": "attempt-succeeded-late"
+        },
+        {
+          "line": 128,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 128,
+          "rule": "D8",
+          "from": "late-setup-result",
+          "to": "attempt-succeeded-late"
+        },
+        {
+          "line": 127,
+          "rule": "D8",
+          "from": "late-setup-result",
+          "to": "attempt-succeeded-late"
+        },
+        {
+          "line": 125,
+          "rule": "D8",
+          "from": "late-setup-result",
+          "to": "attempt-succeeded-late"
+        },
+        {
+          "line": 102,
+          "rule": "D8",
+          "from": "late-setup-result",
+          "to": "attempt-succeeded-late"
+        },
+        {
+          "line": 67,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 64,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 57,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 57,
+          "rule": "F15",
+          "from": "attempt",
+          "to": "attemptNumber"
+        },
+        {
+          "line": 32,
+          "rule": "F14",
+          "from": "runningForMs",
+          "to": "elapsedMs"
+        },
+        {
+          "line": 32,
+          "rule": "F14",
+          "from": "runningForMs",
+          "to": "elapsedMs"
+        },
+        {
+          "line": 31,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 6,
+          "rule": "D8",
+          "from": "attempts-outstanding",
+          "to": "runtime-attempts-outstanding"
+        }
+      ],
+      "manual": []
+    },
+    {
+      "file": "packages/core/tests/v07-s6-reuse-errors.test.mjs",
+      "edits": 21,
+      "changes": [
+        {
+          "line": 154,
+          "rule": "F6",
+          "from": "ref",
+          "to": "candidateRef"
+        },
+        {
+          "line": 152,
+          "rule": "F6",
+          "from": "ref",
+          "to": "candidateRef"
+        },
+        {
+          "line": 150,
+          "rule": "F6",
+          "from": "ref",
+          "to": "candidateRef"
+        },
+        {
+          "line": 146,
+          "rule": "F6",
+          "from": "ref",
+          "to": "candidateRef"
+        },
+        {
+          "line": 133,
+          "rule": "F6",
+          "from": "ref",
+          "to": "candidateRef"
+        },
+        {
+          "line": 133,
+          "rule": "F6",
+          "from": "ref",
+          "to": "candidateRef"
+        },
+        {
+          "line": 131,
+          "rule": "F7",
+          "from": "persistentRef",
+          "to": "implementationRef"
+        },
+        {
+          "line": 112,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 104,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 104,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 104,
+          "rule": "F3",
+          "from": "selectedKey",
+          "to": "selectedRevision"
+        },
+        {
+          "line": 103,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 93,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 92,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 65,
+          "rule": "S1",
+          "from": "reuse",
+          "to": "{ reuse }"
+        },
+        {
+          "line": 43,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 43,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 39,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 39,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 38,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 38,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        }
+      ],
+      "manual": []
+    },
+    {
+      "file": "packages/core/tests/v07-s7-env-state.test.mjs",
+      "edits": 26,
+      "changes": [
+        {
+          "line": 364,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 363,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 338,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 337,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 313,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 312,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 308,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 307,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 281,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 280,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 251,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 250,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 231,
+          "rule": "F15",
+          "from": "attempt",
+          "to": "attemptNumber"
+        },
+        {
+          "line": 231,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 215,
+          "rule": "F15",
+          "from": "attempt",
+          "to": "attemptNumber"
+        },
+        {
+          "line": 215,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 203,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 196,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 195,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 191,
+          "rule": "D1",
+          "from": "INITIALIZATION_TIMEOUT",
+          "to": "LOAD_TIMEOUT"
+        },
+        {
+          "line": 188,
+          "rule": "F16",
+          "from": "setupDeadlineMs",
+          "to": "loadTimeoutMs"
+        },
+        {
+          "line": 179,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 178,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 160,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 159,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 35,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        }
+      ],
+      "manual": []
+    },
+    {
+      "file": "packages/core/tests/v07-s7-invalid-descriptor.test.mjs",
+      "edits": 14,
+      "changes": [
+        {
+          "line": 303,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 291,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 214,
+          "rule": "F6",
+          "from": "ref",
+          "to": "candidateRef"
+        },
+        {
+          "line": 188,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 143,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 109,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 108,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 93,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 93,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 93,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 93,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 92,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 90,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 89,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        }
+      ],
+      "manual": []
+    },
+    {
+      "file": "packages/core/tests/v07-s8-missing-implementation.test.mjs",
+      "edits": 6,
+      "changes": [
+        {
+          "line": 141,
+          "rule": "F6",
+          "from": "ref",
+          "to": "candidateRef"
+        },
+        {
+          "line": 133,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 128,
+          "rule": "F6",
+          "from": "ref",
+          "to": "candidateRef"
+        },
+        {
+          "line": 89,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 83,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        },
+        {
+          "line": 82,
+          "rule": "F1",
+          "from": "key",
+          "to": "id"
+        }
+      ],
+      "manual": []
+    }
+  ],
+  "rules": {
+    "F9": 13,
+    "F19": 10,
+    "F1": 191,
+    "D5": 8,
+    "S2": 2,
+    "D8": 55,
+    "F6": 13,
+    "F10": 9,
+    "D1": 34,
+    "F16": 36,
+    "F7": 4,
+    "F13": 11,
+    "D4": 5,
+    "F18": 2,
+    "S1": 11,
+    "D2": 1,
+    "F14": 3,
+    "D7": 7,
+    "F11": 2,
+    "F2": 5,
+    "T2": 1,
+    "F15": 13,
+    "F3": 1
+  },
+  "edits": 437,
+  "filesChanged": 33,
+  "manual": 4
+}

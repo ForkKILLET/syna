@@ -47,11 +47,11 @@ test('0.x implementation refs use the exact installed version as the caret basel
   })
 
   const ref = Choice.to(Provider)
-  assert.equal(ref.version, '^0.2.0')
+  assert.equal(ref.range, '^0.2.0')
 
   const runtime = createRuntime({ services: [Consumer, Provider] })
   assert.equal(runtime.catalog.resolve(ref).version, '0.2.0')
-  assert.equal(runtime.catalog.implementations(Capability)[0].persistentRef.version, '^0.2.0')
+  assert.equal(runtime.catalog.implementations(Capability)[0].implementationRef.range, '^0.2.0')
 
   const env = await runtime.enter(Entry, { choice: ref })
   assert.equal(await (await env.deps.consumer.load()).load(), 'zero')
@@ -60,7 +60,7 @@ test('0.x implementation refs use the exact installed version as the caret basel
 
 // v0.5 (MIGRATION M-07): a load() wait is a plain Promise. A pending cycle is not
 // failed immediately; the configurable initialization deadline reports it.
-test('a setup wait cycle routed through a Ready service ends with INITIALIZATION_TIMEOUT instead of hanging', async () => {
+test('a setup wait cycle routed through a Ready service ends with LOAD_TIMEOUT instead of hanging', async () => {
   const define = makeDefine('test.ready-indirect-cycle')
   let A
   let B
@@ -91,14 +91,14 @@ test('a setup wait cycle routed through a Ready service ends with INITIALIZATION
   })
 
   const Entry = define.entry({ requires: { a: A, b: B } })
-  const runtime = createRuntime({ services: [A, B, C], limits: { setupDeadlineMs: 40 } })
+  const runtime = createRuntime({ services: [A, B, C], limits: { loadTimeoutMs: 40 } })
   const env = await runtime.enter(Entry)
   await env.deps.a.load()
   await assert.rejects(
     withTimeout(env.deps.b.load(), 2000),
     error => {
-      assert.equal(error.code, 'INITIALIZATION_TIMEOUT')
-      assert.equal(error.details.revision, B.key)
+      assert.equal(error.code, 'LOAD_TIMEOUT')
+      assert.equal(error.details.revision, B.id)
       // The wait went through a Ready instance's method, so no load() edge from B
       // is observable; the deadline is the honest fallback, not a deadlock proof.
       assert.equal(typeof error.details.elapsedMs, 'number')
@@ -394,7 +394,7 @@ test('non-semantic metadata drift produces a warning without changing nominal gr
   const Entry = entryDefine.entry({ requires: { service: copy } })
   const runtime = createRuntime({ services: [canonical, copy] })
   assert.equal(runtime.inspect().definitionWarnings.length, 1)
-  assert.deepEqual(runtime.inspect().admittedServices, [canonical.key])
+  assert.deepEqual(runtime.inspect().admittedServices, [canonical.id])
   const env = await runtime.enter(Entry)
   assert.equal((await env.deps.service.load()).id, 1)
   assert.equal(setups, 1, 'one canonical revision, set up once')

@@ -30,18 +30,18 @@ test('K12 explain distinguishes inherited, new and forked nodes and gives the ca
   const explanation = await root.explain(Request, { request: 'r1' })
   assert.equal(explanation.ok, true)
   assert.equal(explanation.parent, root.id)
-  assert.deepEqual(explanation.services, { inherited: 1, new: 1, forked: 2, eagerToStart: 1, eagerInherited: 0 })
+  assert.deepEqual(explanation.services, { reused: 1, new: 1, forked: 2, eagerToStart: 1, eagerReused: 0 })
   assert.deepEqual(explanation.inputs, { inherited: 0, provided: 1 })
-  const pool = explanation.nodes.find(node => node.nodeId === `service:${DatabasePool.key}`)
-  assert.equal(pool.disposition, 'forked')
-  assert.deepEqual(pool.cause, { kind: 'dependency-forked', via: 'logger', dependency: `service:${RequestAwareLogger.key}` })
-  assert.deepEqual(pool.path, [`service:${DatabasePool.key}`, `service:${RequestAwareLogger.key}`, `input:${CurrentRequest.id}`])
+  const pool = explanation.nodes.find(node => node.nodeId === `service:${DatabasePool.id}`)
+  assert.equal(pool.placement, 'forked')
+  assert.deepEqual(pool.cause, { kind: 'dependency-forked', via: 'logger', dependency: `service:${RequestAwareLogger.id}` })
+  assert.deepEqual(pool.path, [`service:${DatabasePool.id}`, `service:${RequestAwareLogger.id}`, `input:${CurrentRequest.id}`])
   const requestNode = explanation.nodes.find(node => node.nodeId === `input:${CurrentRequest.id}`)
   assert.deepEqual(requestNode.cause, { kind: 'input-provided', input: CurrentRequest.id })
-  const handler = explanation.nodes.find(node => node.nodeId === `service:${Handler.key}`)
-  assert.equal(handler.disposition, 'new')
+  const handler = explanation.nodes.find(node => node.nodeId === `service:${Handler.id}`)
+  assert.equal(handler.placement, 'new')
   assert.equal(handler.cause.kind, 'not-in-parent')
-  assert.equal(explanation.nodes.find(node => node.nodeId === `service:${Logger.key}`).disposition, 'inherited')
+  assert.equal(explanation.nodes.find(node => node.nodeId === `service:${Logger.id}`).placement, 'reused')
   assert.equal(explanation.forks.length, 4)
   // explain() executed no setup, published no Env and left no anchor behind.
   assert.equal(runtime.inspect().liveEnvCount, 1)
@@ -84,17 +84,17 @@ test('K12 check/explain never execute setup and report unsatisfiable constraints
   const tight = createRuntime({
     services: [Consumer, Pick1, Pick2, Fixed1, Fixed2, ...providers],
     limits: { planningBudget: 2 },
-    policy: { orderAutoCandidates: (_c, candidates) => [...candidates].sort((l, r) => l.key.localeCompare(r.key)) },
+    policy: { orderAutoCandidates: (_c, candidates) => [...candidates].sort((l, r) => l.id.localeCompare(r.id)) },
   })
   await assert.rejects(tight.enter(BudgetEntry), error => error.code === 'PLANNING_BUDGET_EXCEEDED')
   await assert.rejects(tight.check(BudgetEntry), error => error.code === 'PLANNING_BUDGET_EXCEEDED')
   const roomy = createRuntime({
     services: [Consumer, Pick1, Pick2, Fixed1, Fixed2],
-    policy: { orderAutoCandidates: (_c, candidates) => [...candidates].sort((l, r) => l.key.localeCompare(r.key)) },
+    policy: { orderAutoCandidates: (_c, candidates) => [...candidates].sort((l, r) => l.id.localeCompare(r.id)) },
   })
   const solved = await roomy.explain(BudgetEntry)
   assert.equal(solved.ok, true)
-  assert.ok(Object.values(solved.choices).every(key => key === Pick2.key || key === Fixed2.key))
+  assert.ok(Object.values(solved.choices).every(key => key === Pick2.id || key === Fixed2.id))
   await runtime.dispose()
 })
 

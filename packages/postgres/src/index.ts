@@ -44,7 +44,7 @@ export interface Postgres {
 let nextPoolId = 1
 
 export const Postgres = define.service({
-  metadata: {
+  familyMetadata: {
     displayName: 'PostgreSQL',
     description: 'A lifecycle-managed PostgreSQL-style connection pool.',
   },

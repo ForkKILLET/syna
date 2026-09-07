@@ -1,0 +1,29 @@
+{
+  "$comment": "The mapping from the 0.5.0 record (v05-explain-inspect.json) to the current names, applied by v06-snapshots.test.mjs before the comparison. keys: rename an object key (inside objects whose `kind` equals `within`, or that carry `whenHasKey`, when given); values: replace the value of `key` when it equals `from`; added: set (`value`) or merge (`merge`) `key` on every recorded object the predicate accepts. One entry per rename: R5 (0.6) the serialized family key; M3/S6 (0.6/0.7) the constraint error code; S6/S2 (0.7) the added details and ledger fields; 0.8 §2 the last rename — F19 kind, F9 range, F13 placement, D4/D5 reused, F11 limit, F10 privateServices, F7 implementationRef, F12 bindingsAssigned, D3 all-implementations, F9 parse() refuses with INVALID_DESCRIPTOR.",
+  "keys": [
+    { "from": "implementationId", "to": "familyId", "within": "persistent-implementation-ref" },
+    { "from": "version", "to": "range", "within": "persistent-implementation-ref" },
+    { "from": "disposition", "to": "placement" },
+    { "from": "inherited", "to": "reused", "whenHasKey": "forked" },
+    { "from": "eagerInherited", "to": "eagerReused" },
+    { "from": "maxEntries", "to": "limit" },
+    { "from": "internalServices", "to": "privateServices" },
+    { "from": "persistentRef", "to": "implementationRef" },
+    { "from": "bindingsResolved", "to": "bindingsAssigned" }
+  ],
+  "values": [
+    { "key": "code", "from": "CONSTRAINT_VIOLATION", "to": "INACTIVE_REUSE_TARGET" },
+    { "key": "pickerRefJson", "from": "{\"kind\":\"persistent-implementation-ref\",\"contractId\":\"snap/storage/v1\",\"implementationId\":\"snap-memory\",\"version\":\"^1.0.0\"}", "to": "{\"kind\":\"implementation-ref\",\"contractId\":\"snap/storage/v1\",\"familyId\":\"snap-memory\",\"range\":\"^1.0.0\"}" },
+    { "key": "kind", "from": "persistent-implementation-ref", "to": "implementation-ref" },
+    { "key": "kind", "from": "all", "to": "all-implementations" },
+    { "key": "disposition", "from": "inherited", "to": "reused" },
+    { "key": "name", "from": "TypeError", "to": "SynaError" },
+    { "key": "message", "from": "Invalid persistent implementation reference for Contract snap/storage/v1.", "to": "Invalid implementation reference for Contract snap/storage/v1." }
+  ],
+  "added": [
+    { "whenEquals": { "code": "CONSTRAINT_VIOLATION" }, "whenHasKeys": ["details"], "key": "details", "merge": { "constraint": "fresh" } },
+    { "whenHasKeys": ["id", "state", "nodes"], "key": "abandonedAttempts", "value": [] },
+    { "whenEquals": { "name": "TypeError" }, "key": "code", "value": "INVALID_DESCRIPTOR" },
+    { "whenEquals": { "name": "TypeError" }, "key": "details", "value": { "descriptor": "ImplementationRef", "problem": "malformed-implementation-ref" } }
+  ]
+}

@@ -2,7 +2,7 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import { readFile, realpath, stat } from 'node:fs/promises'
 import path from 'node:path'
 import type { AddressInfo } from 'node:net'
-import type { EnvHandle } from '@syna/core'
+import type { Env } from '@syna/core'
 import type { RequestHeaders } from '../auth/principal.js'
 import { UnsafePathError, assertNoSymlink } from '../data/filesystem/files.js'
 import type { DomainTable } from './domains.js'
@@ -13,7 +13,7 @@ import type { RequestFacts } from './inputs.js'
 import type { SiteEnvironmentManager } from './manager.js'
 
 export interface HttpServerOptions {
-  readonly app: EnvHandle<typeof AppEntry['requires']>
+  readonly app: Env<typeof AppEntry['requires']>
   readonly domains: DomainTable
   /** Honour X-Forwarded-Host. Only enable behind a proxy you control. */
   readonly trustProxy?: boolean

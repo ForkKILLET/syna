@@ -7,6 +7,7 @@
       "path": "AllImplementations",
       "kind": "interface",
       "signature": "interface AllImplementations<C extends Contract<any> = Contract<any>>",
+      "doc": "/** Require all admitted implementations to coexist in the current Env topology. */",
       "deprecated": false,
       "note": ""
     },
@@ -14,6 +15,7 @@
       "path": "AllImplementations.kind",
       "kind": "member",
       "signature": "readonly kind: 'all-implementations'",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -21,6 +23,7 @@
       "path": "AllImplementations.contract",
       "kind": "member",
       "signature": "readonly contract: C",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -28,6 +31,7 @@
       "path": "AnchoredEntry",
       "kind": "interface",
       "signature": "interface AnchoredEntry<E extends EntryDescriptor<any, any>>",
+      "doc": "/** * An Entry anchored at one Env: invoking it creates a child of that Env. A * Service that requires an Entry receives one anchored at the owner Env of its * slot; `env.anchor(entry)` creates one anchored at `env`. */",
       "deprecated": false,
       "note": ""
     },
@@ -35,6 +39,7 @@
       "path": "AnchoredEntry.enter",
       "kind": "member",
       "signature": "enter(...args: EntryCallArguments<E>): Promise<EnvHandle<E['requires']>>",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -42,6 +47,7 @@
       "path": "AnchoredEntry.run",
       "kind": "member",
       "signature": "run<Result>(...args: EntryRunCallArguments<E, Result>): Promise<Result>",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -49,6 +55,7 @@
       "path": "AnchoredEntry.check",
       "kind": "member",
       "signature": "check(...args: EntryCallArguments<E>): Promise<EntryCheck>",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -56,6 +63,7 @@
       "path": "AnchoredEntry.explain",
       "kind": "member",
       "signature": "explain(...args: EntryCallArguments<E>): Promise<EntryExplanation>",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -63,6 +71,7 @@
       "path": "auto",
       "kind": "function",
       "signature": "function auto<C extends Contract<any>>(contract: C): AutoImplementation<C>",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -70,6 +79,7 @@
       "path": "AutoImplementation",
       "kind": "interface",
       "signature": "interface AutoImplementation<C extends Contract<any> = Contract<any>>",
+      "doc": "/** Select exactly one implementation using the Runtime's explicit policy. */",
       "deprecated": false,
       "note": ""
     },
@@ -77,6 +87,7 @@
       "path": "AutoImplementation.kind",
       "kind": "member",
       "signature": "readonly kind: 'auto-implementation'",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -84,6 +95,7 @@
       "path": "AutoImplementation.contract",
       "kind": "member",
       "signature": "readonly contract: C",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -91,6 +103,7 @@
       "path": "Awaitable",
       "kind": "type",
       "signature": "type Awaitable<T> = T | PromiseLike<T>",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -98,6 +111,7 @@
       "path": "Binding",
       "kind": "interface",
       "signature": "interface Binding<C extends Contract<any> = Contract<any>>",
+      "doc": "/** A stable business-level implementation choice inherited through Env descendants. */",
       "deprecated": false,
       "note": ""
     },
@@ -105,6 +119,7 @@
       "path": "Binding.kind",
       "kind": "member",
       "signature": "readonly kind: 'binding'",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -112,6 +127,7 @@
       "path": "Binding.id",
       "kind": "member",
       "signature": "readonly id: string",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -119,6 +135,7 @@
       "path": "Binding.apiVersion",
       "kind": "member",
       "signature": "readonly apiVersion: number",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -126,6 +143,7 @@
       "path": "Binding.contract",
       "kind": "member",
       "signature": "readonly contract: C",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -133,6 +151,7 @@
       "path": "Binding.metadata",
       "kind": "member",
       "signature": "readonly metadata: Readonly<DescriptorMetadata>",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -140,6 +159,7 @@
       "path": "Binding.to",
       "kind": "member",
       "signature": "to<S extends ServiceRevision<any, any>>( service: ServiceInstance<S> extends ContractApi<C> ? S : never, version?: string, ): ImplementationRef<C>",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -147,6 +167,7 @@
       "path": "Binding.parse",
       "kind": "member",
       "signature": "parse(input: unknown): ImplementationRef<C>",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -154,6 +175,7 @@
       "path": "BindingAssignment",
       "kind": "type",
       "signature": "type BindingAssignment<B extends Binding<any>> = | ImplementationRef<B['contract']> | ServiceRevision<ContractApi<B['contract']>>",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -161,6 +183,7 @@
       "path": "CandidateRef",
       "kind": "interface",
       "signature": "interface CandidateRef<C extends Contract<any> = Contract<any>>",
+      "doc": "/** Exact collection-local candidate identity. It is intentionally not durable. */",
       "deprecated": false,
       "note": ""
     },
@@ -168,6 +191,7 @@
       "path": "CandidateRef.kind",
       "kind": "member",
       "signature": "readonly kind: 'candidate-ref'",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -175,6 +199,7 @@
       "path": "CandidateRef.contract",
       "kind": "member",
       "signature": "readonly contract: C",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -182,6 +207,7 @@
       "path": "CandidateRef.familyId",
       "kind": "member",
       "signature": "readonly familyId: string",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -189,6 +215,7 @@
       "path": "CandidateRef.version",
       "kind": "member",
       "signature": "readonly version: string",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -196,6 +223,7 @@
       "path": "CandidateRef.__type",
       "kind": "member",
       "signature": "readonly __type?: C",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -203,6 +231,7 @@
       "path": "Contract",
       "kind": "interface",
       "signature": "interface Contract<Api = unknown>",
+      "doc": "/** * A nominal capability specification. A naked Contract in `requires` is strict: * it succeeds only when one implementation family is unambiguous. `auto(C)` opts * into the Runtime's explicit implementation policy. */",
       "deprecated": false,
       "note": ""
     },
@@ -210,6 +239,7 @@
       "path": "Contract.kind",
       "kind": "member",
       "signature": "readonly kind: 'contract'",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -217,6 +247,7 @@
       "path": "Contract.id",
       "kind": "member",
       "signature": "readonly id: string",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -224,6 +255,7 @@
       "path": "Contract.apiVersion",
       "kind": "member",
       "signature": "readonly apiVersion: number",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -231,6 +263,7 @@
       "path": "Contract.metadata",
       "kind": "member",
       "signature": "readonly metadata: Readonly<DescriptorMetadata>",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -238,6 +271,7 @@
       "path": "Contract.all",
       "kind": "member",
       "signature": "readonly all: AllImplementations<Contract<Api>>",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -245,6 +279,7 @@
       "path": "Contract.__type",
       "kind": "member",
       "signature": "readonly __type?: Api",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -252,6 +287,7 @@
       "path": "ContractApi",
       "kind": "type",
       "signature": "type ContractApi<C> = C extends Contract<infer Api> ? Api : never",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -259,6 +295,7 @@
       "path": "createRuntime",
       "kind": "function",
       "signature": "function createRuntime(options: CreateRuntimeOptions): Runtime",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -266,6 +303,7 @@
       "path": "CreateRuntimeOptions",
       "kind": "interface",
       "signature": "interface CreateRuntimeOptions",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -273,6 +311,7 @@
       "path": "CreateRuntimeOptions.services",
       "kind": "member",
       "signature": "readonly services: readonly ServiceRevision[]",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -280,6 +319,7 @@
       "path": "CreateRuntimeOptions.policy",
       "kind": "member",
       "signature": "readonly policy?: Partial<RuntimePolicy>",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -287,6 +327,7 @@
       "path": "CreateRuntimeOptions.overrides",
       "kind": "member",
       "signature": "readonly overrides?: readonly ServiceOverride[]",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -294,6 +335,7 @@
       "path": "CreateRuntimeOptions.limits",
       "kind": "member",
       "signature": "readonly limits?: RuntimeLimits",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -301,6 +343,7 @@
       "path": "CreateRuntimeOptions.diagnostics",
       "kind": "member",
       "signature": "readonly diagnostics?: DiagnosticsOptions",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -308,6 +351,7 @@
       "path": "defaultRuntimePolicy",
       "kind": "const",
       "signature": "const defaultRuntimePolicy: RuntimePolicy",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -315,6 +359,7 @@
       "path": "definePackage",
       "kind": "function",
       "signature": "function definePackage(manifest: PackageManifest): PackageDefinitions",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -322,6 +367,7 @@
       "path": "DefinitionOptions",
       "kind": "interface",
       "signature": "interface DefinitionOptions",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -329,6 +375,7 @@
       "path": "DefinitionOptions.apiVersion",
       "kind": "member",
       "signature": "readonly apiVersion?: number",
+      "doc": "/** Independent descriptor generation. It is deliberately not derived from package semver. */",
       "deprecated": false,
       "note": ""
     },
@@ -336,6 +383,7 @@
       "path": "DefinitionOptions.metadata",
       "kind": "member",
       "signature": "readonly metadata?: DescriptorMetadata",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -343,6 +391,7 @@
       "path": "Dependency",
       "kind": "type",
       "signature": "type Dependency = | ServiceRevision<any, any> | ServiceRange<any> | Contract<any> | Input<any> | Binding<any> | AutoImplementation<any> | AllImplementations<any> | EntryDescriptor<any, any> | ForwardDependency<any>",
+      "doc": "/** Every descriptor accepted in a Service or Entry `requires` map. */",
       "deprecated": false,
       "note": ""
     },
@@ -350,6 +399,7 @@
       "path": "DependencyMap",
       "kind": "type",
       "signature": "type DependencyMap = Readonly<Record<string, Dependency>>",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -357,6 +407,7 @@
       "path": "DependencyRefFor",
       "kind": "type",
       "signature": "type DependencyRefFor<D> = UnwrapForward<D> extends Input<infer T> ? InputRef<T> : ServiceRef<DependencyOutput<D>>",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -364,6 +415,7 @@
       "path": "DependencyRefs",
       "kind": "type",
       "signature": "type DependencyRefs<Requires extends DependencyMap> = { readonly [Key in keyof Requires]: DependencyRefFor<Requires[Key]> }",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -371,6 +423,7 @@
       "path": "DescriptorMetadata",
       "kind": "interface",
       "signature": "interface DescriptorMetadata",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -378,6 +431,7 @@
       "path": "DescriptorMetadata.displayName",
       "kind": "member",
       "signature": "readonly displayName?: string",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -385,6 +439,7 @@
       "path": "DescriptorMetadata.description",
       "kind": "member",
       "signature": "readonly description?: string",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -392,6 +447,7 @@
       "path": "DescriptorMetadata.tags",
       "kind": "member",
       "signature": "readonly tags?: readonly string[]",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -399,6 +455,7 @@
       "path": "DescriptorMetadata.data",
       "kind": "member",
       "signature": "readonly data?: Readonly<Record<string, MetadataValue>>",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -406,6 +463,7 @@
       "path": "DiagnosticCode",
       "kind": "type",
       "signature": "type DiagnosticCode = SynaErrorCode | 'UNKNOWN_ERROR'",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -413,6 +471,7 @@
       "path": "DiagnosticCode['UNKNOWN_ERROR']",
       "kind": "union-member",
       "signature": "'UNKNOWN_ERROR'",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -420,6 +479,7 @@
       "path": "DiagnosticsOptions",
       "kind": "interface",
       "signature": "interface DiagnosticsOptions",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -427,6 +487,7 @@
       "path": "DiagnosticsOptions.onEvent",
       "kind": "member",
       "signature": "readonly onEvent?: (event: RuntimeEvent) => void",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -434,6 +495,7 @@
       "path": "EntryArguments",
       "kind": "type",
       "signature": "type EntryArguments<E extends EntryDescriptor<any, any>> = EntryParameterValues<E['parameters']>",
+      "doc": "/** The call-time values record of an Entry: one value per declared parameter (Input payload or Binding assignment). */",
       "deprecated": false,
       "note": ""
     },
@@ -441,6 +503,7 @@
       "path": "EntryCallback",
       "kind": "type",
       "signature": "type EntryCallback<E extends EntryDescriptor<any, any>, Result> = ( dependencies: EntryDependencies<E>, env: EnvHandle<E['requires']>, ) => Awaitable<Result>",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -448,6 +511,7 @@
       "path": "EntryCheck",
       "kind": "type",
       "signature": "type EntryCheck = | { readonly ok: true; readonly inspection: PlannedEnvInspection } | { readonly ok: false; readonly error: EntryDiagnostic }",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -455,6 +519,7 @@
       "path": "EntryDefinition",
       "kind": "interface",
       "signature": "interface EntryDefinition<Requires extends DependencyMap, Parameters extends EntryParameterMap> extends DefinitionOptions",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -462,6 +527,7 @@
       "path": "EntryDefinition.requires",
       "kind": "member",
       "signature": "readonly requires?: Requires",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -469,6 +535,7 @@
       "path": "EntryDefinition.parameters",
       "kind": "member",
       "signature": "readonly parameters?: Parameters",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -476,6 +543,7 @@
       "path": "EntryDefinition.reuse",
       "kind": "member",
       "signature": "readonly reuse?: ReuseConstraints",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -483,6 +551,7 @@
       "path": "EntryDependencies",
       "kind": "type",
       "signature": "type EntryDependencies<E extends EntryDescriptor<any, any>> = DependencyRefs<E['requires']>",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -490,6 +559,7 @@
       "path": "EntryDescriptor",
       "kind": "interface",
       "signature": "interface EntryDescriptor<Requires extends DependencyMap = DependencyMap, Parameters extends EntryParameterMap = EntryParameterMap>",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -497,6 +567,7 @@
       "path": "EntryDescriptor.kind",
       "kind": "member",
       "signature": "readonly kind: 'entry'",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -504,6 +575,7 @@
       "path": "EntryDescriptor.package",
       "kind": "member",
       "signature": "readonly package: PackageDescriptor",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -511,6 +583,7 @@
       "path": "EntryDescriptor.id",
       "kind": "member",
       "signature": "readonly id: string",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -518,6 +591,7 @@
       "path": "EntryDescriptor.apiVersion",
       "kind": "member",
       "signature": "readonly apiVersion: number",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -525,6 +599,7 @@
       "path": "EntryDescriptor.requires",
       "kind": "member",
       "signature": "readonly requires: Requires",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -532,6 +607,7 @@
       "path": "EntryDescriptor.parameters",
       "kind": "member",
       "signature": "readonly parameters: Parameters",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -539,6 +615,7 @@
       "path": "EntryDescriptor.reuse",
       "kind": "member",
       "signature": "readonly reuse: Readonly<ReuseConstraints>",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -546,6 +623,7 @@
       "path": "EntryDescriptor.metadata",
       "kind": "member",
       "signature": "readonly metadata: Readonly<DescriptorMetadata>",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -553,6 +631,7 @@
       "path": "EntryDiagnostic",
       "kind": "interface",
       "signature": "interface EntryDiagnostic",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -560,6 +639,7 @@
       "path": "EntryDiagnostic.code",
       "kind": "member",
       "signature": "readonly code: DiagnosticCode",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -567,6 +647,7 @@
       "path": "EntryDiagnostic.message",
       "kind": "member",
       "signature": "readonly message: string",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -574,6 +655,7 @@
       "path": "EntryDiagnostic.details",
       "kind": "member",
       "signature": "readonly details: Readonly<Record<string, unknown>>",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -581,6 +663,7 @@
       "path": "EntryExplanation",
       "kind": "type",
       "signature": "type EntryExplanation = EntryExplanationSuccess | EntryExplanationFailure",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -588,6 +671,7 @@
       "path": "EntryExplanationFailure",
       "kind": "interface",
       "signature": "interface EntryExplanationFailure",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -595,6 +679,7 @@
       "path": "EntryExplanationFailure.ok",
       "kind": "member",
       "signature": "readonly ok: false",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -602,6 +687,7 @@
       "path": "EntryExplanationFailure.entry",
       "kind": "member",
       "signature": "readonly entry: string",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -609,6 +695,7 @@
       "path": "EntryExplanationFailure.parent",
       "kind": "member",
       "signature": "readonly parent?: string",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -616,6 +703,7 @@
       "path": "EntryExplanationFailure.error",
       "kind": "member",
       "signature": "readonly error: EntryDiagnostic",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -623,6 +711,7 @@
       "path": "EntryExplanationFailure.missingInputs",
       "kind": "member",
       "signature": "readonly missingInputs: readonly string[]",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -630,6 +719,7 @@
       "path": "EntryExplanationFailure.missingBindings",
       "kind": "member",
       "signature": "readonly missingBindings: readonly string[]",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -637,6 +727,7 @@
       "path": "EntryExplanationSuccess",
       "kind": "interface",
       "signature": "interface EntryExplanationSuccess",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -644,6 +735,7 @@
       "path": "EntryExplanationSuccess.ok",
       "kind": "member",
       "signature": "readonly ok: true",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -651,6 +743,7 @@
       "path": "EntryExplanationSuccess.entry",
       "kind": "member",
       "signature": "readonly entry: string",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -658,6 +751,7 @@
       "path": "EntryExplanationSuccess.parent",
       "kind": "member",
       "signature": "readonly parent?: string",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -665,6 +759,7 @@
       "path": "EntryExplanationSuccess.parameters",
       "kind": "member",
       "signature": "readonly parameters: { readonly inputsProvided: readonly string[] readonly inputsInherited: readonly string[] readonly bindingsResolved: Readonly<Record<string, string>> readonly bindingsInherited: Readonly<Record<string, string>> }",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -672,6 +767,7 @@
       "path": "EntryExplanationSuccess.services",
       "kind": "member",
       "signature": "readonly services: ExplainCounts & { readonly eagerToStart: number readonly eagerInherited: number }",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -679,6 +775,7 @@
       "path": "EntryExplanationSuccess.inputs",
       "kind": "member",
       "signature": "readonly inputs: { readonly inherited: number; readonly provided: number }",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -686,6 +783,7 @@
       "path": "EntryExplanationSuccess.synthetic",
       "kind": "member",
       "signature": "readonly synthetic: ExplainCounts",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -693,6 +791,7 @@
       "path": "EntryExplanationSuccess.choices",
       "kind": "member",
       "signature": "readonly choices: Readonly<Record<string, string>>",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -700,6 +799,7 @@
       "path": "EntryExplanationSuccess.nodes",
       "kind": "member",
       "signature": "readonly nodes: readonly ExplainedNode[]",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -707,6 +807,7 @@
       "path": "EntryExplanationSuccess.forks",
       "kind": "member",
       "signature": "readonly forks: readonly ExplainedNode[]",
+      "doc": "/** Every node that is not inherited, with cause and path. */",
       "deprecated": false,
       "note": ""
     },
@@ -714,6 +815,7 @@
       "path": "EntryOptions",
       "kind": "interface",
       "signature": "interface EntryOptions",
+      "doc": "/** Call-time options of `enter`, `run`, `check` and `explain`. */",
       "deprecated": false,
       "note": ""
     },
@@ -721,6 +823,7 @@
       "path": "EntryOptions.reuse",
       "kind": "member",
       "signature": "readonly reuse?: ReuseConstraints",
+      "doc": "/** Per-call reuse constraints, merged with the Entry's own `reuse`. */",
       "deprecated": false,
       "note": ""
     },
@@ -728,6 +831,7 @@
       "path": "EntryParameters",
       "kind": "type",
       "signature": "type EntryParameters<E extends EntryDescriptor<any, any>> = E['parameters']",
+      "doc": "/** The declared parameter map of an Entry: the type of its `parameters` record. */",
       "deprecated": false,
       "note": ""
     },
@@ -735,6 +839,7 @@
       "path": "EnvHandle",
       "kind": "interface",
       "signature": "interface EnvHandle<Requires extends DependencyMap = DependencyMap>",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -742,6 +847,7 @@
       "path": "EnvHandle.id",
       "kind": "member",
       "signature": "readonly id: string",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -749,6 +855,7 @@
       "path": "EnvHandle.deps",
       "kind": "member",
       "signature": "readonly deps: DependencyRefs<Requires>",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -756,6 +863,7 @@
       "path": "EnvHandle.state",
       "kind": "member",
       "signature": "readonly state: EnvState",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -763,6 +871,7 @@
       "path": "EnvHandle.enter",
       "kind": "member",
       "signature": "enter<E extends EntryDescriptor<any, any>>( entry: E, ...args: EntryCallArguments<E> ): Promise<EnvHandle<E['requires']>>",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -770,6 +879,7 @@
       "path": "EnvHandle.run",
       "kind": "member",
       "signature": "run<E extends EntryDescriptor<any, any>, Result>( entry: E, ...args: EntryRunCallArguments<E, Result> ): Promise<Result>",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -777,6 +887,7 @@
       "path": "EnvHandle.check",
       "kind": "member",
       "signature": "check<E extends EntryDescriptor<any, any>>( entry: E, ...args: EntryCallArguments<E> ): Promise<EntryCheck>",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -784,6 +895,7 @@
       "path": "EnvHandle.explain",
       "kind": "member",
       "signature": "explain<E extends EntryDescriptor<any, any>>( entry: E, ...args: EntryCallArguments<E> ): Promise<EntryExplanation>",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -791,6 +903,7 @@
       "path": "EnvHandle.derive",
       "kind": "member",
       "signature": "derive(reuse?: ReuseConstraints): Promise<EnvHandle<{}>>",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -798,6 +911,7 @@
       "path": "EnvHandle.anchor",
       "kind": "member",
       "signature": "anchor<E extends EntryDescriptor>(entry: E): AnchoredEntry<E>",
+      "doc": "/** An `AnchoredEntry` anchored at this Env (public authority). */",
       "deprecated": false,
       "note": ""
     },
@@ -805,6 +919,7 @@
       "path": "EnvHandle.inspect",
       "kind": "member",
       "signature": "inspect(): EnvInspection",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -812,6 +927,7 @@
       "path": "EnvHandle.dispose",
       "kind": "member",
       "signature": "dispose(): Promise<void>",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -819,6 +935,7 @@
       "path": "EnvHandle.[Symbol.asyncDispose]",
       "kind": "member",
       "signature": "[Symbol.asyncDispose](): Promise<void>",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -826,6 +943,7 @@
       "path": "EnvInspection",
       "kind": "interface",
       "signature": "interface EnvInspection",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -833,6 +951,7 @@
       "path": "EnvInspection.id",
       "kind": "member",
       "signature": "readonly id: string",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -840,6 +959,7 @@
       "path": "EnvInspection.parentId",
       "kind": "member",
       "signature": "readonly parentId?: string",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -847,6 +967,7 @@
       "path": "EnvInspection.state",
       "kind": "member",
       "signature": "readonly state: string",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -854,6 +975,7 @@
       "path": "EnvInspection.nodes",
       "kind": "member",
       "signature": "readonly nodes: readonly EnvInspectionNode[]",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -861,6 +983,7 @@
       "path": "EnvInspection.abandonedAttempts",
       "kind": "member",
       "signature": "readonly abandonedAttempts: readonly UnsettledAttemptInspection[]",
+      "doc": "/** * The ledger entries this Env's close left behind: attempts of its own * slots that are abandoned, rolling back or settling late (a descendant's * attempts are listed by that descendant). Empty while the Env is open and * once every attempt settled. */",
       "deprecated": false,
       "note": ""
     },
@@ -868,6 +991,7 @@
       "path": "EnvInspectionNode",
       "kind": "interface",
       "signature": "interface EnvInspectionNode",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -875,6 +999,7 @@
       "path": "EnvInspectionNode.nodeId",
       "kind": "member",
       "signature": "readonly nodeId: string",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -882,6 +1007,7 @@
       "path": "EnvInspectionNode.kind",
       "kind": "member",
       "signature": "readonly kind: InspectionNodeKind",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -889,6 +1015,7 @@
       "path": "EnvInspectionNode.label",
       "kind": "member",
       "signature": "readonly label: string",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -896,6 +1023,7 @@
       "path": "EnvInspectionNode.slotId",
       "kind": "member",
       "signature": "readonly slotId: string",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -903,6 +1031,7 @@
       "path": "EnvInspectionNode.ownerEnvId",
       "kind": "member",
       "signature": "readonly ownerEnvId: string",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -910,6 +1039,7 @@
       "path": "EnvInspectionNode.state",
       "kind": "member",
       "signature": "readonly state: string",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -917,6 +1047,7 @@
       "path": "EnvInspectionNode.overdueMs",
       "kind": "member",
       "signature": "readonly overdueMs?: number",
+      "doc": "/** Present only while the slot is `starting` and a waiter's deadline has passed: milliseconds since the attempt became overdue. */",
       "deprecated": false,
       "note": ""
     },
@@ -924,6 +1055,7 @@
       "path": "EnvInspectionNode.dependencies",
       "kind": "member",
       "signature": "readonly dependencies: Readonly<Record<string, string>>",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -931,6 +1063,7 @@
       "path": "EnvState",
       "kind": "type",
       "signature": "type EnvState = 'activating' | 'ready' | 'disposing' | 'disposed'",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -938,6 +1071,7 @@
       "path": "EnvState['activating']",
       "kind": "union-member",
       "signature": "'activating'",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -945,6 +1079,7 @@
       "path": "EnvState['ready']",
       "kind": "union-member",
       "signature": "'ready'",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -952,6 +1087,7 @@
       "path": "EnvState['disposing']",
       "kind": "union-member",
       "signature": "'disposing'",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -959,6 +1095,7 @@
       "path": "EnvState['disposed']",
       "kind": "union-member",
       "signature": "'disposed'",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -966,6 +1103,7 @@
       "path": "ExplainCounts",
       "kind": "interface",
       "signature": "interface ExplainCounts",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -973,6 +1111,7 @@
       "path": "ExplainCounts.inherited",
       "kind": "member",
       "signature": "readonly inherited: number",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -980,6 +1119,7 @@
       "path": "ExplainCounts.new",
       "kind": "member",
       "signature": "readonly new: number",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -987,6 +1127,7 @@
       "path": "ExplainCounts.forked",
       "kind": "member",
       "signature": "readonly forked: number",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -994,6 +1135,7 @@
       "path": "ExplainedNode",
       "kind": "interface",
       "signature": "interface ExplainedNode",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1001,6 +1143,7 @@
       "path": "ExplainedNode.nodeId",
       "kind": "member",
       "signature": "readonly nodeId: string",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1008,6 +1151,7 @@
       "path": "ExplainedNode.kind",
       "kind": "member",
       "signature": "readonly kind: InspectionNodeKind",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1015,6 +1159,7 @@
       "path": "ExplainedNode.label",
       "kind": "member",
       "signature": "readonly label: string",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1022,6 +1167,7 @@
       "path": "ExplainedNode.disposition",
       "kind": "member",
       "signature": "readonly disposition: NodeDisposition",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1029,6 +1175,7 @@
       "path": "ExplainedNode.eager",
       "kind": "member",
       "signature": "readonly eager: boolean",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1036,6 +1183,7 @@
       "path": "ExplainedNode.cause",
       "kind": "member",
       "signature": "readonly cause?: ForkCause",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1043,6 +1191,7 @@
       "path": "ExplainedNode.path",
       "kind": "member",
       "signature": "readonly path: readonly string[]",
+      "doc": "/** Node ids from this node to the terminal cause. */",
       "deprecated": false,
       "note": ""
     },
@@ -1050,6 +1199,7 @@
       "path": "FailureAfterExhaustion",
       "kind": "type",
       "signature": "type FailureAfterExhaustion = 'sticky' | 'retry-on-next-load'",
+      "doc": "/** Retry is opt-in because setup may have externally visible side effects. */",
       "deprecated": false,
       "note": ""
     },
@@ -1057,6 +1207,7 @@
       "path": "FailureAfterExhaustion['sticky']",
       "kind": "union-member",
       "signature": "'sticky'",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1064,6 +1215,7 @@
       "path": "FailureAfterExhaustion['retry-on-next-load']",
       "kind": "union-member",
       "signature": "'retry-on-next-load'",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1071,6 +1223,7 @@
       "path": "ForkCause",
       "kind": "type",
       "signature": "type ForkCause = | { readonly kind: 'root' } | { readonly kind: 'not-in-parent' } | { readonly kind: 'fresh'; readonly target: string } | { readonly kind: 'input-provided'; readonly input: string } | { readonly kind: 'binding-changed'; readonly binding: string } | { readonly kind: 'structure-changed' } | { readonly kind: 'anchor-dependency-mismatch'; readonly family: string; readonly via: string } | { readonly kind: 'dependency-forked'; readonly via: string; readonly dependency: string }",
+      "doc": "/** Why a node could not reuse its parent's visible slot. */",
       "deprecated": false,
       "note": ""
     },
@@ -1078,6 +1231,7 @@
       "path": "forward",
       "kind": "function",
       "signature": "function forward<D extends Dependency>(get: () => D): ForwardDependency<D>",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1085,6 +1239,7 @@
       "path": "ForwardDependency",
       "kind": "interface",
       "signature": "interface ForwardDependency<D = Dependency>",
+      "doc": "/** Defers descriptor lookup so JavaScript modules can declare structural cycles. */",
       "deprecated": false,
       "note": ""
     },
@@ -1092,6 +1247,7 @@
       "path": "ForwardDependency.kind",
       "kind": "member",
       "signature": "readonly kind: 'forward-dependency'",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1099,6 +1255,7 @@
       "path": "ForwardDependency.get",
       "kind": "member",
       "signature": "readonly get: () => D",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1106,6 +1263,7 @@
       "path": "ImplementationCandidate",
       "kind": "interface",
       "signature": "interface ImplementationCandidate<C extends Contract<any> = Contract<any>> extends ImplementationDescriptor<C>",
+      "doc": "/** * One candidate of a same-Env collection: the descriptor of an admitted * revision plus the Env-local `ref` that `set.load()` accepts. Every candidate * is a real node of the current topology and can be loaded. */",
       "deprecated": false,
       "note": ""
     },
@@ -1113,6 +1271,7 @@
       "path": "ImplementationCandidate.ref",
       "kind": "member",
       "signature": "readonly ref: CandidateRef<C>",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1120,6 +1279,7 @@
       "path": "ImplementationDescriptor",
       "kind": "interface",
       "signature": "interface ImplementationDescriptor<C extends Contract<any> = Contract<any>>",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1127,6 +1287,7 @@
       "path": "ImplementationDescriptor.contractId",
       "kind": "member",
       "signature": "readonly contractId: string",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1134,6 +1295,7 @@
       "path": "ImplementationDescriptor.familyId",
       "kind": "member",
       "signature": "readonly familyId: string",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1141,6 +1303,7 @@
       "path": "ImplementationDescriptor.version",
       "kind": "member",
       "signature": "readonly version: string",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1148,6 +1311,7 @@
       "path": "ImplementationDescriptor.eager",
       "kind": "member",
       "signature": "readonly eager: boolean",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1155,6 +1319,7 @@
       "path": "ImplementationDescriptor.familyMetadata",
       "kind": "member",
       "signature": "readonly familyMetadata: Readonly<DescriptorMetadata>",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1162,6 +1327,7 @@
       "path": "ImplementationDescriptor.revisionMetadata",
       "kind": "member",
       "signature": "readonly revisionMetadata: Readonly<DescriptorMetadata>",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1169,6 +1335,7 @@
       "path": "ImplementationDescriptor.persistentRef",
       "kind": "member",
       "signature": "readonly persistentRef: ImplementationRef<C>",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1176,6 +1343,7 @@
       "path": "ImplementationRef",
       "kind": "interface",
       "signature": "interface ImplementationRef<C extends Contract<any> = Contract<any>>",
+      "doc": "/** * JSON-safe implementation preference (a Binding assignment, a catalog lookup); * never an Env-local slot reference. Serializes as * `{ kind, contractId, familyId, version }`. Persisted data compatibility: * `parse()` and every Runtime read path permanently accept the 0.5 key (`implementationId`) * the 0.5 line wrote for `familyId`, and report each such read as a * `legacy-implementation-ref` diagnostics event; `kind` is the stable * on-disk discriminator (its value dates from 0.4 and never changes). */",
       "deprecated": false,
       "note": ""
     },
@@ -1183,6 +1351,7 @@
       "path": "ImplementationRef.kind",
       "kind": "member",
       "signature": "readonly kind: 'persistent-implementation-ref'",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1190,6 +1359,7 @@
       "path": "ImplementationRef.contractId",
       "kind": "member",
       "signature": "readonly contractId: string",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1197,6 +1367,7 @@
       "path": "ImplementationRef.familyId",
       "kind": "member",
       "signature": "readonly familyId: string",
+      "doc": "/** The implementation family (`ServiceFamily.id`). */",
       "deprecated": false,
       "note": ""
     },
@@ -1204,6 +1375,7 @@
       "path": "ImplementationRef.version",
       "kind": "member",
       "signature": "readonly version: string",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1211,6 +1383,7 @@
       "path": "ImplementationRef.__type",
       "kind": "member",
       "signature": "readonly __type?: C",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1218,6 +1391,7 @@
       "path": "ImplementationSet",
       "kind": "interface",
       "signature": "interface ImplementationSet<C extends Contract<any> = Contract<any>> extends Iterable<ImplementationCandidate<C>>",
+      "doc": "/** Same-Env collection: every candidate is a real node of the current topology. */",
       "deprecated": false,
       "note": ""
     },
@@ -1225,6 +1399,7 @@
       "path": "ImplementationSet.contract",
       "kind": "member",
       "signature": "readonly contract: C",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1232,6 +1407,7 @@
       "path": "ImplementationSet.candidates",
       "kind": "member",
       "signature": "readonly candidates: readonly ImplementationCandidate<C>[]",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1239,6 +1415,7 @@
       "path": "ImplementationSet.resolve",
       "kind": "member",
       "signature": "resolve(ref: ImplementationRef<C>): ImplementationCandidate<C>",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1246,6 +1423,7 @@
       "path": "ImplementationSet.load",
       "kind": "member",
       "signature": "load( candidate: ImplementationCandidate<C> | CandidateRef<C> | ImplementationRef<C>, options?: LoadOptions, ): Promise<ContractApi<C>>",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1253,6 +1431,7 @@
       "path": "Input",
       "kind": "interface",
       "signature": "interface Input<ValueType = unknown>",
+      "doc": "/** A typed fact supplied externally when an Entry creates an Env. */",
       "deprecated": false,
       "note": ""
     },
@@ -1260,6 +1439,7 @@
       "path": "Input.kind",
       "kind": "member",
       "signature": "readonly kind: 'input'",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1267,6 +1447,7 @@
       "path": "Input.id",
       "kind": "member",
       "signature": "readonly id: string",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1274,6 +1455,7 @@
       "path": "Input.apiVersion",
       "kind": "member",
       "signature": "readonly apiVersion: number",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1281,6 +1463,7 @@
       "path": "Input.metadata",
       "kind": "member",
       "signature": "readonly metadata: Readonly<DescriptorMetadata>",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1288,6 +1471,7 @@
       "path": "Input.__type",
       "kind": "member",
       "signature": "readonly __type?: ValueType",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1295,6 +1479,7 @@
       "path": "InputRef",
       "kind": "interface",
       "signature": "interface InputRef<T>",
+      "doc": "/** Synchronous access to an Input payload. The payload is returned exactly as provided. */",
       "deprecated": false,
       "note": ""
     },
@@ -1302,6 +1487,7 @@
       "path": "InputRef.read",
       "kind": "member",
       "signature": "read(): T",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1309,6 +1495,7 @@
       "path": "InputType",
       "kind": "type",
       "signature": "type InputType<I> = I extends Input<infer T> ? T : never",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1316,6 +1503,7 @@
       "path": "InspectionNodeKind",
       "kind": "type",
       "signature": "type InspectionNodeKind = | 'service' | 'input' | 'binding' | 'all' | 'entry'",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1323,6 +1511,7 @@
       "path": "InspectionNodeKind['service']",
       "kind": "union-member",
       "signature": "'service'",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1330,6 +1519,7 @@
       "path": "InspectionNodeKind['input']",
       "kind": "union-member",
       "signature": "'input'",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1337,6 +1527,7 @@
       "path": "InspectionNodeKind['binding']",
       "kind": "union-member",
       "signature": "'binding'",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1344,6 +1535,7 @@
       "path": "InspectionNodeKind['all']",
       "kind": "union-member",
       "signature": "'all'",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1351,6 +1543,7 @@
       "path": "InspectionNodeKind['entry']",
       "kind": "union-member",
       "signature": "'entry'",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1358,6 +1551,7 @@
       "path": "isSynaError",
       "kind": "function",
       "signature": "function isSynaError<Code extends SynaErrorCode = SynaErrorCode>(error: unknown, code?: Code): error is SynaError<Code>",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1365,6 +1559,7 @@
       "path": "loadAll",
       "kind": "function",
       "signature": "async function loadAll< const Refs extends Readonly<Record<string, ServiceRef<unknown>>>, >(refs: Refs, options?: LoadOptions): Promise<LoadedDependencies<Refs>>",
+      "doc": "/** * Load a named group of Service-like dependency refs concurrently. It is an * ordinary, catchable batch: one rejection rejects the whole result exactly * like `Promise.all`. Input refs are excluded on purpose — read them with * `ref.read()` so their payloads are never assimilated. */",
       "deprecated": false,
       "note": ""
     },
@@ -1372,6 +1567,7 @@
       "path": "LoadedDependencies",
       "kind": "type",
       "signature": "type LoadedDependencies<Refs extends Readonly<Record<string, ServiceRef<unknown>>>> = { readonly [Key in keyof Refs]: Refs[Key] extends ServiceRef<infer Value> ? Value : never }",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1379,6 +1575,7 @@
       "path": "LoadOptions",
       "kind": "interface",
       "signature": "interface LoadOptions",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1386,6 +1583,7 @@
       "path": "LoadOptions.signal",
       "kind": "member",
       "signature": "readonly signal?: AbortSignal",
+      "doc": "/** Ends only this caller's wait. The shared setup attempt keeps running. */",
       "deprecated": false,
       "note": ""
     },
@@ -1393,6 +1591,7 @@
       "path": "MetadataValue",
       "kind": "type",
       "signature": "type MetadataValue = | string | number | boolean | null | readonly MetadataValue[] | { readonly [key: string]: MetadataValue }",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1400,6 +1599,7 @@
       "path": "NodeDisposition",
       "kind": "type",
       "signature": "type NodeDisposition = 'inherited' | 'new' | 'forked'",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1407,6 +1607,7 @@
       "path": "NodeDisposition['inherited']",
       "kind": "union-member",
       "signature": "'inherited'",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1414,6 +1615,7 @@
       "path": "NodeDisposition['new']",
       "kind": "union-member",
       "signature": "'new'",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1421,6 +1623,7 @@
       "path": "NodeDisposition['forked']",
       "kind": "union-member",
       "signature": "'forked'",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1428,6 +1631,7 @@
       "path": "override",
       "kind": "function",
       "signature": "function override< From extends ServiceRevision<any>, To extends ServiceRevision<any>, >( from: From, to: ServiceInstance<To> extends ServiceInstance<From> ? To : never, ): ServiceOverride<From, To>",
+      "doc": "/** * Construction-time definition override. The source keeps its nominal identity, * public Contract membership, eagerness and metadata; the replacement supplies * the executable `requires`, `setup`, failure policy and deadline. TypeScript * checks that the replacement's instance type is assignable to the source's; * the Runtime cannot verify behaviour and does not pretend to. */",
       "deprecated": false,
       "note": ""
     },
@@ -1435,6 +1639,7 @@
       "path": "PackageDefinitions",
       "kind": "interface",
       "signature": "interface PackageDefinitions",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1442,6 +1647,7 @@
       "path": "PackageDefinitions.package",
       "kind": "member",
       "signature": "readonly package: PackageDescriptor",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1449,6 +1655,7 @@
       "path": "PackageDefinitions.contract",
       "kind": "member",
       "signature": "contract<Api>(): Contract<Api>",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1456,6 +1663,7 @@
       "path": "PackageDefinitions.contract",
       "kind": "member",
       "signature": "contract<Api>(options: DefinitionOptions): Contract<Api>",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1463,6 +1671,7 @@
       "path": "PackageDefinitions.contract",
       "kind": "member",
       "signature": "contract<Api>(name: string, options?: DefinitionOptions): Contract<Api>",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1470,6 +1679,7 @@
       "path": "PackageDefinitions.input",
       "kind": "member",
       "signature": "input<T>(name: string, options?: DefinitionOptions): Input<T>",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1477,6 +1687,7 @@
       "path": "PackageDefinitions.binding",
       "kind": "member",
       "signature": "binding<C extends Contract<any>>( name: string, contract: C, options?: DefinitionOptions, ): Binding<C>",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1484,6 +1695,7 @@
       "path": "PackageDefinitions.service",
       "kind": "member",
       "signature": "service< const Requires extends DependencyMap = {}, const Provides extends readonly Contract[] = readonly [], Instance extends ProvidedShape<Provides> = ProvidedShape<Provides>, >( definition: ServiceDefinition<Requires, Provides, Instance>, ): ServiceRevision<Instance, ProvidedShape<Provides>>",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1491,6 +1703,7 @@
       "path": "PackageDefinitions.service",
       "kind": "member",
       "signature": "service< const Requires extends DependencyMap = {}, const Provides extends readonly Contract[] = readonly [], Instance extends ProvidedShape<Provides> = ProvidedShape<Provides>, >( name: string, definition: ServiceDefinition<Requires, Provides, Instance>, ): ServiceRevision<Instance, ProvidedShape<Provides>>",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1498,6 +1711,7 @@
       "path": "PackageDefinitions.entry",
       "kind": "member",
       "signature": "entry< const Requires extends DependencyMap = {}, const Parameters extends EntryParameterMap = {}, >( definition: EntryDefinition<Requires, Parameters>, ): EntryDescriptor<Requires, Parameters>",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1505,6 +1719,7 @@
       "path": "PackageDefinitions.entry",
       "kind": "member",
       "signature": "entry< const Requires extends DependencyMap = {}, const Parameters extends EntryParameterMap = {}, >( name: string, definition: EntryDefinition<Requires, Parameters>, ): EntryDescriptor<Requires, Parameters>",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1512,6 +1727,7 @@
       "path": "PackageDescriptor",
       "kind": "interface",
       "signature": "interface PackageDescriptor",
+      "doc": "/** Normalized package identity captured by descriptors created from one package scope. */",
       "deprecated": false,
       "note": ""
     },
@@ -1519,6 +1735,7 @@
       "path": "PackageDescriptor.name",
       "kind": "member",
       "signature": "readonly name: string",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1526,6 +1743,7 @@
       "path": "PackageDescriptor.id",
       "kind": "member",
       "signature": "readonly id: string",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1533,6 +1751,7 @@
       "path": "PackageDescriptor.version",
       "kind": "member",
       "signature": "readonly version: string",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1540,6 +1759,7 @@
       "path": "PackageDescriptor.metadata",
       "kind": "member",
       "signature": "readonly metadata: Readonly<DescriptorMetadata>",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1547,6 +1767,7 @@
       "path": "PackageManifest",
       "kind": "interface",
       "signature": "interface PackageManifest",
+      "doc": "/** The package.json fields consumed by definePackage(). Extra fields are allowed structurally. */",
       "deprecated": false,
       "note": ""
     },
@@ -1554,6 +1775,7 @@
       "path": "PackageManifest.name",
       "kind": "member",
       "signature": "readonly name: string",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1561,6 +1783,7 @@
       "path": "PackageManifest.version",
       "kind": "member",
       "signature": "readonly version: string",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1568,6 +1791,7 @@
       "path": "PackageManifest.description",
       "kind": "member",
       "signature": "readonly description?: string",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1575,6 +1799,7 @@
       "path": "PackageManifest.syna",
       "kind": "member",
       "signature": "readonly syna?: { readonly id?: string readonly metadata?: DescriptorMetadata }",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1582,6 +1807,7 @@
       "path": "parseImplementationRef",
       "kind": "function",
       "signature": "function parseImplementationRef<C extends Contract<any>>( contract: C, input: unknown, ): ImplementationRef<C>",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1589,6 +1815,7 @@
       "path": "PlannedEnvInspection",
       "kind": "interface",
       "signature": "interface PlannedEnvInspection",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1596,6 +1823,7 @@
       "path": "PlannedEnvInspection.nodeCount",
       "kind": "member",
       "signature": "readonly nodeCount: number",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1603,6 +1831,7 @@
       "path": "PlannedEnvInspection.ownedSlotCount",
       "kind": "member",
       "signature": "readonly ownedSlotCount: number",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1610,6 +1839,7 @@
       "path": "PlannedEnvInspection.reusedSlotCount",
       "kind": "member",
       "signature": "readonly reusedSlotCount: number",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1617,6 +1847,7 @@
       "path": "PlannedEnvInspection.eagerServiceCount",
       "kind": "member",
       "signature": "readonly eagerServiceCount: number",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1624,6 +1855,7 @@
       "path": "PlannedEnvInspection.selectedRevisions",
       "kind": "member",
       "signature": "readonly selectedRevisions: Readonly<Record<string, string>>",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1631,6 +1863,7 @@
       "path": "ProvidedShape",
       "kind": "type",
       "signature": "type ProvidedShape<Provides extends readonly Contract[]> = [Provides[number]] extends [never] ? unknown : UnionToIntersection<ContractApiUnion<Provides>>",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1638,6 +1871,7 @@
       "path": "ReuseConstraints",
       "kind": "interface",
       "signature": "interface ReuseConstraints",
+      "doc": "/** * Reuse constraints of an Entry or of one call. `fresh` targets never reuse the * parent's slot (their reverse dependency closure is forked); `share` targets * must reuse it (`SHARE_CONSTRAINT_FAILED` otherwise). Targets that are not * active in the parent world fail with `INACTIVE_REUSE_TARGET`. */",
       "deprecated": false,
       "note": ""
     },
@@ -1645,6 +1879,7 @@
       "path": "ReuseConstraints.fresh",
       "kind": "member",
       "signature": "readonly fresh?: readonly ReuseTarget[]",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1652,6 +1887,7 @@
       "path": "ReuseConstraints.share",
       "kind": "member",
       "signature": "readonly share?: readonly ReuseTarget[]",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1659,6 +1895,7 @@
       "path": "ReuseTarget",
       "kind": "type",
       "signature": "type ReuseTarget = ServiceRevision<any> | ServiceFamily<any>",
+      "doc": "/** A Service revision or family named by a reuse constraint. */",
       "deprecated": false,
       "note": ""
     },
@@ -1666,6 +1903,7 @@
       "path": "Runtime",
       "kind": "interface",
       "signature": "interface Runtime",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1673,6 +1911,7 @@
       "path": "Runtime.catalog",
       "kind": "member",
       "signature": "readonly catalog: RuntimeCatalog",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1680,6 +1919,7 @@
       "path": "Runtime.enter",
       "kind": "member",
       "signature": "enter<E extends EntryDescriptor<any, any>>( entry: E, ...args: EntryCallArguments<E> ): Promise<EnvHandle<E['requires']>>",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1687,6 +1927,7 @@
       "path": "Runtime.run",
       "kind": "member",
       "signature": "run<E extends EntryDescriptor<any, any>, Result>( entry: E, ...args: EntryRunCallArguments<E, Result> ): Promise<Result>",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1694,6 +1935,7 @@
       "path": "Runtime.check",
       "kind": "member",
       "signature": "check<E extends EntryDescriptor<any, any>>( entry: E, ...args: EntryCallArguments<E> ): Promise<EntryCheck>",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1701,6 +1943,7 @@
       "path": "Runtime.explain",
       "kind": "member",
       "signature": "explain<E extends EntryDescriptor<any, any>>( entry: E, ...args: EntryCallArguments<E> ): Promise<EntryExplanation>",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1708,6 +1951,7 @@
       "path": "Runtime.inspect",
       "kind": "member",
       "signature": "inspect(): RuntimeInspection",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1715,6 +1959,7 @@
       "path": "Runtime.dispose",
       "kind": "member",
       "signature": "dispose(): Promise<void>",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1722,6 +1967,7 @@
       "path": "Runtime.[Symbol.asyncDispose]",
       "kind": "member",
       "signature": "[Symbol.asyncDispose](): Promise<void>",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1729,6 +1975,7 @@
       "path": "RuntimeCatalog",
       "kind": "interface",
       "signature": "interface RuntimeCatalog",
+      "doc": "/** Read-only definition metadata. It never creates an Env or instance. */",
       "deprecated": false,
       "note": ""
     },
@@ -1736,6 +1983,7 @@
       "path": "RuntimeCatalog.implementations",
       "kind": "member",
       "signature": "implementations<C extends Contract<any>>( contract: C, ): readonly ImplementationDescriptor<C>[]",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1743,6 +1991,7 @@
       "path": "RuntimeCatalog.resolve",
       "kind": "member",
       "signature": "resolve<C extends Contract<any>>( ref: ImplementationRef<C>, ): ImplementationDescriptor<C>",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1750,6 +1999,7 @@
       "path": "RuntimeCatalog.revisions",
       "kind": "member",
       "signature": "revisions(familyId: string): readonly string[]",
+      "doc": "/** Publicly admitted exact revisions of one Service family, highest first. */",
       "deprecated": false,
       "note": ""
     },
@@ -1757,6 +2007,7 @@
       "path": "RuntimeEvent",
       "kind": "type",
       "signature": "type RuntimeEvent = | { /** * The first waiter on a setup attempt timed out: the attempt is overdue * from now on (`inspect()` reports `overdueMs` for its slot) and keeps * running. Once per attempt. */ readonly type: 'attempt-overdue' readonly slot: string readonly revision: string readonly env: string readonly attempt: number readonly deadlineMs: number readonly elapsedMs: number } | { /** * An overdue or abandoned attempt succeeded late. `adopted`: the owner * Env was still ready, so the instance became the slot's (no cleanup ran, * `cleanupErrors` is empty); otherwise a close discarded the result and * the cleanups the attempt registered ran. */ readonly type: 'late-setup-result' readonly slot: string readonly revision: string readonly env: string readonly adopted: boolean readonly cleanupErrors: readonly unknown[] } | { /** An overdue or abandoned attempt failed late; its cleanups ran. An overdue attempt then follows its failure policy. */ readonly type: 'late-setup-failure' readonly slot: string readonly revision: string readonly env: string readonly error: unknown readonly cleanupErrors: readonly unknown[] } | { /** * The owner's bounded close gave up waiting for this attempt; the Env is * `disposed` regardless and the attempt stays in the ledger until it * settles late or is found unreachable. */ readonly type: 'attempt-abandoned' /** `setup`: the raw Promise is still pending. `rollback`: the setup settled but its cleanups outlived the grace. */ readonly phase: 'setup' | 'rollback' readonly slot: string readonly revision: string readonly env: string readonly elapsedMs: number /** * The Service slots the attempt depends on, closed in the normal order * regardless (the Runtime cannot revoke an instance it handed out): an * attempt that keeps running past the grace may observe them closed. */ readonly dependencies: readonly { readonly dependency: string readonly slot: string readonly revision: string readonly state: string }[] } | { /** * `runtime.dispose()` ended with attempts still in the ledger (abandoned, * rolling back or settling late); their resources are outside Syna * control. Once per Runtime close, after the grace given to late cleanups. */ readonly type: 'attempts-outstanding' readonly attempts: readonly UnsettledAttemptInspection[] } | { /** * The raw setup Promise of a timed-out or abandoned attempt was garbage- * collected before settling: nothing can resolve it any more. Cleanups the * attempt registered were run and the attempt is settled as failed. */ readonly type: 'attempt-unreachable' readonly slot: string readonly revision: string readonly env: string readonly elapsedMs: number readonly cleanupErrors: readonly unknown[] } | { readonly type: 'foreign-thenable-setup' readonly slot: string readonly revision: string readonly env: string } | { /** * The Runtime read an implementation reference whose family was given * under the 0.5 serialized key `implementationId` (a raw object carrying * only that key, or a ref `parse()` produced from one). The reference is * accepted permanently; the event is reported once per read so stored * documents can be rewritten to the `familyId` form at leisure. */ readonly type: 'legacy-implementation-ref' readonly contractId: string readonly familyId: string readonly version: string /** Where the reference was read: a Binding site, `catalog.resolve()` or an `ImplementationSet` site. */ readonly site: string }",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1764,6 +2015,7 @@
       "path": "RuntimeInspection",
       "kind": "interface",
       "signature": "interface RuntimeInspection",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1771,6 +2023,7 @@
       "path": "RuntimeInspection.admittedServices",
       "kind": "member",
       "signature": "readonly admittedServices: readonly string[]",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1778,6 +2031,7 @@
       "path": "RuntimeInspection.internalServices",
       "kind": "member",
       "signature": "readonly internalServices: readonly string[]",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1785,6 +2039,7 @@
       "path": "RuntimeInspection.overriddenServices",
       "kind": "member",
       "signature": "readonly overriddenServices: readonly string[]",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1792,6 +2047,7 @@
       "path": "RuntimeInspection.definitions",
       "kind": "member",
       "signature": "readonly definitions: DefinitionCounts",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1799,6 +2055,7 @@
       "path": "RuntimeInspection.rootEnvCount",
       "kind": "member",
       "signature": "readonly rootEnvCount: number",
+      "doc": "/** Root Envs that have not completed their bounded close. */",
       "deprecated": false,
       "note": ""
     },
@@ -1806,6 +2063,7 @@
       "path": "RuntimeInspection.liveEnvCount",
       "kind": "member",
       "signature": "readonly liveEnvCount: number",
+      "doc": "/** Envs (any depth) that have not completed their bounded close. */",
       "deprecated": false,
       "note": ""
     },
@@ -1813,6 +2071,7 @@
       "path": "RuntimeInspection.unsettledAttempts",
       "kind": "member",
       "signature": "readonly unsettledAttempts: readonly UnsettledAttemptInspection[]",
+      "doc": "/** * Attempts the Runtime is still waiting on: overdue under a live owner * (`timed-out`), abandoned by a closed owner, rolling back or settling late. * A closed owner is `disposed` and no longer counted above; the Runtime * retains no Env graph for it, only this ledger, which holds each attempt * until it settles (or its setup Promise is collected: `attempt-unreachable`). */",
       "deprecated": false,
       "note": ""
     },
@@ -1820,6 +2079,7 @@
       "path": "RuntimeInspection.planCache",
       "kind": "member",
       "signature": "readonly planCache: { readonly hits: number readonly misses: number readonly entries: number readonly evictions: number readonly maxEntries: number }",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1827,6 +2087,7 @@
       "path": "RuntimeInspection.definitionWarnings",
       "kind": "member",
       "signature": "readonly definitionWarnings: readonly string[]",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1834,6 +2095,7 @@
       "path": "RuntimeLimits",
       "kind": "interface",
       "signature": "interface RuntimeLimits",
+      "doc": "/** * Runtime limits. Defaults: `setupDeadlineMs` 30_000, `disposalGraceMs` 2_000, * `planningBudget` 10_000, `planCacheEntries` 512. */",
       "deprecated": false,
       "note": ""
     },
@@ -1841,6 +2103,7 @@
       "path": "RuntimeLimits.setupDeadlineMs",
       "kind": "member",
       "signature": "readonly setupDeadlineMs?: number",
+      "doc": "/** * Default wait, in milliseconds (30_000), of one `load()` on the current setup * attempt before it rejects with INITIALIZATION_TIMEOUT. Bounds the wait, not * the attempt: a late success is adopted while the owner Env is ready and * discarded only by a close. Never proves a deadlock. */",
       "deprecated": false,
       "note": ""
     },
@@ -1848,6 +2111,7 @@
       "path": "RuntimeLimits.disposalGraceMs",
       "kind": "member",
       "signature": "readonly disposalGraceMs?: number",
+      "doc": "/** * How long disposal waits, in milliseconds (2_000), after broadcasting the * stop signal, for each in-flight setup attempt of the closing Env (overdue * or not) to settle before abandoning it. Bounds the close: once it passes, * owned Ready slots are disposed, the Env leaves the Runtime's registries, * its `state` is `disposed` and `dispose()` fulfils. An abandoned attempt is * reported (`attempt-abandoned`), listed in `inspect().unsettledAttempts` and * `env.inspect().abandonedAttempts`, and keeps only itself alive (via the * user's own pending Promise). */",
       "deprecated": false,
       "note": ""
     },
@@ -1855,6 +2119,7 @@
       "path": "RuntimeLimits.planningBudget",
       "kind": "member",
       "signature": "readonly planningBudget?: number",
+      "doc": "/** Maximum candidate-choice expansions per Entry plan before PLANNING_BUDGET_EXCEEDED (10_000). */",
       "deprecated": false,
       "note": ""
     },
@@ -1862,6 +2127,7 @@
       "path": "RuntimeLimits.planCacheEntries",
       "kind": "member",
       "signature": "readonly planCacheEntries?: number",
+      "doc": "/** Plan template cache capacity (512). */",
       "deprecated": false,
       "note": ""
     },
@@ -1869,6 +2135,7 @@
       "path": "RuntimePolicy",
       "kind": "interface",
       "signature": "interface RuntimePolicy",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1876,6 +2143,7 @@
       "path": "RuntimePolicy.orderAutoCandidates",
       "kind": "member",
       "signature": "orderAutoCandidates( contract: Contract, candidates: readonly ServiceRevision[], context: RuntimePolicyContext, ): readonly ServiceRevision[]",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1883,6 +2151,7 @@
       "path": "RuntimePolicy.orderVersionCandidates",
       "kind": "member",
       "signature": "orderVersionCandidates( family: ServiceFamily, candidates: readonly ServiceRevision[], context: RuntimePolicyContext, ): readonly ServiceRevision[]",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1890,6 +2159,7 @@
       "path": "RuntimePolicyContext",
       "kind": "interface",
       "signature": "interface RuntimePolicyContext",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1897,6 +2167,7 @@
       "path": "RuntimePolicyContext.dependencySite",
       "kind": "member",
       "signature": "readonly dependencySite: string",
+      "doc": "/** The dependency site being resolved. */",
       "deprecated": false,
       "note": ""
     },
@@ -1904,6 +2175,7 @@
       "path": "RuntimePolicyContext.parentActiveRevisionKeys",
       "kind": "member",
       "signature": "readonly parentActiveRevisionKeys: ReadonlySet<string>",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1911,6 +2183,7 @@
       "path": "ServiceDefinition",
       "kind": "interface",
       "signature": "interface ServiceDefinition<Requires extends DependencyMap, Provides extends readonly Contract[], Instance>",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1918,6 +2191,7 @@
       "path": "ServiceDefinition.requires",
       "kind": "member",
       "signature": "readonly requires?: Requires",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1925,6 +2199,7 @@
       "path": "ServiceDefinition.provides",
       "kind": "member",
       "signature": "readonly provides?: Provides",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1932,6 +2207,7 @@
       "path": "ServiceDefinition.eager",
       "kind": "member",
       "signature": "readonly eager?: boolean",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1939,6 +2215,7 @@
       "path": "ServiceDefinition.uniqueWithin",
       "kind": "member",
       "signature": "readonly uniqueWithin?: 'lineage'",
+      "doc": "/** `lineage` prevents a descendant from selecting or owning a divergent node. */",
       "deprecated": false,
       "note": ""
     },
@@ -1946,6 +2223,7 @@
       "path": "ServiceDefinition.failure",
       "kind": "member",
       "signature": "readonly failure?: ServiceFailurePolicy",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1953,6 +2231,7 @@
       "path": "ServiceDefinition.setupDeadlineMs",
       "kind": "member",
       "signature": "readonly setupDeadlineMs?: number",
+      "doc": "/** * How long one `load()` waits on the current setup attempt before it rejects * with `INITIALIZATION_TIMEOUT`; overrides the Runtime default. The attempt * itself keeps running (its result is adopted while the owner Env is ready). * `Infinity` disables it. */",
       "deprecated": false,
       "note": ""
     },
@@ -1960,6 +2239,7 @@
       "path": "ServiceDefinition.metadata",
       "kind": "member",
       "signature": "readonly metadata?: DescriptorMetadata",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1967,6 +2247,7 @@
       "path": "ServiceDefinition.revisionMetadata",
       "kind": "member",
       "signature": "readonly revisionMetadata?: DescriptorMetadata",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1974,6 +2255,7 @@
       "path": "ServiceDefinition.setup",
       "kind": "member",
       "signature": "readonly setup: ( dependencies: DependencyRefs<Requires>, lifecycle: ServiceLifecycle, ) => SetupResult<Instance>",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1981,6 +2263,7 @@
       "path": "ServiceFailurePolicy",
       "kind": "type",
       "signature": "type ServiceFailurePolicy = | 'sticky' | { /** Total attempts in one materialization sequence, including the first. */ readonly attempts?: number /** Delay between attempts in the same sequence. */ readonly delayMs?: number readonly afterExhaustion?: FailureAfterExhaustion /** Minimum delay before a future load may start another sequence. */ readonly cooldownMs?: number }",
+      "doc": "/** * Service setup failure handling. A setup sequence may contain several * attempts; after that sequence is exhausted, the slot is either sticky or * may start a fresh sequence on a later load(). */",
       "deprecated": false,
       "note": ""
     },
@@ -1988,6 +2271,7 @@
       "path": "ServiceFailurePolicy['sticky']",
       "kind": "union-member",
       "signature": "'sticky'",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -1995,6 +2279,7 @@
       "path": "ServiceFamily",
       "kind": "interface",
       "signature": "interface ServiceFamily<PublicApi = unknown>",
+      "doc": "/** Stable identity shared by installed revisions of one implementation. */",
       "deprecated": false,
       "note": ""
     },
@@ -2002,6 +2287,7 @@
       "path": "ServiceFamily.kind",
       "kind": "member",
       "signature": "readonly kind: 'service-family'",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -2009,6 +2295,7 @@
       "path": "ServiceFamily.id",
       "kind": "member",
       "signature": "readonly id: string",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -2016,6 +2303,7 @@
       "path": "ServiceFamily.uniqueWithin",
       "kind": "member",
       "signature": "readonly uniqueWithin: UniquenessPolicy",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -2023,6 +2311,7 @@
       "path": "ServiceFamily.metadata",
       "kind": "member",
       "signature": "readonly metadata: Readonly<DescriptorMetadata>",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -2030,6 +2319,7 @@
       "path": "ServiceFamily.__type",
       "kind": "member",
       "signature": "readonly __type?: PublicApi",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -2037,6 +2327,7 @@
       "path": "ServiceFamilyApi",
       "kind": "type",
       "signature": "type ServiceFamilyApi<F> = F extends ServiceFamily<infer Api> ? Api : never",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -2044,6 +2335,7 @@
       "path": "ServiceInstance",
       "kind": "type",
       "signature": "type ServiceInstance<S> = S extends ServiceRevision<infer Instance, any> ? Instance : never",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -2051,6 +2343,7 @@
       "path": "ServiceLifecycle",
       "kind": "interface",
       "signature": "interface ServiceLifecycle",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -2058,6 +2351,7 @@
       "path": "ServiceLifecycle.signal",
       "kind": "member",
       "signature": "readonly signal: AbortSignal",
+      "doc": "/** Aborted when the owner Env starts closing. It never force-kills JavaScript. */",
       "deprecated": false,
       "note": ""
     },
@@ -2065,6 +2359,7 @@
       "path": "ServiceLifecycle.onDispose",
       "kind": "member",
       "signature": "onDispose(cleanup: () => Awaitable<void>): void",
+      "doc": "/** Register cleanup for resources this setup attempt created. Never close shared dependencies. */",
       "deprecated": false,
       "note": ""
     },
@@ -2072,6 +2367,7 @@
       "path": "ServiceOverride",
       "kind": "interface",
       "signature": "interface ServiceOverride<From extends ServiceRevision<any> = ServiceRevision<any>, To extends ServiceRevision<any> = ServiceRevision<any>>",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -2079,6 +2375,7 @@
       "path": "ServiceOverride.kind",
       "kind": "member",
       "signature": "readonly kind: 'service-override'",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -2086,6 +2383,7 @@
       "path": "ServiceOverride.from",
       "kind": "member",
       "signature": "readonly from: From",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -2093,6 +2391,7 @@
       "path": "ServiceOverride.to",
       "kind": "member",
       "signature": "readonly to: To",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -2100,6 +2399,7 @@
       "path": "ServiceRange",
       "kind": "interface",
       "signature": "interface ServiceRange<F extends ServiceFamily<any> = ServiceFamily<any>>",
+      "doc": "/** * Choose a compatible revision of one Service Family among the revisions the * Runtime knows: the admitted ones, the consumer's private exact closure and * the `origin` the range was taken from. Every candidate must provide the * Contracts of the origin (`requiredContractIds`), which is why a range types * as the origin's Contract view and never as its private instance shape. */",
       "deprecated": false,
       "note": ""
     },
@@ -2107,6 +2407,7 @@
       "path": "ServiceRange.kind",
       "kind": "member",
       "signature": "readonly kind: 'service-range'",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -2114,6 +2415,7 @@
       "path": "ServiceRange.family",
       "kind": "member",
       "signature": "readonly family: F",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -2121,6 +2423,7 @@
       "path": "ServiceRange.range",
       "kind": "member",
       "signature": "readonly range: string",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -2128,6 +2431,7 @@
       "path": "ServiceRange.origin",
       "kind": "member",
       "signature": "readonly origin: ServiceRevision<any, any>",
+      "doc": "/** The revision `range()` was called on; always a candidate the Runtime knows. */",
       "deprecated": false,
       "note": ""
     },
@@ -2135,6 +2439,7 @@
       "path": "ServiceRange.requiredContractIds",
       "kind": "member",
       "signature": "readonly requiredContractIds: readonly string[]",
+      "doc": "/** Contract ids a chosen revision must provide: the origin's `provides`. */",
       "deprecated": false,
       "note": ""
     },
@@ -2142,6 +2447,7 @@
       "path": "ServiceRef",
       "kind": "interface",
       "signature": "interface ServiceRef<T>",
+      "doc": "/** * Lazy access to one already-planned Service-like slot (a Service, a range, a * Contract, a Binding, a collection or an anchored Entry). `load()` returns a * plain Promise; the Runtime attaches no hidden barrier or completion tracking * to it. The ref itself is never thenable. */",
       "deprecated": false,
       "note": ""
     },
@@ -2149,6 +2455,7 @@
       "path": "ServiceRef.load",
       "kind": "member",
       "signature": "load(options?: LoadOptions): Promise<T>",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -2156,6 +2463,7 @@
       "path": "ServiceRevision",
       "kind": "interface",
       "signature": "interface ServiceRevision<Instance = unknown, PublicApi = unknown>",
+      "doc": "/** * Exact Service revision exported by one installed package instance. `Instance` * is what an exact reference loads; `PublicApi` (the intersection of the * provided Contract APIs, `unknown` without `provides`) is what a range taken * from this revision loads, because the Runtime may satisfy the range with * another revision of the Family. */",
       "deprecated": false,
       "note": ""
     },
@@ -2163,6 +2471,7 @@
       "path": "ServiceRevision.kind",
       "kind": "member",
       "signature": "readonly kind: 'service-revision'",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -2170,6 +2479,7 @@
       "path": "ServiceRevision.package",
       "kind": "member",
       "signature": "readonly package: PackageDescriptor",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -2177,6 +2487,7 @@
       "path": "ServiceRevision.family",
       "kind": "member",
       "signature": "readonly family: ServiceFamily<PublicApi>",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -2184,6 +2495,7 @@
       "path": "ServiceRevision.version",
       "kind": "member",
       "signature": "readonly version: string",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -2191,6 +2503,7 @@
       "path": "ServiceRevision.key",
       "kind": "member",
       "signature": "readonly key: string",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -2198,6 +2511,7 @@
       "path": "ServiceRevision.requires",
       "kind": "member",
       "signature": "readonly requires: DependencyMap",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -2205,6 +2519,7 @@
       "path": "ServiceRevision.provides",
       "kind": "member",
       "signature": "readonly provides: readonly Contract[]",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -2212,6 +2527,7 @@
       "path": "ServiceRevision.eager",
       "kind": "member",
       "signature": "readonly eager: boolean",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -2219,6 +2535,7 @@
       "path": "ServiceRevision.failure",
       "kind": "member",
       "signature": "readonly failure: NormalizedServiceFailurePolicy",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -2226,6 +2543,7 @@
       "path": "ServiceRevision.setupDeadlineMs",
       "kind": "member",
       "signature": "readonly setupDeadlineMs: number | undefined",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -2233,6 +2551,7 @@
       "path": "ServiceRevision.metadata",
       "kind": "member",
       "signature": "readonly metadata: Readonly<DescriptorMetadata>",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -2240,6 +2559,7 @@
       "path": "ServiceRevision.setup",
       "kind": "member",
       "signature": "setup( dependencies: DependencyRefs<DependencyMap>, lifecycle: ServiceLifecycle, ): SetupResult<Instance>",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -2247,6 +2567,7 @@
       "path": "ServiceRevision.range",
       "kind": "member",
       "signature": "range(version?: string): ServiceRange<ServiceFamily<PublicApi>>",
+      "doc": "/** A compatible-revision reference; it loads the Contract view of this revision, see `ServiceRange`. */",
       "deprecated": false,
       "note": ""
     },
@@ -2254,6 +2575,7 @@
       "path": "SynaError",
       "kind": "const+type",
       "signature": "type SynaError<Code extends SynaErrorCode = SynaErrorCode> = Code extends SynaErrorCode ? SynaErrorOf<Code> : never\nconst SynaError: SynaErrorConstructor",
+      "doc": "/** * Every error the Runtime throws or rejects with: a union discriminated by * `code`. `SynaError<'MISSING_INPUT'>` is one member; `isSynaError(error, code)` * and `error.code === code` narrow to it. */",
       "deprecated": false,
       "note": ""
     },
@@ -2261,6 +2583,7 @@
       "path": "SynaErrorCode",
       "kind": "type",
       "signature": "type SynaErrorCode = | 'AMBIGUOUS_IMPLEMENTATION' | 'DUPLICATE_DEFINITION' | 'ENTRY_ACTIVATION_FAILED' | 'ENV_CLOSED' | 'FOREIGN_CANDIDATE_REF' | 'INACTIVE_REUSE_TARGET' | 'INCOMPATIBLE_IMPLEMENTATION' | 'INITIALIZATION_TIMEOUT' | 'INVALID_DESCRIPTOR' | 'INVALID_INHERITED_CHOICE' | 'LIFECYCLE_MISUSE' | 'LINEAGE_UNIQUENESS_CONFLICT' | 'LOAD_CANCELLED' | 'MISSING_AUTO_POLICY' | 'MISSING_BINDING' | 'MISSING_IMPLEMENTATION' | 'MISSING_INPUT' | 'MISSING_SERVICE' | 'OWNER_NOT_READY' | 'PLANNING_BUDGET_EXCEEDED' | 'ROLLBACK_FAILED' | 'RUNTIME_CLOSED' | 'RUNTIME_MISMATCH' | 'SHARE_CONSTRAINT_FAILED' | 'SLOT_NOT_LOADABLE' | 'UNSATISFIABLE_TOPOLOGY'",
+      "doc": "/** * Every code a SynaError can carry. Diagnostics (`check()`, `explain()`) use * the same union plus `UNKNOWN_ERROR` for foreign errors, so code, throw site * and diagnostic schema never drift apart. */",
       "deprecated": false,
       "note": ""
     },
@@ -2268,6 +2591,7 @@
       "path": "SynaErrorCode['AMBIGUOUS_IMPLEMENTATION']",
       "kind": "union-member",
       "signature": "'AMBIGUOUS_IMPLEMENTATION'",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -2275,6 +2599,7 @@
       "path": "SynaErrorCode['DUPLICATE_DEFINITION']",
       "kind": "union-member",
       "signature": "'DUPLICATE_DEFINITION'",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -2282,6 +2607,7 @@
       "path": "SynaErrorCode['ENTRY_ACTIVATION_FAILED']",
       "kind": "union-member",
       "signature": "'ENTRY_ACTIVATION_FAILED'",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -2289,6 +2615,7 @@
       "path": "SynaErrorCode['ENV_CLOSED']",
       "kind": "union-member",
       "signature": "'ENV_CLOSED'",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -2296,6 +2623,7 @@
       "path": "SynaErrorCode['FOREIGN_CANDIDATE_REF']",
       "kind": "union-member",
       "signature": "'FOREIGN_CANDIDATE_REF'",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -2303,6 +2631,7 @@
       "path": "SynaErrorCode['INACTIVE_REUSE_TARGET']",
       "kind": "union-member",
       "signature": "'INACTIVE_REUSE_TARGET'",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -2310,6 +2639,7 @@
       "path": "SynaErrorCode['INCOMPATIBLE_IMPLEMENTATION']",
       "kind": "union-member",
       "signature": "'INCOMPATIBLE_IMPLEMENTATION'",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -2317,6 +2647,7 @@
       "path": "SynaErrorCode['INITIALIZATION_TIMEOUT']",
       "kind": "union-member",
       "signature": "'INITIALIZATION_TIMEOUT'",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -2324,6 +2655,7 @@
       "path": "SynaErrorCode['INVALID_DESCRIPTOR']",
       "kind": "union-member",
       "signature": "'INVALID_DESCRIPTOR'",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -2331,6 +2663,7 @@
       "path": "SynaErrorCode['INVALID_INHERITED_CHOICE']",
       "kind": "union-member",
       "signature": "'INVALID_INHERITED_CHOICE'",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -2338,6 +2671,7 @@
       "path": "SynaErrorCode['LIFECYCLE_MISUSE']",
       "kind": "union-member",
       "signature": "'LIFECYCLE_MISUSE'",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -2345,6 +2679,7 @@
       "path": "SynaErrorCode['LINEAGE_UNIQUENESS_CONFLICT']",
       "kind": "union-member",
       "signature": "'LINEAGE_UNIQUENESS_CONFLICT'",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -2352,6 +2687,7 @@
       "path": "SynaErrorCode['LOAD_CANCELLED']",
       "kind": "union-member",
       "signature": "'LOAD_CANCELLED'",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -2359,6 +2695,7 @@
       "path": "SynaErrorCode['MISSING_AUTO_POLICY']",
       "kind": "union-member",
       "signature": "'MISSING_AUTO_POLICY'",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -2366,6 +2703,7 @@
       "path": "SynaErrorCode['MISSING_BINDING']",
       "kind": "union-member",
       "signature": "'MISSING_BINDING'",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -2373,6 +2711,7 @@
       "path": "SynaErrorCode['MISSING_IMPLEMENTATION']",
       "kind": "union-member",
       "signature": "'MISSING_IMPLEMENTATION'",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -2380,6 +2719,7 @@
       "path": "SynaErrorCode['MISSING_INPUT']",
       "kind": "union-member",
       "signature": "'MISSING_INPUT'",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -2387,6 +2727,7 @@
       "path": "SynaErrorCode['MISSING_SERVICE']",
       "kind": "union-member",
       "signature": "'MISSING_SERVICE'",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -2394,6 +2735,7 @@
       "path": "SynaErrorCode['OWNER_NOT_READY']",
       "kind": "union-member",
       "signature": "'OWNER_NOT_READY'",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -2401,6 +2743,7 @@
       "path": "SynaErrorCode['PLANNING_BUDGET_EXCEEDED']",
       "kind": "union-member",
       "signature": "'PLANNING_BUDGET_EXCEEDED'",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -2408,6 +2751,7 @@
       "path": "SynaErrorCode['ROLLBACK_FAILED']",
       "kind": "union-member",
       "signature": "'ROLLBACK_FAILED'",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -2415,6 +2759,7 @@
       "path": "SynaErrorCode['RUNTIME_CLOSED']",
       "kind": "union-member",
       "signature": "'RUNTIME_CLOSED'",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -2422,6 +2767,7 @@
       "path": "SynaErrorCode['RUNTIME_MISMATCH']",
       "kind": "union-member",
       "signature": "'RUNTIME_MISMATCH'",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -2429,6 +2775,7 @@
       "path": "SynaErrorCode['SHARE_CONSTRAINT_FAILED']",
       "kind": "union-member",
       "signature": "'SHARE_CONSTRAINT_FAILED'",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -2436,6 +2783,7 @@
       "path": "SynaErrorCode['SLOT_NOT_LOADABLE']",
       "kind": "union-member",
       "signature": "'SLOT_NOT_LOADABLE'",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -2443,6 +2791,7 @@
       "path": "SynaErrorCode['UNSATISFIABLE_TOPOLOGY']",
       "kind": "union-member",
       "signature": "'UNSATISFIABLE_TOPOLOGY'",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -2450,6 +2799,7 @@
       "path": "SynaErrorConstructor",
       "kind": "interface",
       "signature": "interface SynaErrorConstructor",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -2457,6 +2807,7 @@
       "path": "SynaErrorConstructor.constructor",
       "kind": "member",
       "signature": "new <Code extends SynaErrorCode>(code: Code, message: string, ...rest: DetailsArguments<Code>): SynaError<Code>",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -2464,6 +2815,7 @@
       "path": "SynaErrorConstructor.prototype",
       "kind": "member",
       "signature": "readonly prototype: SynaError",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -2471,6 +2823,7 @@
       "path": "SynaErrorDetails",
       "kind": "type",
       "signature": "type SynaErrorDetails = { readonly AMBIGUOUS_IMPLEMENTATION: { readonly contract: string; readonly site: string; readonly families: readonly string[] } readonly DUPLICATE_DEFINITION: | { readonly existing: string; readonly received: string } | { readonly revision: string } | { readonly revision: string; readonly expected: string; readonly actual: string } readonly ENTRY_ACTIVATION_FAILED: { readonly entry: string readonly env: string readonly causeCode?: SynaErrorCode readonly causeDetails?: Readonly<Record<string, unknown>> } /** An Env-level refusal names the Env; a slot-level one (a load, retry or recovery under a closing owner) names the slot as well. */ readonly ENV_CLOSED: | { readonly env: string; readonly state: EnvState } | { readonly env: string; readonly state: EnvState; readonly slot: string; readonly revision: string } readonly FOREIGN_CANDIDATE_REF: { readonly expectedSourceSlot: string; readonly receivedSourceSlot: string } readonly INACTIVE_REUSE_TARGET: | { readonly constraint: 'fresh' | 'share'; readonly env: string; readonly revision: string } | { readonly constraint: 'fresh' | 'share'; readonly env: string; readonly family: string } readonly INCOMPATIBLE_IMPLEMENTATION: | { readonly binding: string; readonly contract: string; readonly reference: string } | { readonly binding: string; readonly revision: string } | { readonly contract: string; readonly reference: string } | { readonly family: string readonly range: string readonly site: string readonly realm: string readonly origin: string readonly required: readonly string[] readonly candidates: readonly { readonly revision: string; readonly provides: readonly string[] }[] } /** * One `load()` waited `deadlineMs` on the attempt named by `attempt` (running * for `elapsedMs`) without it settling. The attempt keeps running * (`attemptStillRunning`): its result is adopted if the owner Env is still * ready and discarded only if the owner closes. */ readonly INITIALIZATION_TIMEOUT: { readonly slot: string readonly revision: string readonly env: string readonly attempt: number readonly deadlineMs: number readonly elapsedMs: number readonly pendingLoads: readonly PendingLoad[] readonly suspectedWaitCycle?: readonly string[] readonly attemptStillRunning: true readonly note: string } /** * `descriptor` names the expected descriptor kind, the option, or the id / key * of the offending descriptor; `problem` is one token of a closed vocabulary * (`not-an-object`, `not-an-array`, `wrong-kind`, `unknown-kind`, * `empty-contract-id`, `self-override`, `override-cycle`, `forward-cycle`, * `not-service-revisions`, `parameters-not-an-object`, `invalid-assignment`, * `not-from-this-runtime`, `policy-result-not-an-array`, * `policy-result-not-a-permutation`); `site` where a dependency site exists, * `path` where a chain (an override cycle) exists. */ readonly INVALID_DESCRIPTOR: { readonly descriptor: string readonly problem: string readonly site?: string readonly path?: readonly string[] } readonly INVALID_INHERITED_CHOICE: { readonly site: string; readonly selectedKey: string; readonly candidates: readonly string[] } /** `onDispose()` called on a lifecycle whose setup attempt already settled; `state` is the attempt's. */ readonly LIFECYCLE_MISUSE: { readonly slot: string; readonly revision: string; readonly attempt: number; readonly state: string } readonly LINEAGE_UNIQUENESS_CONFLICT: | { readonly family: string readonly anchorRevision: string readonly anchorSlot: string readonly attempted: readonly { readonly revision: string; readonly slot: string; readonly cause: ForkCause | undefined; readonly path: readonly string[] }[] } | { readonly family: string; readonly slots: readonly string[] } readonly LOAD_CANCELLED: { readonly slot: string; readonly revision: string } readonly MISSING_AUTO_POLICY: { readonly contract: string; readonly site: string; readonly families: readonly string[] } readonly MISSING_BINDING: | { readonly binding: string; readonly site: string; readonly missing: readonly string[] } | EntryParametersMissing /** * A Binding assignment (the planner), a bare Contract or `auto()` site with no * implementer (the graph builder), or an implementation reference / candidate * naming a family, version or candidate the Runtime or the collection does not * hold (the catalog and `C.all`). `available` lists the versions of the named * family that are admitted (or held by the collection): `[]` for an unknown family. */ readonly MISSING_IMPLEMENTATION: | { readonly binding: string; readonly implementation: string; readonly version: string; readonly available: readonly string[] } | { readonly contract: string; readonly site: string } | { readonly contract: string; readonly implementation: string; readonly version: string; readonly available: readonly string[] } readonly MISSING_INPUT: | { readonly input: string; readonly site: string; readonly missing: readonly string[] } | EntryParametersMissing readonly MISSING_SERVICE: | { readonly revision: string } | { readonly binding: string; readonly revision: string } | { readonly revision: string; readonly site: string; readonly realm: string } | { readonly family: string; readonly range: string; readonly site: string; readonly realm: string } readonly OWNER_NOT_READY: { readonly entry: string; readonly env: string; readonly state: EnvState } readonly PLANNING_BUDGET_EXCEEDED: { readonly site: string; readonly budget: number } readonly ROLLBACK_FAILED: { readonly slot: string; readonly revision: string; readonly state: string } readonly RUNTIME_CLOSED: Record<string, never> readonly RUNTIME_MISMATCH: Record<string, never> readonly SHARE_CONSTRAINT_FAILED: { readonly revision: string; readonly env: string; readonly cause: ForkCause | undefined; readonly path: readonly string[] } /** `load()` on a slot that is closing, closed or abandoned; `state` is the slot's. */ readonly SLOT_NOT_LOADABLE: { readonly slot: string; readonly revision: string; readonly state: 'disposing' | 'disposed' | 'abandoned' } readonly UNSATISFIABLE_TOPOLOGY: { readonly site: string readonly candidates: readonly string[] readonly failures: readonly { readonly code: SynaErrorCode; readonly message: string; readonly details: Readonly<Record<string, unknown>> }[] } }",
+      "doc": "/** * The `details` of every code, one entry per code. Where a code is thrown * from sites with different context, the entry is the union of their shapes; * `docs/API_REFERENCE.md` lists them per code. */",
       "deprecated": false,
       "note": ""
     },
@@ -2478,6 +2831,7 @@
       "path": "SynaErrorOf",
       "kind": "interface",
       "signature": "interface SynaErrorOf<Code extends SynaErrorCode> extends Error",
+      "doc": "/** A SynaError of one code: `details` has that code's shape. */",
       "deprecated": false,
       "note": ""
     },
@@ -2485,6 +2839,7 @@
       "path": "SynaErrorOf.name",
       "kind": "member",
       "signature": "readonly name: 'SynaError'",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -2492,6 +2847,7 @@
       "path": "SynaErrorOf.code",
       "kind": "member",
       "signature": "readonly code: Code",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -2499,6 +2855,7 @@
       "path": "SynaErrorOf.details",
       "kind": "member",
       "signature": "readonly details: Readonly<SynaErrorDetails[Code]>",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -2506,6 +2863,7 @@
       "path": "UniquenessPolicy",
       "kind": "type",
       "signature": "type UniquenessPolicy = 'none' | 'lineage'",
+      "doc": "/** Uniqueness constraints are relative to an Env lineage, never a process-global scope. */",
       "deprecated": false,
       "note": ""
     },
@@ -2513,6 +2871,7 @@
       "path": "UniquenessPolicy['none']",
       "kind": "union-member",
       "signature": "'none'",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -2520,6 +2879,7 @@
       "path": "UniquenessPolicy['lineage']",
       "kind": "union-member",
       "signature": "'lineage'",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -2527,6 +2887,7 @@
       "path": "UnsettledAttemptInspection",
       "kind": "interface",
       "signature": "interface UnsettledAttemptInspection",
+      "doc": "/** A setup attempt whose raw Promise is still pending after a waiter's deadline passed or its owner Env closed. */",
       "deprecated": false,
       "note": ""
     },
@@ -2534,6 +2895,7 @@
       "path": "UnsettledAttemptInspection.attempt",
       "kind": "member",
       "signature": "readonly attempt: number",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -2541,6 +2903,7 @@
       "path": "UnsettledAttemptInspection.slot",
       "kind": "member",
       "signature": "readonly slot: string",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -2548,6 +2911,7 @@
       "path": "UnsettledAttemptInspection.revision",
       "kind": "member",
       "signature": "readonly revision: string",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -2555,6 +2919,7 @@
       "path": "UnsettledAttemptInspection.env",
       "kind": "member",
       "signature": "readonly env: string",
+      "doc": "",
       "deprecated": false,
       "note": ""
     },
@@ -2562,6 +2927,7 @@
       "path": "UnsettledAttemptInspection.state",
       "kind": "member",
       "signature": "readonly state: 'timed-out' | 'abandoned' | 'rolling-back' | 'settling'",
+      "doc": "/** * `timed-out`: a waiter's deadline passed, the attempt is overdue and still * running under a live owner (its result will be adopted). `abandoned`: the * owner's close stopped waiting for the pending Promise. `rolling-back`: the * setup settled (failed, or its result was discarded) but its cleanups * outlived the close. `settling`: the Promise settled late or was found * unreachable and the late cleanups are running. */",
       "deprecated": false,
       "note": ""
     },
@@ -2569,6 +2935,7 @@
       "path": "UnsettledAttemptInspection.runningForMs",
       "kind": "member",
       "signature": "readonly runningForMs: number",
+      "doc": "",
       "deprecated": false,
       "note": ""
     }

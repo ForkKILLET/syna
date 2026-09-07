@@ -9,7 +9,7 @@ const makeDefine = (id, version = '1.0.0') => definePackage({
   syna: { id },
 })
 const slotOf = (env, nodeId) => env.inspect().nodes.find(node => node.nodeId === nodeId)?.slotId
-const serviceSlot = (env, revision) => slotOf(env, `service:${revision.key}`)
+const serviceSlot = (env, revision) => slotOf(env, `service:${revision.id}`)
 
 test('R12 parent-only reuse: a Binding flip-back creates a new provider instance while ancestor-owned shared slots are still reused', async () => {
   const define = makeDefine('v05.flip-back')
@@ -39,8 +39,8 @@ test('R12 parent-only reuse: a Binding flip-back creates a new provider instance
   assert.strictEqual(await child.deps.database.load(), await grand.deps.database.load())
   const explanation = await parent.explain(Scope, { choice: A })
   assert.equal(explanation.ok, true)
-  const providerNode = explanation.nodes.find(node => node.nodeId === `service:${A.key}`)
-  assert.equal(providerNode.disposition, 'new')
+  const providerNode = explanation.nodes.find(node => node.nodeId === `service:${A.id}`)
+  assert.equal(providerNode.placement, 'new')
   assert.equal(providerNode.cause.kind, 'not-in-parent')
   await runtime.dispose()
 })
@@ -65,14 +65,14 @@ test('R13 a lineage-unique anchor survives a descendant that drops the family (B
   const root = await runtime.enter(Scope, { choice: WithUnique })
   const first = await (await root.deps.chosen.load()).unique.load()
   const gap = await root.enter(Scope, { choice: Without })
-  assert.equal(slotOf(gap, `service:${Unique.key}`), undefined, 'the gap Env no longer resolves the unique family')
+  assert.equal(slotOf(gap, `service:${Unique.id}`), undefined, 'the gap Env no longer resolves the unique family')
   const again = await gap.enter(Scope, { choice: WithUnique })
   assert.strictEqual(await (await again.deps.chosen.load()).unique.load(), first, 'the persisted anchor was re-attached')
   assert.equal(uniqueStarts, 1)
   assert.equal(serviceSlot(again, Unique), serviceSlot(root, Unique))
   assert.notEqual(serviceSlot(again, WithUnique), serviceSlot(root, WithUnique), 'the non-unique provider itself is new (parent-only reuse)')
   const explanation = await gap.explain(Scope, { choice: WithUnique })
-  assert.equal(explanation.nodes.find(node => node.nodeId === `service:${Unique.key}`).disposition, 'inherited')
+  assert.equal(explanation.nodes.find(node => node.nodeId === `service:${Unique.id}`).placement, 'reused')
   await runtime.dispose()
 })
 
@@ -97,9 +97,9 @@ test('R13 a unique family cannot silently get a second instance: re-provided dep
   await assert.rejects(root.enter(Reprovide, { tenant: 'b' }), error => {
     assert.equal(error.code, 'LINEAGE_UNIQUENESS_CONFLICT')
     const attempted = error.details.attempted[0]
-    assert.equal(attempted.revision, Unique.key)
+    assert.equal(attempted.revision, Unique.id)
     assert.deepEqual(attempted.cause, { kind: 'dependency-forked', via: 'tenant', dependency: `input:${Tenant.id}` })
-    assert.deepEqual(attempted.path, [`service:${Unique.key}`, `input:${Tenant.id}`])
+    assert.deepEqual(attempted.path, [`service:${Unique.id}`, `input:${Tenant.id}`])
     return true
   })
 
@@ -109,7 +109,7 @@ test('R13 a unique family cannot silently get a second instance: re-provided dep
   const gap = await anchored.enter(Scope, { choice: Without, tenant: 'b' })
   await assert.rejects(gap.enter(Flip, { choice: WithUnique }), error => {
     assert.equal(error.code, 'LINEAGE_UNIQUENESS_CONFLICT')
-    assert.equal(error.details.attempted[0].cause.kind, 'anchor-dependency-mismatch')
+    assert.equal(error.details.attempted[0].cause.kind, 'pinned-dependency-mismatch')
     assert.equal(error.details.attempted[0].cause.via, 'tenant')
     return true
   })
@@ -144,17 +144,17 @@ test('R14 C.all shares the slot with a direct dependency, keeps every revision, 
   assert.equal(eagerStarts, 1, 'eager members of the collection follow their own policy')
   const manager = await root.deps.manager.load()
   const set = await manager.plugins.load()
-  assert.deepEqual(set.candidates.map(c => `${c.familyId}@${c.version}`).sort(), [Impl10.key, Impl20.key, Other.key].sort())
+  assert.deepEqual(set.candidates.map(c => `${c.familyId}@${c.version}`).sort(), [Impl10.id, Impl20.id, Other.id].sort())
   const direct = await manager.direct.load()
   const viaSet = await set.load(set.candidates.find(c => c.version === '1.0.0'))
   assert.strictEqual(direct, viaSet, 'same node, same slot')
   assert.strictEqual(direct, await root.deps.direct.load())
 
   const child = await root.enter(Entry, { config: 'child' })
-  assert.notEqual(slotOf(child, `service:${Impl20.key}`), slotOf(root, `service:${Impl20.key}`), 'Input change forks the member')
+  assert.notEqual(slotOf(child, `service:${Impl20.id}`), slotOf(root, `service:${Impl20.id}`), 'Input change forks the member')
   assert.notEqual(slotOf(child, `all:${Plugin.id}`), slotOf(root, `all:${Plugin.id}`), 'the collection forks with it')
-  assert.notEqual(slotOf(child, `service:${Manager.key}`), slotOf(root, `service:${Manager.key}`), 'and its consumer')
-  assert.equal(slotOf(child, `service:${Impl10.key}`), slotOf(root, `service:${Impl10.key}`), 'unaffected members stay shared')
+  assert.notEqual(slotOf(child, `service:${Manager.id}`), slotOf(root, `service:${Manager.id}`), 'and its consumer')
+  assert.equal(slotOf(child, `service:${Impl10.id}`), slotOf(root, `service:${Impl10.id}`), 'unaffected members stay shared')
   assert.equal(eagerStarts, 1, 'the inherited eager member was not restarted')
   const childSet = await (await child.deps.manager.load()).plugins.load()
   assert.equal((await childSet.load(childSet.candidates.find(c => c.version === '2.0.0'))).config, 'child')
@@ -181,7 +181,7 @@ test('R14 C.all is unsatisfiable as a whole when members cannot coexist, and a c
   const second = await fine.enter(Entry)
   const firstSet = await (await first.deps.manager.load()).plugins.load()
   const secondSet = await (await second.deps.manager.load()).plugins.load()
-  await assert.rejects(secondSet.load(firstSet.candidates[0].ref), error => error.code === 'FOREIGN_CANDIDATE_REF')
+  await assert.rejects(secondSet.load(firstSet.candidates[0].candidateRef), error => error.code === 'FOREIGN_CANDIDATE_REF')
   await fine.dispose()
 })
 
@@ -201,10 +201,10 @@ test('R15 an auto choice site is stable along a lineage, independent per edge; b
     services: [Consumer, V1, V2, Other],
     policy: {
       orderAutoCandidates(_contract, candidates, context) {
-        const byKey = key => candidates.find(candidate => candidate.key === key)
+        const byKey = key => candidates.find(candidate => candidate.id === key)
         return context.dependencySite.endsWith('dependency:first')
-          ? [byKey(V2.key), byKey(V1.key), byKey(Other.key)]
-          : [byKey(Other.key), byKey(V2.key), byKey(V1.key)]
+          ? [byKey(V2.id), byKey(V1.id), byKey(Other.id)]
+          : [byKey(Other.id), byKey(V2.id), byKey(V1.id)]
       },
     },
   })
@@ -248,7 +248,7 @@ test('R16 same Binding choice is a no-op, same Input payload re-provision forks,
   const child = await root.enter(Scope, { current: payload, choice: Choice.to(Provider) })
   assert.equal(slotOf(child, `binding:${Choice.id}`), slotOf(root, `binding:${Choice.id}`))
   assert.notEqual(slotOf(child, `input:${Current.id}`), slotOf(root, `input:${Current.id}`))
-  assert.notEqual(slotOf(child, `service:${Consumer.key}`), slotOf(root, `service:${Consumer.key}`))
+  assert.notEqual(slotOf(child, `service:${Consumer.id}`), slotOf(root, `service:${Consumer.id}`))
   assert.strictEqual((await child.deps.consumer.load()).current, payload)
 
   const undefinedChild = await root.enter(Scope, { current: undefined, choice: Provider })
@@ -266,7 +266,7 @@ test('R16 same Binding choice is a no-op, same Input payload re-provision forks,
   )
   const OtherContract = define.contract('other')
   await assert.rejects(
-    root.enter(Scope, { current: 1, choice: { kind: 'persistent-implementation-ref', contractId: OtherContract.id, familyId: Provider.family.id, version: '*' } }),
+    root.enter(Scope, { current: 1, choice: { kind: 'implementation-ref', contractId: OtherContract.id, familyId: Provider.family.id, range: '*' } }),
     error => error.code === 'INCOMPATIBLE_IMPLEMENTATION',
   )
   await runtime.dispose()
@@ -279,14 +279,14 @@ test('K03 fresh/share accept exact and family targets; conflicts fail explicitly
   const Root = define.entry('root', { requires: { consumer: Consumer, state: State } })
   const runtime = createRuntime({ services: [Consumer, State] })
   const root = await runtime.enter(Root)
-  const freshFamily = await root.derive({ fresh: [State.family] })
+  const freshFamily = await root.derive({ reuse: { fresh: [State.family] } })
   assert.equal(freshFamily.inspect().nodes.length, root.inspect().nodes.length)
-  assert.notEqual(slotOf(freshFamily, `service:${State.key}`), slotOf(root, `service:${State.key}`))
-  assert.notEqual(slotOf(freshFamily, `service:${Consumer.key}`), slotOf(root, `service:${Consumer.key}`))
-  const shared = await root.derive({ share: [State] })
-  assert.equal(slotOf(shared, `service:${State.key}`), slotOf(root, `service:${State.key}`))
-  await assert.rejects(root.derive({ fresh: [State], share: [State.family] }), error => error.code === 'SHARE_CONSTRAINT_FAILED')
+  assert.notEqual(slotOf(freshFamily, `service:${State.id}`), slotOf(root, `service:${State.id}`))
+  assert.notEqual(slotOf(freshFamily, `service:${Consumer.id}`), slotOf(root, `service:${Consumer.id}`))
+  const shared = await root.derive({ reuse: { share: [State] } })
+  assert.equal(slotOf(shared, `service:${State.id}`), slotOf(root, `service:${State.id}`))
+  await assert.rejects(root.derive({ reuse: { fresh: [State], share: [State.family] } }), error => error.code === 'SHARE_CONSTRAINT_FAILED')
   const Unknown = makeDefine('v05.reuse.unknown').service({ setup: () => ({}) })
-  await assert.rejects(root.derive({ fresh: [Unknown] }), error => error.code === 'INACTIVE_REUSE_TARGET')
+  await assert.rejects(root.derive({ reuse: { fresh: [Unknown] } }), error => error.code === 'INACTIVE_REUSE_TARGET')
   await runtime.dispose()
 })

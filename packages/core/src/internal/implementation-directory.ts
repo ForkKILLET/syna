@@ -8,7 +8,7 @@ import type {
   ServiceRevision,
 } from '../descriptors.js'
 import { SynaError } from '../errors.js'
-import { createImplementationRef } from '../definition.js'
+import { createImplementationRef, isWellFormedImplementationRef } from '../definition.js'
 import { caretRange, satisfiesVersion } from '../semver.js'
 import { PolicyContext, type CompiledService, type InternalCandidateRef } from './runtime-model.js'
 import { compareRevisionIdentity, providesContract } from './identity.js'
@@ -73,6 +73,9 @@ export class ImplementationDirectory {
   resolveCatalog<C extends Contract<any>>(ref: ImplementationRef<C>): ImplementationRecord<C> {
     if (typeof ref !== 'object' || ref === null || ref.kind !== 'implementation-ref') {
       throw new SynaError('INVALID_DESCRIPTOR', 'catalog.resolve() expects an implementation reference.', { descriptor: 'ImplementationRef', problem: 'wrong-kind' })
+    }
+    if (!isWellFormedImplementationRef(ref)) {
+      throw new SynaError('INVALID_DESCRIPTOR', 'catalog.resolve() received a malformed implementation reference.', { descriptor: 'ImplementationRef', problem: 'malformed-implementation-ref' })
     }
     const contract = { id: ref.contractId }
     const revision = this.resolvePersistentRevision(
@@ -177,7 +180,7 @@ export class ImplementationDirectory {
       )
     }
     const originalKeys = [...byKey.keys()].sort()
-    const orderedKeys = ordered.map(candidate => candidate?.key).sort()
+    const orderedKeys = ordered.map(candidate => candidate?.id).sort()
     if (
       originalKeys.length !== orderedKeys.length
       || originalKeys.some((key, index) => key !== orderedKeys[index])
@@ -188,7 +191,7 @@ export class ImplementationDirectory {
         { descriptor: 'RuntimePolicy', problem: 'policy-result-not-a-permutation', site },
       )
     }
-    return ordered.map(candidate => byKey.get(candidate.key)!)
+    return ordered.map(candidate => byKey.get(candidate.id)!)
   }
 }
 
@@ -219,6 +222,9 @@ export class CandidateIndex<C extends Contract<any>> {
   resolve(ref: ImplementationRef<C>): ImplementationCandidate<C> {
     if (typeof ref !== 'object' || ref === null || ref.kind !== 'implementation-ref') {
       throw new SynaError('INVALID_DESCRIPTOR', 'resolve() expects an implementation reference.', { descriptor: 'ImplementationRef', problem: 'wrong-kind' })
+    }
+    if (!isWellFormedImplementationRef(ref)) {
+      throw new SynaError('INVALID_DESCRIPTOR', 'resolve() received a malformed implementation reference.', { descriptor: 'ImplementationRef', problem: 'malformed-implementation-ref' })
     }
     const selected = this.directory.resolvePersistentRevision(
       this.options.contract,

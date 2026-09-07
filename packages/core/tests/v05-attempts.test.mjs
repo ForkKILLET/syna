@@ -121,7 +121,7 @@ test('R09 a waiter\'s timeout leaves the attempt running: a second load() joins 
   const events = []
   const Recovering = define.service({
     failure: { attempts: 1, afterExhaustion: 'retry-on-next-load' },
-    setupDeadlineMs: 30,
+    loadTimeoutMs: 30,
     async setup(_deps, { onDispose }) {
       attempts += 1
       onDispose(() => events.push(`cleanup:${attempts}`))
@@ -135,15 +135,15 @@ test('R09 a waiter\'s timeout leaves the attempt running: a second load() joins 
     diagnostics: { onEvent: event => events.push(event.type) },
   })
   const env = await runtime.enter(Entry)
-  await assert.rejects(env.deps.recovering.load(), error => error.code === 'INITIALIZATION_TIMEOUT' && error.details.attemptStillRunning === true)
+  await assert.rejects(env.deps.recovering.load(), error => error.code === 'LOAD_TIMEOUT' && error.details.attemptStillRunning === true)
   // The first attempt is still running: a second load() joins it instead of starting or refusing a new one.
   const joined = env.deps.recovering.load()
   assert.equal(attempts, 1)
   hang.resolve()
   assert.deepEqual(await joined, { attempts: 1, late: true })
-  await waitFor(() => events.includes('late-setup-result'))
+  await waitFor(() => events.includes('attempt-succeeded-late'))
   // The late value became the instance: no cleanup ran and no recovery started.
-  assert.deepEqual(events.filter(event => event !== 'foreign-thenable-setup'), ['attempt-overdue', 'late-setup-result'])
+  assert.deepEqual(events.filter(event => event !== 'setup-returned-thenable'), ['attempt-overdue', 'attempt-succeeded-late'])
   const [first, second] = await Promise.all([env.deps.recovering.load(), env.deps.recovering.load()])
   assert.strictEqual(first, second)
   assert.strictEqual(first, await joined)
@@ -196,7 +196,7 @@ test('K08 disposal abandons an attempt that never settles: the slot is abandoned
   const define = makeDefine('v05.abandoned')
   const events = []
   const Stuck = define.service({
-    setupDeadlineMs: 20,
+    loadTimeoutMs: 20,
     setup: () => new Promise(() => undefined),
   })
   const Entry = define.entry({ requires: { stuck: Stuck } })
@@ -206,7 +206,7 @@ test('K08 disposal abandons an attempt that never settles: the slot is abandoned
     diagnostics: { onEvent: event => events.push(event.type) },
   })
   const env = await runtime.enter(Entry)
-  await assert.rejects(env.deps.stuck.load(), error => error.code === 'INITIALIZATION_TIMEOUT')
+  await assert.rejects(env.deps.stuck.load(), error => error.code === 'LOAD_TIMEOUT')
   // 0.7 (S2): the 0.6 assertions "dispose() rejects with the unsettled-attempt code (details.slots)" and
   // "env.state stays 'disposing'" are withdrawn (docs/SEMANTIC_CHANGES_V07.md §撤回): the bounded close is
   // complete, and the attempt is a ledger entry plus a diagnostic, not an error of the close.
@@ -217,7 +217,7 @@ test('K08 disposal abandons an attempt that never settles: the slot is abandoned
   assert.deepEqual(env.inspect().abandonedAttempts.map(item => item.state), ['abandoned'])
   assert.equal(runtime.inspect().unsettledAttempts.length, 1)
   await runtime.dispose()
-  assert.deepEqual(events, ['attempt-overdue', 'attempt-abandoned', 'attempts-outstanding'])
+  assert.deepEqual(events, ['attempt-overdue', 'attempt-abandoned', 'runtime-attempts-outstanding'])
 })
 
 test('K08 a setup that completes after the owner started closing is discarded and cleaned up', async () => {

@@ -1,13 +1,15 @@
 #!/usr/bin/env node
 // Public API inventory of @syna/core, generated from the TypeScript sources behind
 // packages/core/src/index.ts: every export, every member of every exported interface or class,
-// every member of a string-literal union (the error codes), and every `@deprecated` tag with its text.
+// every member of a string-literal union (the error codes), every `@deprecated` tag with its text and, since 0.8,
+// the JSDoc text of every export and member, so that `--diff` tells a change of documentation from a change of signature.
 //
-//   node scripts/api-inventory.mjs [--out work/v06/API_INVENTORY_AFTER.md] [--json work/v06/API_INVENTORY_AFTER.json]
-//   node scripts/api-inventory.mjs --diff work/v06/API_INVENTORY_BEFORE.json work/v06/API_INVENTORY_AFTER.json [--out work/v06/API_INVENTORY_DIFF.md]
+//   node scripts/api-inventory.mjs [--out work/v08/API_INVENTORY_AFTER.md] [--json work/v08/API_INVENTORY_AFTER.json]
+//   node scripts/api-inventory.mjs --diff work/v08/API_INVENTORY_BEFORE.json work/v08/API_INVENTORY_AFTER.json [--out work/v08/API_INVENTORY_DIFF.md]
 //
-// The Markdown is the human-readable list; the JSON is the flat list the diff mode works on.
-// Both are deterministic for a given source tree (sorted by export name, members in declaration order).
+// The Markdown is the human-readable list; the JSON is the flat list the diff mode works on. Both are deterministic
+// for a given source tree (sorted by export name, members in declaration order). The diff lists the added, the removed
+// and the changed items (a changed signature or deprecation) and, apart from them, the items whose JSDoc alone changed.
 import { execFileSync } from 'node:child_process'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
@@ -34,6 +36,9 @@ const deprecationOf = node => {
   }
   return { deprecated: false, note: '' }
 }
+
+/** The JSDoc blocks attached to a declaration, collapsed to one line; '' when there is none. */
+const docOf = node => collapse((node.jsDoc ?? []).map(block => block.getText()).join(' '))
 
 const withoutBody = node => {
   const text = node.getText()
@@ -86,19 +91,22 @@ export const inventory = () => {
     const declarations = target.declarations ?? []
     const kinds = new Set()
     const lines = []
+    const docs = []
     const members = []
     let deprecation = { deprecated: false, note: '' }
     let unionCodes = []
     let sourceFiles = new Set()
     for (const declaration of declarations) {
       sourceFiles.add(path.relative(root, declaration.getSourceFile().fileName))
-      const tag = deprecationOf(ts.isVariableDeclaration(declaration) ? declaration.parent.parent : declaration)
+      const documented = ts.isVariableDeclaration(declaration) ? declaration.parent.parent : declaration
+      const tag = deprecationOf(documented)
       if (tag.deprecated) deprecation = tag
+      docs.push(docOf(documented))
       if (ts.isInterfaceDeclaration(declaration)) {
         kinds.add('interface')
         const heritage = declaration.heritageClauses ? ' ' + declaration.heritageClauses.map(clause => collapse(clause.getText())).join(' ') : ''
         lines.push(`interface ${declaration.name.text}${declaration.typeParameters ? `<${declaration.typeParameters.map(p => collapse(p.getText())).join(', ')}>` : ''}${heritage}`)
-        for (const member of declaration.members) members.push({ name: memberName(member), signature: memberText(member), ...deprecationOf(member) })
+        for (const member of declaration.members) members.push({ name: memberName(member), signature: memberText(member), doc: docOf(member), ...deprecationOf(member) })
       } else if (ts.isTypeAliasDeclaration(declaration)) {
         kinds.add('type')
         lines.push(`type ${declaration.name.text}${declaration.typeParameters ? `<${declaration.typeParameters.map(p => collapse(p.getText())).join(', ')}>` : ''} = ${collapse(declaration.type.getText())}`)
@@ -109,7 +117,7 @@ export const inventory = () => {
         lines.push(`class ${declaration.name.text}${declaration.typeParameters ? `<${declaration.typeParameters.map(p => collapse(p.getText())).join(', ')}>` : ''}${heritage}`)
         for (const member of declaration.members) {
           if (!isPublicClassMember(member)) continue
-          members.push({ name: memberName(member), signature: memberText(member), ...deprecationOf(member) })
+          members.push({ name: memberName(member), signature: memberText(member), doc: docOf(member), ...deprecationOf(member) })
         }
       } else if (ts.isFunctionDeclaration(declaration)) {
         kinds.add('function')
@@ -131,6 +139,7 @@ export const inventory = () => {
       kinds: [...kinds].sort(),
       files: [...sourceFiles].sort(),
       signature: lines.join('\n'),
+      doc: docs.filter(Boolean).join(' '),
       deprecated: deprecation.deprecated,
       note: deprecation.note,
       members,
@@ -143,9 +152,9 @@ export const inventory = () => {
 const flatten = entries => {
   const flat = []
   for (const entry of entries) {
-    flat.push({ path: entry.name, kind: entry.kinds.join('+'), signature: entry.signature, deprecated: entry.deprecated, note: entry.note })
-    for (const member of entry.members) flat.push({ path: `${entry.name}.${member.name}`, kind: 'member', signature: member.signature, deprecated: member.deprecated, note: member.note })
-    for (const code of entry.unionMembers) flat.push({ path: `${entry.name}['${code}']`, kind: 'union-member', signature: `'${code}'`, deprecated: false, note: '' })
+    flat.push({ path: entry.name, kind: entry.kinds.join('+'), signature: entry.signature, doc: entry.doc, deprecated: entry.deprecated, note: entry.note })
+    for (const member of entry.members) flat.push({ path: `${entry.name}.${member.name}`, kind: 'member', signature: member.signature, doc: member.doc, deprecated: member.deprecated, note: member.note })
+    for (const code of entry.unionMembers) flat.push({ path: `${entry.name}['${code}']`, kind: 'union-member', signature: `'${code}'`, doc: '', deprecated: false, note: '' })
   }
   return flat
 }
@@ -205,25 +214,35 @@ const renderMarkdown = entries => {
 const renderDiff = (beforePath, afterPath) => {
   const before = JSON.parse(readFileSync(beforePath, 'utf8'))
   const after = JSON.parse(readFileSync(afterPath, 'utf8'))
-  const beforeMap = new Map(before.items.map(item => [item.path, item]))
-  const afterMap = new Map(after.items.map(item => [item.path, item]))
-  const added = after.items.filter(item => !beforeMap.has(item.path))
-  const removed = before.items.filter(item => !afterMap.has(item.path))
-  const changed = after.items.filter(item => beforeMap.has(item.path) && (beforeMap.get(item.path).signature !== item.signature || beforeMap.get(item.path).deprecated !== item.deprecated))
-  const newlyDeprecated = changed.filter(item => item.deprecated && !beforeMap.get(item.path).deprecated)
+  // An overloaded member is several items with one path: a path is compared as the sorted set of its signatures.
+  const groups = items => { const map = new Map(); for (const item of items) map.set(item.path, [...(map.get(item.path) ?? []), item]); return map }
+  const beforeGroups = groups(before.items)
+  const afterGroups = groups(after.items)
+  const added = after.items.filter(item => !beforeGroups.has(item.path))
+  const removed = before.items.filter(item => !afterGroups.has(item.path))
+  const signatures = items => items.map(item => `${item.deprecated ? '@deprecated ' : ''}${item.signature}`).sort().join('\n\n')
+  const docs = items => items.map(item => `${item.doc ?? ''}\n${item.note ?? ''}`).sort().join('\n\n')
+  const kept = [...afterGroups.keys()].filter(item => beforeGroups.has(item))
+  const sameSignature = item => signatures(beforeGroups.get(item)) === signatures(afterGroups.get(item))
+  // One representative item per path (its kind counts it in the table); the listing prints every overload.
+  const changed = kept.filter(item => !sameSignature(item)).map(item => afterGroups.get(item)[0])
+  // 0.8 (§2.6): an item whose signature and deprecation are unchanged but whose JSDoc (or deprecation note) differs is a
+  // documentation change, listed apart from the signature changes. A record made before the `doc` field reads as ''.
+  const docOnly = kept.filter(item => sameSignature(item) && docs(beforeGroups.get(item)) !== docs(afterGroups.get(item))).map(item => afterGroups.get(item)[0])
+  const newlyDeprecated = changed.filter(item => item.deprecated && !beforeGroups.get(item.path).some(previous => previous.deprecated))
   const count = (items, kind) => items.filter(item => kind === 'export' ? item.kind !== 'member' && item.kind !== 'union-member' : item.kind === kind).length
   const out = []
   out.push('# `@syna/core` public API diff')
   out.push('')
   out.push(`Generated by \`node scripts/api-inventory.mjs --diff\` from \`${path.relative(root, beforePath)}\` (version ${before.version}, commit ${before.commit}) and \`${path.relative(root, afterPath)}\` (version ${after.version}, commit ${after.commit}).`)
   out.push('')
-  out.push('| | before | after | added | removed | changed | newly deprecated |')
-  out.push('|---|---|---|---|---|---|---|')
+  out.push('| | before | after | added | removed | changed (signature) | doc-only (JSDoc) | newly deprecated |')
+  out.push('|---|---|---|---|---|---|---|---|')
   for (const [label, kind] of [['exports', 'export'], ['members', 'member'], ['union members', 'union-member']]) {
-    out.push(`| ${label} | ${count(before.items, kind)} | ${count(after.items, kind)} | ${count(added, kind)} | ${count(removed, kind)} | ${count(changed, kind)} | ${count(newlyDeprecated, kind)} |`)
+    out.push(`| ${label} | ${count(before.items, kind)} | ${count(after.items, kind)} | ${count(added, kind)} | ${count(removed, kind)} | ${count(changed, kind)} | ${count(docOnly, kind)} | ${count(newlyDeprecated, kind)} |`)
   }
-  out.push(`| total items | ${before.items.length} | ${after.items.length} | ${added.length} | ${removed.length} | ${changed.length} | ${newlyDeprecated.length} |`)
-  out.push(`| \`@deprecated\` items | ${before.items.filter(item => item.deprecated).length} | ${after.items.filter(item => item.deprecated).length} | | | | |`)
+  out.push(`| total items | ${before.items.length} | ${after.items.length} | ${added.length} | ${removed.length} | ${changed.length} | ${docOnly.length} | ${newlyDeprecated.length} |`)
+  out.push(`| \`@deprecated\` items | ${before.items.filter(item => item.deprecated).length} | ${after.items.filter(item => item.deprecated).length} | | | | | |`)
   out.push('')
   const list = (title, items, render) => {
     out.push(`## ${title} (${items.length})`)
@@ -237,7 +256,8 @@ const renderDiff = (beforePath, afterPath) => {
   const line = item => `${item.deprecated ? '@deprecated ' : ''}${item.path}  ::  ${item.signature.split('\n')[0]}${item.note ? `  // ${item.note}` : ''}`
   list('Added', added, line)
   list('Removed', removed, line)
-  list('Changed (signature or deprecation)', changed, item => `- ${line(beforeMap.get(item.path))}\n+ ${line(item)}`)
+  list('Changed (signature or deprecation)', changed, item => [...beforeGroups.get(item.path).map(previous => `- ${line(previous)}`), ...afterGroups.get(item.path).map(current => `+ ${line(current)}`)].join('\n'))
+  list('Doc-only changes (JSDoc; the signature is identical)', docOnly, item => [item.path, ...beforeGroups.get(item.path).map(previous => `- ${previous.doc || '(no JSDoc)'}`), ...afterGroups.get(item.path).map(current => `+ ${current.doc || '(no JSDoc)'}`)].join('\n'))
   return out.join('\n')
 }
 

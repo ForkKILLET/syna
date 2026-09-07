@@ -86,7 +86,7 @@ out('| case | samples | p50 ms | p95 ms | p99 ms | inherited / new | plan-cache 
 for (const item of benchmark.cases) {
   if (!item.timing?.samples) continue
   const shape = item.requestShape
-    ? `${item.requestShape.services.inherited} / ${item.requestShape.services.new}`
+    ? `${item.requestShape.services.reused} / ${item.requestShape.services.new}`
     : typeof item.inherited === 'number'
       ? `${item.inherited} / ${typeof item.newServices === 'number' ? item.newServices : '—'}`
       : '—'
@@ -103,7 +103,7 @@ if (churn) {
 }
 const lru = benchmark.cases.find(item => item.name === 'lru-churn-500-shapes')
 if (lru) {
-  out(`LRU: ${lru.generatedEntryShapes} distinct Entry shapes → ${lru.planCacheEntries} cached templates (max ${lru.planCache.maxEntries}, evictions ${lru.planCache.evictions}).`, '')
+  out(`LRU: ${lru.generatedEntryShapes} distinct Entry shapes → ${lru.planCacheEntries} cached templates (max ${lru.planCache.limit}, evictions ${lru.planCache.evictions}).`, '')
 }
 out(`### Budgets (\`benchmarks/budgets.json\`) — all ok: ${benchmark.budgetsOk}`, '')
 out('| budget | metric | max | value | result |', '|---|---|---:|---:|---|')

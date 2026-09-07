@@ -40,8 +40,8 @@ test('the compiled declarations carry no @deprecated tag and none of the expired
   const expired = [
     /\bSynaRuntime\b/, /\bBoundEntry\b/, /\bDependencyRef\b/, /\bPersistentImplementationRef\b/, /\bDeriveOptions\b/, /\bScopeTarget\b/,
     /\bPlanCacheOptions\b/, /\bInitializationOptions\b/, /\bDisposalOptions\b/, /\bPlanningOptions\b/,
-    /\bimplementationId\??:/, /\bscope\??:/, /\bbind</, /\bplanCache\?:/, /\binitialization\?:/, /\bdisposal\?:/, /\bplanning\?:/,
-    /\bsearchBudget\b/, /\bgraceMs\b/, /\bdeadlineMs\?:/, /\bmaxEntries\?:/, /readonly site: string;\s*readonly parentActiveRevisionKeys/,
+    /\bscope\??:/, /\bbind</, /\bplanCache\?:/, /\binitialization\?:/, /\bdisposal\?:/, /\bplanning\?:/,
+    /\bsearchBudget\b/, /\bgraceMs\b/, /\bdeadlineMs\?:/, /\bmaxEntries\?:/, /readonly site: string;\s*readonly parentActiveRevisionIds/,
     // §2.2: the selector's last remnants
     /\bavailability\??:/, /\bCandidateAvailability\b/, /\bAvailableImplementationCandidate\b/,
   ]
@@ -53,7 +53,7 @@ test('the compiled declarations carry no @deprecated tag and none of the expired
   assert.match(descriptors, /export interface Runtime \{/)
   assert.match(descriptors, /export interface ServiceRef<T> \{\s*load\(options\?: LoadOptions\): Promise<T>;/)
   assert.match(descriptors, /: ServiceRef<DependencyOutput<D>>;/, 'DependencyRefFor maps Service-like dependencies to ServiceRef')
-  assert.match(descriptors, /anchor<E extends EntryDescriptor>\(entry: E\): AnchoredEntry<E>;/)
+  assert.match(descriptors, /anchor<E extends Entry>\(entry: E\): AnchoredEntry<E>;/)
   assert.match(readFileSync(path.join(dist, 'runtime.d.ts'), 'utf8'), /export declare function createRuntime\(options: CreateRuntimeOptions\): Runtime;/)
   assert.match(readFileSync(path.join(dist, 'loading.d.ts'), 'utf8'), /Refs extends Readonly<Record<string, ServiceRef<unknown>>>/, 'loadAll is constrained to ServiceRef')
 })
@@ -98,7 +98,7 @@ test('call: options.reuse on enter/check/explain/run; scope inside the parameter
 
   const env = await root.enter(Child, { flag: 2 }, { reuse: { fresh: [Cache] } })
   assert.notStrictEqual(await env.deps.app.load(), await root.deps.app.load(), 'fresh Cache forks App')
-  const cacheNode = env.inspect().nodes.find(node => node.nodeId === `service:${Cache.key}`)
+  const cacheNode = env.inspect().nodes.find(node => node.nodeId === `service:${Cache.id}`)
   assert.equal(cacheNode.ownerEnvId, env.id)
   await env.dispose()
 
@@ -113,7 +113,7 @@ test('call: options.reuse on enter/check/explain/run; scope inside the parameter
   const inactive = await root.check(Child, { flag: 2 }, { reuse: { fresh: [Other] } })
   assert.equal(inactive.ok, false)
   assert.equal(inactive.error.code, 'INACTIVE_REUSE_TARGET')
-  assert.equal(inactive.error.message, `fresh targets inactive Service Revision ${Other.key}.`)
+  assert.equal(inactive.error.message, `fresh targets inactive Service Revision ${Other.id}.`)
   await assert.rejects(root.enter(Child, { flag: 2 }, { reuse: { fresh: ['not-a-service'] } }), { code: 'INVALID_DESCRIPTOR', message: 'Reuse targets must be Service revisions or families.' })
 
   // The expired 0.5 call form and the other malformed shapes are TypeErrors, reported as rejections.
@@ -139,11 +139,11 @@ test('derive(): the argument is ReuseConstraints', async () => {
   const { Db, Cache, Config, App, Root } = world()
   const runtime = createRuntime({ services: [Db, Cache, App, Config] })
   const root = await runtime.enter(Root, { flag: 1 })
-  const derived = await root.derive({ fresh: [Cache] })
+  const derived = await root.derive({ reuse: { fresh: [Cache] } })
   assert.equal(derived.inspect().parentId, root.id)
-  const cacheNode = derived.inspect().nodes.find(node => node.nodeId === `service:${Cache.key}`)
+  const cacheNode = derived.inspect().nodes.find(node => node.nodeId === `service:${Cache.id}`)
   assert.equal(cacheNode.ownerEnvId, derived.id)
-  await assert.rejects(root.derive({ fresh: [makeDefine('expired-unknown').service({ setup: () => ({}) })] }), { code: 'INACTIVE_REUSE_TARGET' })
+  await assert.rejects(root.derive({ reuse: { fresh: [makeDefine('expired-unknown').service({ setup: () => ({}) })] } }), { code: 'INACTIVE_REUSE_TARGET' })
   await runtime.dispose()
 })
 
@@ -165,7 +165,7 @@ test('anchored entries: env.anchor(entry) is the one form and accepts the same c
   assert.equal(a.inspect().parentId, root.id)
   assert.deepEqual(topology(a), topology(b))
   assert.equal(await anchored.run({ flag: 2 }, async ({ app }) => typeof (await app.load())), 'object')
-  assert.equal(await anchored.run({ flag: 3 }, { reuse: { fresh: [Db] } }, async (deps, env) => env.inspect().nodes.find(node => node.nodeId === `service:${Db.key}`).ownerEnvId !== root.id), true)
+  assert.equal(await anchored.run({ flag: 3 }, { reuse: { fresh: [Db] } }, async (deps, env) => env.inspect().nodes.find(node => node.nodeId === `service:${Db.id}`).ownerEnvId !== root.id), true)
   await assert.rejects(anchored.enter({ flag: 2, scope: { fresh: [Cache] } }), { name: 'TypeError', message: /scope is no longer a call parameter/ })
   await a.dispose()
   await b.dispose()
@@ -208,7 +208,7 @@ test('createRuntime() returns the documented Runtime surface', async () => {
   assert.deepEqual(Object.keys(runtime.catalog).sort(), ['implementations', 'resolve', 'revisions'])
   for (const method of ['enter', 'run', 'check', 'explain', 'inspect', 'dispose']) assert.equal(typeof runtime[method], 'function', method)
   assert.equal(typeof runtime[Symbol.asyncDispose], 'function')
-  assert.deepEqual(runtime.inspect().admittedServices, [Db.key])
+  assert.deepEqual(runtime.inspect().admittedServices, [Db.id])
   await runtime.dispose()
 })
 
@@ -254,15 +254,15 @@ test('policy context: dependencySite is the one name on every policy path; site 
   const policy = {
     orderAutoCandidates(_contract, candidates, context) {
       contexts.push(context)
-      seen.push(['auto', context.dependencySite, [...context.parentActiveRevisionKeys].sort()])
-      const byKey = key => candidates.find(candidate => candidate.key === key)
+      seen.push(['auto', context.dependencySite, [...context.parentActiveRevisionIds].sort()])
+      const byKey = key => candidates.find(candidate => candidate.id === key)
       return context.dependencySite.endsWith('dependency:first')
         ? candidates.filter(Boolean).sort((a, b) => (a.family.id === b.family.id ? b.version.localeCompare(a.version) : a.family.id.localeCompare(b.family.id)))
-        : [...candidates].reverse().map(candidate => byKey(candidate.key))
+        : [...candidates].reverse().map(candidate => byKey(candidate.id))
     },
     orderVersionCandidates(_family, candidates, context) {
       contexts.push(context)
-      seen.push(['version', context.dependencySite, [...context.parentActiveRevisionKeys].sort()])
+      seen.push(['version', context.dependencySite, [...context.parentActiveRevisionIds].sort()])
       return defaultRuntimePolicy.orderVersionCandidates(_family, candidates, context)
     },
   }
@@ -278,10 +278,10 @@ test('policy context: dependencySite is the one name on every policy path; site 
   assert.ok(seen.some(([kind, site]) => kind === 'auto' && site.endsWith('dependency:first')))
   assert.ok(seen.some(([kind, site]) => kind === 'version' && site.includes('/persistent:')), 'the persistent-reference path names the family in its site')
   for (const context of contexts) {
-    assert.deepEqual(Object.keys(context), ['dependencySite', 'parentActiveRevisionKeys'])
+    assert.deepEqual(Object.keys(context), ['dependencySite', 'parentActiveRevisionIds'])
     assert.equal('site' in context, false, 'no alias, own or inherited')
     assert.equal(typeof context.dependencySite, 'string')
-    assert.ok(context.parentActiveRevisionKeys instanceof Set)
+    assert.ok(context.parentActiveRevisionIds instanceof Set)
   }
   await runtime.dispose()
 
@@ -295,22 +295,22 @@ test('policy context: dependencySite is the one name on every policy path; site 
   await strict.dispose()
 })
 
-const DEFAULTS = { setupDeadlineMs: '30_000', disposalGraceMs: '2_000', planningBudget: '10_000', planCacheEntries: '512' }
+const DEFAULTS = { loadTimeoutMs: '30_000', disposalGraceMs: '2_000', planningBudget: '10_000', planCacheEntries: '512' }
 
 test('limits: the defaults are locked verbatim: 30_000 / 2_000 / 10_000 / 512', async () => {
   const source = readFileSync(path.join(root, 'packages/core/src/runtime.ts'), 'utf8')
   for (const line of [
-    `const DEFAULT_SETUP_DEADLINE_MS = ${DEFAULTS.setupDeadlineMs}`,
+    `const DEFAULT_LOAD_TIMEOUT_MS = ${DEFAULTS.loadTimeoutMs}`,
     `const DEFAULT_DISPOSAL_GRACE_MS = ${DEFAULTS.disposalGraceMs}`,
     `const DEFAULT_PLANNING_BUDGET = ${DEFAULTS.planningBudget}`,
     `const DEFAULT_PLAN_CACHE_ENTRIES = ${DEFAULTS.planCacheEntries}`,
   ]) assert.ok(source.includes(`\n${line}\n`), `runtime.ts must declare ${line}`)
   const declaration = readFileSync(path.join(dist, 'descriptors.d.ts'), 'utf8')
-  assert.ok(declaration.includes(`Defaults: \`setupDeadlineMs\` ${DEFAULTS.setupDeadlineMs}, \`disposalGraceMs\` ${DEFAULTS.disposalGraceMs},\n * \`planningBudget\` ${DEFAULTS.planningBudget}, \`planCacheEntries\` ${DEFAULTS.planCacheEntries}.`), 'RuntimeLimits documents the defaults')
+  assert.ok(declaration.includes(`Defaults: \`loadTimeoutMs\` ${DEFAULTS.loadTimeoutMs}, \`disposalGraceMs\` ${DEFAULTS.disposalGraceMs},\n * \`planningBudget\` ${DEFAULTS.planningBudget}, \`planCacheEntries\` ${DEFAULTS.planCacheEntries}.`), 'RuntimeLimits documents the defaults')
   const reference = readFileSync(path.join(root, 'docs/API_REFERENCE.md'), 'utf8')
-  assert.ok(reference.includes(`limits: { setupDeadlineMs: ${DEFAULTS.setupDeadlineMs}, disposalGraceMs: ${DEFAULTS.disposalGraceMs}, planningBudget: ${DEFAULTS.planningBudget}, planCacheEntries: ${DEFAULTS.planCacheEntries} },`), 'API_REFERENCE shows the defaults')
+  assert.ok(reference.includes(`limits: { loadTimeoutMs: ${DEFAULTS.loadTimeoutMs}, disposalGraceMs: ${DEFAULTS.disposalGraceMs}, planningBudget: ${DEFAULTS.planningBudget}, planCacheEntries: ${DEFAULTS.planCacheEntries} },`), 'API_REFERENCE shows the defaults')
   const runtime = createRuntime({ services: [] })
-  assert.equal(runtime.inspect().planCache.maxEntries, 512, 'the observable default')
+  assert.equal(runtime.inspect().planCache.limit, 512, 'the observable default')
   await runtime.dispose()
 })
 
@@ -322,14 +322,14 @@ const stuckWorld = () => {
 
 test('limits: each key sets exactly one limit', async () => {
   const cache = createRuntime({ services: [], limits: { planCacheEntries: 3 } })
-  assert.equal(cache.inspect().planCache.maxEntries, 3)
+  assert.equal(cache.inspect().planCache.limit, 3)
   await cache.dispose()
 
   {
     const { Stuck, Entry } = stuckWorld()
-    const runtime = createRuntime({ services: [Stuck], limits: { setupDeadlineMs: 30, disposalGraceMs: 10 } })
+    const runtime = createRuntime({ services: [Stuck], limits: { loadTimeoutMs: 30, disposalGraceMs: 10 } })
     const env = await runtime.enter(Entry)
-    await assert.rejects(env.deps.stuck.load(), error => error.code === 'INITIALIZATION_TIMEOUT' && error.details.deadlineMs === 30)
+    await assert.rejects(env.deps.stuck.load(), error => error.code === 'LOAD_TIMEOUT' && error.details.deadlineMs === 30)
     await env.dispose()
     await runtime.dispose()
   }
@@ -359,7 +359,7 @@ test('limits: each key sets exactly one limit', async () => {
   const Pick2 = makeDefine('expired-budget-pick2').service({ provides: [Cap], requires: { fixed: Fixed2 }, setup: () => ({}) })
   const Consumer = define.service('consumer', { requires: { a: { kind: 'auto-implementation', contract: Cap }, b: { kind: 'auto-implementation', contract: Cap } }, setup: () => ({}) })
   const BudgetEntry = define.entry('budget', { requires: { consumer: Consumer, fixed: Fixed2 } })
-  const policy = { orderAutoCandidates: (_c, candidates) => [...candidates].sort((l, r) => l.key.localeCompare(r.key)) }
+  const policy = { orderAutoCandidates: (_c, candidates) => [...candidates].sort((l, r) => l.id.localeCompare(r.id)) }
   const tight = createRuntime({ services: [Consumer, Pick1, Pick2, Fixed1, Fixed2, ...providers], policy, limits: { planningBudget: 2 } })
   await assert.rejects(tight.check(BudgetEntry), error => error.code === 'PLANNING_BUDGET_EXCEEDED' && error.details.budget === 2)
   await tight.dispose()
@@ -368,7 +368,7 @@ test('limits: each key sets exactly one limit', async () => {
 test('limits: the removed nested option records are refused, not ignored; invalid values are refused', () => {
   const removed = [
     [{ planCache: { maxEntries: 3 } }, 'planCache', 'planCacheEntries'],
-    [{ initialization: { deadlineMs: 5 } }, 'initialization', 'setupDeadlineMs'],
+    [{ initialization: { deadlineMs: 5 } }, 'initialization', 'loadTimeoutMs'],
     [{ disposal: { graceMs: 5 } }, 'disposal', 'disposalGraceMs'],
     [{ planning: { searchBudget: 5 } }, 'planning', 'planningBudget'],
   ]
@@ -378,7 +378,7 @@ test('limits: the removed nested option records are refused, not ignored; invali
     assert.throws(() => createRuntime({ services: [], limits: { [limit]: 5 }, ...options }), { name: 'TypeError', message }, 'refused even next to the current form')
   }
   const invalid = [
-    ['setupDeadlineMs', 0, 'limits.setupDeadlineMs must be a positive number.'],
+    ['loadTimeoutMs', 0, 'limits.loadTimeoutMs must be a positive number.'],
     ['disposalGraceMs', -1, 'limits.disposalGraceMs must be a positive number.'],
     ['planningBudget', 0, 'limits.planningBudget must be a positive safe integer.'],
     ['planCacheEntries', 1.5, 'limits.planCacheEntries must be a positive safe integer.'],
@@ -387,7 +387,7 @@ test('limits: the removed nested option records are refused, not ignored; invali
     assert.throws(() => createRuntime({ services: [], limits: { [key]: value } }), { name: 'TypeError', message })
   }
   assert.throws(() => createRuntime({ services: [], limits: 5 }), { name: 'TypeError', message: 'limits must be an object.' })
-  assert.doesNotThrow(() => createRuntime({ services: [], limits: { setupDeadlineMs: Infinity } }), 'Infinity disables the deadline')
+  assert.doesNotThrow(() => createRuntime({ services: [], limits: { loadTimeoutMs: Infinity } }), 'Infinity disables the deadline')
 })
 
 // v0.7 (Phase B, §2.2): the selector's last remnants are gone. Every candidate of C.all is a real node of the current
@@ -405,13 +405,13 @@ test('C.all candidates carry the descriptor fields and ref only: no availability
   assert.equal(set.candidates.length, 2)
   const ids = { 'remnants-a': 'a', 'remnants-b': 'b' }
   for (const candidate of set.candidates) {
-    assert.deepEqual(Object.keys(candidate).sort(), ['contractId', 'eager', 'familyId', 'familyMetadata', 'persistentRef', 'ref', 'revisionMetadata', 'version'])
+    assert.deepEqual(Object.keys(candidate).sort(), ['candidateRef', 'contractId', 'eager', 'familyId', 'familyMetadata', 'implementationRef', 'revisionMetadata', 'version'])
     assert.equal('availability' in candidate, false)
     assert.ok(Object.isFrozen(candidate))
-    assert.equal(candidate.ref.kind, 'candidate-ref')
+    assert.equal(candidate.candidateRef.kind, 'candidate-ref')
     assert.equal((await set.load(candidate)).id, ids[candidate.familyId])
-    assert.equal((await set.load(candidate.ref)).id, ids[candidate.familyId])
-    assert.equal(set.resolve(candidate.persistentRef), candidate)
+    assert.equal((await set.load(candidate.candidateRef)).id, ids[candidate.familyId])
+    assert.equal(set.resolve(candidate.implementationRef), candidate)
   }
   assert.deepEqual([...set].map(candidate => candidate.familyId), set.candidates.map(candidate => candidate.familyId))
   await env.dispose()

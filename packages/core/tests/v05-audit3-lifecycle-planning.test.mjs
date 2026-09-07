@@ -78,7 +78,7 @@ test('F-CL3-02 setup drift is DUPLICATE_DEFINITION on a template hit, after chec
   const Drifted = makeDefine('v05.audit3.drift.storage').service('storage', { setup: () => ({ flavour: 'drifted' }) })
   const EntryCanonical = define.entry('main', { requires: { storage: Canonical } })
   const EntryDrifted = define.entry('main', { requires: { storage: Drifted } })
-  assert.equal(Canonical.key, Drifted.key)
+  assert.equal(Canonical.id, Drifted.id)
 
   const isDrift = outcome => outcome.status === 'rejected' && outcome.error.code === 'DUPLICATE_DEFINITION'
 
@@ -271,7 +271,7 @@ test('F-CL3-05a a failed setup whose rollback outlives the grace is abandoned as
   assert.equal(ledger[0].env, env.id)
   assert.deepEqual(env.inspect().abandonedAttempts.map(item => item.state), ['rolling-back'])
   await runtime.dispose()
-  assert.ok(events.includes('attempts-outstanding'), 'runtime.dispose() reports the rollback still outstanding, once')
+  assert.ok(events.includes('runtime-attempts-outstanding'), 'runtime.dispose() reports the rollback still outstanding, once')
   rollbackGate.resolve()
   await waitFor(() => runtime.inspect().unsettledAttempts.length === 0)
   assert.equal(env.inspect().nodes[0].state, 'disposed', 'the slot leaves abandoned once its rollback finished')
@@ -308,15 +308,15 @@ test('F-CL3-05b during a late cleanup the ledger still lists the attempt as sett
   assert.deepEqual(runtime.inspect().unsettledAttempts.map(item => item.state), ['settling'], 'the ledger keeps the attempt while its late cleanup runs')
   assert.deepEqual(env.inspect().abandonedAttempts.map(item => item.state), ['settling'])
   await runtime.dispose()
-  assert.deepEqual(events.filter(event => event === 'attempts-outstanding'), ['attempts-outstanding'], 'runtime.dispose() does not fulfil silently while a late cleanup runs: it reports the settling attempt once')
+  assert.deepEqual(events.filter(event => event === 'runtime-attempts-outstanding'), ['runtime-attempts-outstanding'], 'runtime.dispose() does not fulfil silently while a late cleanup runs: it reports the settling attempt once')
   cleanupGate.resolve()
   await waitFor(() => runtime.inspect().unsettledAttempts.length === 0)
   assert.equal(env.inspect().nodes[0].state, 'disposed')
   assert.ok(events.includes('late-cleanup-end'))
-  assert.ok(events.includes('late-setup-result'))
+  assert.ok(events.includes('attempt-succeeded-late'))
   // A Runtime closes once: a later call returns the same close and reports nothing again.
   await runtime.dispose()
-  assert.equal(events.filter(event => event === 'attempts-outstanding').length, 1)
+  assert.equal(events.filter(event => event === 'runtime-attempts-outstanding').length, 1)
 })
 
 test('F-CL3-05c runtime.dispose() waits within the grace for a settling attempt instead of reporting a cleanup that is about to finish', async () => {
@@ -331,9 +331,9 @@ test('F-CL3-05c runtime.dispose() waits within the grace for a settling attempt 
   })
   const Entry = define.entry({ requires: { stuck: Stuck } })
   const events = []
-  const runtime = createRuntime({ services: [Stuck], limits: { disposalGraceMs: 200, setupDeadlineMs: 20 }, diagnostics: { onEvent: event => events.push(event.type) } })
+  const runtime = createRuntime({ services: [Stuck], limits: { disposalGraceMs: 200, loadTimeoutMs: 20 }, diagnostics: { onEvent: event => events.push(event.type) } })
   const env = await runtime.enter(Entry)
-  await assert.rejects(env.deps.stuck.load(), error => error.code === 'INITIALIZATION_TIMEOUT')
+  await assert.rejects(env.deps.stuck.load(), error => error.code === 'LOAD_TIMEOUT')
   // The Env's own close abandons the overdue attempt (its raw Promise is still pending).
   await env.dispose()
   assert.equal(env.state, 'disposed')
@@ -342,7 +342,7 @@ test('F-CL3-05c runtime.dispose() waits within the grace for a settling attempt 
   await waitFor(() => runtime.inspect().unsettledAttempts[0]?.state === 'settling')
   await runtime.dispose()
   assert.equal(runtime.inspect().unsettledAttempts.length, 0)
-  assert.deepEqual(events, ['attempt-overdue', 'attempt-abandoned', 'late-setup-result'], 'the close waited for the settling attempt: nothing outstanding to report')
+  assert.deepEqual(events, ['attempt-overdue', 'attempt-abandoned', 'attempt-succeeded-late'], 'the close waited for the settling attempt: nothing outstanding to report')
 })
 
 test('F-CL3-08 run() keeps a successful business result on the close error', async () => {

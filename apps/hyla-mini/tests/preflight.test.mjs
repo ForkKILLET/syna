@@ -40,7 +40,7 @@ test('H06 the render infrastructure preflight refuses a factory that depends on 
         const report = error.reports.find(item => item.entry === RenderInfrastructureEntry.id)
         assert.ok(report && !report.ok)
         assert.match(report.violations[0], /MISSING_INPUT/)
-        assert.match(report.violations[0], new RegExp(violations.RequestAwareStageFactory.key.replaceAll('/', '\\/')))
+        assert.match(report.violations[0], new RegExp(violations.RequestAwareStageFactory.id.replaceAll('/', '\\/')))
         return true
       },
     )
@@ -147,13 +147,13 @@ test('H12 request budget: the real request world stays within budget, and explai
     try {
       const explanation = await lease.env.explain(RequestEntry, { request: PROBE_REQUEST })
       assert.equal(explanation.ok, true)
-      assert.deepEqual(explanation.services, { inherited: explanation.services.inherited, new: 1, forked: 0, eagerToStart: 0, eagerInherited: 0 })
-      assert.ok(explanation.services.inherited >= 12, `shared infrastructure is inherited: ${explanation.services.inherited}`)
+      assert.deepEqual(explanation.services, { reused: explanation.services.reused, new: 1, forked: 0, eagerToStart: 0, eagerReused: 0 })
+      assert.ok(explanation.services.reused >= 12, `shared infrastructure is inherited: ${explanation.services.reused}`)
       assert.deepEqual(explanation.inputs, { inherited: explanation.inputs.inherited, provided: 1 })
-      const handler = explanation.nodes.find(node => node.nodeId === `service:${RequestHandler.key}`)
+      const handler = explanation.nodes.find(node => node.nodeId === `service:${RequestHandler.id}`)
       assert.deepEqual(handler.cause, { kind: 'not-in-parent' })
       // A tighter budget that forbids even the handler reports the violation with its path.
-      const tight = await explainRequest(lease.env, PROBE_REQUEST, { ...REQUEST_BUDGET, maxLocalServices: 0, mustInherit: [`service:${RequestHandler.key}`] })
+      const tight = await explainRequest(lease.env, PROBE_REQUEST, { ...REQUEST_BUDGET, maxLocalServices: 0, mustInherit: [`service:${RequestHandler.id}`] })
       assert.equal(tight.ok, false)
       assert.match(tight.violations.join('\n'), /1 local Services exceed the budget of 0/)
       assert.match(tight.violations.join('\n'), /must be inherited but is new/)
@@ -180,15 +180,15 @@ test('H12 a transitive CurrentRequest dependency in infrastructure is explained 
   const root = await runtime.enter(Root, { request: 'boot' })
   const report = evaluateBudget(await root.explain(Request, { request: 'r1' }), {
     maxLocalServices: 10,
-    mustInherit: [`service:${DatabasePool.key}`],
-    costs: { [DatabasePool.key]: 10 },
+    mustInherit: [`service:${DatabasePool.id}`],
+    costs: { [DatabasePool.id]: 10 },
     maxCost: 5,
   })
   assert.equal(report.ok, false)
   assert.equal(report.localServices, 3)
   assert.equal(report.cost, 12)
   assert.match(report.violations.join('\n'), /resource cost 12 exceeds the budget of 5/)
-  assert.match(report.violations.join('\n'), new RegExp(`service:${DatabasePool.key.replaceAll('/', '\\/')} must be inherited but is forked: .*dependency-forked.*via service:${DatabasePool.key.replaceAll('/', '\\/')} -> service:${RequestAwareLogger.key.replaceAll('/', '\\/')} -> input:`))
+  assert.match(report.violations.join('\n'), new RegExp(`service:${DatabasePool.id.replaceAll('/', '\\/')} must be inherited but is forked: .*dependency-forked.*via service:${DatabasePool.id.replaceAll('/', '\\/')} -> service:${RequestAwareLogger.id.replaceAll('/', '\\/')} -> input:`))
   await runtime.dispose()
 })
 

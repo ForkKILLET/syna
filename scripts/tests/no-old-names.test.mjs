@@ -1,9 +1,10 @@
-// v0.6 (Phase D) / v0.7 (A11): the applications, demos, benchmarks, scripts, workflow and the core test suites use
-// the current names only. The 0.5 names deleted in 0.6 and the 0.6 aliases removed in 0.7.0 exist nowhere in the
-// public API (api-inventory.test.mjs, deprecations.test.mjs); the only places allowed to spell an old name are
-// files or lines marked `syna-v05-compat` (the tests that assert an expired form is refused, the permanent 0.5
-// stored-document compatibility in the core and in Hyla-mini), and, in the current documentation, lines that
-// explain the removal. The core source is scanned too, for the deleted public names.
+// v0.6 (Phase D) / v0.7 (A11) / v0.8 (the last rename): the applications, demos, benchmarks, scripts, workflow and
+// the core test suites use the current names only. The 0.5 names deleted in 0.6, the 0.6 aliases removed in 0.7.0
+// and the 0.7 names renamed in 0.8.0 — types, fields, values, error codes, event names, serialized keys, structures —
+// exist nowhere in the public API (api-inventory.test.mjs, deprecations.test.mjs); the only places allowed to spell an
+// old name are files or lines marked `syna-v05-compat` or `syna-v08-rename` (the tests that assert an expired form is
+// refused, the rename codemod and its fixture test, a gate step that scans for the old tokens), and, in the current
+// documentation, lines that explain the removal or the rename. The core source is scanned too, for the deleted names.
 import assert from 'node:assert/strict'
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
@@ -51,7 +52,37 @@ const OLD_NAMES = [
   [/\bFRESH_CONSTRAINT_FAILED\b/, 'INACTIVE_REUSE_TARGET (inactive fresh/share target), INVALID_INHERITED_CHOICE or FOREIGN_CANDIDATE_REF'],
   // 0.7 (§2.3 S7): the code split by meaning
   [/\bINVALID_ENV_STATE\b/, 'ENV_CLOSED (closing or closed Env), RUNTIME_CLOSED (disposed Runtime), SLOT_NOT_LOADABLE (closed slot) or LIFECYCLE_MISUSE (stale onDispose)'],
-  [/\bUNSETTLED_ATTEMPT\b/, 'no error: an abandoned attempt is a ledger entry (runtime.inspect().unsettledAttempts, env.inspect().abandonedAttempts) reported by the attempt-abandoned and attempts-outstanding events'],
+  [/\bUNSETTLED_ATTEMPT\b/, 'no error: an abandoned attempt is a ledger entry (runtime.inspect().unsettledAttempts, env.inspect().abandonedAttempts) reported by the attempt-abandoned and runtime-attempts-outstanding events'],
+  // 0.8 (§2, the last rename before 1.0): every 0.7 name with its replacement — docs/MIGRATION_V07_TO_V08.md has the table.
+  [/\bEnvHandle\b/, 'Env'],
+  [/\bEntryDescriptor\b/, 'Entry'],
+  [/\bImplementationDescriptor\b/, 'ImplementationRecord'],
+  [/\bNodeDisposition\b/, 'NodePlacement'],
+  [/\bInputType\b/, 'InputValue'],
+  [/\bparentActiveRevisionKeys\b/, 'parentActiveRevisionIds'],
+  [/\bselectedKey\b/, 'selectedRevision'],
+  [/\bpersistentRef\b/, 'implementationRef'],
+  [/\binternalServices\b/, 'privateServices'],
+  [/\bbindingsResolved\b/, 'bindingsAssigned'],
+  [/\.disposition\b|\bdisposition:\s/, 'placement'],
+  [/\brunningForMs\b/, 'elapsedMs'],
+  [/\bsetupDeadlineMs\b/, 'loadTimeoutMs'],
+  [/\banchorSlot\b|\banchorRevision\b/, 'pinnedSlot / pinnedRevision'],
+  [/\beagerInherited\b/, 'eagerReused'],
+  [/\bplanCache\.maxEntries\b|\bplanCache:\s*\{[^}]*\bmaxEntries\b/, 'planCache.limit'],
+  [/\bINITIALIZATION_TIMEOUT\b/, 'LOAD_TIMEOUT'],
+  [/anchor-dependency-mismatch/, 'pinned-dependency-mismatch'],
+  [/(['"`])timed-out\1/, "the ledger state 'overdue'"],
+  [/late-setup-result|late-setup-failure/, 'attempt-succeeded-late / attempt-failed-late'],
+  [/(?<!runtime-)\battempts-outstanding\b/, 'runtime-attempts-outstanding'],
+  [/foreign-thenable-setup/, 'setup-returned-thenable'],
+  [/legacy-implementation-ref/, '(deleted: no pre-0.8 serialized form is read)'],
+  [/persistent-implementation-ref/, "kind 'implementation-ref'"],
+  [/\buniqueWithin\b[^\n]*(['"`])none\1/, "uniqueWithin: 'lineage', or undeclared (undefined)"],
+  [/\bkind\b\s*(?:===?|!==?|:)\s*(['"`])all\1/, "the node kind 'all-implementations'"],
+  [/\b(services|synthetic)\.inherited\b/, 'services.reused / synthetic.reused (inputs.inherited stays)'],
+  [/\.derive\(\s*\{\s*(fresh|share)\b/, 'derive({ reuse: { fresh, share } })'],
+  [/\.revisions\(\s*['"`]/, 'catalog.revisions(revision.family)'],
 ]
 
 const CODE_ROOTS = ['apps', 'benchmarks', 'scripts', '.github', 'packages/core/tests', 'packages/core/type-tests']
@@ -66,8 +97,9 @@ const INVENTORY_TEST = 'scripts/tests/api-inventory.test.mjs' // asserts the abs
 const DOCS = [
   'README.md', 'README.zh-CN.md', 'packages/core/README.md',
   'docs/API_REFERENCE.md', 'docs/ARCHITECTURE.md', 'docs/HYLA_MINI.md', 'docs/PACKAGE_AUTHORING.md', 'docs/PLUGIN_AUTHORING.md', 'docs/SEMANTIC_MODEL.md', 'docs/API_STABILITY.md',
+  'docs/GLOSSARY.md', 'docs/DEFERRED.md',
 ]
-const DOC_CONTEXT = /0\.7\.0|deprecated|弃用|removed|删除|0\.5|compat/i
+const DOC_CONTEXT = /0\.7\.0|0\.8\.0|deprecated|弃用|removed|删除|renamed|改名|0\.5|compat/i
 
 function* walk(dir) {
   for (const name of readdirSync(dir)) {
@@ -115,15 +147,14 @@ test('no 0.5 name survives in the applications, benchmarks, scripts, workflow an
     hits.push(...result.hits)
   }
   assert.deepEqual(hits, [], `old names found:\n${hits.join('\n')}`)
-  // The exemptions are the known compatibility files, nothing else.
+  // The exemptions are the expired-form tests, the codemod and its fixture test, nothing else (0.8: the 0.5
+  // stored-document compatibility of the core and of Hyla-mini is gone, and with it every file that carried it).
   assert.deepEqual(exempt, [
-    'apps/hyla-mini/src/domain/recipe-schema.ts',
-    'apps/hyla-mini/tests/v06-compat.test.mjs',
-    'packages/core/tests/v06-snapshots.test.mjs',
     'packages/core/tests/v07-expired-forms.test.mjs',
-    'packages/core/tests/v07-legacy-implementation-key.test.mjs',
+    'packages/core/tests/v08-expired-forms.test.mjs',
     'packages/core/type-tests/api.ts',
     'scripts/codemod-v08.mjs',
+    'scripts/tests/codemod-v08.test.mjs',
   ])
 })
 
@@ -154,7 +185,7 @@ test('the core source spells no deleted public name outside marked lines and rem
   assert.deepEqual(hits, [], `deleted names found in the core source:\n${hits.join('\n')}`)
 })
 
-test('the current documentation spells old names only in the deprecation table or next to the 0.6 name', () => {
+test('the current documentation spells old names only in a deprecation or rename section or next to the current name', () => {
   const hits = []
   for (const file of DOCS) {
     try { statSync(join(root, file)) }
@@ -162,7 +193,7 @@ test('the current documentation spells old names only in the deprecation table o
     let inDeprecationSection = false
     const result = scan(file, {
       allowLine: line => {
-        if (/^## /.test(line)) inDeprecationSection = /deprecat|弃用/i.test(line)
+        if (/^## /.test(line)) inDeprecationSection = /deprecat|弃用|renam|改名/i.test(line)
         return inDeprecationSection || DOC_CONTEXT.test(line)
       },
     })
@@ -193,6 +224,29 @@ test('the scanner recognises every old name it is meant to catch', () => {
     'if (error.code === "FRESH_CONSTRAINT_FAILED") {}',
     'if (error.code === "INVALID_ENV_STATE") {}',
     'if (error.code === "UNSETTLED_ATTEMPT") {}',
+    // 0.8
+    'const env: EnvHandle<{}> = await runtime.enter(Entry)',
+    'const entry: EntryDescriptor = define.entry("x")',
+    'const record: ImplementationDescriptor = runtime.catalog.resolve(ref)',
+    'const placement: NodeDisposition = "new"; type V = InputType<typeof Input>',
+    'context.parentActiveRevisionKeys.has(id); error.details.selectedKey',
+    'record.persistentRef; inspection.internalServices; explanation.parameters.bindingsResolved',
+    'node.disposition === "inherited"',
+    'entry.runningForMs; limits: { setupDeadlineMs: 1 }',
+    'details.anchorSlot; details.anchorRevision; services.eagerInherited',
+    'runtime.inspect().planCache.maxEntries',
+    'if (error.code === "INITIALIZATION_TIMEOUT") {}',
+    'cause.kind === "anchor-dependency-mismatch"',
+    "item.state === 'timed-out'",
+    'event.type === "late-setup-result" || event.type === "late-setup-failure"',
+    'event.type === "attempts-outstanding"',
+    'event.type === "foreign-thenable-setup"; event.type === "legacy-implementation-ref"',
+    '{ kind: "persistent-implementation-ref", contractId, familyId, version }',
+    "uniqueWithin: 'none'",
+    "node.kind === 'all'",
+    'explanation.services.inherited + explanation.synthetic.inherited',
+    'await env.derive({ fresh: [Db] })',
+    "runtime.catalog.revisions('db')",
   ]
   for (const sample of samples) {
     assert.ok(OLD_NAMES.some(([pattern]) => pattern.test(sample)), `not caught: ${sample}`)
@@ -204,6 +258,14 @@ test('the scanner recognises every old name it is meant to catch', () => {
     'const providers = makeDefine("test.collection-provider")',
     'const all = [...implementations]',
     'const values: EntryArguments<typeof Entry> = {}',
+    // 0.8: the current names, and the words the rename leaves alone
+    'const env: Env<{}> = await runtime.enter(Entry); const entry: Entry = define.entry("x")',
+    "event.type === 'runtime-attempts-outstanding'; item.state === 'overdue'",
+    "node.kind === 'all-implementations'; node.placement === 'reused'",
+    'explanation.inputs.inherited; explanation.parameters.inputsInherited',
+    'await env.derive({ reuse: { fresh: [Db] } }); runtime.catalog.revisions(Db.family)',
+    "uniqueWithin: 'lineage'; response.headers['content-disposition']",
+    'cacheStats.maxEntries; { kind: "implementation-ref", contractId, familyId, range }',
   ]) {
     assert.ok(!OLD_NAMES.some(([pattern]) => pattern.test(fine)), `false positive: ${fine}`)
   }
