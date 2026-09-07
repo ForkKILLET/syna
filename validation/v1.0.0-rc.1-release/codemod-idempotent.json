@@ -1,0 +1,22 @@
+{
+  "dryRun": true,
+  "targets": [
+    "apps",
+    "benchmarks",
+    "packages/core/tests",
+    "packages/claude",
+    "packages/fluida",
+    "packages/hyla",
+    "packages/llm-contract",
+    "packages/logger",
+    "packages/openai-v1",
+    "packages/openai-v2",
+    "packages/postgres",
+    "scripts"
+  ],
+  "files": [],
+  "rules": {},
+  "edits": 0,
+  "filesChanged": 0,
+  "manual": 0
+}
