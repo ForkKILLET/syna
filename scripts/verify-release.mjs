@@ -48,15 +48,15 @@ const manifestPath = path.join(validationDir, 'manifest.json')
 const previousManifest = existsSync(manifestPath) ? JSON.parse(readFileSync(manifestPath, 'utf8')) : null
 let postgresInfo = null
 
-// The 1.0.0-rc.1 side of the same-session comparison of the 1.0.0-rc.1 release run, measured on this machine with
-// `--no-maglev` on both sides (scripts/benchmark-same-session.mjs, 21 rounds, provenance 77d6440): the recorded
-// 1.0.0-rc.1 baseline — the reference of the informational record-drift check, and the baseline itself only when the
+// The 1.0.0-rc.2 side of the same-session comparison of the 1.0.0-rc.2 release run, measured on this machine with
+// `--no-maglev` on both sides (scripts/benchmark-same-session.mjs, 21 rounds, provenance 46b344f): the recorded
+// 1.0.0-rc.2 baseline — the reference of the informational record-drift check, and the baseline itself only when the
 // commit cannot be exported.
-const BENCHMARK_BASELINE = 'benchmarks/results-v1.0.0-rc.1-baseline-same-machine.json'
-// The 1.0.0-rc.1 source: the release commit of 1.0.0-rc.1 (its core is the 0.8.0 core unchanged). Exported and
+const BENCHMARK_BASELINE = 'benchmarks/results-v1.0.0-rc.2-baseline-same-machine.json'
+// The 1.0.0-rc.2 source: the release commit of 1.0.0-rc.2 (its core is the 0.8.0 core unchanged). Exported and
 // benchmarked in the same session when the history is available; otherwise the recorded file above is the baseline.
-const BASELINE_COMMIT = '4a5a978'
-const BASELINE_LABEL = '1.0.0-rc.1'
+const BASELINE_COMMIT = 'd7a4410'
+const BASELINE_LABEL = '1.0.0-rc.2'
 // Rounds per side of the same-session comparison (each round benchmarks both sides); the element-wise median of the
 // rounds is compared, within ±10 %. Both benchmark processes run with `--no-maglev` (scripts/benchmark-same-session.mjs).
 const BENCHMARK_RUNS = 21
@@ -67,8 +67,9 @@ const ANY_BASELINE = 'scripts/any-baseline-v1.0.0-rc.2.json'
 // The public API of 0.8.0 as the 0.8.0 release gate recorded it (commit 38a722e): the frozen surface. This source's
 // inventory must be identical to it, item by item.
 const INVENTORY_FROZEN = 'validation/v0.8-release/api-inventory.json'
-// The public API as the 1.0.0-rc.1 release gate recorded it (provenance 77d6440; identical to the 0.8.0 record): the
-// diff of this source against the previous release candidate, and the assertion that it is empty.
+// The public API as the 1.0.0-rc.2 release gate recorded it (provenance 46b344f; identical to the 1.0.0-rc.1 and 0.8.0
+// records): the diff of this source against the previous release candidate, and the assertion that it is exactly the
+// registered increment below.
 const INVENTORY_PREVIOUS = 'validation/v1.0.0-rc.2-release/api-inventory.json'
 /**
  * The registered increment of 1.0.0-rc.3 (docs/API_STABILITY.md "Registered exception",

@@ -32,7 +32,7 @@ test('the historical set is what it says: existing records, never the current do
     assert.ok(isHistorical(file), `${file} is historical`)
     if (existsSync(path.join(root, file))) assert.ok(true)
   }
-  for (const file of ['README.md', 'docs/API_REFERENCE.md', 'docs/EXAMPLES.md', 'docs/MULTITENANT_BLOG.md', 'docs/DEFERRED.md', 'scripts/verify-release.mjs', 'scripts/validation-doc.mjs', '.github/workflows/ci.yml', 'package.json', 'benchmarks/results-v1.0.0-rc.1-baseline-same-machine.json', 'validation/README.md']) {
+  for (const file of ['README.md', 'docs/API_REFERENCE.md', 'docs/EXAMPLES.md', 'docs/MULTITENANT_BLOG.md', 'docs/DEFERRED.md', 'scripts/verify-release.mjs', 'scripts/validation-doc.mjs', '.github/workflows/ci.yml', 'package.json', 'benchmarks/results-v1.0.0-rc.2-baseline-same-machine.json', 'validation/README.md']) {
     assert.equal(isHistorical(file), false, `${file} is current`)
   }
 })

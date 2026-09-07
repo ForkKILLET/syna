@@ -18,7 +18,7 @@
 // The flags are recorded in every run file (`environment.nodeOptions`) and in the median files (`nodeFlags`);
 // scripts/benchmark-compare.mjs treats two records measured under different flags as not comparable.
 //
-//   node scripts/benchmark-same-session.mjs --commit 4a5a978 --baseline-label 1.0.0-rc.1 --out-dir validation/v1.0.0-rc.2-dev/benchmark-compare [--runs 21] [--tolerance 0.10] [--record benchmarks/results-v1.0.0-rc.1-baseline-same-machine.json]
+//   node scripts/benchmark-same-session.mjs --commit d7a4410 --baseline-label 1.0.0-rc.2 --out-dir validation/v1.0.0-rc.3-dev/benchmark-compare [--runs 21] [--tolerance 0.10] [--record benchmarks/results-v1.0.0-rc.2-baseline-same-machine.json]
 //
 // Exit 0 when the same-session comparison is OK, 1 when it fails, 3 when the baseline commit cannot be exported.
 import { spawnSync } from 'node:child_process'
@@ -33,7 +33,7 @@ const option = (name, fallback) => { const index = args.indexOf(name); return in
 const commit = option('--commit')
 const runs = Number(option('--runs', '21'))
 const tolerance = option('--tolerance', '0.10')
-const record = option('--record', 'benchmarks/results-v1.0.0-rc.1-baseline-same-machine.json')
+const record = option('--record', 'benchmarks/results-v1.0.0-rc.2-baseline-same-machine.json')
 const label = option('--baseline-label', '1.0.0-rc.1')
 const outDir = option('--out-dir')
 if (!commit || !outDir) {
