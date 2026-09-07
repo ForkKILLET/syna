@@ -1,0 +1,30 @@
+{
+  "name": "@syna-demo/05-scheduled-jobs",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Syna example 05: a scheduler service creates one typed child world per tenant",
+  "imports": {
+    "#syna/package": "./package.json"
+  },
+  "syna": {
+    "id": "demo.examples.scheduled-jobs"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@syna/core": "1.0.0-rc.1",
+    "@syna-demo/logger": "1.1.0",
+    "@syna-demo/tenant-store": "1.2.0",
+    "@syna-demo/notify-contract": "1.0.0",
+    "@syna-demo/acme-notify-v2": "2.4.1"
+  },
+  "devDependencies": {
+    "@syna/tsconfig": "1.0.0-rc.1"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

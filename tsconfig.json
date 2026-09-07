@@ -35,6 +35,9 @@
       "path": "./apps/04-two-versions"
     },
     {
+      "path": "./apps/05-scheduled-jobs"
+    },
+    {
       "path": "./apps/hyla-mini"
     }
   ]
