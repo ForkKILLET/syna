@@ -1,4 +1,4 @@
-# Architecture (v0.7, as implemented)
+# Architecture (v0.8, as implemented)
 
 ```text
 packages/core/src/
@@ -15,11 +15,11 @@ packages/core/src/
     ├── resolution-realm.ts             public / private-entry realms
     ├── graph-builder.ts                GraphBuilder: lowering of roots and manifests to exact nominal nodes
     ├── entry-planner.ts                EntryPlanner: inputs/bindings, choice backtracking with budget, parent-only reuse fixed point,
-    │                                   lineage anchors, slot allocation, explain()
+    │                                   lineage pins, slot allocation, explain()
     ├── plan-cache.ts                   bounded deterministic LRU for plan templates
-    ├── implementation-directory.ts     read-only candidate directory, persistent refs, policy-order validation, CandidateIndex
+    ├── implementation-directory.ts     read-only candidate directory, implementation refs, policy-order validation, CandidateIndex
     ├── implementation-views.ts         C.all set built on the directory
-    ├── materializer.ts                 attempts, waiters, deadlines, retry/recovery, late results, dependant-first disposal
+    ├── materializer.ts                 attempts, waiters, the DeadlineQueue (load timeouts), retry/recovery, late results, dependant-first disposal
     ├── abort.ts                        abortable sleep, per-caller wait cancellation, bounded settle
     ├── solve-errors.ts                 backtrackable topology errors
     └── runtime-model.ts                internal records: CompiledService, slots, attempts, plans, realms
@@ -29,9 +29,10 @@ packages/core/src/
 
 - **DefinitionCompiler** turns `createRuntime({ services, overrides })` into `CompiledService` records. Public descriptors never carry internal state; overrides never create a second public identity. It also owns the exact-closure computation that defines a Service's private realm.
 - **GraphBuilder** lowers Entry roots and Service manifests into nodes with stable ids (`service:<key>`, `input:<id>`, `binding:<id>`, `all:<contract>`, `entry:<site>:<id>`). It raises `NeedChoice` for auto/range/contract sites; it never allocates slots.
-- **EntryPlanner** owns everything about a plan: parameters, choices (with the search budget), the parent-only reuse fixed point with fork causes, persistent lineage anchors, slot allocation, plan-template caching and `explain()`. It cannot start a setup: it has no reference to the Materializer.
-- **ImplementationDirectory / views** are the single implementation of candidate identity, persistent-ref resolution and policy-order validation shared by `C.all` and the catalog.
-- **Materializer** realizes already-created slots: one attempt per slot at a time, waiters joining the sequence promise, per-attempt refs that record pending loads for diagnostics only, deadlines, retry/backoff with owner-signal cancellation, recovery after exhaustion, discard-and-report of late results, dependant-first disposal. It never changes topology or versions.
+- **EntryPlanner** owns everything about a plan: parameters, choices (with the search budget), the parent-only reuse fixed point with fork causes, persistent lineage pins, slot allocation, plan-template caching and `explain()`. It cannot start a setup: it has no reference to the Materializer.
+- **ImplementationDirectory / views** are the single implementation of candidate identity, implementation-ref resolution and policy-order validation shared by `C.all` and the catalog.
+- **Materializer** realizes already-created slots: one attempt per slot at a time, waiters joining the sequence promise, per-attempt refs that record pending loads for diagnostics only, load timeouts (through the `DeadlineQueue`), retry/backoff with owner-signal cancellation, recovery after exhaustion, discard-and-report of late results, dependant-first disposal. It never changes topology or versions.
+- **DeadlineQueue** (`materializer.ts`) is the one timer behind every load timeout in the process: a module-level singleton shared by every Runtime, keeping the armed waiters in a list sorted by expiry (insertion starts at the tail, since a new wait usually expires last) behind a single `setTimeout` set for the earliest expiry. A wait that settles before its timeout — nearly all of them — costs a few pointer writes and never a timer of its own; the timer is re-set only when an earlier expiry arrives. When it fires it times out the earliest due waiter, lets that timeout's consequences run (the rejection chain that settles the other waiters of the same sequence), and looks at the next due waiter from a `setImmediate`. The timer is `ref`ed when the first waiter is queued and `unref`ed when the last one leaves, so the queue holds the process open exactly as long as pending waits do: an idle Runtime holds nothing, a Runtime that is never disposed holds nothing once its waiters settled, and the process exits naturally. Runtimes are isolated in it: a waiter belongs to one Runtime's sequence, a Runtime's disposal removes only its own waiters (they reject with `ENV_CLOSED`), and one Runtime's timeouts fire on their own expiries whatever another Runtime queued (`packages/core/tests/v08-deadline-queue.test.mjs`: cross-Runtime isolation, natural process exit).
 - **RuntimeImpl / EnvImpl** wire the pieces: planning entry points (`enter`, `check`, `explain`), Ready-anchor enforcement for AnchoredEntry, synthetic values (collections, anchored entries), activation (start owned eager slots) and the closing order.
 
 ## What the boundaries prevent

@@ -34,7 +34,7 @@ export const MyStageFactory = define.service('my-stage-factory', {
 
 ## 配方（Recipe）
 
-配方是 JSON：`formatVersion`、`name`、`stages[]`（`occurrence` 唯一键、`ref` = ImplementationRef（JSON 键 `kind`/`contractId`/`familyId`/`version`；0.5 写入的 `implementationId` 键永久可解析——Hyla-mini 在存储边界把它归一化为 `familyId`，Runtime 不会读到旧键）、`optionsVersion`、`options`）。`ref` 通过 `StageFactoryRef.to(MyStageFactory)` 生成，默认版本意图是 caret；保存的是用户意图，实际解析到的版本记录在 `BuiltPipeline.stages[].resolvedVersion` 供诊断。没有目标 Family 时明确失败（`MISSING_IMPLEMENTATION`），不自动换供应商。
+配方是 JSON：`formatVersion`、`name`、`stages[]`（`occurrence` 唯一键、`ref` = ImplementationRef（JSON 键 `kind`/`contractId`/`familyId`/`range`，0.8 起唯一可读的形状：更早的键或 `kind` 一律以 `INVALID_DESCRIPTOR` 拒绝，存量文档按 `docs/MIGRATION_V07_TO_V08.md` F9 重写后才可读）、`optionsVersion`、`options`）。`ref` 通过 `StageFactoryRef.to(MyStageFactory)` 生成，默认版本意图是 caret；保存的是用户意图，实际解析到的版本记录在 `BuiltPipeline.stages[].resolvedVersion` 供诊断。没有目标 Family 时明确失败（`MISSING_IMPLEMENTATION`），不自动换供应商。
 
 阶段顺序规则：恰好一个 `parse` 在首，任意 `transform`（mdast），恰好一个 `bridge`（remark-rehype），任意 `rehype`（hast），恰好一个 `compile` 在尾。
 

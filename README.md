@@ -1,10 +1,10 @@
-# Syna v0.7 + Hyla-mini
+# Syna v0.8 + Hyla-mini
 
 Syna is an immutable, scope-aware capability-composition runtime for TypeScript. A Runtime admits a finite set of versioned Services; Entries create Env worlds; each Env has one canonical visible slot per resolved node, reuses its **parent's currently visible** slots by default, and materializes Service instances lazily or eagerly with plain Promises.
 
 Hyla-mini (`apps/hyla-mini`) is the narrow but complete multi-tenant blog engine that drove this release: real PostgreSQL and real filesystem backends × dynamic HTTP and static builds, three Markdown recipes sharing one set of remark/rehype factory slots, two tenants with domain mapping and replaceable authentication, and a bounded, leased SiteEnv working set.
 
-This repository is the v0.7 source workspace: `packages/core` (runtime), `packages/tsconfig` (TS presets), demo packages under `packages/*` and `apps/*-demo`, `apps/hyla-mini`, `benchmarks`, `scripts` and `docs`.
+This repository is the v0.8 source workspace: `packages/core` (runtime), `packages/tsconfig` (TS presets), demo packages under `packages/*` and `apps/*-demo`, `apps/hyla-mini`, `benchmarks`, `scripts` and `docs`.
 
 ## Requirements
 
@@ -32,8 +32,8 @@ npm run test:postgres   # real PostgreSQL: a temporary cluster is created under 
 Acceptance orchestrator (transparent runner; every sub-command is spawned and recorded with exit code, timing, TAP counts and log path):
 
 ```sh
-node scripts/verify-v07.mjs --dev       # G0: build, type tests, core, real PostgreSQL/FS, app matrix, tooling, API inventory (0 deprecated items) + diff against the 0.6.0 record, any budget, demos, benchmarks + same-session comparison with 0.6.0
-node scripts/verify-v07.mjs --release   # G0 + G1: source archive, rebuild from the archive in an empty directory, pack + consumer smoke, RELEASE_MANIFEST.json + validation/v0.7-release/SHA256SUMS.txt
+node scripts/verify-v08.mjs --dev       # G0: build, type tests, core, real PostgreSQL/FS, app matrix, tooling, API inventory (0 deprecated items) + diff against the 0.7.0 record (signature changes apart from JSDoc-only ones), codemod idempotency, old-token scan of the core, any budget, demos, benchmarks + same-session comparison with 0.7.0
+node scripts/verify-v08.mjs --release   # G0 + G1: source archive, rebuild from the archive in an empty directory, pack + consumer smoke, RELEASE_MANIFEST.json + validation/v0.8-release/SHA256SUMS.txt
 ```
 
 `--release` prints `COMPLETE`, `PARTIAL` or `BLOCKED` and exits 0 only on `COMPLETE`. A missing PostgreSQL never becomes a skip; it is `BLOCKED`.
@@ -129,7 +129,7 @@ import { Greeter } from './greeter.js'
 
 const runtime = createRuntime({
   services: [Greeter],
-  limits: { setupDeadlineMs: 5_000, disposalGraceMs: 1_000 },
+  limits: { loadTimeoutMs: 5_000, disposalGraceMs: 1_000 },
 })
 
 const plan = await runtime.explain(Conversation, { audience: { name: 'world' } })
@@ -151,18 +151,20 @@ Key rules: `serviceRef.load()` is an ordinary Promise (catch, race and backgroun
 
 ## Documentation
 
-- `docs/SEMANTIC_MODEL.md` — the core model (v0.7 wording; §11 and §13 revised in 0.7.0, everything else unchanged since v0.5)
+- `docs/SEMANTIC_MODEL.md` — the core model (v0.8 wording; §11 and §13 revised in 0.7.0, the names of 0.8.0, everything else unchanged since v0.5)
 - `docs/SEMANTIC_CHANGES_V07.md` — what v0.7 keeps, clarifies, revises and withdraws, with test references
 - `docs/API_REFERENCE.md` — `@syna/core` public API, with the per-code error details
-- `docs/API_STABILITY.md` — the frozen surface (the 1.0 candidate surface from 0.7.0), the one-minor deprecation policy and the naming guidelines
+- `docs/API_STABILITY.md` — the frozen public surface: no compatibility promise before 1.0, frozen from 0.8.0 (the last rename), changed only by a major from 1.0; the naming guidelines
+- `docs/MIGRATION_V07_TO_V08.md` — the last rename before 1.0, item by item (types, fields, values and events, structure), the codemod `scripts/codemod-v08.mjs`, the one serialized shape of an implementation reference and the names deliberately left alone
+- `docs/GLOSSARY.md` — the vocabulary (Env, Entry, pinned, anchored, reused, inherited, materialize, load timeout) in English and Chinese
 - `docs/MIGRATION_V06_TO_V07.md` — the 23 removed aliases with their replacements, the permanent serialized key, the error-code mapping tables and the S1/S2 behaviour differences with the user-code patterns to check
 - `docs/DEFERRED.md` — what was noticed and deliberately left alone
 - `docs/MIGRATION_V05_TO_V06.md`, `docs/SEMANTIC_CHANGES_V05.md`, `docs/MIGRATION_V04_TO_V05.md` — the earlier migrations and the v0.5 semantic changes
 - `docs/ARCHITECTURE.md` — module boundaries as implemented
 - `docs/HYLA_MINI.md`, `docs/PLUGIN_AUTHORING.md` — the application and its plugin protocol
 - `docs/AUDIT.md`, `docs/VALIDATION.md` — independent audit findings and the recorded validation run
-- `work/v05/`, `work/v06/`, `work/v07/` — execution ledgers (STATE, DECISIONS, ACCEPTANCE, ISSUES; the v0.6 and v0.7 API inventories, the rename plan and the v0.7 proposal) and the review rounds' probes before archiving. Repository-only: the source archive produced by `scripts/verify-v07.mjs --release` contains `packages/`, `apps/`, `benchmarks/`, `docs/`, `scripts/` and the root files, never `work/`; documents in the archive that cite `work/v05/…` refer to this repository, and the archived audit probes live under `docs/audit/`.
+- `work/v05/`, `work/v06/`, `work/v07/`, `work/v08/` — execution ledgers (STATE, DECISIONS, ACCEPTANCE, ISSUES; the v0.6, v0.7 and v0.8 API inventories, the rename plans, the v0.7 proposal, the v0.8 rename table and codemod reports) and the review rounds' probes before archiving. Repository-only: the source archive produced by `scripts/verify-v08.mjs --release` contains `packages/`, `apps/`, `benchmarks/`, `docs/`, `scripts/` and the root files, never `work/`; documents in the archive that cite `work/v05/…` refer to this repository, and the archived audit probes live under `docs/audit/`.
 
 ## Status
 
-This workspace does not publish to npm and does not push to any remote. Release artifacts (source archives and package tarballs under `work/release/`, `RELEASE_MANIFEST.json`, `validation/v0.7-release/SHA256SUMS.txt`) are produced locally by `node scripts/verify-v07.mjs --release`. The root `SHA256SUMS.txt` belongs to the task documents that ship with the workspace and is not touched by the tooling.
+This workspace does not publish to npm and does not push to any remote. Release artifacts (source archives and package tarballs under `work/release/`, `RELEASE_MANIFEST.json`, `validation/v0.8-release/SHA256SUMS.txt`) are produced locally by `node scripts/verify-v08.mjs --release`. The root `SHA256SUMS.txt` belongs to the task documents that ship with the workspace and is not touched by the tooling.

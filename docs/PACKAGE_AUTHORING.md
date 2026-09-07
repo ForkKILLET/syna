@@ -103,7 +103,7 @@ B = define.service('b', {
 })
 ```
 
-Runtime method cycles are legal after setup. Setup-time waits are ordinary Promises: `load()` returns a plain Promise, only what you `await` blocks your setup, and an un-awaited `load()` is a background operation the Runtime neither waits for nor tracks (K07, `packages/core/tests/v05-promises.test.mjs`). Do not form a cycle of awaited setup loads: it cannot complete; each awaited `load()` inside it times out at its waiter's deadline (`INITIALIZATION_TIMEOUT`, with the observed `load()` cycle named in the diagnostic) and the setups of the cycle fail on those rejections.
+Runtime method cycles are legal after setup. Setup-time waits are ordinary Promises: `load()` returns a plain Promise, only what you `await` blocks your setup, and an un-awaited `load()` is a background operation the Runtime neither waits for nor tracks (K07, `packages/core/tests/v05-promises.test.mjs`). Do not form a cycle of awaited setup loads: it cannot complete; each awaited `load()` inside it times out at its waiter's load timeout (`LOAD_TIMEOUT`, with the observed `load()` cycle named in the diagnostic) and the setups of the cycle fail on those rejections.
 
 ## Failure and cleanup
 
@@ -127,6 +127,19 @@ setup(_deps, { onDispose, signal }) {
   return resource
 }
 ```
+
+## Slow starts and the load timeout
+
+A `load()` waits `loadTimeoutMs` on the current setup attempt — the Service's own option, else `limits.loadTimeoutMs`, default 30_000 — and then rejects with `LOAD_TIMEOUT`. The timeout is the waiter's report, not a verdict on the Service: the attempt keeps running, the slot stays `starting` (`env.inspect()` shows `overdueMs` for it), a later `load()` joins the same attempt with a window of its own, and a success that arrives late is adopted while the owner Env is ready. A Service with a long cold start — a warm-up, a large index, a remote handshake — declares a larger `loadTimeoutMs` instead of teaching its callers to retry: a retry never starts a second attempt while the first is still running, and `Infinity` disables the wait bound altogether.
+
+```ts
+const Index = define.service('index', {
+  loadTimeoutMs: 120_000,          // a cold start of a minute or two is expected, not a failure
+  async setup(_deps, { signal }) { return buildIndex({ signal }) },
+})
+```
+
+A caller that wants to wait less than the timeout passes its own signal — `load({ signal: AbortSignal.timeout(ms) })` rejects that caller with `LOAD_CANCELLED` and leaves the attempt alone.
 
 ## Testing
 
