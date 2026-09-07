@@ -1,0 +1,9 @@
+/goal 先完整读取工作区根目录的 SYNA_RC2_EXECUTION_PROMPT.md，并按该任务书完成 Syna 1.0.0-rc.2 的示例重建：用一套七步渐进的通知投递服务示例（01-basics、02-per-tenant、03-user-configurable、04-two-versions、05-scheduled-jobs、06-testing、07-failure-modes）取代现有四个 demo；按同一领域重建 packages/* 夹具（notify-contract、acme-notify 两个版本、globex-notify、tenant-store、logger，全部 private、虚构厂商名）；apps/hyla-mini 更名为 apps/multitenant-blog（包名 @syna-app/multitenant-blog，行为一行不改）；双语 README 改为不依赖领域背景的门面并把参考应用降为单独一节；新增 docs/EXAMPLES.md 写下命名规则与"demo 是手册 snippet 来源"的声明。
+
+不改 packages/core 的任何一行源码，不改任何公开名字、语义或默认值；某个教学目标若需要冻结面之外的能力，记入 docs/DEFERRED.md 并报告，不得变通实现或改核心；历史文档与 work/** 中的 "Hyla-mini" 一律不改，只在 HISTORY.md 补更名与 fluida-demo 去向说明。
+
+Phase A 产出 work/rc2/DEMO_PLAN.md 与 work/rc2/COVERAGE_CHECK.md（证明 features-demo 断言的四件事——eager 在 Entry 激活期间启动、解构依赖引用仍惰性、结构环在 setup 后可调用、setup 等待环被拒绝——各自在核心测试中的文件与用例名）后汇总到会话并直接继续，不停顿；只有教学目标超出冻结面、或删除旧 demo 会造成无法补齐的覆盖损失时才停下报告。
+
+成功结束必须同时满足：git diff 对 packages/core 为空；api-inventory 与 rc.1 记录 0 added / 0 removed / 0 changed；reference planner 差分与 explain/inspect 快照逐字不变；七个 demo 各自可运行、有断言、失败非零退出、各自作为 gate 步骤并有回答"解决什么问题"的 README 段落；夹具按清单重建且全仓库 OpenAI/Claude 作为虚构组件名零命中；参考应用更名后其全部测试通过、四格断言（两个 HTTP 租户 + 静态构建）仍通过；docs/EXAMPLES.md、MULTITENANT_BLOG.md、HISTORY.md、CHANGELOG、双语 README、版本号 1.0.0-rc.2 齐备；全部核心/类型/应用/scripts 测试与真实 PostgreSQL 矩阵通过；benchmark 与 rc.1 同机交替对比 ±10% 且计数相等；any 不增；release gate 从最终归档重新解包、安装、编译、运行必跑项并实际输出 COMPLETE、provenance dirty=false。最后把 gate 真实摘要、归档哈希、七个 demo 的输出行与 COVERAGE_CHECK 结论输出到会话，不以"已完成"的文字代替证据；不打 tag，不推送。
+
+持续执行、修复和复验，不停在规划或某个子任务通过。若仅因 PostgreSQL 不可用等确实无法自行消除的外部条件阻塞，完成其余可做部分后记录 work/rc2/STATE.md 和精确复现命令，报告 BLOCKED 并暂停；BLOCKED 不是成功，任务大或测试红不构成 BLOCKED。
