@@ -105,7 +105,7 @@ The audit named the first. All of them are closed in this round.
 
 | # | path | fix |
 |---|---|---|
-| 1 | `UnsettledRecord.attempt` → `Attempt.slot: ServiceSlot` → `slot.ownerEnv: EnvImpl` → `plan` → `inputSlots` / `slotsByNode` / `nodes` | the attempt keeps `slotId`/`revisionKey` strings and, from the moment it is listed, only a `WeakRef` to its slot (mirrors the existing `raw`/`rawRef` swap). Its owner becomes a minimal record `{ envId, signal, closing }` created per Env, never the Env |
+| 1 | `UnsettledRecord.attempt` → `Attempt.slot: ServiceSlot` → `slot.ownerEnv: EnvImpl` → `plan` → `inputSlots` / `slotsByNode` / `nodes` | the attempt keeps `slotId`/`revisionKey` strings and, from the moment it is listed, only a `WeakRef` to its slot (mirrors the existing `raw`/`rawRef` swap). Its owner becomes a minimal record `{ envId, closing, closeErrors }` created per Env, never the Env (see row 10 on the signal) |
 | 2 | `Attempt.slot.requires` → dependency slots (Input payloads, other Envs' Service slots) → their `ownerEnv` | closed with 1: the attempt no longer holds a slot strongly |
 | 3 | `FinalizationRegistry` held value `{ id, attempt }` → 1, 2 | closed with 1 (the held value stays the attempt: it must still run the cleanups) |
 | 4 | the abandoned branch's late-settlement reactions `rawPromise.then(() => this.handleLateSettlement(attempt, owner, …))` — `owner` is the `EnvImpl`, and the reactions are held by the pending raw Promise | the reactions capture the attempt and its minimal owner record only |
@@ -115,12 +115,18 @@ The audit named the first. All of them are closed in this round.
 | 8 | `Attempt.endRace` → the race Promise → (while pending) the `runAttempt` frame → `owner`, `slot` | already cut when the race ends (the frame returns); `endRace` is cleared on the abandoned path too, for hygiene |
 | 9 | `slot.unsettledAttempt` → attempt | slot → attempt, not attempt → Env: no path out of the ledger. Kept |
 
+| 10 | (found while implementing, not in the plan above) `AttemptOwnerRecord.signal` → `AbortSignal.reason` → the `AbortError`'s **structured stack** → the receiver of every frame that created it, the `EnvImpl` among them (V8 keeps the frames until someone reads `.stack`) | the record carries the close flag instead of the signal. A heap snapshot of the fixed build showed this was the *only* remaining path: `Materializer.unsettled → record → Attempt.owner → AbortSignal → kReason → CallSiteInfo → EnvImpl` |
+
 `Attempt.cleanups` are the user's own closures: what they capture is the user's business
 (§2.3), and the L3 test uses a setup that captures nothing.
 
-The minimal owner record deliberately carries no grace value: `disposalGraceMs` is a
+Two notes on the minimal record. It carries no grace value: `disposalGraceMs` is a
 Runtime-wide limit the Materializer already holds, so duplicating it per attempt would
-add a field without a reader.
+add a field without a reader. And it does **not** carry the owner's `AbortSignal`,
+although §2.3 lists one: path 10 above shows a signal transitively retains the Env
+through its abort reason's stack, which is exactly what L3 forbids. The close flag is
+what a listed attempt needs; live code takes the signal from the owner it already has,
+and `setup()` still receives it in its lifecycle unchanged.
 
 ## 5. What Phase A did not find
 

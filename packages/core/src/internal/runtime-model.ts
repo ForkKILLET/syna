@@ -71,14 +71,19 @@ export interface RootSite {
 }
 
 /**
- * What an attempt keeps of its owner: identity, the stop signal, whether the
- * owner's close has begun, and the cleanup failures that close is waiting for.
- * One record per Env, never the Env itself — an attempt that outlives its owner
- * must not keep the Env's graph (plan, Input slots, sibling slots) alive.
+ * What an attempt keeps of its owner: identity, whether the owner's close has
+ * begun, and the cleanup failures that close is waiting for. One record per Env,
+ * never the Env itself — an attempt that outlives its owner must not keep the
+ * Env's graph (plan, Input slots, sibling slots) alive.
+ *
+ * Deliberately not the owner's `AbortSignal`: a signal keeps its abort reason,
+ * an Error whose structured stack keeps the receiver of every frame it was
+ * created in — the Env among them — until someone reads `.stack`. The flag below
+ * is what a listed attempt needs; live code takes the signal from the owner
+ * itself, and `setup()` still receives it in its lifecycle.
  */
 export interface AttemptOwnerRecord {
   readonly envId: string
-  readonly signal: AbortSignal
   /** Set the moment the owner's close begins (before anything is waited for). */
   closing: boolean
   /**
@@ -155,7 +160,18 @@ export interface SetupWaiter {
 /** One actual execution of `setup()` for a slot. Waiters join it; it never runs concurrently with another attempt of the same slot. */
 export interface SetupAttempt {
   readonly id: number
-  readonly slot: ServiceSlot
+  /**
+   * The slot this attempt belongs to, held strongly only while the attempt runs
+   * off the ledger. The moment it is listed the reference is swapped for
+   * `slotRef`: an attempt that outlives its owner must not keep the Env's graph
+   * (plan, Input slots, sibling slots) alive through its slot.
+   */
+  slot: ServiceSlot | undefined
+  /** Weak handle on the slot of a listed attempt (see `slot`). */
+  slotRef?: WeakRef<ServiceSlot>
+  /** Identity of the slot, for reports and diagnostics after the slot itself may be gone. */
+  readonly slotId: string
+  readonly revisionKey: string
   readonly startedAt: number
   /**
    * `running` covers an overdue attempt as well (`overdueAt` set): a waiter's

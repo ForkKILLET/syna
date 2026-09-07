@@ -6,8 +6,17 @@
 // once, whatever became of the waiter; RC2-L3 nothing the Runtime keeps reaches a
 // closed Env's graph.
 import assert from 'node:assert/strict'
+import { execFile } from 'node:child_process'
+import { fileURLToPath } from 'node:url'
+import { promisify } from 'node:util'
 import test from 'node:test'
 import { createRuntime, definePackage } from '../dist/index.js'
+
+const run = promisify(execFile)
+const DIST = fileURLToPath(new URL('../dist/index.js', import.meta.url))
+const child = (flags, script, ...args) =>
+  run(process.execPath, [...flags, '--input-type=module', '-e', script, ...args])
+    .then(result => ({ code: 0, ...result }), error => ({ code: error.code, stdout: error.stdout, stderr: error.stderr }))
 
 const makeDefine = id => definePackage({ name: `@rc3/${id.replaceAll('.', '-')}`, version: '1.0.0', syna: { id } })
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
@@ -205,4 +214,82 @@ test('RC2-L2b the same failure is reported when the waiter has cancelled or time
     assert.equal(env.state, 'disposed')
     await runtime.dispose()
   }
+})
+
+test('RC2-L3 while an abandoned attempt is pending, nothing the Runtime keeps reaches the closed Env: it and its Input payload are collected, the ledger holds one entry, and the late cleanup still runs', async () => {
+  const script = `
+    import { createRuntime, definePackage } from ${JSON.stringify(DIST)}
+    const define = definePackage({ name: '@rc3/l3', version: '1.0.0', syna: { id: 'rc3.l3.retention' } })
+    const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
+    const events = []
+    let cleanups = 0
+    // The setup captures nothing of its own: what is reachable afterwards is the
+    // Runtime's doing. (A cleanup or a setup frame that captures deps is the
+    // user's business, docs/SEMANTIC_MODEL.md §13.)
+    const hold = []
+    const Payload = define.input('payload')
+    const Pending = define.service('pending', {
+      setup(_deps, { onDispose }) {
+        onDispose(() => { cleanups += 1 })
+        return new Promise(resolve => { hold.push(resolve) })
+      },
+    })
+    const Quiet = define.service('quiet', { setup() { return { ok: true } } })
+    const Root = define.entry('root', {})
+    const Child = define.entry('child', { requires: { pending: Pending, payload: Payload }, parameters: { payload: Payload } })
+    const Control = define.entry('control', { requires: { quiet: Quiet, payload: Payload }, parameters: { payload: Payload } })
+    const runtime = createRuntime({
+      services: [Pending, Quiet],
+      limits: { disposalGraceMs: 20 },
+      diagnostics: { onEvent: event => events.push(event.type) },
+    })
+    const root = await runtime.enter(Root)
+
+    let leaking = await root.enter(Child, { payload: { marker: new Uint8Array(1 << 16) } })
+    void leaking.deps.pending.load().catch(() => undefined)
+    await sleep(5)
+    await leaking.dispose()
+    // Control: an Env closed with nothing outstanding must be collected too — it
+    // is what proves the method sees a difference at all.
+    let control = await root.enter(Control, { payload: { marker: new Uint8Array(1 << 16) } })
+    await control.deps.quiet.load()
+    await control.dispose()
+
+    const leakingRef = new WeakRef(leaking)
+    const payloadRef = new WeakRef(leaking.deps.payload.read())
+    const controlRef = new WeakRef(control)
+    const ledgerWhilePending = runtime.inspect().unsettledAttempts
+    leaking = undefined
+    control = undefined
+    // WeakRef.deref() keeps its target alive until the end of the job, so the
+    // loop only collects and the refs are read once, afterwards.
+    for (let round = 0; round < 8; round += 1) { globalThis.gc(); await sleep(20) }
+    const reachability = {
+      env: leakingRef.deref() !== undefined,
+      payload: payloadRef.deref() !== undefined,
+      control: controlRef.deref() !== undefined,
+    }
+    // The attempt outlived the Env's collection and can still be closed.
+    for (const resolve of hold) resolve({ late: true })
+    await sleep(50)
+    console.log(JSON.stringify({
+      ledger: ledgerWhilePending.map(entry => ({ state: entry.state, env: entry.env })),
+      reachability,
+      cleanups,
+      ledgerAfter: runtime.inspect().unsettledAttempts.length,
+      lateEvents: events.filter(event => event === 'attempt-succeeded-late').length,
+    }))
+    await runtime.dispose()
+  `
+  const result = await child(['--expose-gc', '--unhandled-rejections=strict'], script)
+  assert.equal(result.code, 0, result.stderr)
+  const outcome = JSON.parse(result.stdout.trim().split('\n').at(-1))
+  assert.equal(outcome.ledger.length, 1, 'one abandoned attempt is on the ledger')
+  assert.equal(outcome.ledger[0].state, 'abandoned')
+  assert.equal(outcome.reachability.control, false, 'the control Env is collected: the method sees collection')
+  assert.equal(outcome.reachability.env, false, 'the closed Env is unreachable while its attempt is still pending')
+  assert.equal(outcome.reachability.payload, false, 'and so is the Input payload of that Env')
+  assert.equal(outcome.cleanups, 1, 'the attempt still ran its cleanup when it settled, after its Env was collected')
+  assert.equal(outcome.lateEvents, 1)
+  assert.equal(outcome.ledgerAfter, 0)
 })

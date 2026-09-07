@@ -130,6 +130,10 @@ class Attempt implements SetupAttempt {
   rawSettled = false
   raw: Promise<unknown> | undefined = undefined
   rawRef?: WeakRef<Promise<unknown>>
+  slot: ServiceSlot | undefined
+  slotRef?: WeakRef<ServiceSlot>
+  readonly slotId: string
+  readonly revisionKey: string
   endRace: ((kind: 'abandoned' | 'unreachable') => void) | undefined = undefined
   watched = false
   reportsToClose = true
@@ -137,7 +141,11 @@ class Attempt implements SetupAttempt {
   private settledPromise: Promise<void> | undefined = undefined
   private resolveSettledPromise: (() => void) | undefined = undefined
 
-  constructor(readonly id: number, readonly slot: ServiceSlot, readonly owner: AttemptOwnerRecord) {}
+  constructor(readonly id: number, slot: ServiceSlot, readonly owner: AttemptOwnerRecord) {
+    this.slot = slot
+    this.slotId = slot.id
+    this.revisionKey = slot.service.key
+  }
 
   get settled(): Promise<void> {
     if (this.isSettled) return Promise.resolve()
@@ -628,7 +636,7 @@ export class Materializer {
         elapsedMs: attempt.overdueAt - attempt.startedAt,
       })
     }
-    waiter.settle({ ok: false, error: this.timeoutError(attempt, owner, deadlineMs) })
+    waiter.settle({ ok: false, error: this.timeoutError(attempt, slot, owner, deadlineMs) })
   }
 
   private serviceValue(slot: ServiceSlot): Promise<unknown> {
@@ -767,26 +775,7 @@ export class Materializer {
         ? this.createInputRef(dependencySlot)
         : this.createRef(dependencySlot, attempt)
     }
-    const lifecycle: ServiceLifecycle = {
-      signal: owner.abortController.signal,
-      onDispose: cleanup => {
-        if (typeof cleanup !== 'function') {
-          throw new TypeError('onDispose() expects a cleanup function.')
-        }
-        // Accepted for as long as this attempt's setup is still executing, which
-        // includes the time after its deadline passed or its owner closed: the
-        // resource acquired late is exactly the one the late-settlement cleanup
-        // must release. Refused once the raw Promise settled (stale lifecycle).
-        if (attempt.rawSettled || attempt.state === 'succeeded' || attempt.state === 'failed') {
-          throw new SynaError(
-            'LIFECYCLE_MISUSE',
-            `onDispose() for ${slot.service.key} may only be called while its setup attempt is still executing.`,
-            { slot: slot.id, revision: slot.service.key, attemptNumber: attempt.id, state: attempt.state },
-          )
-        }
-        attempt.cleanups.push(cleanup)
-      },
-    }
+    const lifecycle = this.createLifecycle(attempt, owner.abortController.signal)
 
     // The raw Promise lives on the attempt while the attempt runs off the
     // ledger (`releaseRaw` swaps it for a weak handle the moment the attempt is
@@ -823,14 +812,12 @@ export class Materializer {
         `Setup of ${slot.service.key} was still pending when owner Env ${owner.id} closed; its eventual result will be discarded.`,
         this.closedDetails(owner, slot)(),
       )
+      // The wait-cycle diagnosis only ever reads attempts running under a live
+      // owner: an abandoned attempt keeps no dependency slots for it.
+      attempt.pendingLoads.clear()
+      attempt.endRace = undefined
       const rawPromise = this.releaseRaw(attempt)
-      if (rawPromise) {
-        this.watch(attempt, rawPromise)
-        rawPromise.then(
-          () => this.handleLateSettlement(attempt, owner, undefined),
-          lateError => this.handleLateSettlement(attempt, owner, { error: lateError }),
-        )
-      }
+      if (rawPromise) this.watchLateSettlement(attempt, rawPromise)
       else {
         // Overdue earlier and collected since: nothing can settle it any more.
         void this.settleRecord(record, attempt, undefined, 'unreachable')
@@ -846,9 +833,9 @@ export class Materializer {
       // The raw Promise of an overdue attempt was collected while its owner
       // lived: the attempt is closed as failed and the sequence goes on with the
       // failure policy (a new attempt cannot overlap one that can never finish).
-      const cleanupErrors = (await this.runCleanups(attempt.cleanups, slot)).map(item => item.error)
+      const cleanupErrors = (await this.runCleanups(attempt.cleanups, slot.id)).map(item => item.error)
       attempt.state = 'failed'
-      this.attributeToClose(attempt, slot, cleanupErrors)
+      this.attributeToClose(attempt, cleanupErrors)
       this.forgetOverdue(attempt)
       attempt.resolveSettled()
       this.options.onEvent({
@@ -868,9 +855,9 @@ export class Materializer {
     }
 
     if (raced.kind === 'rejected') {
-      const cleanupErrors = (await this.runCleanups(attempt.cleanups, slot)).map(item => item.error)
+      const cleanupErrors = (await this.runCleanups(attempt.cleanups, slot.id)).map(item => item.error)
       attempt.state = 'failed'
-      this.attributeToClose(attempt, slot, cleanupErrors)
+      this.attributeToClose(attempt, cleanupErrors)
       // Late is measured from the start of the close, not from its end: a
       // settlement inside the grace is reported like one after it, whether or
       // not a waiter is still there.
@@ -891,9 +878,9 @@ export class Materializer {
     const ownerClosed = owner.abortController.signal.aborted
       || (owner.state !== 'activating' && owner.state !== 'ready')
     if (ownerClosed || slot.attempt !== attempt) {
-      const cleanupErrors = (await this.runCleanups(attempt.cleanups, slot)).map(item => item.error)
+      const cleanupErrors = (await this.runCleanups(attempt.cleanups, slot.id)).map(item => item.error)
       attempt.state = 'failed'
-      this.attributeToClose(attempt, slot, cleanupErrors)
+      this.attributeToClose(attempt, cleanupErrors)
       if (this.forgetOverdue(attempt) || ownerClosed) {
         this.options.onEvent({
           type: 'attempt-succeeded-late',
@@ -946,6 +933,67 @@ export class Materializer {
     return new Attempt(this.nextAttemptId++, slot, owner.attemptOwner)
   }
 
+  /**
+   * The lifecycle handed to one `setup()`. Built here rather than inside
+   * `runAttempt` so that the object the user's own frame keeps — for as long as
+   * that setup is pending — reaches the attempt and two strings, never the slot
+   * and never the Env behind it.
+   */
+  private createLifecycle(attempt: SetupAttempt, signal: AbortSignal): ServiceLifecycle {
+    return {
+      signal,
+      onDispose: cleanup => {
+        if (typeof cleanup !== 'function') {
+          throw new TypeError('onDispose() expects a cleanup function.')
+        }
+        // Accepted for as long as this attempt's setup is still executing, which
+        // includes the time after its deadline passed or its owner closed: the
+        // resource acquired late is exactly the one the late-settlement cleanup
+        // must release. Refused once the raw Promise settled (stale lifecycle).
+        if (attempt.rawSettled || attempt.state === 'succeeded' || attempt.state === 'failed') {
+          throw new SynaError(
+            'LIFECYCLE_MISUSE',
+            `onDispose() for ${attempt.revisionKey} may only be called while its setup attempt is still executing.`,
+            { slot: attempt.slotId, revision: attempt.revisionKey, attemptNumber: attempt.id, state: attempt.state },
+          )
+        }
+        attempt.cleanups.push(cleanup)
+      },
+    }
+  }
+
+  /** The slot of an attempt: strong while it runs off the ledger, weak once it is listed, gone once its Env was collected. */
+  private slotOf(attempt: SetupAttempt): ServiceSlot | undefined {
+    return attempt.slot ?? attempt.slotRef?.deref()
+  }
+
+  /**
+   * Leaves a listed attempt with a weak handle on its slot (created here, on
+   * this rare path, never per attempt), so that from now on nothing the Runtime
+   * holds keeps the owner Env's graph alive.
+   */
+  private releaseSlot(attempt: SetupAttempt): void {
+    const slot = attempt.slot
+    if (!slot) return
+    attempt.slotRef = new WeakRef(slot)
+    attempt.slot = undefined
+  }
+
+  /**
+   * Watches the raw Promise of an abandoned attempt for its late settlement.
+   * A method of its own, so the reactions the pending Promise keeps close over
+   * the attempt and an id string — never over `runAttempt`'s scope, which holds
+   * the slot, the owner Env and the dependency refs.
+   */
+  private watchLateSettlement(attempt: SetupAttempt, rawPromise: Promise<unknown>): void {
+    const envId = attempt.owner.envId
+    this.watch(attempt, rawPromise)
+    rawPromise.then(
+      () => this.handleLateSettlement(attempt, envId, undefined),
+      lateError => this.handleLateSettlement(attempt, envId, { error: lateError }),
+    )
+  }
+
   /** Whether the owner's close has begun: from then on its attempts' cleanup failures are the close's to report. */
   private ownerClosing(owner: SlotOwnerEnv): boolean {
     return owner.abortController.signal.aborted || (owner.state !== 'activating' && owner.state !== 'ready')
@@ -957,11 +1005,11 @@ export class Materializer {
    * waiter is still there to see the rejection of its own `load()`. Failures of
    * an attempt the close stopped waiting for are reported by an event instead.
    */
-  private attributeToClose(attempt: SetupAttempt, slot: ServiceSlot, cleanupErrors: readonly unknown[]): void {
+  private attributeToClose(attempt: SetupAttempt, cleanupErrors: readonly unknown[]): void {
     if (cleanupErrors.length === 0 || !attempt.reportsToClose || !attempt.owner.closing) return
     attempt.owner.closeErrors.push(new AggregateError(
       [...cleanupErrors],
-      `Rollback of ${slot.service.key} failed while owner Env ${attempt.owner.envId} was closing.`,
+      `Rollback of ${attempt.revisionKey} failed while owner Env ${attempt.owner.envId} was closing.`,
     ))
   }
 
@@ -1014,13 +1062,14 @@ export class Materializer {
     const record: UnsettledRecord = {
       id: attempt.id,
       attempt,
-      slot: attempt.slot.id,
-      revision: attempt.slot.service.key,
+      slot: attempt.slotId,
+      revision: attempt.revisionKey,
       env: owner.id,
       startedAt: attempt.startedAt,
       state,
     }
     this.unsettled.set(attempt.id, record)
+    this.releaseSlot(attempt)
     return record
   }
 
@@ -1048,9 +1097,13 @@ export class Materializer {
       state: 'rolling-back',
     }
     this.unsettled.set(attempt.id, record)
+    this.releaseSlot(attempt)
+    // The reaction is kept by the attempt's own `settled` Promise: it closes over
+    // the record and the attempt, and reaches the slot only weakly.
     void attempt.settled.then(() => {
-      if (this.unsettled.get(attempt.id) === record) this.unsettled.delete(attempt.id)
-      if (slot.state === 'abandoned') slot.state = 'disposed'
+      if (this.unsettled.get(record.id) === record) this.unsettled.delete(record.id)
+      const settled = this.slotOf(attempt)
+      if (settled && settled.state === 'abandoned') settled.state = 'disposed'
     })
   }
 
@@ -1086,7 +1139,7 @@ export class Materializer {
 
   private async handleLateSettlement(
     attempt: SetupAttempt,
-    owner: SlotOwnerEnv,
+    envId: string,
     failure: { readonly error: unknown } | undefined,
   ): Promise<void> {
     this.unreachable.unregister(attempt)
@@ -1095,7 +1148,7 @@ export class Materializer {
       await this.settleRecord(record, attempt, failure, 'settled')
       return
     }
-    await this.closeUnsettled(attempt, owner.id, failure, 'settled')
+    await this.closeUnsettled(attempt, envId, failure, 'settled')
   }
 
   /**
@@ -1110,20 +1163,24 @@ export class Materializer {
     how: 'settled' | 'unreachable',
   ): Promise<void> {
     attempt.rawSettled = true
-    const slot = attempt.slot
-    const cleanupErrors = (await this.runCleanups(attempt.cleanups, slot)).map(item => item.error)
-    this.attributeToClose(attempt, slot, cleanupErrors)
-    if (slot.unsettledAttempt === attempt) delete slot.unsettledAttempt
-    // Resources a late cleanup could not release are outside Syna control from now on.
-    if (cleanupErrors.length > 0) slot.rollbackFailed = true
-    // An abandoned slot has now released everything its attempt acquired.
-    if (slot.state === 'abandoned' && slot.unsettledAttempt === undefined) slot.state = 'disposed'
+    // The slot may be gone with its Env: the cleanups of the attempt run either
+    // way, and what is reported comes from the attempt's own record of itself.
+    const slot = this.slotOf(attempt)
+    const cleanupErrors = (await this.runCleanups(attempt.cleanups, attempt.slotId)).map(item => item.error)
+    this.attributeToClose(attempt, cleanupErrors)
+    if (slot) {
+      if (slot.unsettledAttempt === attempt) delete slot.unsettledAttempt
+      // Resources a late cleanup could not release are outside Syna control from now on.
+      if (cleanupErrors.length > 0) slot.rollbackFailed = true
+      // An abandoned slot has now released everything its attempt acquired.
+      if (slot.state === 'abandoned' && slot.unsettledAttempt === undefined) slot.state = 'disposed'
+    }
     attempt.resolveSettled()
     if (how === 'unreachable') {
       this.options.onEvent({
         type: 'attempt-unreachable',
-        slot: slot.id,
-        revision: slot.service.key,
+        slot: attempt.slotId,
+        revision: attempt.revisionKey,
         env: envId,
         elapsedMs: Date.now() - attempt.startedAt,
         cleanupErrors,
@@ -1133,8 +1190,8 @@ export class Materializer {
     if (failure) {
       this.options.onEvent({
         type: 'attempt-failed-late',
-        slot: slot.id,
-        revision: slot.service.key,
+        slot: attempt.slotId,
+        revision: attempt.revisionKey,
         env: envId,
         error: failure.error,
         cleanupErrors,
@@ -1143,8 +1200,8 @@ export class Materializer {
     else {
       this.options.onEvent({
         type: 'attempt-succeeded-late',
-        slot: slot.id,
-        revision: slot.service.key,
+        slot: attempt.slotId,
+        revision: attempt.revisionKey,
         env: envId,
         adopted: false,
         cleanupErrors,
@@ -1152,9 +1209,8 @@ export class Materializer {
     }
   }
 
-  private timeoutError(attempt: SetupAttempt, owner: SlotOwnerEnv, deadlineMs: number): SynaError {
+  private timeoutError(attempt: SetupAttempt, slot: ServiceSlot, owner: SlotOwnerEnv, deadlineMs: number): SynaError {
     const now = Date.now()
-    const slot = attempt.slot
     const pendingLoads = [...attempt.pendingLoads.values()].map(pending => ({
       revision: pending.target.service.key,
       slot: pending.target.id,
@@ -1302,7 +1358,7 @@ export class Materializer {
     if (slot.state !== 'ready') return
     slot.state = 'disposing'
     const startedAt = Date.now()
-    const running = this.runCleanups(slot.cleanups, slot)
+    const running = this.runCleanups(slot.cleanups, slot.id)
     if (!(await settlesWithin(running, this.options.disposalGraceMs))) {
       this.abandonCleanup(slot, running, startedAt)
       return
@@ -1333,29 +1389,36 @@ export class Materializer {
     slot.state = 'abandoned'
     delete slot.instance
     const id = slot.instanceAttemptId ?? this.nextAttemptId++
+    const slotId = slot.id
+    const revisionKey = slot.service.key
+    const envId = slot.ownerEnvId
     const record: UnsettledRecord = {
       id,
       attempt: undefined,
-      slot: slot.id,
-      revision: slot.service.key,
-      env: slot.ownerEnvId,
+      slot: slotId,
+      revision: revisionKey,
+      env: envId,
       startedAt,
       state: 'abandoned',
     }
     this.unsettled.set(id, record)
     this.reportAbandonment(slot, 'cleanup', Date.now() - startedAt)
+    // The reaction is kept by the cleanup that outlived the close: like a listed
+    // attempt, it reaches its slot only weakly.
+    const slotRef = new WeakRef(slot)
     record.closing = running.then(errors => {
       if (this.unsettled.get(id) === record) this.unsettled.delete(id)
-      if (slot.state === 'abandoned') slot.state = 'disposed'
+      const abandoned = slotRef.deref()
+      if (abandoned && abandoned.state === 'abandoned') abandoned.state = 'disposed'
       if (errors.length === 0) return
       this.options.onEvent({
         type: 'attempt-failed-late',
-        slot: slot.id,
-        revision: slot.service.key,
-        env: slot.ownerEnvId,
+        slot: slotId,
+        revision: revisionKey,
+        env: envId,
         error: errors.length === 1
           ? errors[0]!.error
-          : new AggregateError(errors.map(item => item.error), `Service ${slot.service.key} failed to dispose cleanly.`),
+          : new AggregateError(errors.map(item => item.error), `Service ${revisionKey} failed to dispose cleanly.`),
         cleanupErrors: errors.map(item => item.error),
       })
     })
@@ -1364,12 +1427,12 @@ export class Materializer {
   /** Runs cleanups in reverse registration order; every cleanup runs even if an earlier one throws. */
   private async runCleanups(
     cleanups: Array<() => Awaitable<void>>,
-    slot: ServiceSlot,
+    slotId: string,
   ): Promise<readonly DisposableError[]> {
     const errors: DisposableError[] = []
     for (const cleanup of cleanups.splice(0).reverse()) {
       try { await cleanup() }
-      catch (error) { errors.push({ slot: slot.id, error }) }
+      catch (error) { errors.push({ slot: slotId, error }) }
     }
     return errors
   }

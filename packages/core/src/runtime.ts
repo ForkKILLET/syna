@@ -221,7 +221,7 @@ class EnvImpl<Requires extends DependencyMap> implements Env<Requires> {
   readonly children = new Set<EnvImpl<any>>()
   readonly deps: DependencyRefs<Requires>
   readonly abortController = new AbortController()
-  /** What this Env's attempts keep of it: identity, stop signal, close flag, the close's cleanup errors. */
+  /** What this Env's attempts keep of it: identity, the close flag, the close's cleanup errors — never the Env. */
   readonly attemptOwner: AttemptOwnerRecord
   /** Advanced only by Runtime actions: `activating → ready → disposing → disposed`; `disposed` at the end of the bounded close. */
   state: EnvState = 'activating'
@@ -234,7 +234,7 @@ class EnvImpl<Requires extends DependencyMap> implements Env<Requires> {
     readonly plan: ResolvedPlan,
     rootSiteByEntryKey: ReadonlyMap<string, string>,
   ) {
-    this.attemptOwner = { envId: id, signal: this.abortController.signal, closing: false, closeErrors: [] }
+    this.attemptOwner = { envId: id, closing: false, closeErrors: [] }
     const refs: Record<string, ServiceRef<unknown> | InputRef<unknown>> = {}
     for (const [key, rootSiteId] of rootSiteByEntryKey) {
       const nodeId = plan.rootNodeBySite.get(rootSiteId)!
