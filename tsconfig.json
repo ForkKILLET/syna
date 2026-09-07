@@ -38,6 +38,9 @@
       "path": "./apps/05-scheduled-jobs"
     },
     {
+      "path": "./apps/06-testing"
+    },
+    {
       "path": "./apps/hyla-mini"
     }
   ]
