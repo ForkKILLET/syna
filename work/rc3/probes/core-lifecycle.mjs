@@ -71,7 +71,7 @@ async function probeL2() {
     id: 'L2',
     title: 'a rollback cleanup that throws inside the close window is not reported by dispose()',
     reproduced: !reported && !events.includes('attempt-succeeded-late'),
-    detail: `dispose() ${reported ? 'rejected' : 'fulfilled'}; events=[${events.join(', ')}]; the waiter alone saw it: ${waiterOutcome instanceof AggregateError}`,
+    detail: `dispose() ${reported ? 'rejected' : 'fulfilled'}; events=[${events.join(', ')}]; the waiter's own rejection was an AggregateError: ${waiterOutcome instanceof AggregateError}`,
   }
 }
 

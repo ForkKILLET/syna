@@ -88,7 +88,7 @@ async function probeA1() {
       id: 'A1',
       title: 'after an owner abort, shutdown() skips clearInterval (the sweeper survives the close)',
       reproduced: !sweeper.cleared && sweeper.fired > firedAfterClose,
-      detail: `intervals created=${intervals.length}, cleared=${intervals.filter(entry => entry.cleared).length}; the sweeper fired ${firedBeforeClose} times before the close and is still firing after it (${firedAfterClose} → ${sweeper.fired}); the queued acquirer ${queuedOutcome === undefined ? 'is still waiting' : `settled with ${JSON.stringify(queuedOutcome)} — from the capacity freed by the disposals, not from shutdown()'s waiter loop, which was skipped`}`,
+      detail: `intervals created=${intervals.length}, cleared=${intervals.filter(entry => entry.cleared).length}; the sweeper fired ${firedBeforeClose} times before the close and ${sweeper.fired > firedAfterClose ? `is still firing after it (${firedAfterClose} → ${sweeper.fired})` : `has not fired since (${firedAfterClose} → ${sweeper.fired})`}; the queued acquirer ${queuedOutcome === undefined ? 'is still waiting' : `settled with ${JSON.stringify(queuedOutcome)}`}`,
       cleanup: async () => { await harness.close().catch(() => undefined) },
     }
   }
