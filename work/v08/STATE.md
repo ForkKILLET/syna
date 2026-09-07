@@ -59,13 +59,55 @@ Suites at the end of Phase C (2026-09-06): `npm run typecheck` 0 (build + type t
 - `docs/GLOSSARY.md` (new, Phase C): Env 环境, Entry 入口, pinned 固定, anchored 锚定, materialize 物化, reused 复用, inherited 继承 (Input / Binding only), load timeout, …
 - `docs/API_REFERENCE.md` (Phase C): v0.8 throughout; `catalog.revisions()` refusal sentence; the closing "Renamed in 0.8.0, the last rename before 1.0" section. `docs/PLUGIN_AUTHORING.md` (the one serialized shape), `docs/HYLA_MINI.md` (`runtime-attempts-outstanding`), `README.md` / `README.zh-CN.md` (v0.8, the example's `loadTimeoutMs`, the docs index with MIGRATION_V07_TO_V08 and GLOSSARY, `verify-v08`), `packages/core/README.md`, `validation/README.md`, `CHANGELOG.md` 0.8.0.
 
-## Phase E — verification and delivery — IN PROGRESS
+## Phase E — verification and delivery — IN PROGRESS (release run 4 COMPLETE on a6db738; the final run on the source that carries this ledger and `docs/VALIDATION.md` is next)
 
-Protocol (memory): run `node scripts/verify-v08.mjs --release` alone (~6 min, backgrounded, log in the scratchpad); commit its outputs (`RELEASE_MANIFEST.json`, `validation/v0.8-release/`) and the regenerated `docs/VALIDATION.md` (`node scripts/validation-doc.mjs`); run the gate again on that source; commit the evidence. No tag, no push, no publish.
+Protocol (memory; the 0.5–0.7 precedent): run `node scripts/verify-v08.mjs --release` alone (~6.5 min, backgrounded, log in the session scratchpad); commit its outputs (`RELEASE_MANIFEST.json`, `validation/v0.8-release/`) with the regenerated `docs/VALIDATION.md` (`node scripts/validation-doc.mjs`); run the gate again on that source; commit the evidence. No tag, no push, no publish.
+
+### Release runs on a6db738 (the Phase D commit)
+
+Every run: the 41 other steps ok, 892 / 892 test executions (446 distinct cases, 446 re-run in the rebuilt copy), 0 skipped; in `benchmark-compare` every tolerance row but one within ±3.3 % and all 116 equality rows (plan-cache counters, shape counts) equal. The one row is the p95 of `site-enter-tenant-input-reverse-closure-200`:
+
+| measurement | generated (UTC) | verdict | tolerance rows ok | equality rows ok | 0.7.0 p95 (median of 21) | 0.8 p95 | delta | ok |
+|---|---|---|---:|---:|---:|---:|---:|---|
+| run 1 | 2026-09-07 00:39 | PARTIAL | 22 / 23 | 116 / 116 | 0.2260 | 0.2541 | +12.4 % | NO |
+| standalone | 2026-09-07 00:43 | FAILED (not a gate run) | 22 / 23 | 116 / 116 | 0.2533 | 0.2249 | -11.2 % | NO |
+| run 2 | 2026-09-07 00:58 | PARTIAL | 22 / 23 | 116 / 116 | 0.2305 | 0.2608 | +13.2 % | NO |
+| run 3 | 2026-09-07 01:05 | PARTIAL | 22 / 23 | 116 / 116 | 0.2206 | 0.2564 | +16.2 % | NO |
+| run 4 | 2026-09-07 01:12 | COMPLETE | 23 / 23 | 116 / 116 | 0.2204 | 0.2255 | +2.3 % | yes |
+
+The "standalone" line is `node scripts/benchmark-same-session.mjs --commit 72f1991 --baseline-label 0.7.0 --record benchmarks/results-v0.7.0-baseline-same-machine.json --runs 21 --out-dir <scratch>` run between gate runs 1 and 2, the same comparison without the gate around it. The three PARTIAL runs' outputs are kept in the session scratchpad (`run1-partial`, `run2-partial`, `run3-partial`), not committed and never in an archive; `RELEASE_MANIFEST.json` was restored and `validation/v0.8-release/` removed before each rerun, so every run started from the committed tree (untracked: the six task documents only). An orphaned test-fixture process from 2026-09-05 (`node -e … PIDFILE … setInterval`, the step-process-group self-test's child, idle) was found and killed before run 2.
+
+### The bimodal p95 — mechanism, symmetric on both sides
+
+Split by process mode (a process whose p95 is ≥ 0.25 ms is "slow"), from the per-round files `benchmark-compare/{baseline-runs,current-runs}/*.json` of each measurement:
+
+| measurement | slow-mode processes 0.7.0 / 0.8 (of 21) | fast-mode p95 0.7.0 / 0.8 | slow-mode p95 0.7.0 / 0.8 | mean-of-runs p95 | mean latency (`meanMs`) |
+|---|---|---|---|---:|---:|
+| run 1 | 8 / 11 | 0.2205 / 0.2310 | 0.2916 / 0.2914 | +6.1 % | +1.3 % |
+| standalone | 11 / 7 | 0.2238 / 0.2211 | 0.2903 / 0.2872 | -6.0 % | -1.3 % |
+| run 2 | 9 / 11 | 0.2219 / 0.2220 | 0.2869 / 0.3039 | +6.1 % | +2.5 % |
+| run 3 | 6 / 11 | 0.2201 / 0.2185 | 0.3006 / 0.2747 | +2.0 % | +0.3 % |
+| run 4 | 4 / 8 | 0.2206 / 0.2196 | 0.2859 / 0.3037 | +8.0 % | +2.8 % |
+
+Raw samples (a scratch copy of `benchmarks/v0.5-planning.mjs` whose `timed()` also returns its 300 samples, 12 processes per configuration, `node --expose-gc [flags]`, the 0.8 build): a benchmark *process* is fast or slow for its whole timed loop. Fast: p50 ≈ 0.18 ms, p95 ≈ 0.21 ms, the only slow samples at index 0 and at the periodic scavenges (59, 119, 179, 241). Slow: p50 +8 %, the first 10–16 samples after the harness's three forced full GCs slow, scattered slow samples after, p95 ≈ 0.29–0.31 ms. Flags: control 5 / 12 slow; `--no-flush-bytecode` 5 / 12; `--no-allocation-site-pretenuring` 4 / 12; `--no-maglev` 12 / 12 at the slow mode's p95 (0.28–0.33 ms) with the fast mode's p50; `--no-turbofan` 12 / 12 unimodal but 2.4× slower (p50 0.44–0.50 ms); `--no-concurrent-recompilation` p95 0.44–0.58 ms (synchronous compiles inside the timed loop). It is a TurboFan tier-up race inside the benchmark process, the same on both sides — mode for mode the two builds agree (table above) — and not core work: per operation the plan-cache counters, shape counts and heap deltas are equal and the mean latency differs by −1.3 … +2.8 %, following the mode mix. Sample 0 is slow in every process because the harness warms up with `invoke('w0' … 'w19')` (strings) and times `invoke(0 … 299)` (numbers): the benchmark closure deoptimizes at the first timed sample; that is the harness's own doing, identical in the 0.7 file.
+
+The slow-mode fraction was 5–6 / 21 in the 0.6 release run and 8–9 / 21 in the 0.7 release run; today, with the machine at load average ~5 (the user's editor, browser and other applications), it is 4–11 / 21. Near one half the element-wise median of 21 rounds lands on different modes for the two sides and the ±10 % row fails in either direction (+12.4 %, −11.2 %, +13.2 %, +16.2 %). Recorded and not explained away: in the four gate runs the 0.8 process hit the slow mode more often than the 0.7.0 process (11, 11, 11, 8 against 8, 9, 6, 4 of 21), the standalone run the reverse (7 against 11); whether the 0.8 build's code shape changes the race's probability (the two `in` checks added to `entryCall` for the S1 refusal lengthen its bytecode, which can move an inlining decision) or four draws fell one way is not decided by this data. The noise floor of this machine today exceeds ±10 % on single rows even for identical code: run 4's informational record-drift check, this session's 0.7.0 against its own 0.7 record, has 1 row(s) outside ±10 % — `cases.phase-breakdown-300.materializationMs.p50Ms` 0.0348 → 0.0303 (-12.9 %).
+
+Decision: no core change (nothing to change, and none is in scope, §5), no change to the tolerance, the statistic, the round count or the warm-up: the baseline side runs its own benchmark file from commit 72f1991, so any harness change has to be symmetric and is a methodology decision for the user (candidates, not applied: a deterministic tier-up for both benchmark processes, or pooled raw samples per side, which needs a benchmark file that emits them — possible from the 0.8 record on). The gate was rerun as designed; every run is listed above; `docs/VALIDATION.md` names the mode lottery under "What is not covered".
+
+### Run 4 (COMPLETE) — the record quoted by `docs/VALIDATION.md`
+
+- `COMPLETE`, generated 2026-09-07T01:12:12.400Z, 42 steps ok, 892 test executions (446 distinct), source fingerprint `0c35294400abf4a26d9df86735a29007182c431c26c7a3da9f9c684fe57e5595` (351 files), git commit a6db738, tracked files unchanged.
+- Archives: `syna-v0.8.0-source.tar.gz` sha256 `fd2f2d9c21b6ac4010aeb511cd1fd4034046b2929129567e3e9df9c5d998b61f`, `syna-v0.8.0-source.zip` `d19f40aff81c63f7528a9a7d8538967c2b30ac5226590f4a4fb1f204d5abed59`, `syna-core-0.8.0.tgz` `04b9492b3da3b88f7454988c01d8d057e3008808196e28021364e67d3c613584`, `syna-tsconfig-0.8.0.tgz` `74a3b93728c69df756a77a27590b0c87b386e014cd4bd05b943fac1324665eb0` (`validation/v0.8-release/SHA256SUMS.txt`).
+- `docs/VALIDATION.md` regenerated by `node scripts/validation-doc.mjs`; the generator updated for 0.8 in the same commit: default run dir `validation/v0.8-release`, the `baseline-v0.7.0-same-session.json` file, the section "v0.8 evidence in this run" (the inventory-diff summary row and the codemod report read from the run, every step's counts from the manifest), the bimodal note under "What is not covered".
+
+Final run on the source of this commit: pending.
 
 ## Reproduce
 
 - Inventory: `node scripts/api-inventory.mjs --out work/v08/API_INVENTORY_AFTER.md --json work/v08/API_INVENTORY_AFTER.json`; diff: `node scripts/api-inventory.mjs --diff work/v08/API_INVENTORY_BEFORE.json work/v08/API_INVENTORY_AFTER.json --out work/v08/API_INVENTORY_DIFF.md`. The BEFORE record: the script of this tree run inside `git archive 72f1991` (with `node_modules` linked), `commit` set to 72f1991.
 - Codemod: `node scripts/codemod-v08.mjs --dry-run --json work/v08/codemod-pass3-idempotent.json` (expect `0 edits in 0 files; 0 manual`); the fixture test `node --test scripts/tests/codemod-v08.test.mjs`.
 - Suites: `npm run typecheck && npm test && npm run test:scripts && npm run test:app && npm run test:postgres` (then `git checkout -- work/v05/working-set.json; rm -rf apps/hyla-mini/work`).
+- Release gate: `node scripts/verify-v08.mjs --release` alone (~6.5 min); the same-session comparison on its own: `node scripts/benchmark-same-session.mjs --commit 72f1991 --baseline-label 0.7.0 --record benchmarks/results-v0.7.0-baseline-same-machine.json --runs 21 --out-dir <dir>`.
+- Mode split of a comparison: over `<dir>/{baseline-runs,current-runs}/*.json`, take `cases[].timing.p95Ms` of `site-enter-tenant-input-reverse-closure-200`; a process is slow when p95 ≥ 0.25 ms. Raw samples: copy `benchmarks/v0.5-planning.mjs`, make `timed()` return `samples` next to `timing`, point its imports at the built core, run `node --expose-gc [v8 flags] <copy> <out.json>` 12 times.
 - Gate: `node scripts/verify-v08.mjs --release` (alone); `node scripts/validation-doc.mjs` after a COMPLETE run.
