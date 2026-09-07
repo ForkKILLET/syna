@@ -1357,6 +1357,14 @@ export class Materializer {
   private async disposeServiceSlot(slot: ServiceSlot): Promise<void> {
     if (slot.state !== 'ready') return
     slot.state = 'disposing'
+    if (slot.cleanups.length === 0) {
+      // A slot that registered no cleanup has nothing that could outlive the
+      // budget, so there is nothing to bound: the timer the grace needs is not
+      // armed at all. Most slots are this one.
+      slot.state = 'disposed'
+      delete slot.instance
+      return
+    }
     const startedAt = Date.now()
     const running = this.runCleanups(slot.cleanups, slot.id)
     if (!(await settlesWithin(running, this.options.disposalGraceMs))) {

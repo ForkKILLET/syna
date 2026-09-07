@@ -39,6 +39,8 @@
 
 **必须诚实的一句**：有界的是等待，不是资源释放。被放弃的 cleanup 仍在运行，它持有的资源仍被占用；JavaScript 无法强制终止它（§14）。Runtime 停止等待、如实上报、记进账本——保证到此为止。
 
+文档：`docs/SEMANTIC_MODEL.md` §11（slot 状态图）与 §13（整节）、`docs/API_REFERENCE.md` 的 `limits.disposalGraceMs` 条目、`attempt-abandoned` 条目、"Ready and closing"与生命周期注记、`packages/core/src/descriptors.ts` 中 `RuntimeLimits.disposalGraceMs` 与 `UnsettledAttemptInspection.state` 的注释。
+
 证据：`packages/core/tests/rc3-close-paths.test.mjs`（RC2-L1 两条）、`packages/core/tests/close-matrix.test.mjs`（`ready-hangs` 四格、并发销毁的链内顺序与上界两条）。
 
 ### 3.2 L2 / L2b：关闭期间的 cleanup 失败恰好一次可见
