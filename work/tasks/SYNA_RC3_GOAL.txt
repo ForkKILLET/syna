@@ -1,0 +1,9 @@
+/goal 先完整读取工作区根目录的 SYNA_RC3_EXECUTION_PROMPT.md 与 work/rc3/audit/ 下的独立审计材料，并按任务书完成 Syna 1.0.0-rc.3：修复审计在 rc.2 复现的六组关闭路径问题——L1 把 Ready slot 的 cleanup 纳入有界关闭（每 slot 一个宽限期、到期放弃并进账本发 attempt-abandoned phase:'cleanup'、独立 SCC 并发销毁而每条依赖链顺序不变、dispose() 不因被放弃的 cleanup 而拒绝）；L2 让关闭窗口内任何 cleanup 失败恰好一次进入 dispose() 的 AggregateError 并发现有的 late 事件，与 waiter 是否仍在、已取消或已超时无关；L3 让账本、FinalizationRegistry held value 与迟到结算闭包不再可达 EnvImpl/plan/inputSlots，attempt 只持有最小 owner 记录与字符串化的依赖列表；A1 把 SiteManager 的 closed 拆为 admissionClosed 与幂等的 shutdownPromise，owner abort 后仍完整收尾；A2/A3 按 docs/MULTITENANT_BLOG.md:55 的承诺让 acquireTimeoutMs 覆盖配置读取，shutdown 结束在途调用者的等待，增加 inFlightConfigReads/inFlightAcquires；D1 删除 API_REFERENCE:162–163 的旧 disposed 注释。
+
+不重构（materializer 拆分是 rc.4），不改任何公开名字，不加公开选项；唯一允许的公开面变化是 attempt-abandoned 的 phase 加 'cleanup'（必要时账本 state 加 'cleaning-up'），inventory diff 必须恰好等于 Phase A 报告的最小增量并登记进 API_STABILITY；规划层四个模块零改动，reference planner 差分与 explain/inspect 快照逐字不变。
+
+Phase A 先原样跑审计探针确认七个 REPRODUCED 作为基线，给出最小公开面增量、并发销毁的实现方案与 L3 的全部强引用路径清单，汇总后直接继续；只有某项修复必须改公开名字、或并发销毁无法保持依赖链顺序时才停下报告。
+
+成功结束必须同时满足：七个审计探针翻转为正确行为断言后全绿（核心三个进 packages/core/tests，应用三个进 apps/multitenant-blog/tests）；新增关闭矩阵测试 4×4 全覆盖（Ready cleanup 挂住/抛错、宽限期内 rollback 抛错、被放弃 attempt 迟到 cleanup 抛错 × 无 waiter/仍在/已取消/已超时），并有并发销毁下依赖链顺序与关闭时间上界的测试；L3 用对照组 + WeakRef + --expose-gc 证明关闭后 Env 与无关 Input 不可达而账本为 1；SEMANTIC_MODEL §13 修订且明写"有界的是等待不是资源释放"、SEMANTIC_CHANGES_RC3 登记（L1/L2 修订、L3 实现修正、D1 澄清，含改写测试清单）、API_REFERENCE 与 MULTITENANT_BLOG 同步、API_STABILITY 例外登记、HISTORY 记录本轮来自独立审计、CHANGELOG、版本 1.0.0-rc.3；全部核心/类型/应用/scripts 测试与真实 PostgreSQL 矩阵通过；benchmark 与 rc.2 同机交替对比 ±10% 且 dispose 相关行不退化；any 不增；release gate 从最终归档重新解包、安装、编译、运行必跑项并实际输出 COMPLETE、provenance dirty=false。最后把 gate 真实摘要、归档哈希、七个翻转探针的结果与关闭矩阵结果输出到会话，不以"已完成"的文字代替证据；不打 tag，不推送。
+
+持续执行、修复和复验，不停在规划或某个子任务通过。若仅因 PostgreSQL 不可用等确实无法自行消除的外部条件阻塞，完成其余可做部分后记录 work/rc3/STATE.md 和精确复现命令，报告 BLOCKED 并暂停；BLOCKED 不是成功，任务大或测试红不构成 BLOCKED。
