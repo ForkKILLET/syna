@@ -1,0 +1,414 @@
+{
+  "generatedAt": "2026-09-07T19:39:45.747Z",
+  "quick": false,
+  "environment": {
+    "node": "v26.0.0",
+    "v8": "14.6.202.33-node.19",
+    "platform": "darwin",
+    "release": "25.2.0",
+    "arch": "arm64",
+    "cpu": "Apple M4 Pro",
+    "cpuCount": 14,
+    "totalMemoryBytes": 51539607552,
+    "gcExposed": true,
+    "nodeOptions": [
+      "--expose-gc",
+      "--no-maglev"
+    ]
+  },
+  "core": {
+    "name": "@syna/core",
+    "version": "1.0.0-rc.2"
+  },
+  "methodology": {
+    "note": "Setups are empty and involve no network. Warm cases measure enter+dispose of a sibling Entry with a cached plan template; percentiles are over individual iterations after warmup. Numbers are machine-specific; cache cardinality and bounded growth are the portable assertions.",
+    "warmupIterations": 50
+  },
+  "budgets": [
+    {
+      "budget": "warm-enter-dispose-300-depth-2",
+      "metric": "p95Ms",
+      "max": 2,
+      "value": 0.40645799999998644,
+      "ok": true
+    },
+    {
+      "budget": "warm-enter-dispose-300-depth-6",
+      "metric": "p95Ms",
+      "max": 2,
+      "value": 0.4058749999999236,
+      "ok": true
+    },
+    {
+      "budget": "warm-enter-dispose-100-depth-2",
+      "metric": "p95Ms",
+      "max": 1,
+      "value": 0.19741600000000403,
+      "ok": true
+    },
+    {
+      "budget": "bound-entry-private-range-request-enter-dispose-100",
+      "metric": "p95Ms",
+      "max": 1,
+      "value": 0.19020799999998417,
+      "ok": true
+    },
+    {
+      "budget": "churn-10000-requests",
+      "metric": "planCacheEntriesMax",
+      "max": 8,
+      "value": 4,
+      "ok": true
+    },
+    {
+      "budget": "churn-10000-requests-liveEnvs",
+      "metric": "liveEnvCountAfter",
+      "max": 2,
+      "value": 2,
+      "ok": true
+    },
+    {
+      "budget": "lru-churn-500-shapes",
+      "metric": "planCacheEntries",
+      "max": 16,
+      "value": 16,
+      "ok": true
+    }
+  ],
+  "budgetsOk": true,
+  "cases": [
+    {
+      "name": "warm-enter-dispose-100-depth-2",
+      "serviceCount": 100,
+      "depth": 2,
+      "coldPlanMs": 5.9722500000000025,
+      "requestShape": {
+        "services": {
+          "reused": 100,
+          "new": 20,
+          "forked": 0,
+          "eagerToStart": 0,
+          "eagerReused": 0
+        },
+        "inputs": {
+          "inherited": 1,
+          "provided": 1
+        },
+        "synthetic": {
+          "reused": 3,
+          "new": 0,
+          "forked": 0
+        }
+      },
+      "timing": {
+        "samples": 500,
+        "minMs": 0.08808299999998326,
+        "p50Ms": 0.10362500000000807,
+        "p90Ms": 0.17312499999999886,
+        "p95Ms": 0.19741600000000403,
+        "p99Ms": 0.3329169999999948,
+        "maxMs": 0.8156670000000048,
+        "meanMs": 0.1243371040000001
+      },
+      "warmup": 50,
+      "heapDeltaBytes": 115616,
+      "planCache": {
+        "hits": 550,
+        "misses": 4,
+        "entries": 4,
+        "evictions": 0,
+        "limit": 64
+      }
+    },
+    {
+      "name": "warm-enter-dispose-100-depth-6",
+      "serviceCount": 100,
+      "depth": 6,
+      "coldPlanMs": 1.2171659999999918,
+      "requestShape": {
+        "services": {
+          "reused": 100,
+          "new": 20,
+          "forked": 0,
+          "eagerToStart": 0,
+          "eagerReused": 0
+        },
+        "inputs": {
+          "inherited": 1,
+          "provided": 1
+        },
+        "synthetic": {
+          "reused": 3,
+          "new": 0,
+          "forked": 0
+        }
+      },
+      "timing": {
+        "samples": 500,
+        "minMs": 0.08758299999999508,
+        "p50Ms": 0.10129200000000083,
+        "p90Ms": 0.1661670000000015,
+        "p95Ms": 0.18920800000000781,
+        "p99Ms": 0.2691669999999817,
+        "maxMs": 0.9457919999999831,
+        "meanMs": 0.12004943999999977
+      },
+      "warmup": 50,
+      "heapDeltaBytes": 96776,
+      "planCache": {
+        "hits": 550,
+        "misses": 8,
+        "entries": 8,
+        "evictions": 0,
+        "limit": 64
+      }
+    },
+    {
+      "name": "warm-enter-dispose-300-depth-2",
+      "serviceCount": 300,
+      "depth": 2,
+      "coldPlanMs": 5.622915999999975,
+      "requestShape": {
+        "services": {
+          "reused": 260,
+          "new": 60,
+          "forked": 0,
+          "eagerToStart": 0,
+          "eagerReused": 0
+        },
+        "inputs": {
+          "inherited": 1,
+          "provided": 1
+        },
+        "synthetic": {
+          "reused": 3,
+          "new": 0,
+          "forked": 0
+        }
+      },
+      "timing": {
+        "samples": 500,
+        "minMs": 0.2398340000000303,
+        "p50Ms": 0.27174999999999727,
+        "p90Ms": 0.3465840000000071,
+        "p95Ms": 0.40645799999998644,
+        "p99Ms": 0.4848749999999882,
+        "maxMs": 0.6642080000000306,
+        "meanMs": 0.28897090600000125
+      },
+      "warmup": 50,
+      "heapDeltaBytes": 62424,
+      "planCache": {
+        "hits": 550,
+        "misses": 4,
+        "entries": 4,
+        "evictions": 0,
+        "limit": 64
+      }
+    },
+    {
+      "name": "warm-enter-dispose-300-depth-6",
+      "serviceCount": 300,
+      "depth": 6,
+      "coldPlanMs": 5.078875000000039,
+      "requestShape": {
+        "services": {
+          "reused": 260,
+          "new": 60,
+          "forked": 0,
+          "eagerToStart": 0,
+          "eagerReused": 0
+        },
+        "inputs": {
+          "inherited": 1,
+          "provided": 1
+        },
+        "synthetic": {
+          "reused": 3,
+          "new": 0,
+          "forked": 0
+        }
+      },
+      "timing": {
+        "samples": 500,
+        "minMs": 0.21870799999999235,
+        "p50Ms": 0.25349999999991724,
+        "p90Ms": 0.37537500000001955,
+        "p95Ms": 0.4058749999999236,
+        "p99Ms": 0.47750000000002046,
+        "maxMs": 0.6108750000000214,
+        "meanMs": 0.2804574440000017
+      },
+      "warmup": 50,
+      "heapDeltaBytes": 37384,
+      "planCache": {
+        "hits": 550,
+        "misses": 8,
+        "entries": 8,
+        "evictions": 0,
+        "limit": 64
+      }
+    },
+    {
+      "name": "phase-breakdown-300",
+      "serviceCount": 300,
+      "coldPlanWithNewSlotsMs": {
+        "samples": 60,
+        "minMs": 19.366292000000044,
+        "p50Ms": 20.389042000000018,
+        "p90Ms": 21.59791599999994,
+        "p95Ms": 23.297624999999925,
+        "p99Ms": 26.40224999999998,
+        "maxMs": 26.40224999999998,
+        "meanMs": 20.698310483333344
+      },
+      "warmPlanMs": {
+        "samples": 60,
+        "minMs": 0.2492090000000644,
+        "p50Ms": 0.3020840000000362,
+        "p90Ms": 0.38954100000000835,
+        "p95Ms": 0.45487500000001546,
+        "p99Ms": 0.49604199999998855,
+        "maxMs": 0.49604199999998855,
+        "meanMs": 0.3200965333333272
+      },
+      "materializationMs": {
+        "samples": 60,
+        "minMs": 0.025167000000010376,
+        "p50Ms": 0.03408300000000963,
+        "p90Ms": 0.06029200000000401,
+        "p95Ms": 0.06549999999992906,
+        "p99Ms": 0.7636250000000473,
+        "maxMs": 0.7636250000000473,
+        "meanMs": 0.051318050000008955
+      },
+      "disposeMs": {
+        "samples": 60,
+        "minMs": 0.07424999999989268,
+        "p50Ms": 0.08829199999991033,
+        "p90Ms": 0.1256670000000213,
+        "p95Ms": 0.1387920000000804,
+        "p99Ms": 0.2878329999999778,
+        "maxMs": 0.2878329999999778,
+        "meanMs": 0.0993173666666621
+      }
+    },
+    {
+      "name": "site-enter-tenant-input-reverse-closure-200",
+      "forked": 0,
+      "inherited": 140,
+      "timing": {
+        "samples": 300,
+        "minMs": 0.16762499999981628,
+        "p50Ms": 0.18162500000016735,
+        "p90Ms": 0.26366600000005747,
+        "p95Ms": 0.29750000000012733,
+        "p99Ms": 0.44554200000015953,
+        "maxMs": 0.5274999999999181,
+        "meanMs": 0.21341278333333244
+      },
+      "warmup": 20,
+      "heapDeltaBytes": 12768,
+      "planCache": {
+        "hits": 321,
+        "misses": 2,
+        "entries": 2,
+        "evictions": 0,
+        "limit": 64
+      }
+    },
+    {
+      "name": "bound-entry-private-range-request-enter-dispose-100",
+      "inherited": 101,
+      "newServices": 21,
+      "timing": {
+        "samples": 500,
+        "minMs": 0.09525000000030559,
+        "p50Ms": 0.11374999999998181,
+        "p90Ms": 0.16666699999996126,
+        "p95Ms": 0.19020799999998417,
+        "p99Ms": 0.2640409999999065,
+        "maxMs": 0.4342079999996713,
+        "meanMs": 0.12824058999999444
+      },
+      "warmup": 50,
+      "heapDeltaBytes": 179024,
+      "planCache": {
+        "hits": 550,
+        "misses": 4,
+        "entries": 4,
+        "evictions": 0,
+        "limit": 64
+      }
+    },
+    {
+      "name": "override-and-all-request-enter-dispose-100",
+      "timing": {
+        "samples": 500,
+        "minMs": 0.09058299999969677,
+        "p50Ms": 0.1137919999996484,
+        "p90Ms": 0.17574999999987995,
+        "p95Ms": 0.20658400000002075,
+        "p99Ms": 0.2845839999999953,
+        "maxMs": 0.4677919999999176,
+        "meanMs": 0.13344299999999293
+      },
+      "warmup": 50,
+      "heapDeltaBytes": 3328
+    },
+    {
+      "name": "churn-10000-requests",
+      "operations": 10000,
+      "elapsedMs": 1207.676,
+      "perOperationMs": 0.12076759999999999,
+      "planCacheEntriesMax": 4,
+      "liveEnvCountAfter": 2,
+      "planCache": {
+        "hits": 9998,
+        "misses": 4,
+        "entries": 4,
+        "evictions": 0,
+        "limit": 64
+      },
+      "heapSamples": [
+        {
+          "index": 0,
+          "heapUsed": 7287792,
+          "liveEnvs": 2
+        },
+        {
+          "index": 2000,
+          "heapUsed": 7570176,
+          "liveEnvs": 2
+        },
+        {
+          "index": 4000,
+          "heapUsed": 7625896,
+          "liveEnvs": 2
+        },
+        {
+          "index": 6000,
+          "heapUsed": 7647712,
+          "liveEnvs": 2
+        },
+        {
+          "index": 8000,
+          "heapUsed": 7676224,
+          "liveEnvs": 2
+        }
+      ]
+    },
+    {
+      "name": "lru-churn-500-shapes",
+      "generatedEntryShapes": 500,
+      "planCacheEntries": 16,
+      "planCache": {
+        "hits": 0,
+        "misses": 500,
+        "entries": 16,
+        "evictions": 484,
+        "limit": 16
+      }
+    }
+  ]
+}
