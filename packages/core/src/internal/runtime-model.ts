@@ -70,10 +70,30 @@ export interface RootSite {
   readonly realm: ResolutionRealm
 }
 
+/**
+ * What an attempt keeps of its owner: identity, the stop signal, whether the
+ * owner's close has begun, and the cleanup failures that close is waiting for.
+ * One record per Env, never the Env itself — an attempt that outlives its owner
+ * must not keep the Env's graph (plan, Input slots, sibling slots) alive.
+ */
+export interface AttemptOwnerRecord {
+  readonly envId: string
+  readonly signal: AbortSignal
+  /** Set the moment the owner's close begins (before anything is waited for). */
+  closing: boolean
+  /**
+   * Cleanup failures of this Env's attempts that its close waited for, drained
+   * once by `disposeEnv()` into the `AggregateError` of `dispose()`. What the
+   * close stopped waiting for is not in here: it is reported by an event.
+   */
+  readonly closeErrors: unknown[]
+}
+
 export interface SlotOwnerEnv {
   readonly id: string
   readonly state: EnvState
   readonly abortController: AbortController
+  readonly attemptOwner: AttemptOwnerRecord
 }
 
 export interface InputSlot {
@@ -170,6 +190,14 @@ export interface SetupAttempt {
   rawRef?: WeakRef<Promise<unknown>>
   /** The raw Promise is registered for the unreachable diagnosis (once per attempt). */
   watched: boolean
+  /** The minimal record of the Env that owns this attempt's slot. */
+  readonly owner: AttemptOwnerRecord
+  /**
+   * Whether a cleanup failure of this attempt still belongs to its owner's
+   * close. False from the moment that close stopped waiting for the attempt: its
+   * late failures are reported by an event, never by a `dispose()` that returned.
+   */
+  reportsToClose: boolean
 }
 
 export interface ServiceSlot {

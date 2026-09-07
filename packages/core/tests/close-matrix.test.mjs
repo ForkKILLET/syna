@@ -28,6 +28,178 @@ const chain = (define, prefix, cleanup) => {
   return { head, middle, tail, all: [head, middle, tail] }
 }
 
+const waitFor = async (predicate, timeoutMs = 2_000) => {
+  const deadline = Date.now() + timeoutMs
+  while (!predicate()) {
+    if (Date.now() > deadline) throw new Error('condition not met in time')
+    await sleep(2)
+  }
+}
+
+const GRACE_MS = 80
+const SHORT_TIMEOUT_MS = 25
+
+/**
+ * One cell: the failure of `row` while the waiter of the slot that carries it is
+ * in the state of `column`. A Ready slot has no waiter of its own (a `load()` on
+ * it resolves at once), so for the two Ready rows the waiter of the column sits
+ * on a second, never-settling slot of the same Env: the close must report the
+ * same thing whatever any waiter is doing.
+ */
+const runCell = async (row, column) => {
+  const define = makeDefine(`rc3.matrix.${row}.${column}`)
+  const events = []
+  const cleanupError = new Error(`${row} cleanup failed`)
+  const readyRow = row === 'ready-hangs' || row === 'ready-throws'
+  const loadTimeoutMs = column === 'none' || column === 'timed-out' ? SHORT_TIMEOUT_MS : 5_000
+  let releaseHung
+  let releaseSubject
+  let releaseWitness
+
+  const Subject = readyRow
+    ? define.service('subject', {
+      setup(_deps, { onDispose }) {
+        onDispose(row === 'ready-hangs'
+          ? () => new Promise(resolve => { releaseHung = resolve })
+          : () => { throw cleanupError })
+        return { subject: true }
+      },
+    })
+    : define.service('subject', {
+      loadTimeoutMs,
+      setup(_deps, { onDispose }) {
+        onDispose(() => { throw cleanupError })
+        return new Promise(resolve => { releaseSubject = () => resolve({ late: true }) })
+      },
+    })
+  // Only the Ready rows need it, and only when the column has a waiter to place.
+  const Witness = define.service('witness', {
+    loadTimeoutMs,
+    setup() { return new Promise(resolve => { releaseWitness = () => resolve({ witness: true }) }) },
+  })
+  const Entry = define.entry({ requires: { subject: Subject, witness: Witness } })
+  const runtime = createRuntime({
+    services: [Subject, Witness],
+    limits: { disposalGraceMs: GRACE_MS },
+    diagnostics: { onEvent: event => events.push(event) },
+  })
+  const env = await runtime.enter(Entry)
+
+  const carrier = readyRow ? env.deps.witness : env.deps.subject
+  if (readyRow) await env.deps.subject.load() // Ready before the close
+  let waiter
+  let waiterOutcome
+  const controller = new AbortController()
+  if (column === 'none' && !readyRow) {
+    // The attempt's only waiter timed out before the close began: nothing waits
+    // for it any more and it is overdue.
+    waiterOutcome = await carrier.load().then(() => 'resolved', error => error?.code ?? error)
+  }
+  else if (column === 'waiting') {
+    waiter = carrier.load().then(() => 'resolved', error => error)
+  }
+  else if (column === 'cancelled') {
+    waiter = carrier.load({ signal: controller.signal }).then(() => 'resolved', error => error)
+    await sleep(5)
+    controller.abort()
+    waiterOutcome = await waiter.then(error => error?.code ?? error)
+    waiter = undefined
+  }
+  else if (column === 'timed-out') {
+    // Issued now, so its deadline expires while the close is running.
+    waiter = carrier.load().then(() => 'resolved', error => error)
+  }
+  if (column === 'none' && readyRow) await sleep(2)
+  else if (column === 'waiting' || column === 'timed-out') await sleep(2)
+
+  const started = Date.now()
+  const disposal = env.dispose().then(() => undefined, error => error)
+  if (row === 'rollback-throws') {
+    // Settles inside the grace, after the column's deadline could fire.
+    await sleep(SHORT_TIMEOUT_MS + 20)
+    releaseSubject()
+  }
+  const closeError = await disposal
+  const elapsed = Date.now() - started
+  if (waiter) waiterOutcome = await waiter.then(value => (value instanceof Error ? value.code ?? value.name : value), error => error?.code ?? error)
+
+  const ledgerAfterClose = runtime.inspect().unsettledAttempts.map(entry => entry.state).sort()
+  const lateEvents = []
+  if (row === 'late-cleanup-throws') {
+    releaseSubject()
+    await waitFor(() => events.some(event => event.type === 'attempt-succeeded-late'))
+    lateEvents.push(...events.filter(event => event.type === 'attempt-succeeded-late'))
+  }
+  if (row === 'ready-hangs') releaseHung?.()
+  releaseWitness?.()
+  await sleep(20)
+  await runtime.dispose().catch(() => undefined)
+
+  const flat = error => (error instanceof AggregateError ? error.errors.flatMap(flat) : [error])
+  return {
+    elapsed,
+    envState: env.state,
+    rejected: closeError !== undefined,
+    occurrences: closeError === undefined ? 0 : flat(closeError).filter(error => error === cleanupError).length,
+    waiterOutcome,
+    events: events.map(event => event.type),
+    abandonedPhases: events.filter(event => event.type === 'attempt-abandoned').map(event => event.phase).sort(),
+    ledgerAfterClose,
+    lateCleanupErrors: lateEvents.flatMap(event => event.cleanupErrors),
+  }
+}
+
+const ROWS = ['ready-hangs', 'ready-throws', 'rollback-throws', 'late-cleanup-throws']
+const COLUMNS = ['none', 'waiting', 'cancelled', 'timed-out']
+
+for (const row of ROWS) {
+  for (const column of COLUMNS) {
+    test(`close matrix: ${row} × waiter ${column}`, async () => {
+      const cell = await runCell(row, column)
+      const readyRow = row === 'ready-hangs' || row === 'ready-throws'
+      const hasPendingSlot = !readyRow || column !== 'none'
+
+      // Every cell: the close ends inside its bound and the Env is disposed.
+      const budgets = (hasPendingSlot ? 1 : 0) + (row === 'ready-hangs' ? 1 : 0)
+      assert.ok(cell.elapsed <= GRACE_MS * budgets + 400, `bounded close (took ${cell.elapsed} ms, ${budgets} budget(s) of ${GRACE_MS} ms)`)
+      assert.equal(cell.envState, 'disposed')
+
+      // Whether dispose() reports depends on the row alone, never on the waiter.
+      if (row === 'ready-throws' || row === 'rollback-throws') {
+        assert.equal(cell.rejected, true, 'a cleanup failure the close waited for rejects dispose()')
+        assert.equal(cell.occurrences, 1, 'exactly once in the AggregateError')
+      }
+      else {
+        assert.equal(cell.rejected, false, 'the close does not reject for what it stopped waiting for')
+      }
+
+      // The waiter gets its own outcome, and it changes nothing above.
+      const expectedWaiter = {
+        none: readyRow ? undefined : 'LOAD_TIMEOUT',
+        waiting: row === 'ready-hangs' || row === 'ready-throws' ? 'ENV_CLOSED' : (row === 'rollback-throws' ? 'AggregateError' : 'ENV_CLOSED'),
+        cancelled: 'LOAD_CANCELLED',
+        'timed-out': 'LOAD_TIMEOUT',
+      }[column]
+      assert.equal(cell.waiterOutcome, expectedWaiter, `the waiter of a ${column} column`)
+
+      // Events: the late settlement is reported from the start of the close, and
+      // an abandoned cleanup says which phase it was.
+      if (row === 'ready-hangs') assert.ok(cell.abandonedPhases.includes('cleanup'))
+      else assert.ok(!cell.abandonedPhases.includes('cleanup'))
+      if (row === 'rollback-throws') {
+        assert.ok(cell.events.includes('attempt-succeeded-late'), 'reported even when no waiter is left')
+      }
+      if (row === 'late-cleanup-throws') {
+        assert.deepEqual(cell.ledgerAfterClose, ['abandoned'], 'the abandoned attempt is on the ledger while dispose() has returned')
+        assert.equal(cell.lateCleanupErrors.length, 1, 'its late cleanup failure is reported by the event')
+      }
+      if (hasPendingSlot && row !== 'rollback-throws') {
+        assert.ok(cell.abandonedPhases.includes('setup'), 'the never-settling attempt is abandoned by the same close')
+      }
+    })
+  }
+}
+
 test('concurrent destruction: three independent chains are disposed at once while each chain keeps its own order', async () => {
   const define = makeDefine('rc3.matrix.chains')
   const order = []

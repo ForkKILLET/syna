@@ -10,6 +10,7 @@ import type {
 import { SynaError } from '../errors.js'
 import { stronglyConnectedComponents } from '../graph.js'
 import type {
+  AttemptOwnerRecord,
   DisposableError,
   InputSlot,
   PendingLoad,
@@ -131,11 +132,12 @@ class Attempt implements SetupAttempt {
   rawRef?: WeakRef<Promise<unknown>>
   endRace: ((kind: 'abandoned' | 'unreachable') => void) | undefined = undefined
   watched = false
+  reportsToClose = true
   private isSettled = false
   private settledPromise: Promise<void> | undefined = undefined
   private resolveSettledPromise: (() => void) | undefined = undefined
 
-  constructor(readonly id: number, readonly slot: ServiceSlot) {}
+  constructor(readonly id: number, readonly slot: ServiceSlot, readonly owner: AttemptOwnerRecord) {}
 
   get settled(): Promise<void> {
     if (this.isSettled) return Promise.resolve()
@@ -359,6 +361,9 @@ export class Materializer {
       if (!(await settlesWithin(slot.sequence, graceMs))) {
         const running = slot.attempt
         slot.state = 'abandoned'
+        // From here the close no longer waits for this attempt: whatever its
+        // cleanups do afterwards is reported by an event, not by dispose().
+        if (running) running.reportsToClose = false
         if (running && running.state === 'running' && !running.rawSettled) {
           running.state = 'abandoned'
           slot.unsettledAttempt = running
@@ -384,6 +389,7 @@ export class Materializer {
     const remainingMs = Number.isFinite(graceMs) ? Math.max(0, graceMs - (Date.now() - startedAt)) : graceMs
     if (await settlesWithin(attempt.settled, remainingMs)) return
     slot.state = 'abandoned'
+    attempt.reportsToClose = false
     this.reportAbandoned(slot, attempt)
   }
 
@@ -751,7 +757,7 @@ export class Materializer {
   }
 
   private async runAttempt(slot: ServiceSlot, owner: SlotOwnerEnv): Promise<AttemptOutcome> {
-    const attempt = this.createAttempt(slot)
+    const attempt = this.createAttempt(slot, owner)
     slot.attempt = attempt
     slot.attemptCount += 1
 
@@ -842,6 +848,7 @@ export class Materializer {
       // failure policy (a new attempt cannot overlap one that can never finish).
       const cleanupErrors = (await this.runCleanups(attempt.cleanups, slot)).map(item => item.error)
       attempt.state = 'failed'
+      this.attributeToClose(attempt, slot, cleanupErrors)
       this.forgetOverdue(attempt)
       attempt.resolveSettled()
       this.options.onEvent({
@@ -863,7 +870,11 @@ export class Materializer {
     if (raced.kind === 'rejected') {
       const cleanupErrors = (await this.runCleanups(attempt.cleanups, slot)).map(item => item.error)
       attempt.state = 'failed'
-      if (this.forgetOverdue(attempt)) {
+      this.attributeToClose(attempt, slot, cleanupErrors)
+      // Late is measured from the start of the close, not from its end: a
+      // settlement inside the grace is reported like one after it, whether or
+      // not a waiter is still there.
+      if (this.forgetOverdue(attempt) || this.ownerClosing(owner)) {
         this.options.onEvent({
           type: 'attempt-failed-late',
           slot: slot.id,
@@ -882,7 +893,8 @@ export class Materializer {
     if (ownerClosed || slot.attempt !== attempt) {
       const cleanupErrors = (await this.runCleanups(attempt.cleanups, slot)).map(item => item.error)
       attempt.state = 'failed'
-      if (this.forgetOverdue(attempt)) {
+      this.attributeToClose(attempt, slot, cleanupErrors)
+      if (this.forgetOverdue(attempt) || ownerClosed) {
         this.options.onEvent({
           type: 'attempt-succeeded-late',
           slot: slot.id,
@@ -930,8 +942,27 @@ export class Materializer {
     return { ok: true, instance: raced.value }
   }
 
-  private createAttempt(slot: ServiceSlot): SetupAttempt {
-    return new Attempt(this.nextAttemptId++, slot)
+  private createAttempt(slot: ServiceSlot, owner: SlotOwnerEnv): SetupAttempt {
+    return new Attempt(this.nextAttemptId++, slot, owner.attemptOwner)
+  }
+
+  /** Whether the owner's close has begun: from then on its attempts' cleanup failures are the close's to report. */
+  private ownerClosing(owner: SlotOwnerEnv): boolean {
+    return owner.abortController.signal.aborted || (owner.state !== 'activating' && owner.state !== 'ready')
+  }
+
+  /**
+   * A cleanup failure of an attempt whose owner is closing belongs to that
+   * close: it enters `dispose()`'s AggregateError exactly once, whether or not a
+   * waiter is still there to see the rejection of its own `load()`. Failures of
+   * an attempt the close stopped waiting for are reported by an event instead.
+   */
+  private attributeToClose(attempt: SetupAttempt, slot: ServiceSlot, cleanupErrors: readonly unknown[]): void {
+    if (cleanupErrors.length === 0 || !attempt.reportsToClose || !attempt.owner.closing) return
+    attempt.owner.closeErrors.push(new AggregateError(
+      [...cleanupErrors],
+      `Rollback of ${slot.service.key} failed while owner Env ${attempt.owner.envId} was closing.`,
+    ))
   }
 
   /**
@@ -1081,6 +1112,7 @@ export class Materializer {
     attempt.rawSettled = true
     const slot = attempt.slot
     const cleanupErrors = (await this.runCleanups(attempt.cleanups, slot)).map(item => item.error)
+    this.attributeToClose(attempt, slot, cleanupErrors)
     if (slot.unsettledAttempt === attempt) delete slot.unsettledAttempt
     // Resources a late cleanup could not release are outside Syna control from now on.
     if (cleanupErrors.length > 0) slot.rollbackFailed = true

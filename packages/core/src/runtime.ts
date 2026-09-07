@@ -34,6 +34,7 @@ import type {
 } from './descriptors.js'
 import { diagnosticFromError, SynaError } from './errors.js'
 import type {
+  AttemptOwnerRecord,
   EnvState,
   ResolvedPlan,
   ResolutionRealm,
@@ -220,6 +221,8 @@ class EnvImpl<Requires extends DependencyMap> implements Env<Requires> {
   readonly children = new Set<EnvImpl<any>>()
   readonly deps: DependencyRefs<Requires>
   readonly abortController = new AbortController()
+  /** What this Env's attempts keep of it: identity, stop signal, close flag, the close's cleanup errors. */
+  readonly attemptOwner: AttemptOwnerRecord
   /** Advanced only by Runtime actions: `activating → ready → disposing → disposed`; `disposed` at the end of the bounded close. */
   state: EnvState = 'activating'
   private disposePromise?: Promise<void>
@@ -231,6 +234,7 @@ class EnvImpl<Requires extends DependencyMap> implements Env<Requires> {
     readonly plan: ResolvedPlan,
     rootSiteByEntryKey: ReadonlyMap<string, string>,
   ) {
+    this.attemptOwner = { envId: id, signal: this.abortController.signal, closing: false, closeErrors: [] }
     const refs: Record<string, ServiceRef<unknown> | InputRef<unknown>> = {}
     for (const [key, rootSiteId] of rootSiteByEntryKey) {
       const nodeId = plan.rootNodeBySite.get(rootSiteId)!
@@ -737,6 +741,7 @@ class RuntimeImpl implements Runtime, ImplementationViewHost {
   private broadcastClosing(env: EnvImpl<any>): void {
     if (env.state === 'disposed') return
     env.state = 'disposing'
+    env.attemptOwner.closing = true
     env.abortController.abort()
     for (const child of env.children) this.broadcastClosing(child)
   }
@@ -770,6 +775,10 @@ class RuntimeImpl implements Runtime, ImplementationViewHost {
 
     await this.materializer.settleSlots(ownedServiceSlots)
     errors.push(...await this.materializer.disposeServiceSlots(ownedServiceSlots))
+    // Every cleanup failure this close waited for, once: the rollbacks of
+    // attempts that settled inside the grace (whose waiters may have left long
+    // ago) next to the cleanups of the Ready slots it disposed.
+    errors.push(...env.attemptOwner.closeErrors.splice(0))
 
     for (const slot of ownedServiceSlots) {
       if (slot.state === 'dormant' || slot.state === 'failed') slot.state = 'disposed'

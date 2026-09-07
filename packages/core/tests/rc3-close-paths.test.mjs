@@ -122,3 +122,87 @@ test('RC2-L1 an abandoned cleanup that fails late is reported by attempt-failed-
   assert.deepEqual(late[0].cleanupErrors.map(error => error.message), ['cleanup failed long after the close'])
   assert.equal(late[0].env, env.id)
 })
+
+test('RC2-L2 a rollback that throws while the close discards its late result is reported by dispose() exactly once, and by an event', async () => {
+  const define = makeDefine('rc3.l2.reported')
+  const events = []
+  const cleanupError = new Error('cleanup during close failed')
+  let release
+  const Late = define.service('late', {
+    setup(_deps, { onDispose }) {
+      onDispose(() => { throw cleanupError })
+      return new Promise(resolve => { release = () => resolve({ late: true }) })
+    },
+  })
+  const Entry = define.entry({ requires: { late: Late } })
+  const runtime = createRuntime({
+    services: [Late],
+    limits: { disposalGraceMs: 300 },
+    diagnostics: { onEvent: event => events.push(event) },
+  })
+  const env = await runtime.enter(Entry)
+  const waiter = env.deps.late.load().then(() => 'resolved', error => error)
+  await sleep(5)
+  const disposal = env.dispose().then(() => undefined, error => error)
+  await sleep(5)
+  release() // settles inside the grace: the result is discarded and the cleanup throws
+
+  const closeError = await disposal
+  assert.ok(closeError instanceof AggregateError, 'the close reports the cleanup failure it waited for')
+  const flat = error => (error instanceof AggregateError ? error.errors.flatMap(flat) : [error])
+  assert.equal(flat(closeError).filter(error => error === cleanupError).length, 1, 'exactly once')
+  assert.equal(env.state, 'disposed')
+
+  const late = events.filter(event => event.type === 'attempt-succeeded-late')
+  assert.equal(late.length, 1, 'a settlement from the start of the close is reported, not only one after it')
+  assert.equal(late[0].adopted, false)
+  assert.deepEqual(late[0].cleanupErrors, [cleanupError])
+
+  // The waiter's own rejection is unchanged and independent of the report above.
+  const waiterOutcome = await waiter
+  assert.ok(waiterOutcome instanceof AggregateError)
+  assert.equal(flat(waiterOutcome).filter(error => error === cleanupError).length, 1)
+  assert.equal(runtime.inspect().unsettledAttempts.length, 0)
+  await runtime.dispose()
+})
+
+test('RC2-L2b the same failure is reported when the waiter has cancelled or timed out: what the waiter got changes nothing', async () => {
+  const define = makeDefine('rc3.l2b.no-waiter')
+  const flat = error => (error instanceof AggregateError ? error.errors.flatMap(flat) : [error])
+
+  for (const how of ['cancelled', 'timed-out']) {
+    const events = []
+    const cleanupError = new Error(`cleanup during close failed (${how})`)
+    let release
+    const Late = define.service(`late-${how}`, {
+      loadTimeoutMs: how === 'timed-out' ? 20 : 5_000,
+      setup(_deps, { onDispose }) {
+        onDispose(() => { throw cleanupError })
+        return new Promise(resolve => { release = () => resolve({ late: true }) })
+      },
+    })
+    const Entry = define.entry(`entry-${how}`, { requires: { late: Late } })
+    const runtime = createRuntime({
+      services: [Late],
+      limits: { disposalGraceMs: 300 },
+      diagnostics: { onEvent: event => events.push(event) },
+    })
+    const env = await runtime.enter(Entry)
+    const controller = new AbortController()
+    const waiter = env.deps.late.load(how === 'cancelled' ? { signal: controller.signal } : undefined)
+      .then(() => 'resolved', error => error?.code ?? error)
+    if (how === 'cancelled') { await sleep(5); controller.abort() }
+    const waiterOutcome = await waiter
+    assert.equal(waiterOutcome, how === 'cancelled' ? 'LOAD_CANCELLED' : 'LOAD_TIMEOUT')
+
+    const disposal = env.dispose().then(() => undefined, error => error)
+    await sleep(5)
+    release() // nobody is waiting any more; the close is
+    const closeError = await disposal
+    assert.ok(closeError instanceof AggregateError, `${how}: the close reports the failure although no waiter was left`)
+    assert.equal(flat(closeError).filter(error => error === cleanupError).length, 1, `${how}: exactly once`)
+    assert.equal(events.filter(event => event.type === 'attempt-succeeded-late').length, 1, `${how}: and reports it as an event`)
+    assert.equal(env.state, 'disposed')
+    await runtime.dispose()
+  }
+})
