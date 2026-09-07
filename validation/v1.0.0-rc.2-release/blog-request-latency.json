@@ -1,0 +1,193 @@
+{
+  "generatedAt": "2026-09-07T07:42:36.649Z",
+  "quick": false,
+  "reportOnly": true,
+  "note": "Full HTTP round trips on 127.0.0.1 measured from a node:http client in the same process; not a budget and not a cross-machine claim.",
+  "environment": {
+    "node": "v26.0.0",
+    "platform": "darwin",
+    "release": "25.2.0",
+    "cpu": "Apple M4 Pro",
+    "cores": 14
+  },
+  "backends": [
+    {
+      "backend": "filesystem",
+      "count": 200,
+      "cases": [
+        {
+          "name": "post-page-cached",
+          "description": "GET /posts/shared-slug on a warm SiteEnv (page cache hit; still one content-version read per request)",
+          "status": 200,
+          "timing": {
+            "samples": 200,
+            "p50Ms": 1.237333000000035,
+            "p95Ms": 1.7856249999999818,
+            "p99Ms": 2.56887500000002,
+            "maxMs": 3.024166999999977,
+            "meanMs": 1.3147460100000004
+          }
+        },
+        {
+          "name": "index-cached",
+          "description": "GET / on a warm SiteEnv (page cache hit)",
+          "status": 200,
+          "timing": {
+            "samples": 200,
+            "p50Ms": 0.46058399999992616,
+            "p95Ms": 0.56412499999999,
+            "p99Ms": 0.6701659999999947,
+            "maxMs": 0.7324170000000549,
+            "meanMs": 0.4716022749999979
+          }
+        },
+        {
+          "name": "comment-preview-untrusted",
+          "description": "GET /comments/preview?text=… (untrusted pipeline, never cached)",
+          "status": 200,
+          "timing": {
+            "samples": 200,
+            "p50Ms": 0.4853329999999687,
+            "p95Ms": 0.6222920000000158,
+            "p99Ms": 0.6973339999999553,
+            "maxMs": 1.1811669999999594,
+            "meanMs": 0.4919341750000018
+          }
+        },
+        {
+          "name": "post-page-cold-site",
+          "description": "GET /posts/shared-slug after invalidate(): SiteEnv creation (configuration read, Env, authenticator, context) plus a page-cache miss",
+          "status": 200,
+          "timing": {
+            "samples": 50,
+            "p50Ms": 1.3464579999999842,
+            "p95Ms": 1.6575829999999314,
+            "p99Ms": 1.9838749999998981,
+            "maxMs": 1.9838749999998981,
+            "meanMs": 1.3811225400000058
+          }
+        }
+      ],
+      "siteManager": {
+        "capacity": 8,
+        "reservedForRequests": 1,
+        "records": 1,
+        "active": 0,
+        "idle": 1,
+        "creating": 0,
+        "draining": 0,
+        "disposing": 0,
+        "leases": 0,
+        "pendingAcquires": 0,
+        "waitingByPurpose": {
+          "request": 0,
+          "build": 0,
+          "background": 0
+        },
+        "evictions": 0,
+        "creations": 51,
+        "creationFailures": 0,
+        "disposalFailures": 0,
+        "rejectedForCapacity": 0,
+        "closed": false
+      },
+      "pageCache": {
+        "hits": 0,
+        "misses": 1,
+        "coalesced": 0,
+        "entries": 1,
+        "evictions": 0,
+        "maxEntries": 256
+      }
+    },
+    {
+      "backend": "postgres",
+      "count": 200,
+      "cases": [
+        {
+          "name": "post-page-cached",
+          "description": "GET /posts/shared-slug on a warm SiteEnv (page cache hit; still one content-version read per request)",
+          "status": 200,
+          "timing": {
+            "samples": 200,
+            "p50Ms": 0.510332999999946,
+            "p95Ms": 0.7983329999999569,
+            "p99Ms": 0.9195420000000922,
+            "maxMs": 0.9615830000000187,
+            "meanMs": 0.5443256199999996
+          }
+        },
+        {
+          "name": "index-cached",
+          "description": "GET / on a warm SiteEnv (page cache hit)",
+          "status": 200,
+          "timing": {
+            "samples": 200,
+            "p50Ms": 0.32024999999998727,
+            "p95Ms": 0.3647919999999658,
+            "p99Ms": 0.4195829999999887,
+            "maxMs": 0.4970829999999751,
+            "meanMs": 0.3264387599999992
+          }
+        },
+        {
+          "name": "comment-preview-untrusted",
+          "description": "GET /comments/preview?text=… (untrusted pipeline, never cached)",
+          "status": 200,
+          "timing": {
+            "samples": 200,
+            "p50Ms": 0.3458330000000842,
+            "p95Ms": 0.4598750000000109,
+            "p99Ms": 0.5252909999999247,
+            "maxMs": 0.6324170000000322,
+            "meanMs": 0.36188729999999625
+          }
+        },
+        {
+          "name": "post-page-cold-site",
+          "description": "GET /posts/shared-slug after invalidate(): SiteEnv creation (configuration read, Env, authenticator, context) plus a page-cache miss",
+          "status": 200,
+          "timing": {
+            "samples": 50,
+            "p50Ms": 0.6851249999999709,
+            "p95Ms": 0.8458330000000842,
+            "p99Ms": 0.846958000000086,
+            "maxMs": 0.846958000000086,
+            "meanMs": 0.7059358200000133
+          }
+        }
+      ],
+      "siteManager": {
+        "capacity": 8,
+        "reservedForRequests": 1,
+        "records": 1,
+        "active": 0,
+        "idle": 1,
+        "creating": 0,
+        "draining": 0,
+        "disposing": 0,
+        "leases": 0,
+        "pendingAcquires": 0,
+        "waitingByPurpose": {
+          "request": 0,
+          "build": 0,
+          "background": 0
+        },
+        "evictions": 0,
+        "creations": 51,
+        "creationFailures": 0,
+        "disposalFailures": 0,
+        "rejectedForCapacity": 0,
+        "closed": false
+      },
+      "pageCache": {
+        "hits": 0,
+        "misses": 1,
+        "coalesced": 0,
+        "entries": 1,
+        "evictions": 0,
+        "maxEntries": 256
+      }
+    }
+  ]
+}
