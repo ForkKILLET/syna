@@ -1,0 +1,44 @@
+{
+  "name": "@syna-demo/globex-notify",
+  "version": "3.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Syna example fixture: the Globex notification provider client (fictional vendor)",
+  "imports": {
+    "#syna/package": "./package.json"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "syna": {
+    "id": "demo.notify.globex",
+    "metadata": {
+      "displayName": "Globex Notify",
+      "description": "Client of the fictional Globex notification API",
+      "tags": [
+        "vendor",
+        "fictional"
+      ]
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@syna/core": "1.0.0-rc.1",
+    "@syna-demo/notify-contract": "1.0.0",
+    "@syna-demo/tenant-store": "1.2.0",
+    "@syna-demo/logger": "1.1.0"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "devDependencies": {
+    "@syna/tsconfig": "1.0.0-rc.1"
+  }
+}

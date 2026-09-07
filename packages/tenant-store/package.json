@@ -1,9 +1,9 @@
 {
-  "name": "@syna-demo/logger",
-  "version": "1.1.0",
+  "name": "@syna-demo/tenant-store",
+  "version": "1.2.0",
   "private": true,
   "type": "module",
-  "description": "Syna example fixture: shared logging infrastructure of the notification delivery service (fictional domain)",
+  "description": "Syna example fixture: the tenant store of the notification delivery service, a fake connection pool over a directory (fictional domain)",
   "imports": {
     "#syna/package": "./package.json"
   },
@@ -16,17 +16,18 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "syna": {
-    "id": "demo.logger",
+    "id": "demo.tenant-store",
     "metadata": {
-      "displayName": "Logger",
-      "description": "Shared infrastructure: one sink per world, closed by its owner"
+      "displayName": "Tenant store",
+      "description": "Tenants and their settings behind a fake connection pool"
     }
   },
   "scripts": {
     "build": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@syna/core": "1.0.0-rc.1"
+    "@syna/core": "1.0.0-rc.1",
+    "@syna-demo/logger": "1.1.0"
   },
   "engines": {
     "node": ">=22"

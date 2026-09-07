@@ -1,9 +1,9 @@
 {
-  "name": "@syna-demo/logger",
-  "version": "1.1.0",
+  "name": "@syna-demo/notify-contract",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Syna example fixture: shared logging infrastructure of the notification delivery service (fictional domain)",
+  "description": "Syna example fixture: the Notifier Contract of the notification delivery service (fictional domain)",
   "imports": {
     "#syna/package": "./package.json"
   },
@@ -16,10 +16,10 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "syna": {
-    "id": "demo.logger",
+    "id": "demo.notify.contract",
     "metadata": {
-      "displayName": "Logger",
-      "description": "Shared infrastructure: one sink per world, closed by its owner"
+      "displayName": "Notify contract",
+      "description": "The capability of delivering a notification, shared by every provider client"
     }
   },
   "scripts": {

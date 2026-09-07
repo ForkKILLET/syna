@@ -1,0 +1,44 @@
+{
+  "name": "@syna-demo/acme-notify-v2",
+  "version": "2.4.1",
+  "private": true,
+  "type": "module",
+  "description": "Syna example fixture: the Acme notification provider client, SDK generation 2 (fictional vendor; the -v2 suffix is the local import alias of @syna-demo/acme-notify at 2.4.1)",
+  "imports": {
+    "#syna/package": "./package.json"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "syna": {
+    "id": "demo.notify.acme",
+    "metadata": {
+      "displayName": "Acme Notify",
+      "description": "Client of the fictional Acme notification API",
+      "tags": [
+        "vendor",
+        "fictional"
+      ]
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@syna/core": "1.0.0-rc.1",
+    "@syna-demo/notify-contract": "1.0.0",
+    "@syna-demo/tenant-store": "1.2.0",
+    "@syna-demo/logger": "1.1.0"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "devDependencies": {
+    "@syna/tsconfig": "1.0.0-rc.1"
+  }
+}

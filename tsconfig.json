@@ -5,40 +5,22 @@
       "path": "./packages/core"
     },
     {
-      "path": "./packages/llm-contract"
-    },
-    {
       "path": "./packages/logger"
     },
     {
-      "path": "./packages/postgres"
+      "path": "./packages/notify-contract"
     },
     {
-      "path": "./packages/openai-v1"
+      "path": "./packages/tenant-store"
     },
     {
-      "path": "./packages/openai-v2"
+      "path": "./packages/acme-notify-v1"
     },
     {
-      "path": "./packages/claude"
+      "path": "./packages/acme-notify-v2"
     },
     {
-      "path": "./packages/hyla"
-    },
-    {
-      "path": "./packages/fluida"
-    },
-    {
-      "path": "./apps/hyla-demo"
-    },
-    {
-      "path": "./apps/fluida-demo"
-    },
-    {
-      "path": "./apps/features-demo"
-    },
-    {
-      "path": "./apps/minimal-demo"
+      "path": "./packages/globex-notify"
     },
     {
       "path": "./apps/hyla-mini"
