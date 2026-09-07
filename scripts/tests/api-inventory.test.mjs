@@ -4,6 +4,8 @@
 // the 0.7.0 record and the committed AFTER inventory are present (source repository, not the archive), the diff
 // against the record — removed, added and changed signatures — is exactly the 0.8 rename table
 // (work/v08/RENAME_TABLE.md; docs/MIGRATION_V07_TO_V08.md), nothing outside it, and the committed AFTER is current.
+// 1.0.0-rc.1: the surface is frozen from 0.8.0 (docs/API_STABILITY.md) — where the 0.8.0 release gate's record is
+// present, this inventory is identical to it item by item.
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
@@ -145,4 +147,15 @@ test('0.8 the diff against the 0.7.0 record is exactly the rename table: removed
     const committed = JSON.parse(readFileSync(committedAfter, 'utf8'))
     assert.deepEqual(committed.items, after.items, 'work/v08/API_INVENTORY_AFTER.json is stale; re-run node scripts/api-inventory.mjs --out work/v08/API_INVENTORY_AFTER.md --json work/v08/API_INVENTORY_AFTER.json')
   }
+})
+
+// 1.0.0-rc.1: the public surface is frozen from 0.8.0. The record is the inventory the 0.8.0 release gate wrote
+// (validation/v0.8-release/api-inventory.json, commit 38a722e); it lives in the source repository, not in the archive.
+const frozen = path.join(root, 'validation/v0.8-release/api-inventory.json')
+test('1.0: the inventory is identical to the 0.8.0 record, item by item — path, kind, signature, JSDoc, deprecation (asserted where the record is present)', () => {
+  if (!existsSync(frozen)) return
+  const record = JSON.parse(readFileSync(frozen, 'utf8'))
+  assert.equal(record.version, '0.8.0', 'the record is the 0.8.0 inventory')
+  assert.equal(record.items.length, 374)
+  assert.deepEqual(after.items, record.items, 'the public API differs from the 0.8.0 record')
 })

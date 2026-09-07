@@ -33,12 +33,14 @@ jobs:
       # Self-asserting three-cell demo (exit 1 unless every cell — HTTP alpha, HTTP beta, static alpha — answers 200 with the tenant's page).
       - run: npm run demo:hyla-mini
 
-  # The release gate (G0 + G1: archive, rebuild from the archive, pack, consumer smoke, manifest) with
-  # its outputs kept as a workflow artifact. The v0.5 gate's first cloud run: 2026-09-05, run 33995206873
-  # on 09e2931 (success; COMPLETE 710/710 on PostgreSQL 16 / Node 22), see work/v05/STATE.md. The v0.6, v0.7 and
-  # v0.8 gates record the same-machine benchmark comparison as "not comparable" on a runner that differs from the
-  # baseline machine (the comparison is evidence only on that machine; see docs/VALIDATION.md); with a shallow
-  # checkout the baseline commit cannot be exported for the same-session comparison either.
+  # The release gate (G0 + G1: archive, rebuild from the archive, pack, consumer smoke, manifest) with its outputs kept
+  # as a workflow artifact. The gate reads the version from package.json (scripts/verify-release.mjs, 1.0.0-rc.1 on), so
+  # the artifact name and the validation directory carry it. The v0.5 gate's first cloud run: 2026-09-05, run 33995206873
+  # on 09e2931 in github.com/synajs/syna-v05, the workspace's home before github.com/synajs/syna (success; COMPLETE 710/710
+  # on PostgreSQL 16 / Node 22), see work/v05/STATE.md. Since 0.6 the gates record the same-machine benchmark comparison
+  # as "not comparable" on a runner that differs from the baseline machine (the comparison is evidence only on that
+  # machine; see docs/VALIDATION.md); with a shallow checkout the baseline commit cannot be exported for the same-session
+  # comparison either.
   release-gate:
     needs: check
     runs-on: ubuntu-latest
@@ -49,17 +51,19 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: node scripts/verify-v08.mjs --release
+      - id: version
+        run: echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+      - run: node scripts/verify-release.mjs --release
         env:
           SYNA_PG_BIN: /usr/lib/postgresql/16/bin
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: syna-v0.8-release-gate
+          name: syna-v${{ steps.version.outputs.version }}-release-gate
           if-no-files-found: warn
           path: |
             work/release/*.tar.gz
             work/release/*.zip
             work/release/pack/*.tgz
-            validation/v0.8-release/
+            validation/v${{ steps.version.outputs.version }}-release/
             RELEASE_MANIFEST.json

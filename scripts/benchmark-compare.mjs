@@ -7,7 +7,7 @@
 //       Runs the workload N times (default 7), aggregates, and compares against the baseline:
 //       every p50Ms/p95Ms and perOperationMs must be within ±tolerance of the baseline value,
 //       every plan-cache counter and shape count must be equal, and the environment must match
-//       (node major, platform, arch, cpu) — otherwise the comparison is reported as not comparable and fails.
+//       (node major, platform, arch, cpu, V8 flags) — otherwise the comparison is reported as not comparable and fails.
 //       Exit code 0 only when every checked value passes.
 import { spawnSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
@@ -83,6 +83,10 @@ const normalizeRecord = value => {
   return out
 }
 const ENVIRONMENT_KEYS = ['platform', 'arch', 'cpu', 'cpuCount']
+// The V8 flags of a fresh benchmark process (`compare --runs`), the same scripts/benchmark-same-session.mjs uses on both
+// sides (1.0.0-rc.1 on): `--no-maglev` removes the tier-up race that made the p95 of a sub-millisecond operation bimodal
+// from process to process (work/v08/STATE.md, Phase E). Two records measured under different flags are not comparable.
+const NODE_FLAGS = ['--expose-gc', '--no-maglev']
 
 const compare = (baselineRecord, currentRecord, tolerance) => {
   const baseline = normalizeRecord(baselineRecord)
@@ -115,6 +119,8 @@ const compare = (baselineRecord, currentRecord, tolerance) => {
   const environment = ENVIRONMENT_KEYS.map(key => ({ key, baseline: baseline.environment?.[key], current: current.environment?.[key], ok: baseline.environment?.[key] === current.environment?.[key] }))
   const nodeMajor = version => String(version ?? '').split('.')[0]
   environment.push({ key: 'node (major)', baseline: nodeMajor(baseline.environment?.node), current: nodeMajor(current.environment?.node), ok: nodeMajor(baseline.environment?.node) === nodeMajor(current.environment?.node) })
+  const flagsOf = record => [...(record.environment?.nodeOptions ?? [])].sort().join(' ') || '(none)'
+  environment.push({ key: 'node flags', baseline: flagsOf(baseline), current: flagsOf(current), ok: flagsOf(baseline) === flagsOf(current) })
   const comparable = environment.every(row => row.ok)
   return { comparable, environment, rows, ok: comparable && rows.every(row => row.ok) }
 }
@@ -125,7 +131,7 @@ const runWorkload = (count, keepDir) => {
   const runs = []
   for (let index = 1; index <= count; index += 1) {
     const file = path.join(dir, `run-${index}.json`)
-    const result = spawnSync(process.execPath, ['--expose-gc', workload, file], { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
+    const result = spawnSync(process.execPath, [...NODE_FLAGS, workload, file], { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
     if (result.status !== 0) throw new Error(`benchmark run ${index} failed (exit ${result.status}):\n${result.stderr}`)
     runs.push(JSON.parse(readFileSync(file, 'utf8')))
     process.stderr.write(`benchmark run ${index}/${count} done\n`)

@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-// Same-session benchmark comparison with the previous release (0.6 compared with 0.5.0, 0.7 with 0.6.0). The
+// Same-session benchmark comparison with the previous release (0.6 compared with 0.5.0, 0.7 with 0.6.0, 0.8 with 0.7.0,
+// 1.0.0-rc.1 with 0.8.0). The
 // baseline source is exported from its git commit into a scratch directory, installed from its lockfile and built;
 // then both it and the current tree are benchmarked in
 // the same session: one discarded warm-up run per side, then N rounds that run both sides in alternating order.
@@ -10,7 +11,14 @@
 // baseline file is compared with this session's baseline as well and reported as `recordDrift` (informational; it
 // says how far the machine moved, not how the code did).
 //
-//   node scripts/benchmark-same-session.mjs --commit 582c93a --baseline-label 0.6.0 --out-dir validation/v0.7-dev/benchmark-compare [--runs 21] [--tolerance 0.10] [--record benchmarks/results-v0.6.0-baseline-same-machine.json]
+// Both benchmark processes run with `--no-maglev` next to `--expose-gc` (1.0.0-rc.1 on): without V8's Maglev tier the
+// tier-up race that made a benchmark process fast or slow for its whole timed loop — the bimodal p95 of the 0.6 to 0.8
+// release runs (work/v08/STATE.md, Phase E) — is gone, and the p95 of a sub-millisecond operation is unimodal on both
+// sides alike; the tolerance, the statistic (element-wise median of the rounds) and the counters' equality are unchanged.
+// The flags are recorded in every run file (`environment.nodeOptions`) and in the median files (`nodeFlags`);
+// scripts/benchmark-compare.mjs treats two records measured under different flags as not comparable.
+//
+//   node scripts/benchmark-same-session.mjs --commit e24859f --baseline-label 0.8.0 --out-dir validation/v1.0.0-rc.1-dev/benchmark-compare [--runs 21] [--tolerance 0.10] [--record benchmarks/results-v0.8.0-baseline-same-machine.json]
 //
 // Exit 0 when the same-session comparison is OK, 1 when it fails, 3 when the baseline commit cannot be exported.
 import { spawnSync } from 'node:child_process'
@@ -25,11 +33,11 @@ const option = (name, fallback) => { const index = args.indexOf(name); return in
 const commit = option('--commit')
 const runs = Number(option('--runs', '21'))
 const tolerance = option('--tolerance', '0.10')
-const record = option('--record', 'benchmarks/results-v0.5.0-baseline-same-machine.json')
-const label = option('--baseline-label', '0.5.0')
+const record = option('--record', 'benchmarks/results-v0.8.0-baseline-same-machine.json')
+const label = option('--baseline-label', '0.8.0')
 const outDir = option('--out-dir')
 if (!commit || !outDir) {
-  console.error('usage: benchmark-same-session.mjs --commit <baseline commit> --out-dir <dir> [--baseline-label 0.5.0] [--runs N] [--tolerance 0.10] [--record <file>]')
+  console.error('usage: benchmark-same-session.mjs --commit <baseline commit> --out-dir <dir> [--baseline-label 0.8.0] [--runs N] [--tolerance 0.10] [--record <file>]')
   process.exit(2)
 }
 const out = path.resolve(root, outDir)
@@ -37,6 +45,8 @@ mkdirSync(out, { recursive: true })
 const relative = file => path.relative(root, file)
 const compareScript = path.join(root, 'scripts/benchmark-compare.mjs')
 const node = process.execPath
+// The V8 flags of both benchmark processes (see the header); the workload records them as `environment.nodeOptions`.
+const nodeFlags = ['--expose-gc', '--no-maglev']
 
 const sh = (command, argv, options = {}) => spawnSync(command, argv, { encoding: 'utf8', maxBuffer: 512 * 1024 * 1024, ...options })
 
@@ -75,7 +85,7 @@ try {
     { name: 'current', cwd: root, dir: path.join(out, 'current-runs'), files: [] },
   ]
   const benchmark = (side, file) => {
-    const result = sh(node, ['--expose-gc', workload, file], { cwd: side.cwd, stdio: ['ignore', 'pipe', 'pipe'] })
+    const result = sh(node, [...nodeFlags, workload, file], { cwd: side.cwd, stdio: ['ignore', 'pipe', 'pipe'] })
     if (result.status !== 0) throw new Error(`${side.name} benchmark run failed (exit ${result.status}):\n${result.stderr}`)
   }
   for (const side of sides) {
@@ -97,7 +107,7 @@ try {
     }
     console.log(`round ${round}/${runs} done (${order.map(side => side.name).join(', then ')})`)
   }
-  const method = { runs, warmUpRuns: 1, order: 'alternating rounds, both sides in every round' }
+  const method = { runs, warmUpRuns: 1, order: 'alternating rounds, both sides in every round', nodeFlags }
   const medianOf = (side, file, extra) => {
     const aggregate = sh(node, [compareScript, 'aggregate', ...side.files.map(relative), '--out', relative(file)], { cwd: root, stdio: ['ignore', 'pipe', 'pipe'] })
     if (aggregate.status !== 0) throw new Error(`aggregate of the ${side.name} runs failed: ${aggregate.stderr}`)
