@@ -29,6 +29,9 @@
       "path": "./apps/02-per-tenant"
     },
     {
+      "path": "./apps/03-user-configurable"
+    },
+    {
       "path": "./apps/hyla-mini"
     }
   ]

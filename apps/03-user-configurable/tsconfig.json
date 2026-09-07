@@ -1,0 +1,33 @@
+{
+  "extends": "@syna/tsconfig/node-app.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist",
+    "composite": true,
+    "sourceMap": true,
+    "tsBuildInfoFile": "dist/.tsbuildinfo"
+  },
+  "include": [
+    "src/**/*.ts"
+  ],
+  "references": [
+    {
+      "path": "../../packages/core"
+    },
+    {
+      "path": "../../packages/logger"
+    },
+    {
+      "path": "../../packages/tenant-store"
+    },
+    {
+      "path": "../../packages/notify-contract"
+    },
+    {
+      "path": "../../packages/acme-notify-v2"
+    },
+    {
+      "path": "../../packages/globex-notify"
+    }
+  ]
+}
