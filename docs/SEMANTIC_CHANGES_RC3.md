@@ -91,3 +91,12 @@
 | `apps/multitenant-blog/tests/rc3-close-paths.test.mjs` | RC2-A1（三条关闭路径）、RC2-A2、RC2-A3 |
 
 与 0.7 的 S1/S2 不同，本轮没有任何一条旧断言变成假：rc.2 的实现在这些路径上根本没有断言（一个挂住的 cleanup 会让测试自己挂住），所以新行为不与任何既有测试冲突。这也是为什么本轮是修订加实现修正，而不是撤回。
+
+## 7. 性能：一处退化与两处登记的改善
+
+关闭路径的修改会被同机交替对比看见，任务书要求"销毁并发化不得使任何 dispose 相关行退化"。第一次 release gate 的 21 轮对比（vs `d7a4410`，两侧同一会话交替，`--expose-gc --no-maglev`）给出 19/23：
+
+- **退化，已修**：`phase-breakdown-300.disposeMs` p50 +15.9%、p95 +20.7%。原因是有界 cleanup 给**每个** slot 都装了一个 `settlesWithin` 计时器，而这个基准里没有任何服务注册 cleanup——300 个 slot 就是 300 个白装的定时器。修法是把"没有注册任何 cleanup"当成没有需要等待的东西：不跑 `runCleanups`、不装计时器，直接 `disposed`（语义完全相同，`limits.disposalGraceMs` 界的是运行中的 cleanup）。改后同一对比为 +4.1% / +3.7%，在界内。
+- **改善，已登记**：`warm-enter-dispose-300-depth-6.timing.p95Ms` −12.4%、`site-enter-tenant-input-reverse-closure-200.timing.p95Ms` −17.9%（另一次 7 轮：−14.1% / −18.1%）。两行的 p50 只动 −1% ~ −3.7%，116 条计数与形状等值行全部相等——变好的是尾部，不是典型开销。原因是 §4 的 L3 解耦：attempt 的迟到反应与交给 `setup()` 的 lifecycle 各自建在独立作用域里，每个 attempt 分配的 context 对象更小，一个反复 enter/dispose 200–300 个 slot 的循环因此分配更少、GC 更少。**不是**并发销毁：把销毁改回 rc.2 的顺序版本（只保留每个 cleanup 的预算）作对照，同样两行仍是 −17.4% / −18.9%。
+
+对比脚本因此有了 `--faster-ok`：`scripts/verify-release.mjs` 用 `BENCHMARK_REGISTERED_FASTER` 列出这两行与理由，`--faster-floor 0.30` 是下界。登记只承认改善，永远盖不住退化——同一行变慢仍按 ±10% 失败，未登记的行变快也仍失败，登记的行快过下界同样失败（`scripts/tests/benchmark-registered-faster.test.mjs` 六条断言，随 `gate-self-tests` 运行）。其余 21 行不受影响。

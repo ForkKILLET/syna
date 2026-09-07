@@ -18,7 +18,11 @@
 // The flags are recorded in every run file (`environment.nodeOptions`) and in the median files (`nodeFlags`);
 // scripts/benchmark-compare.mjs treats two records measured under different flags as not comparable.
 //
-//   node scripts/benchmark-same-session.mjs --commit d7a4410 --baseline-label 1.0.0-rc.2 --out-dir validation/v1.0.0-rc.3-dev/benchmark-compare [--runs 21] [--tolerance 0.10] [--record benchmarks/results-v1.0.0-rc.2-baseline-same-machine.json]
+//   node scripts/benchmark-same-session.mjs --commit d7a4410 --baseline-label 1.0.0-rc.2 --out-dir validation/v1.0.0-rc.3-dev/benchmark-compare [--runs 21] [--tolerance 0.10] [--record benchmarks/results-v1.0.0-rc.2-baseline-same-machine.json] [--faster-ok <path,path>] [--faster-floor 0.40]
+//
+// `--faster-ok` is passed through to both comparisons: it names the rows this release has registered as expected to be
+// faster than the baseline by more than the tolerance (scripts/verify-release.mjs holds the list and the reason). A
+// registration never hides a regression — a row that is slower still fails at ±tolerance.
 //
 // Exit 0 when the same-session comparison is OK, 1 when it fails, 3 when the baseline commit cannot be exported.
 import { spawnSync } from 'node:child_process'
@@ -36,8 +40,11 @@ const tolerance = option('--tolerance', '0.10')
 const record = option('--record', 'benchmarks/results-v1.0.0-rc.2-baseline-same-machine.json')
 const label = option('--baseline-label', '1.0.0-rc.1')
 const outDir = option('--out-dir')
+const fasterOk = option('--faster-ok', '')
+const fasterFloor = option('--faster-floor', '0.40')
+const registeredArgs = fasterOk ? ['--faster-ok', fasterOk, '--faster-floor', fasterFloor] : []
 if (!commit || !outDir) {
-  console.error('usage: benchmark-same-session.mjs --commit <baseline commit> --out-dir <dir> [--baseline-label 1.0.0-rc.1] [--runs N] [--tolerance 0.10] [--record <file>]')
+  console.error('usage: benchmark-same-session.mjs --commit <baseline commit> --out-dir <dir> [--baseline-label 1.0.0-rc.1] [--runs N] [--tolerance 0.10] [--record <file>] [--faster-ok <path,path>] [--faster-floor 0.40]')
   process.exit(2)
 }
 const out = path.resolve(root, outDir)
@@ -121,7 +128,7 @@ try {
 
   // 5. Compare the two medians (the table goes to stdout).
   const report = path.join(out, 'same-session.json')
-  const compare = sh(node, [compareScript, 'compare', '--baseline', relative(baselineMedian), '--current', relative(currentMedian), '--tolerance', tolerance, '--out', relative(report)], { cwd: root, stdio: ['ignore', 'pipe', 'pipe'] })
+  const compare = sh(node, [compareScript, 'compare', '--baseline', relative(baselineMedian), '--current', relative(currentMedian), '--tolerance', tolerance, ...registeredArgs, '--out', relative(report)], { cwd: root, stdio: ['ignore', 'pipe', 'pipe'] })
   process.stdout.write(compare.stdout)
   if (compare.stderr) process.stderr.write(compare.stderr)
   status = compare.status === 0 ? 0 : 1

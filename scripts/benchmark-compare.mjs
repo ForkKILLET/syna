@@ -3,11 +3,15 @@
 //
 //   node scripts/benchmark-compare.mjs aggregate <run.json>... --out <median.json>
 //       Element-wise median of several runs of the workload (every numeric leaf; integers stay integers).
-//   node scripts/benchmark-compare.mjs compare --baseline <median.json> (--runs N | --current <median.json>) [--out <report.json>] [--tolerance 0.10] [--keep-runs <dir>]
+//   node scripts/benchmark-compare.mjs compare --baseline <median.json> (--runs N | --current <median.json>) [--out <report.json>] [--tolerance 0.10] [--keep-runs <dir>] [--faster-ok <path,path>] [--faster-floor 0.40]
 //       Runs the workload N times (default 7), aggregates, and compares against the baseline:
 //       every p50Ms/p95Ms and perOperationMs must be within ±tolerance of the baseline value,
 //       every plan-cache counter and shape count must be equal, and the environment must match
 //       (node major, platform, arch, cpu, V8 flags) — otherwise the comparison is reported as not comparable and fails.
+//       `--faster-ok` names rows the caller has registered as expected to be faster than the baseline by more than the
+//       tolerance (with the reason, in the caller): such a row passes while its delta is negative and no steeper than
+//       `--faster-floor` (default 0.40), and fails as usual when it is positive — a registration can never hide a
+//       regression, only an improvement the release has accounted for. Every other row keeps the two-sided ±tolerance.
 //       Exit code 0 only when every checked value passes.
 import { spawnSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
@@ -88,7 +92,7 @@ const ENVIRONMENT_KEYS = ['platform', 'arch', 'cpu', 'cpuCount']
 // from process to process (work/v08/STATE.md, Phase E). Two records measured under different flags are not comparable.
 const NODE_FLAGS = ['--expose-gc', '--no-maglev']
 
-const compare = (baselineRecord, currentRecord, tolerance) => {
+const compare = (baselineRecord, currentRecord, tolerance, registered = { paths: new Set(), floor: 0.4 }) => {
   const baseline = normalizeRecord(baselineRecord)
   const current = normalizeRecord(currentRecord)
   const rows = []
@@ -98,7 +102,11 @@ const compare = (baselineRecord, currentRecord, tolerance) => {
         const next = trail.concat(key)
         if (typeof base[key] === 'number' && TOLERANCE_KEYS.has(key)) {
           const ratio = base[key] === 0 ? (cur?.[key] === 0 ? 0 : Infinity) : cur?.[key] / base[key] - 1
-          rows.push({ path: next.join('.'), check: `±${Math.round(tolerance * 100)}%`, baseline: base[key], current: cur?.[key], delta: ratio, ok: Number.isFinite(ratio) && Math.abs(ratio) <= tolerance })
+          const within = Number.isFinite(ratio) && Math.abs(ratio) <= tolerance
+          // A registered improvement: faster than the baseline by more than the tolerance, on a row the caller named.
+          const improved = !within && Number.isFinite(ratio) && ratio < 0
+            && registered.paths.has(next.join('.')) && ratio >= -registered.floor
+          rows.push({ path: next.join('.'), check: `±${Math.round(tolerance * 100)}%`, baseline: base[key], current: cur?.[key], delta: ratio, ok: within || improved, ...(improved ? { registered: 'faster' } : {}) })
         } else if (typeof base[key] === 'number' && EQUAL_KEYS.has(key)) {
           rows.push({ path: next.join('.'), check: 'equal', baseline: base[key], current: cur?.[key], delta: cur?.[key] === base[key] ? 0 : null, ok: cur?.[key] === base[key] })
         } else if (isPlainObject(base[key]) || Array.isArray(base[key])) {
@@ -159,11 +167,15 @@ if (mode === 'aggregate') {
   if (!baselineFile) throw new Error('compare needs --baseline <median.json>')
   const baseline = JSON.parse(readFileSync(path.resolve(root, baselineFile), 'utf8'))
   const tolerance = Number(option('--tolerance', '0.10'))
+  const registered = {
+    paths: new Set((option('--faster-ok', '') || '').split(',').map(item => item.trim()).filter(Boolean)),
+    floor: Number(option('--faster-floor', '0.40')),
+  }
   const currentFile = option('--current')
   const runs = currentFile ? undefined : Number(option('--runs', '7'))
   const current = currentFile ? JSON.parse(readFileSync(path.resolve(root, currentFile), 'utf8')) : aggregate(runWorkload(runs, option('--keep-runs')))
-  const report = compare(baseline, current, tolerance)
-  const output = { baseline: baselineFile, current: currentFile ?? `median of ${runs} fresh runs`, tolerance, ...report, currentResult: current }
+  const report = compare(baseline, current, tolerance, registered)
+  const output = { baseline: baselineFile, current: currentFile ?? `median of ${runs} fresh runs`, tolerance, registeredFaster: [...registered.paths], registeredFasterFloor: registered.floor, ...report, currentResult: current }
   const out = option('--out')
   if (out) write(path.resolve(root, out), output)
   console.log(`environment ${report.comparable ? 'matches' : 'DIFFERS'}: ${report.environment.map(row => `${row.key}=${row.current}${row.ok ? '' : ` (baseline ${row.baseline})`}`).join(', ')}`)
@@ -171,14 +183,15 @@ if (mode === 'aggregate') {
   console.log('|---|---|---|---|---|---|')
   for (const row of report.rows) {
     if (row.check === 'equal' && row.ok) continue
-    console.log(`| ${row.path} | ${row.check} | ${format(row.baseline)} | ${format(row.current)} | ${row.delta === null ? '—' : `${(row.delta * 100).toFixed(1)}%`} | ${row.ok ? 'yes' : 'NO'} |`)
+    console.log(`| ${row.path} | ${row.check} | ${format(row.baseline)} | ${format(row.current)} | ${row.delta === null ? '—' : `${(row.delta * 100).toFixed(1)}%`} | ${row.ok ? (row.registered === 'faster' ? 'yes (registered improvement)' : 'yes') : 'NO'} |`)
   }
   const equal = report.rows.filter(row => row.check === 'equal')
-  console.log(`equality checks: ${equal.filter(row => row.ok).length}/${equal.length} equal; tolerance checks: ${report.rows.filter(row => row.check !== 'equal' && row.ok).length}/${report.rows.filter(row => row.check !== 'equal').length} within ±${Math.round(tolerance * 100)}%`)
+  const improvements = report.rows.filter(row => row.registered === 'faster')
+  console.log(`equality checks: ${equal.filter(row => row.ok).length}/${equal.length} equal; tolerance checks: ${report.rows.filter(row => row.check !== 'equal' && row.ok).length}/${report.rows.filter(row => row.check !== 'equal').length} within ±${Math.round(tolerance * 100)}%${improvements.length > 0 ? ` (${improvements.length} of them registered improvements: ${improvements.map(row => `${row.path} ${(row.delta * 100).toFixed(1)}%`).join(', ')})` : ''}`)
   console.log(report.ok ? 'BENCHMARK COMPARISON OK' : 'BENCHMARK COMPARISON FAILED')
   if (out) console.log(`wrote ${out}`)
   process.exit(report.ok ? 0 : 1)
 } else {
-  console.error('usage: benchmark-compare.mjs aggregate <run.json>... --out <file> | compare --baseline <file> [--runs N | --current <file>] [--out <report>] [--tolerance 0.10]')
+  console.error('usage: benchmark-compare.mjs aggregate <run.json>... --out <file> | compare --baseline <file> [--runs N | --current <file>] [--out <report>] [--tolerance 0.10] [--faster-ok <path,path>] [--faster-floor 0.40]')
   process.exit(2)
 }

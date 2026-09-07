@@ -60,6 +60,20 @@ const BASELINE_LABEL = '1.0.0-rc.2'
 // Rounds per side of the same-session comparison (each round benchmarks both sides); the element-wise median of the
 // rounds is compared, within ±10 %. Both benchmark processes run with `--no-maglev` (scripts/benchmark-same-session.mjs).
 const BENCHMARK_RUNS = 21
+// The two rows 1.0.0-rc.3 is registered as faster on: the p95 of the two end-to-end enter-and-dispose cases, ~14 % and
+// ~18 % below the 1.0.0-rc.2 side of the same session, while their p50 moves by ~2 % and every one of the 116 counter
+// and shape rows is equal — the tail, not the typical cost. The cause is the L3 decoupling: an attempt's reactions and
+// the lifecycle handed to `setup()` are built in scopes of their own, so the context object each attempt allocates is
+// smaller, and a loop that enters and disposes 200–300 slots allocates less and collects less often. It is not the
+// concurrent destruction: a control that kept the 1.0.0-rc.2 sequential order and only bounded each cleanup showed the
+// same two rows at −17.4 % and −18.9 % (work/rc3/STATE.md). A registered row still fails when it is slower than the
+// baseline, and when it is faster by more than the floor below — a registration accounts for an improvement, it never
+// hides a regression, and no other row is affected.
+const BENCHMARK_REGISTERED_FASTER = [
+  'cases.warm-enter-dispose-300-depth-6.timing.p95Ms',
+  'cases.site-enter-tenant-input-reverse-closure-200.timing.p95Ms',
+]
+const BENCHMARK_REGISTERED_FASTER_FLOOR = '0.30'
 // The `any` budget: the 0.7.0 record (178; 0.8.0 and 1.0.0-rc.1 measured the same count) re-keyed under the 1.0.0-rc.2
 // name of the reference application (apps/multitenant-blog), the deleted demos and fixtures dropped (each carried 0).
 // The seven examples and the rebuilt fixtures are absent from it: they may not use `any` at all.
@@ -407,10 +421,10 @@ async function developmentGate() {
   const baselineExportable = spawnSync('git', ['cat-file', '-e', `${BASELINE_COMMIT}^{commit}`], { cwd: root, stdio: 'ignore' }).status === 0
   const comparability = benchmarkBaselineEnvironment()
   if (baselineExportable) {
-    await run('benchmark-compare', 'node', ['scripts/benchmark-same-session.mjs', '--commit', BASELINE_COMMIT, '--baseline-label', BASELINE_LABEL, '--record', BENCHMARK_BASELINE, '--runs', String(BENCHMARK_RUNS), '--out-dir', path.join(validationDir, 'benchmark-compare')], { expectStdout: output => /^SAME-SESSION BENCHMARK COMPARISON OK$/m.test(output) })
+    await run('benchmark-compare', 'node', ['scripts/benchmark-same-session.mjs', '--commit', BASELINE_COMMIT, '--baseline-label', BASELINE_LABEL, '--record', BENCHMARK_BASELINE, '--runs', String(BENCHMARK_RUNS), '--faster-ok', BENCHMARK_REGISTERED_FASTER.join(','), '--faster-floor', BENCHMARK_REGISTERED_FASTER_FLOOR, '--out-dir', path.join(validationDir, 'benchmark-compare')], { expectStdout: output => /^SAME-SESSION BENCHMARK COMPARISON OK$/m.test(output) })
   }
   else if (comparability.comparable) {
-    await run('benchmark-compare', 'node', ['scripts/benchmark-compare.mjs', 'compare', '--baseline', BENCHMARK_BASELINE, '--runs', String(BENCHMARK_RUNS), '--out', path.join(validationDir, 'benchmark-compare.json')], { expectStdout: output => /^BENCHMARK COMPARISON OK$/m.test(output) })
+    await run('benchmark-compare', 'node', ['scripts/benchmark-compare.mjs', 'compare', '--baseline', BENCHMARK_BASELINE, '--runs', String(BENCHMARK_RUNS), '--faster-ok', BENCHMARK_REGISTERED_FASTER.join(','), '--faster-floor', BENCHMARK_REGISTERED_FASTER_FLOOR, '--out', path.join(validationDir, 'benchmark-compare.json')], { expectStdout: output => /^BENCHMARK COMPARISON OK$/m.test(output) })
   }
   else {
     steps.push({ name: 'benchmark-compare', ok: true, exitCode: 0, mustRun: false, command: 'internal', log: path.relative(root, path.join(validationDir, 'benchmark-v0.5.json')), note: `not comparable on this host (${comparability.differences.join('; ')}); the same-machine comparison is recorded only on the baseline's machine` })
