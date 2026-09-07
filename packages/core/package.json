@@ -1,7 +1,16 @@
 {
   "name": "@syna/core",
-  "version": "0.8.0",
+  "version": "1.0.0-rc.1",
   "description": "Scope-aware capability composition runtime for TypeScript",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/synajs/syna.git",
+    "directory": "packages/core"
+  },
+  "homepage": "https://github.com/synajs/syna#readme",
+  "bugs": {
+    "url": "https://github.com/synajs/syna/issues"
+  },
   "type": "module",
   "exports": {
     ".": {
@@ -26,7 +35,7 @@
   "license": "MIT",
   "sideEffects": false,
   "devDependencies": {
-    "@syna/tsconfig": "0.8.0",
+    "@syna/tsconfig": "1.0.0-rc.1",
     "@types/node": "^22.19.7",
     "@types/semver": "^7.8.0"
   },

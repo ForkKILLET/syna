@@ -26,7 +26,7 @@
     "build": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@syna/core": "0.8.0",
+    "@syna/core": "1.0.0-rc.1",
     "@syna-demo/llm-contract": "1.0.0",
     "@syna-demo/logger": "1.1.0",
     "@syna-demo/postgres": "3.2.1"
@@ -35,6 +35,6 @@
     "node": ">=22"
   },
   "devDependencies": {
-    "@syna/tsconfig": "0.8.0"
+    "@syna/tsconfig": "1.0.0-rc.1"
   }
 }

@@ -1,7 +1,16 @@
 {
   "name": "@syna/tsconfig",
-  "version": "0.8.0",
+  "version": "1.0.0-rc.1",
   "description": "TypeScript presets for Syna package authors",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/synajs/syna.git",
+    "directory": "packages/tsconfig"
+  },
+  "homepage": "https://github.com/synajs/syna#readme",
+  "bugs": {
+    "url": "https://github.com/synajs/syna/issues"
+  },
   "files": [
     "node-library.json",
     "node-app.json",
