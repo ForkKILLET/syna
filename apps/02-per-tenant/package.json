@@ -1,0 +1,29 @@
+{
+  "name": "@syna-demo/02-per-tenant",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Syna example 02: one set of instances per tenant, without a named scope",
+  "imports": {
+    "#syna/package": "./package.json"
+  },
+  "syna": {
+    "id": "demo.examples.per-tenant"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@syna/core": "1.0.0-rc.1",
+    "@syna-demo/logger": "1.1.0",
+    "@syna-demo/tenant-store": "1.2.0",
+    "@syna-demo/acme-notify-v2": "2.4.1"
+  },
+  "devDependencies": {
+    "@syna/tsconfig": "1.0.0-rc.1"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

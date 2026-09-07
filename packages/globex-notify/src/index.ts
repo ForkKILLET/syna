@@ -5,6 +5,8 @@ import { define } from './syna.js'
 
 /** The Globex client: a second Family that provides the same Contract. */
 export interface GlobexNotify extends Notifier {
+  /** Whose credential this client holds. */
+  readonly tenantId: string
   readonly region: string
 }
 
@@ -33,6 +35,7 @@ export const GlobexNotify = define.service({
     return {
       provider: 'Globex',
       providerVersion: define.package.version,
+      tenantId: id,
       region: 'eu-west',
       async send(notification) {
         sent += 1

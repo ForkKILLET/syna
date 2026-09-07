@@ -26,6 +26,9 @@
       "path": "./apps/01-basics"
     },
     {
+      "path": "./apps/02-per-tenant"
+    },
+    {
       "path": "./apps/hyla-mini"
     }
   ]

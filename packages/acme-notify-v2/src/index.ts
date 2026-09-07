@@ -10,6 +10,8 @@ export interface AcmeBatch {
 
 /** The Acme client of SDK generation 2: `send()` as before, plus batches. */
 export interface AcmeNotify extends Notifier {
+  /** Whose credential this client holds. */
+  readonly tenantId: string
   readonly sdk: 'acme-sdk-2'
   sendBatch(notifications: readonly Notification[]): Promise<AcmeBatch>
 }
@@ -56,6 +58,7 @@ export const AcmeNotify = define.service({
     return {
       provider: 'Acme',
       providerVersion: define.package.version,
+      tenantId: id,
       sdk: 'acme-sdk-2',
       async send(notification) {
         log.debug(`acme ${define.package.version}: ${id} sends ${notification.id} to ${notification.to}`)

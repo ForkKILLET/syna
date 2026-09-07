@@ -5,6 +5,8 @@ import { define } from './syna.js'
 
 /** The Acme client of SDK generation 1: `send()` only. */
 export interface AcmeNotify extends Notifier {
+  /** Whose credential this client holds. */
+  readonly tenantId: string
   readonly sdk: 'acme-sdk-1'
 }
 
@@ -40,6 +42,7 @@ export const AcmeNotify = define.service({
     return {
       provider: 'Acme',
       providerVersion: define.package.version,
+      tenantId: id,
       sdk: 'acme-sdk-1',
       async send(notification) {
         sent += 1
