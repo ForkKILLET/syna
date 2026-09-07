@@ -64,8 +64,9 @@ the event says which phase it was — so the increment is one union member.
 | `RuntimeLimits` | doc of `disposalGraceMs` only | the limit now also bounds each Ready slot's cleanup phase; leaving the doc would misdescribe the limit |
 | `UnsettledAttemptInspection` | doc of `state` only | `abandoned` now also covers a cleanup the close stopped waiting for (no new value, per §2.0) |
 
-**Expected inventory diff: 0 added, 0 removed, 3 changed** (the inventory records the
-full signature text including doc comments, so a doc line counts as a change). No name,
+**Expected inventory diff: 0 added, 0 removed, 3 changed** (the inventory records the full
+signature text — the member comments inside a type body included — and the item's own JSDoc
+in a field of its own, so a doc line counts as a change of that item). No name,
 field, option or event type is added. Registered in `docs/API_STABILITY.md` as the rc.3
 exception.
 

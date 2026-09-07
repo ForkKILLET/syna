@@ -10,6 +10,18 @@ This document declares the public surface of `@syna/core` frozen from 0.8.0, say
 
 Not on the frozen surface, and therefore not promised in either direction: everything `docs/DEFERRED.md` lists — the semantics it defers (`C.all` coexistence relaxation, `primary()`, `ServiceFamily.range()`, `load({ timeoutMs })`, cross-ancestor reuse, Prepared / activation groups, a generation-switching host) and the names its 命名（2.0） section records as candidates for the next major. An addition of that kind is a new name under the naming guidelines, never a change of this surface.
 
+### Registered exception — 1.0.0-rc.3（rc.3 登记例外）
+
+One increment to the frozen surface, and one revision of a frozen semantic, both from the independent audit of 1.0.0-rc.2 (`docs/SEMANTIC_CHANGES_RC3.md`, `work/rc3/BASELINE.md`):
+
+| item | change |
+|---|---|
+| `RuntimeEvent` | `attempt-abandoned.phase` gains `'cleanup'`: `'setup' \| 'rollback'` → `'setup' \| 'rollback' \| 'cleanup'` |
+| `RuntimeLimits` | the doc of `disposalGraceMs`: the limit now also bounds the cleanup phase of each Ready slot |
+| `UnsettledAttemptInspection` | the doc of `state`: `abandoned` now also covers a cleanup the close stopped waiting for (no new value) |
+
+`api-inventory` diff against the 1.0.0-rc.2 record: **0 added, 0 removed, 3 changed** — nothing else, asserted by the release gate. The revised semantic is `docs/SEMANTIC_MODEL.md` §13: the disposal grace bounds each Ready slot's cleanup phase as it bounds each attempt, independent SCCs are destroyed concurrently, and every cleanup failure the close waited for reaches `dispose()` exactly once. It is registered here rather than deferred to a major because §13 has said since 0.7 that the close is bounded and that `disposalGraceMs` is what bounds it: rc.2's implementation did not deliver that for cleanups, and a close that can hang forever is not the frozen semantic under another reading — it is the absence of it. The discriminator is the smallest thing that lets the report stay true (the alternative, a fourth `UnsettledAttemptInspection.state`, was not taken).
+
 The way an unknown or renamed option is refused is a diagnostic, not part of the frozen surface（未知或已改名选项的拒绝方式属于诊断，不属于冻结面）: that no expired or unknown form is read silently is a rule of this document, but which error a refused call receives — the `TypeError`s and the `INVALID_DESCRIPTOR` refusals of `docs/MIGRATION_V07_TO_V08.md` — with its message and its `details` is a diagnostic that a minor may sharpen.
 
 ## Persisted data

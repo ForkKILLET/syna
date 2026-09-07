@@ -1,7 +1,7 @@
 // The close matrix required by SYNA_RC3_EXECUTION_PROMPT.md §3: what is stuck or
 // throwing (a Ready slot's cleanup hanging or throwing, the rollback of an attempt
 // that settled inside the grace, the late cleanup of an abandoned attempt) against
-// what became of the waiter (none, still waiting, cancelled, timed out) — plus the
+// what became of the waiter (none, still waiting, cancelled, past its deadline) — plus the
 // two properties of concurrent destruction: every dependency chain keeps its order,
 // and one level of the close costs one grace per slot of the longest chain.
 import assert from 'node:assert/strict'
@@ -51,7 +51,7 @@ const runCell = async (row, column) => {
   const events = []
   const cleanupError = new Error(`${row} cleanup failed`)
   const readyRow = row === 'ready-hangs' || row === 'ready-throws'
-  const loadTimeoutMs = column === 'none' || column === 'timed-out' ? SHORT_TIMEOUT_MS : 5_000
+  const loadTimeoutMs = column === 'none' || column === 'timeout' ? SHORT_TIMEOUT_MS : 5_000
   let releaseHung
   let releaseSubject
   let releaseWitness
@@ -105,12 +105,12 @@ const runCell = async (row, column) => {
     waiterOutcome = await waiter.then(error => error?.code ?? error)
     waiter = undefined
   }
-  else if (column === 'timed-out') {
+  else if (column === 'timeout') {
     // Issued now, so its deadline expires while the close is running.
     waiter = carrier.load().then(() => 'resolved', error => error)
   }
   if (column === 'none' && readyRow) await sleep(2)
-  else if (column === 'waiting' || column === 'timed-out') await sleep(2)
+  else if (column === 'waiting' || column === 'timeout') await sleep(2)
 
   const started = Date.now()
   const disposal = env.dispose().then(() => undefined, error => error)
@@ -150,7 +150,7 @@ const runCell = async (row, column) => {
 }
 
 const ROWS = ['ready-hangs', 'ready-throws', 'rollback-throws', 'late-cleanup-throws']
-const COLUMNS = ['none', 'waiting', 'cancelled', 'timed-out']
+const COLUMNS = ['none', 'waiting', 'cancelled', 'timeout']
 
 for (const row of ROWS) {
   for (const column of COLUMNS) {
@@ -178,7 +178,7 @@ for (const row of ROWS) {
         none: readyRow ? undefined : 'LOAD_TIMEOUT',
         waiting: row === 'ready-hangs' || row === 'ready-throws' ? 'ENV_CLOSED' : (row === 'rollback-throws' ? 'AggregateError' : 'ENV_CLOSED'),
         cancelled: 'LOAD_CANCELLED',
-        'timed-out': 'LOAD_TIMEOUT',
+        'timeout': 'LOAD_TIMEOUT',
       }[column]
       assert.equal(cell.waiterOutcome, expectedWaiter, `the waiter of a ${column} column`)
 

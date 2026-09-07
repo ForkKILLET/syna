@@ -175,16 +175,16 @@ test('RC2-L2 a rollback that throws while the close discards its late result is 
   await runtime.dispose()
 })
 
-test('RC2-L2b the same failure is reported when the waiter has cancelled or timed out: what the waiter got changes nothing', async () => {
+test('RC2-L2b the same failure is reported when the waiter has cancelled or run out its deadline: what the waiter got changes nothing', async () => {
   const define = makeDefine('rc3.l2b.no-waiter')
   const flat = error => (error instanceof AggregateError ? error.errors.flatMap(flat) : [error])
 
-  for (const how of ['cancelled', 'timed-out']) {
+  for (const how of ['cancelled', 'timeout']) {
     const events = []
     const cleanupError = new Error(`cleanup during close failed (${how})`)
     let release
     const Late = define.service(`late-${how}`, {
-      loadTimeoutMs: how === 'timed-out' ? 20 : 5_000,
+      loadTimeoutMs: how === 'timeout' ? 20 : 5_000,
       setup(_deps, { onDispose }) {
         onDispose(() => { throw cleanupError })
         return new Promise(resolve => { release = () => resolve({ late: true }) })

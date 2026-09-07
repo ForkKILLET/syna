@@ -69,7 +69,15 @@ const ANY_BASELINE = 'scripts/any-baseline-v1.0.0-rc.2.json'
 const INVENTORY_FROZEN = 'validation/v0.8-release/api-inventory.json'
 // The public API as the 1.0.0-rc.1 release gate recorded it (provenance 77d6440; identical to the 0.8.0 record): the
 // diff of this source against the previous release candidate, and the assertion that it is empty.
-const INVENTORY_PREVIOUS = 'validation/v1.0.0-rc.1-release/api-inventory.json'
+const INVENTORY_PREVIOUS = 'validation/v1.0.0-rc.2-release/api-inventory.json'
+/**
+ * The registered increment of 1.0.0-rc.3 (docs/API_STABILITY.md "Registered exception",
+ * docs/SEMANTIC_CHANGES_RC3.md §5): the three items whose signature text differs from every
+ * record written before it — `attempt-abandoned.phase` gained 'cleanup', and two doc lines
+ * describe what the disposal grace now bounds. Every one of them must differ, and nothing
+ * else may: the diff against a record is 0 added, 0 removed, exactly these 3 changed.
+ */
+const INVENTORY_REGISTERED_CHANGES = ['RuntimeEvent', 'RuntimeLimits.disposalGraceMs', 'UnsettledAttemptInspection.state']
 
 const startedAt = new Date()
 const steps = []
@@ -289,8 +297,9 @@ async function developmentGate() {
   // the vendor-name scan and the re-keyed `any` baseline.
   await run('gate-self-tests', 'node', ['--test', '--test-reporter=tap', ...glob('scripts/tests', '.test.mjs')], { noSkip: true })
   // The public API inventory of this source, the gate's own assertion that no item of it is deprecated (A11 in 0.7,
-  // a success criterion of 0.8), its diff against the 1.0.0-rc.1 record when that record is present, and — the frozen
-  // surface — the assertion that the inventory is identical to the 1.0.0-rc.1 record and to the 0.8.0 record, item by item.
+  // a success criterion of 0.8), its diff against the 1.0.0-rc.2 record when that record is present, and — the frozen
+  // surface — the assertion that the inventory differs from the 1.0.0-rc.2 record and from the 0.8.0 record by exactly
+  // the registered increment of this round and by nothing else, item by item.
   const inventoryStep = await run('api-inventory', 'node', ['scripts/api-inventory.mjs', '--out', path.join(validationDir, 'api-inventory.md'), '--json', path.join(validationDir, 'api-inventory.json')])
   {
     const inventoryFile = path.join(validationDir, 'api-inventory.json')
@@ -301,26 +310,38 @@ async function developmentGate() {
     steps.push({ name: 'api-inventory-no-deprecated', ok, exitCode: ok ? 0 : 1, mustRun: true, command: 'internal', log: path.relative(root, inventoryFile), note, ...(deprecated && deprecated.length > 0 ? { deprecated } : {}) })
     log(`${ok ? 'ok  ' : 'FAIL'} api-inventory-no-deprecated (${note})`)
   }
-  // Identity with a recorded inventory: every item of the record — path, kind, signature, JSDoc, deprecation — is in
-  // this source's inventory unchanged and nothing is new: the two item lists are the same set, of the same size.
+  // Identity with a recorded inventory, up to the registered increment: every item of the record — path, kind,
+  // signature, JSDoc, deprecation — is in this source's inventory unchanged except the registered ones, each of which
+  // must differ; nothing is added or removed, so the two item lists have the same size.
   const identicalTo = (name, recordFile, logFile) => {
     const inventoryFile = path.join(validationDir, 'api-inventory.json')
     const record = JSON.parse(readFileSync(path.join(root, recordFile), 'utf8'))
     const current = existsSync(inventoryFile) ? JSON.parse(readFileSync(inventoryFile, 'utf8')) : null
     const key = item => JSON.stringify([item.path, item.kind, item.signature, item.doc ?? '', item.deprecated === true, item.note ?? ''])
+    const registered = item => INVENTORY_REGISTERED_CHANGES.includes(item.path)
     const recordKeys = new Set(record.items.map(key))
     const currentKeys = new Set(current ? current.items.map(key) : [])
-    const changed = current ? record.items.filter(item => !currentKeys.has(key(item))).map(item => item.path) : []
-    const added = current ? current.items.filter(item => !recordKeys.has(key(item))).map(item => item.path) : []
-    const ok = current !== null && changed.length === 0 && added.length === 0 && current.items.length === record.items.length
+    const gone = current ? record.items.filter(item => !currentKeys.has(key(item))).map(item => item.path) : []
+    const fresh = current ? current.items.filter(item => !recordKeys.has(key(item))).map(item => item.path) : []
+    // A changed item is on both lists (its recorded form is gone, its current form is new);
+    // a removal would be on `gone` alone and an addition on `fresh` alone.
+    const changed = gone.filter(item => fresh.includes(item))
+    const removed = gone.filter(item => !fresh.includes(item))
+    const added = fresh.filter(item => !gone.includes(item))
+    const unregistered = [...new Set([...changed, ...removed, ...added])].filter(item => !INVENTORY_REGISTERED_CHANGES.includes(item))
+    const missing = INVENTORY_REGISTERED_CHANGES.filter(item => !changed.includes(item))
+    const ok = current !== null && unregistered.length === 0 && missing.length === 0
+      && removed.length === 0 && added.length === 0 && current.items.length === record.items.length
+      && current.items.filter(registered).length === INVENTORY_REGISTERED_CHANGES.length
     const note = current
-      ? `${current.items.length} items here, ${record.items.length} in the ${record.version} record (${recordFile}, commit ${record.commit}); ${changed.length} of the record's items changed or removed, ${added.length} items new or changed`
+      ? `${current.items.length} items here, ${record.items.length} in the ${record.version} record (${recordFile}, commit ${record.commit}); 0 added, ${removed.length} removed, ${changed.length} changed — the registered increment of 1.0.0-rc.3${unregistered.length > 0 ? `, and ${unregistered.length} unregistered` : ''}${missing.length > 0 ? `; ${missing.length} registered item did not change` : ''}`
       : 'no inventory was produced'
-    steps.push({ name, ok, exitCode: ok ? 0 : 1, mustRun: true, command: 'internal', log: path.relative(root, logFile), note, ...(changed.length > 0 ? { changed } : {}), ...(added.length > 0 ? { added } : {}) })
+    steps.push({ name, ok, exitCode: ok ? 0 : 1, mustRun: true, command: 'internal', log: path.relative(root, logFile), note, ...(changed.length > 0 ? { changed } : {}), ...(added.length > 0 ? { added } : {}), ...(removed.length > 0 ? { removed } : {}), ...(unregistered.length > 0 ? { unregistered } : {}), ...(missing.length > 0 ? { missing } : {}) })
     log(`${ok ? 'ok  ' : 'FAIL'} ${name} (${note})`)
   }
   if (existsSync(path.join(root, INVENTORY_PREVIOUS))) {
-    // The doc-aware diff against the previous release candidate, and the assertion that it is empty: 0 added, 0 removed, 0 changed.
+    // The doc-aware diff against the previous release candidate, and the assertion that it is exactly the registered
+    // increment of this round: 0 added, 0 removed, 3 changed.
     await run('api-inventory-diff', 'node', ['scripts/api-inventory.mjs', '--diff', INVENTORY_PREVIOUS, path.join(validationDir, 'api-inventory.json'), '--out', path.join(validationDir, 'api-inventory-diff.md')])
     identicalTo('api-inventory-unchanged', INVENTORY_PREVIOUS, path.join(validationDir, 'api-inventory-diff.md'))
   }

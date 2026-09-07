@@ -11,6 +11,7 @@ The line from the tarball baselines to 1.0, one round per section: what the roun
 | 0.8.0 | the last rename（最终收束） | `work/tasks/SYNA_V08_EXECUTION_PROMPT.md`, `work/tasks/SYNA_V08_GOAL.txt` | `docs/MIGRATION_V07_TO_V08.md`, `docs/API_STABILITY.md` | `validation/v0.8-release/`, `work/v08/STATE.md` |
 | 1.0.0-rc.1 | release candidate | — (metadata, tooling and documents; no core change) | `CHANGELOG.md` | `validation/v1.0.0-rc.1-release/`, `work/v1.0/STATE.md` |
 | 1.0.0-rc.2 | the examples rebuilt（示例重建） | `work/tasks/SYNA_RC2_EXECUTION_PROMPT.md`, `work/tasks/SYNA_RC2_GOAL.txt` | `CHANGELOG.md`, `docs/EXAMPLES.md` | `validation/v1.0.0-rc.2-release/`, `work/rc2/STATE.md` |
+| 1.0.0-rc.3 | the closing paths（关闭路径） — from an independent audit | `work/tasks/SYNA_RC3_EXECUTION_PROMPT.md`, `work/tasks/SYNA_RC3_GOAL.txt` | `docs/SEMANTIC_CHANGES_RC3.md` | `validation/v1.0.0-rc.3-release/`, `work/rc3/STATE.md` |
 
 ## 0.2 – 0.4 — the tarball baselines
 
@@ -35,6 +36,12 @@ Task book `work/tasks/SYNA_V08_EXECUTION_PROMPT.md` (goal `work/tasks/SYNA_V08_G
 ## 1.0.0-rc.1 — the release candidate
 
 No task book: no change of the core — the public API inventory is identical to the 0.8.0 record item by item, the planner differential and the snapshots are the 0.8.0 ones. The candidate changes metadata (the repository `github.com/synajs/syna` in every `package.json`, the badges and links), tooling (`scripts/verify-release.mjs` reads the version from `package.json`; both sides of the benchmark comparison run under `--no-maglev` against the 0.8.0 source re-recorded the same way; one gate run's evidence is committed with the release) and documents (this page, the diagnostics clause of `docs/API_STABILITY.md`, `docs/DEFERRED.md` N15, the task books committed under `work/tasks/`). Record: `CHANGELOG.md`; evidence `validation/v1.0.0-rc.1-release/`, `work/v1.0/STATE.md`.
+
+## 1.0.0-rc.3 — the closing paths（关闭路径）
+
+Task book `work/tasks/SYNA_RC3_EXECUTION_PROMPT.md` (goal `work/tasks/SYNA_RC3_GOAL.txt`). **The first round driven by an independent audit rather than by a task the maintainer set**: a review of 1.0.0-rc.2 (`d7a4410`) reproduced six groups of defects, all of them on the closing path, and the round fixes exactly those. The audit's own package was not in the workspace when the round ran, so its seven probes were reconstructed from the task book's description of each defect and kept in `work/rc3/probes/`; `work/rc3/BASELINE.md` records the seven reproduced on rc.2, the minimal public-surface increment, the scheduling design of the concurrent destruction and the ten strong-reference paths that kept a closed Env alive.
+
+What the audit found and the round fixed: a Ready slot's cleanup was awaited without a bound, so one `onDispose` that never settled stopped the whole close (L1 — the disposal grace now bounds each slot's cleanup phase, independent components are destroyed concurrently, and what outlives its budget is abandoned and reported with the new `attempt-abandoned` phase `'cleanup'`); a cleanup that threw while the Env was closing could reach neither `dispose()` nor an event, and with the waiter cancelled or timed out it was visible nowhere at all (L2 — every cleanup failure the close waited for is in the `AggregateError` exactly once, and the late events are reported from the start of the close); an outstanding attempt kept the closed Env's whole graph through `attempt.slot.ownerEnv` (L3 — an implementation correction: `docs/SEMANTIC_MODEL.md` §13 had said since 0.7 that retention is the user's Promise, never the Runtime's); and in the reference application the owner's abort set the same flag the shutdown used as its "already done" marker, `acquireTimeoutMs` did not cover the configuration read, and a shutdown did not end an in-flight caller's wait (A1, A2/A3). §13 was revised for L1 and L2, and now says in one line what a bounded close is: **what is bounded is the waiting, not the release of resources.** Record: `docs/SEMANTIC_CHANGES_RC3.md`; evidence `validation/v1.0.0-rc.3-release/`, `work/rc3/STATE.md`.
 
 ## 1.0.0-rc.2 — the examples rebuilt（示例重建）
 

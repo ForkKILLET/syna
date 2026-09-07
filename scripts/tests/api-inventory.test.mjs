@@ -117,6 +117,38 @@ test(`A11 nothing is deprecated; the error-code union has ${ERROR_CODE_COUNT} me
   assert.ok(codes.includes('INACTIVE_REUSE_TARGET') && codes.includes('ENV_CLOSED') && codes.includes('RUNTIME_CLOSED') && codes.includes('SLOT_NOT_LOADABLE') && codes.includes('LIFECYCLE_MISUSE') && codes.includes('LOAD_TIMEOUT'))
 })
 
+/**
+ * The registered increment of 1.0.0-rc.3 (docs/API_STABILITY.md "Registered exception",
+ * docs/SEMANTIC_CHANGES_RC3.md §5): `attempt-abandoned.phase` gained 'cleanup', and two doc
+ * lines say what the disposal grace now bounds. Every record written before rc.3 differs from
+ * the current inventory in exactly these three items, each of them changed — never added,
+ * never removed — and in nothing else.
+ */
+const CHANGED_RC3 = ['RuntimeEvent', 'RuntimeLimits.disposalGraceMs', 'UnsettledAttemptInspection.state']
+/**
+ * Of those three, the one whose *signature* text differs (the union member sits inside the type
+ * body, as does the comment above it). The other two changed only their own JSDoc, which the
+ * inventory records in a field of its own — a signature-only comparison does not see them.
+ */
+const CHANGED_RC3_SIGNATURE = ['RuntimeEvent']
+
+/** The two item lists differ by exactly the registered increment: 0 added, 0 removed, 3 changed. */
+const assertOnlyRegisteredChanges = (current, record, what) => {
+  const key = item => JSON.stringify([item.path, item.kind, item.signature, item.doc ?? '', item.deprecated === true, item.note ?? ''])
+  const recordKeys = new Set(record.map(key))
+  const currentKeys = new Set(current.map(key))
+  const gone = record.filter(item => !currentKeys.has(key(item))).map(item => item.path)
+  const fresh = current.filter(item => !recordKeys.has(key(item))).map(item => item.path)
+  assert.deepEqual(gone.filter(item => !fresh.includes(item)), [], `items removed or renamed since ${what}`)
+  assert.deepEqual(fresh.filter(item => !gone.includes(item)), [], `items added since ${what}`)
+  assert.deepEqual([...new Set(gone)].sort(), [...CHANGED_RC3].sort(), `the changed items since ${what} are exactly the registered increment of 1.0.0-rc.3`)
+  assert.equal(current.length, record.length)
+  const phase = current.find(item => item.path === 'RuntimeEvent').signature
+  const recorded = record.find(item => item.path === 'RuntimeEvent').signature
+  assert.ok(/readonly phase: 'setup' \| 'rollback' \| 'cleanup'/.test(phase), 'the increment is the new phase member')
+  assert.ok(/readonly phase: 'setup' \| 'rollback'/.test(recorded) && !recorded.includes("'cleanup'"), 'and the record has the two of them')
+}
+
 const signaturesByPath = items => {
   const map = new Map()
   for (const item of items) map.set(item.path, [...(map.get(item.path) ?? []), `${item.deprecated ? '@deprecated ' : ''}${item.signature}`].sort())
@@ -141,37 +173,34 @@ test('0.8 the diff against the 0.7.0 record is exactly the rename table: removed
   const beforeSignatures = signaturesByPath(record.items)
   const afterSignatures = signaturesByPath(after.items)
   const changed = [...afterSignatures.keys()].filter(item => beforeSignatures.has(item) && JSON.stringify(beforeSignatures.get(item)) !== JSON.stringify(afterSignatures.get(item))).sort()
-  assert.deepEqual(changed, [...CHANGED_08].sort(), 'every kept item whose signature changed spells a renamed name of the table, and nothing outside the table changed')
+  assert.deepEqual(changed, [...new Set([...CHANGED_08, ...CHANGED_RC3_SIGNATURE])].sort(), 'every kept item whose signature changed spells a renamed name of the table or is the registered 1.0.0-rc.3 increment, and nothing else changed')
   const committedAfter = path.join(root, 'work/v08/API_INVENTORY_AFTER.json')
   if (existsSync(committedAfter)) {
+    // The 0.8 record of the round that wrote it: unchanged since, up to the registered increment of 1.0.0-rc.3.
     const committed = JSON.parse(readFileSync(committedAfter, 'utf8'))
-    assert.deepEqual(committed.items, after.items, 'work/v08/API_INVENTORY_AFTER.json is stale; re-run node scripts/api-inventory.mjs --out work/v08/API_INVENTORY_AFTER.md --json work/v08/API_INVENTORY_AFTER.json')
+    assertOnlyRegisteredChanges(after.items, committed.items, 'the 0.8 record work/v08/API_INVENTORY_AFTER.json')
   }
 })
 
 // 1.0.0-rc.1: the public surface is frozen from 0.8.0. The record is the inventory the 0.8.0 release gate wrote
 // (validation/v0.8-release/api-inventory.json, commit 38a722e); it lives in the source repository, not in the archive.
 const frozen = path.join(root, 'validation/v0.8-release/api-inventory.json')
-test('1.0: the inventory is identical to the 0.8.0 record, item by item — path, kind, signature, JSDoc, deprecation (asserted where the record is present)', () => {
+test('1.0: the inventory is the 0.8.0 record item by item — path, kind, signature, JSDoc, deprecation — up to the registered 1.0.0-rc.3 increment (asserted where the record is present)', () => {
   if (!existsSync(frozen)) return
   const record = JSON.parse(readFileSync(frozen, 'utf8'))
   assert.equal(record.version, '0.8.0', 'the record is the 0.8.0 inventory')
   assert.equal(record.items.length, 374)
-  assert.deepEqual(after.items, record.items, 'the public API differs from the 0.8.0 record')
+  assertOnlyRegisteredChanges(after.items, record.items, 'the 0.8.0 record')
 })
 
-// 1.0.0-rc.2: nothing changed since the previous release candidate either — the record the 1.0.0-rc.1 release gate wrote
-// (validation/v1.0.0-rc.1-release/api-inventory.json, provenance 77d6440), itself identical to the 0.8.0 record.
-const previous = path.join(root, 'validation/v1.0.0-rc.1-release/api-inventory.json')
-test('1.0.0-rc.2: the inventory is identical to the 1.0.0-rc.1 record, item by item: 0 added, 0 removed, 0 changed (asserted where the record is present)', () => {
+// 1.0.0-rc.3: the previous release candidate's record (the one the 1.0.0-rc.2 release gate wrote,
+// validation/v1.0.0-rc.2-release/api-inventory.json, itself identical to the 1.0.0-rc.1 and 0.8.0 records)
+// differs from this source by exactly the registered increment of this round, and by nothing else.
+const previous = path.join(root, 'validation/v1.0.0-rc.2-release/api-inventory.json')
+test('1.0.0-rc.3: the inventory differs from the 1.0.0-rc.2 record by exactly the registered increment: 0 added, 0 removed, 3 changed (asserted where the record is present)', () => {
   if (!existsSync(previous)) return
   const record = JSON.parse(readFileSync(previous, 'utf8'))
-  assert.equal(record.version, '1.0.0-rc.1', 'the record is the 1.0.0-rc.1 inventory')
+  assert.equal(record.version, '1.0.0-rc.2', 'the record is the 1.0.0-rc.2 inventory')
   assert.equal(record.items.length, 374)
-  const key = item => JSON.stringify([item.path, item.kind, item.signature, item.doc ?? '', item.deprecated === true, item.note ?? ''])
-  const recordKeys = new Set(record.items.map(key))
-  const afterKeys = new Set(after.items.map(key))
-  assert.deepEqual(after.items.filter(item => !recordKeys.has(key(item))).map(item => item.path), [], 'items added or changed since 1.0.0-rc.1')
-  assert.deepEqual(record.items.filter(item => !afterKeys.has(key(item))).map(item => item.path), [], 'items removed or changed since 1.0.0-rc.1')
-  assert.deepEqual(after.items, record.items, 'the public API differs from the 1.0.0-rc.1 record')
+  assertOnlyRegisteredChanges(after.items, record.items, '1.0.0-rc.2')
 })
