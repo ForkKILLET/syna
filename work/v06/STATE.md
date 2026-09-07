@@ -1,6 +1,6 @@
 # Syna v0.6 API consolidation — state
 
-Task book: `SYNA_V06_API_EXECUTION_PROMPT.md`. Baseline: 0.5.0 at commit 4a67b99 (release gate COMPLETE, see `work/v05/STATE.md`).
+Task book: `SYNA_V06_API_EXECUTION_PROMPT.md` (committed as `work/tasks/SYNA_V06_API_EXECUTION_PROMPT.md` with its goal since 1.0.0-rc.1; untracked at the workspace root while the round ran). Baseline: 0.5.0 at commit 4a67b99 (release gate COMPLETE, see `work/v05/STATE.md`).
 
 ## Phase A — inventory and README-first (done)
 

@@ -1,0 +1,5 @@
+/goal 先完整读取工作区根目录的 SYNA_V06_API_EXECUTION_PROMPT.md，并按该任务书完成 Syna v0.6 的 API 收束：只改第 3 节清单里的六组改名、四组删除、三组合并和两项类型强化；任何清单外的名字与任何语义（默认值、错误触发条件、explain 内容、缓存行为、C.all 共存要求、deadline、GC 相关状态、默认实现）一律不动，觉得该改的写进 docs/DEFERRED.md。
+
+成功结束必须同时满足：work/v06/ 下有可重跑脚本生成的前后 API 清单及 diff；六个改名项每项在同一 commit 内含新名、旧名弃用别名、迁移等价测试、类型测试与文档；删除项不留别名；M1 默认值逐字锁定；SynaError 为按 code 判别的联合类型；Hyla-mini、demos、benchmarks、scripts 全部迁移到新名并有 grep 断言测试保证不含旧名；README 首页示例用新名、无解释性注释、作为测试原样运行；docs/API_STABILITY.md（冻结范围 + 一个 minor 的弃用政策 + 命名守则）、docs/MIGRATION_V05_TO_V06.md（逐项含理由编号与持久化 key 变化）、docs/DEFERRED.md、CHANGELOG 齐备；全部核心/类型/应用/scripts 测试与真实 PostgreSQL 矩阵通过；reference planner 差分与 explain/inspect 快照证明零语义变化；benchmark 与 v0.5 同机对比 ±10% 内且缓存计数不变；any 计数不高于基线；release gate 从最终归档重新解包、安装、编译、运行必跑项并实际输出 COMPLETE。最后把 gate 的真实摘要、归档哈希与前后 API 清单的 diff 统计输出到会话，不以"已完成"的文字代替证据。
+
+持续执行、修复和复验，不停在规划或某个子任务通过。若仅因 PostgreSQL 不可用、依赖安装失败等确实无法自行消除的外部条件阻塞，完成其余可做部分后记录 work/v06/STATE.md 和精确复现命令，报告 BLOCKED 并暂停；BLOCKED 不是成功，任务大或测试红不构成 BLOCKED。

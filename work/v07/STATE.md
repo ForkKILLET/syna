@@ -1,6 +1,6 @@
 # Syna v0.7 — working state
 
-Task book: `SYNA_V07_EXECUTION_PROMPT.md` (untracked at the workspace root; never committed). Baseline 0.6.0 = commit 582c93a.
+Task book: `SYNA_V07_EXECUTION_PROMPT.md` (untracked at the workspace root while the round ran; committed as `work/tasks/SYNA_V07_EXECUTION_PROMPT.md` with its goal since 1.0.0-rc.1). Baseline 0.6.0 = commit 582c93a.
 
 ## Phase A — proposal (2026-09-06) — APPROVED
 

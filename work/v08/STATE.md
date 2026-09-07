@@ -1,6 +1,6 @@
 # Syna v0.8 — working state
 
-Task book: `SYNA_V08_EXECUTION_PROMPT.md` (untracked at the workspace root with `SYNA_V08_GOAL.txt`; never committed). Baseline 0.7.0 = commit 72f1991 (the final 0.7 evidence commit). This is the last rename before 1.0: names only, no aliases, no old keys, no semantic change (§2.0). Read this file first; `RENAME_TABLE.md` is the list with its counts and decisions.
+Task book: `SYNA_V08_EXECUTION_PROMPT.md` (untracked at the workspace root with `SYNA_V08_GOAL.txt` while the round ran; both committed under `work/tasks/` since 1.0.0-rc.1). Baseline 0.7.0 = commit 72f1991 (the final 0.7 evidence commit). This is the last rename before 1.0: names only, no aliases, no old keys, no semantic change (§2.0). Read this file first; `RENAME_TABLE.md` is the list with its counts and decisions.
 
 ## Phase A — the list (2026-09-06) — DONE (commit c6304ae); report point, continued without pause
 

@@ -1,6 +1,6 @@
 # Syna v0.7 — Phase A proposal (review point)
 
-Task book: `SYNA_V07_EXECUTION_PROMPT.md` (untracked at the workspace root; never committed). Baseline: 0.6.0 at commit 582c93a (final v0.6 gate COMPLETE on f019402, evidence 582c93a; `work/v06/STATE.md`). Nothing below is implemented yet: this is the document §3 Phase A asks for, and the work stops here for review.
+Task book: `SYNA_V07_EXECUTION_PROMPT.md` (untracked at the workspace root while the round ran; committed as `work/tasks/SYNA_V07_EXECUTION_PROMPT.md` since 1.0.0-rc.1). Baseline: 0.6.0 at commit 582c93a (final v0.6 gate COMPLETE on f019402, evidence 582c93a; `work/v06/STATE.md`). Nothing below is implemented yet: this is the document §3 Phase A asks for, and the work stops here for review.
 
 The document follows the task-book items. Every point where the task book leaves a choice open, or where I recommend deviating from its literal wording, is marked **Q<n>** and collected in §12 with a recommendation. Everything not marked is a straight reading of the task book.
 
