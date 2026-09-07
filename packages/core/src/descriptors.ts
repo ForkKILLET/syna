@@ -504,14 +504,17 @@ export interface RuntimeLimits {
    */
   readonly loadTimeoutMs?: number
   /**
-   * How long disposal waits, in milliseconds (2_000), after broadcasting the
-   * stop signal, for each in-flight setup attempt of the closing Env (overdue
-   * or not) to settle before abandoning it. Bounds the close: once it passes,
-   * owned Ready slots are disposed, the Env leaves the Runtime's registries,
-   * its `state` is `disposed` and `dispose()` fulfils. An abandoned attempt is
-   * reported (`attempt-abandoned`), listed in `inspect().unsettledAttempts` and
-   * `env.inspect().abandonedAttempts`, and keeps only itself alive (via the
-   * user's own pending Promise).
+   * How long disposal waits, in milliseconds (2_000), for one thing at a time:
+   * for each in-flight setup attempt of the closing Env (overdue or not) to
+   * settle after the stop signal, and then for the cleanup phase of each owned
+   * Ready slot. Bounds the close: what outlives its own budget is abandoned,
+   * the Env leaves the Runtime's registries, its `state` is `disposed` and
+   * `dispose()` fulfils. Independent slots are disposed concurrently, so the
+   * cleanup step costs one budget per slot of the longest dependency chain, not
+   * one per slot. An abandoned attempt or cleanup is reported
+   * (`attempt-abandoned`, with the phase it was in), listed in
+   * `inspect().unsettledAttempts` and `env.inspect().abandonedAttempts`, and
+   * keeps running: bounded is the waiting, not the release of resources.
    */
   readonly disposalGraceMs?: number
   /** Maximum candidate-choice expansions per Entry plan before PLANNING_BUDGET_EXCEEDED (10_000). */
@@ -565,8 +568,13 @@ export type RuntimeEvent =
        * settles late or is found unreachable.
        */
       readonly type: 'attempt-abandoned'
-      /** `setup`: the raw Promise is still pending. `rollback`: the setup settled but its cleanups outlived the grace. */
-      readonly phase: 'setup' | 'rollback'
+      /**
+       * `setup`: the raw Promise is still pending. `rollback`: the setup settled
+       * but its cleanups outlived the grace. `cleanup`: the slot was Ready and
+       * the cleanups of its instance outlived the grace; the Env is `disposed`
+       * regardless and the cleanup keeps running, holding whatever it holds.
+       */
+      readonly phase: 'setup' | 'rollback' | 'cleanup'
       readonly slot: string
       readonly revision: string
       readonly env: string
@@ -633,10 +641,11 @@ export interface UnsettledAttemptInspection {
   /**
    * `overdue`: a waiter's deadline passed, the attempt is overdue and still
    * running under a live owner (its result will be adopted). `abandoned`: the
-   * owner's close stopped waiting for the pending Promise. `rolling-back`: the
-   * setup settled (failed, or its result was discarded) but its cleanups
-   * outlived the close. `settling`: the Promise settled late or was found
-   * unreachable and the late cleanups are running.
+   * owner's close stopped waiting — for the pending setup Promise, or for the
+   * cleanup phase of a Ready slot it was disposing (`attempt-abandoned` says
+   * which). `rolling-back`: the setup settled (failed, or its result was
+   * discarded) but its cleanups outlived the close. `settling`: the Promise
+   * settled late or was found unreachable and the late cleanups are running.
    */
   readonly state: 'overdue' | 'abandoned' | 'rolling-back' | 'settling'
   readonly elapsedMs: number

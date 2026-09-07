@@ -8,10 +8,7 @@ import type {
   UnsettledAttemptInspection,
 } from '../descriptors.js'
 import { SynaError } from '../errors.js'
-import {
-  dependantFirstComponentOrder,
-  stronglyConnectedComponents,
-} from '../graph.js'
+import { stronglyConnectedComponents } from '../graph.js'
 import type {
   DisposableError,
   InputSlot,
@@ -53,22 +50,25 @@ type RaceResult =
   | { readonly kind: 'unreachable' }
 
 /**
- * Ledger entry for an attempt the Runtime is still waiting on: its raw Promise
- * is pending after a waiter's deadline (`overdue`: the attempt is overdue and
- * still running under a live owner) or after its owner's close (`abandoned`),
- * its setup ended but its rollback outlived the close (`rolling-back`), or its
- * late result is being cleaned up (`settling`). The record holds the attempt
- * strongly, and that retains nothing beyond the documented bound: a listed
- * attempt holds the user's raw Promise only weakly, so that Promise's
- * reachability alone decides how long the record lives — when the Promise is
- * collected the attempt is closed as unreachable and the record dropped. (A
- * weak reference here let the attempt die in the same collection as the
- * Promise, so nothing was left to run its cleanups when the unreachable path
- * fired.)
+ * Ledger entry for something the Runtime stopped waiting for: an attempt whose
+ * raw Promise is pending after a waiter's deadline (`overdue`: the attempt is
+ * overdue and still running under a live owner) or after its owner's close
+ * (`abandoned`), an attempt whose setup ended but whose rollback outlived the
+ * close (`rolling-back`), one whose late result is being cleaned up
+ * (`settling`), or the cleanup phase of a Ready slot that outlived its own
+ * budget (`abandoned`, with no attempt of its own: `attempt-abandoned` reports
+ * it with `phase: 'cleanup'`). The record holds the attempt strongly, and that
+ * retains nothing beyond the documented bound: a listed attempt holds the
+ * user's raw Promise only weakly, so that Promise's reachability alone decides
+ * how long the record lives — when the Promise is collected the attempt is
+ * closed as unreachable and the record dropped. (A weak reference here let the
+ * attempt die in the same collection as the Promise, so nothing was left to run
+ * its cleanups when the unreachable path fired.)
  */
 interface UnsettledRecord {
   readonly id: number
-  readonly attempt: SetupAttempt
+  /** Absent for an abandoned cleanup: nothing is executing a `setup()` there. */
+  readonly attempt: SetupAttempt | undefined
   readonly slot: string
   readonly revision: string
   readonly env: string
@@ -390,13 +390,21 @@ export class Materializer {
   private reportAbandoned(slot: ServiceSlot, attempt: SetupAttempt): void {
     const record = this.unsettled.get(attempt.id)
     if (record && record.state === 'overdue') record.state = 'abandoned'
+    this.reportAbandonment(slot, attempt.rawSettled ? 'rollback' : 'setup', Date.now() - attempt.startedAt)
+  }
+
+  /**
+   * The one report of a bounded close giving up. The dependency list is
+   * materialized here, while the slot is at hand: nothing looks it up later.
+   */
+  private reportAbandonment(slot: ServiceSlot, phase: 'setup' | 'rollback' | 'cleanup', elapsedMs: number): void {
     this.options.onEvent({
       type: 'attempt-abandoned',
-      phase: attempt.rawSettled ? 'rollback' : 'setup',
+      phase,
       slot: slot.id,
       revision: slot.service.key,
       env: slot.ownerEnvId,
-      elapsedMs: Date.now() - attempt.startedAt,
+      elapsedMs,
       // The slots it depends on are closed in the normal order regardless (the
       // Runtime cannot revoke an instance it already handed out).
       dependencies: [...slot.requires.entries()]
@@ -410,25 +418,62 @@ export class Materializer {
     })
   }
 
-  /** Dependant-first disposal over the SCC condensation of Ready owned slots. */
+  /**
+   * Dependant-first disposal over the SCC condensation of Ready owned slots.
+   * Independent components run concurrently and each dependency chain keeps its
+   * order, so the step costs one cleanup budget per slot of the longest chain
+   * rather than one per slot. A component whose slot was abandoned counts as
+   * finished: its dependencies are disposed regardless (§13).
+   */
   async disposeServiceSlots(slotsInput: readonly ServiceSlot[]): Promise<readonly unknown[]> {
     const errors: unknown[] = []
     const disposable = slotsInput.filter(slot => slot.state === 'ready')
+    if (disposable.length === 0) return errors
     const adjacency = this.serviceDependencyAdjacency(disposable)
     const scc = stronglyConnectedComponents(adjacency)
-    const componentOrder = dependantFirstComponentOrder(adjacency, scc)
     const byId = new Map(disposable.map(slot => [slot.id, slot]))
 
-    for (const componentIndex of componentOrder) {
-      const slots = scc.components[componentIndex]!
+    // The condensation, as edges rather than as one linear order: `dependencies`
+    // are the components a component must outlive, `pendingDependants` how many
+    // components must finish before it may close.
+    const dependencies = scc.components.map(() => new Set<number>())
+    const pendingDependants = scc.components.map(() => 0)
+    for (const [source, targets] of adjacency) {
+      const from = scc.componentByNode.get(source)!
+      for (const target of targets) {
+        const to = scc.componentByNode.get(target)!
+        if (from === to || dependencies[from]!.has(to)) continue
+        dependencies[from]!.add(to)
+        pendingDependants[to]! += 1
+      }
+    }
+
+    const running: Promise<void>[] = []
+    const start = (index: number): void => {
+      const slots = scc.components[index]!
         .map(id => byId.get(id))
         .filter((slot): slot is ServiceSlot => slot !== undefined)
         .sort((left, right) => (right.completionOrder ?? 0) - (left.completionOrder ?? 0))
-      for (const slot of slots) {
-        try { await this.disposeServiceSlot(slot) }
-        catch (error) { errors.push(error) }
-      }
+      running.push((async () => {
+        // Inside a component the order is the reverse of materialization
+        // completion, one slot at a time: concurrency is between chains, never
+        // along one.
+        for (const slot of slots) {
+          try { await this.disposeServiceSlot(slot) }
+          catch (error) { errors.push(error) }
+        }
+        for (const dependency of dependencies[index]!) {
+          pendingDependants[dependency]! -= 1
+          if (pendingDependants[dependency] === 0) start(dependency)
+        }
+      })())
     }
+    for (let index = 0; index < scc.components.length; index += 1) {
+      if (pendingDependants[index] === 0) start(index)
+    }
+    // `running` grows while it is walked: a component started by a finishing one
+    // is appended, and every component is started exactly once.
+    for (let index = 0; index < running.length; index += 1) await running[index]
     return errors
   }
 
@@ -782,7 +827,7 @@ export class Materializer {
       }
       else {
         // Overdue earlier and collected since: nothing can settle it any more.
-        void this.settleRecord(record, undefined, 'unreachable')
+        void this.settleRecord(record, attempt, undefined, 'unreachable')
       }
       return { ok: false, error, unsettled: true, cleanupErrors: [] }
     }
@@ -862,6 +907,7 @@ export class Materializer {
     attempt.state = 'succeeded'
     attempt.resolveSettled()
     slot.instance = raced.value
+    slot.instanceAttemptId = attempt.id
     slot.cleanups = attempt.cleanups
     slot.completionOrder = this.completionCounter++
     slot.state = 'ready'
@@ -980,11 +1026,12 @@ export class Materializer {
   /** Runs the late close of a ledgered attempt; the record stays listed (as `settling`) until the cleanups are done. */
   private settleRecord(
     record: UnsettledRecord,
+    attempt: SetupAttempt,
     failure: { readonly error: unknown } | undefined,
     how: 'settled' | 'unreachable',
   ): Promise<void> {
     record.state = 'settling'
-    record.closing = this.closeUnsettled(record.attempt, record.env, failure, how).finally(() => {
+    record.closing = this.closeUnsettled(attempt, record.env, failure, how).finally(() => {
       if (this.unsettled.get(record.id) === record) this.unsettled.delete(record.id)
     })
     return record.closing
@@ -1003,7 +1050,7 @@ export class Materializer {
       attempt.endRace?.('unreachable')
       return
     }
-    void this.settleRecord(record, undefined, 'unreachable')
+    void this.settleRecord(record, attempt, undefined, 'unreachable')
   }
 
   private async handleLateSettlement(
@@ -1014,7 +1061,7 @@ export class Materializer {
     this.unreachable.unregister(attempt)
     const record = this.unsettled.get(attempt.id)
     if (record && record.attempt === attempt && record.closing === undefined) {
-      await this.settleRecord(record, failure, 'settled')
+      await this.settleRecord(record, attempt, failure, 'settled')
       return
     }
     await this.closeUnsettled(attempt, owner.id, failure, 'settled')
@@ -1212,10 +1259,23 @@ export class Materializer {
     return adjacency
   }
 
+  /**
+   * One Ready slot's cleanup phase, bounded by `limits.disposalGraceMs`. What
+   * does not end inside that budget is abandoned: the close stops waiting, the
+   * cleanup keeps running (nothing can terminate it), and the slot is listed and
+   * reported. `dispose()` does not reject for an abandoned cleanup — only for
+   * one that threw while the close was still waiting for it.
+   */
   private async disposeServiceSlot(slot: ServiceSlot): Promise<void> {
     if (slot.state !== 'ready') return
     slot.state = 'disposing'
-    const errors = await this.runCleanups(slot.cleanups, slot)
+    const startedAt = Date.now()
+    const running = this.runCleanups(slot.cleanups, slot)
+    if (!(await settlesWithin(running, this.options.disposalGraceMs))) {
+      this.abandonCleanup(slot, running, startedAt)
+      return
+    }
+    const errors = await running
     slot.state = 'disposed'
     delete slot.instance
     if (errors.length > 0) {
@@ -1224,6 +1284,49 @@ export class Materializer {
         `Service ${slot.service.key} failed to dispose cleanly.`,
       )
     }
+  }
+
+  /**
+   * The close stops waiting for a cleanup phase: the slot is listed as
+   * `abandoned` under the attempt that produced the instance, reported with
+   * `phase: 'cleanup'`, and its dependencies are disposed regardless. When the
+   * cleanup ends late the entry is dropped, and a failure is reported by
+   * `attempt-failed-late` — never by the `dispose()` that stopped waiting for it.
+   */
+  private abandonCleanup(
+    slot: ServiceSlot,
+    running: Promise<readonly DisposableError[]>,
+    startedAt: number,
+  ): void {
+    slot.state = 'abandoned'
+    delete slot.instance
+    const id = slot.instanceAttemptId ?? this.nextAttemptId++
+    const record: UnsettledRecord = {
+      id,
+      attempt: undefined,
+      slot: slot.id,
+      revision: slot.service.key,
+      env: slot.ownerEnvId,
+      startedAt,
+      state: 'abandoned',
+    }
+    this.unsettled.set(id, record)
+    this.reportAbandonment(slot, 'cleanup', Date.now() - startedAt)
+    record.closing = running.then(errors => {
+      if (this.unsettled.get(id) === record) this.unsettled.delete(id)
+      if (slot.state === 'abandoned') slot.state = 'disposed'
+      if (errors.length === 0) return
+      this.options.onEvent({
+        type: 'attempt-failed-late',
+        slot: slot.id,
+        revision: slot.service.key,
+        env: slot.ownerEnvId,
+        error: errors.length === 1
+          ? errors[0]!.error
+          : new AggregateError(errors.map(item => item.error), `Service ${slot.service.key} failed to dispose cleanly.`),
+        cleanupErrors: errors.map(item => item.error),
+      })
+    })
   }
 
   /** Runs cleanups in reverse registration order; every cleanup runs even if an earlier one throws. */

@@ -201,6 +201,8 @@ export interface ServiceSlot {
   cleanups: Array<() => Awaitable<void>>
   completionOrder?: number
   attemptCount: number
+  /** The attempt that produced `instance`: the number an abandoned cleanup of this slot is listed under. */
+  instanceAttemptId?: number
 }
 
 export type RuntimeSlot = InputSlot | SyntheticSlot | ServiceSlot
