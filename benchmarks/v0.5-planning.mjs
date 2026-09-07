@@ -176,7 +176,7 @@ async function inputClosureCase() {
 }
 
 /**
- * A Service-owned AnchoredEntry (the Hyla UnitOfWork / request-handler pattern): the
+ * A Service-owned AnchoredEntry (the multitenant-blog UnitOfWork / request-handler pattern): the
  * private Entry selects a helper by range inside the owner's private realm and
  * carries a full request chain, so every timed enter plans ~20 request-scoped
  * services under ~80 inherited ones — not a one-node graph.

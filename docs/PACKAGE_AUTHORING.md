@@ -147,8 +147,8 @@ Unit-test setup factories with controlled dependency refs. For integrated graph 
 
 ```ts
 const runtime = createRuntime({
-  services: [Application, Postgres],
-  overrides: [override(Postgres, FakePostgres)],
+  services: [Application, Database],
+  overrides: [override(Database, FakeDatabase)],
 })
 ```
 

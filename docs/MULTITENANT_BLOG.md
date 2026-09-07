@@ -1,11 +1,11 @@
-# Hyla-mini（HYLA_MINI）
+# multitenant-blog（MULTITENANT_BLOG）
 
-Hyla-mini 是使用 Syna v0.7 的窄范围但完整的多租户博客引擎：两种真实数据后端 × 两种执行方式，三份配方共享一组工厂，两租户隔离，可替换 auth，按需、有界、租约保护的 SiteEnv 工作集。它不是完整的 BlogAssembly，也不是通用 ORM。
+multitenant-blog（`apps/multitenant-blog`，包名 `@syna-app/multitenant-blog`）是 Syna 的参考应用：窄范围但完整的多租户博客引擎——两种真实数据后端 × 两种执行方式，三份配方共享一组工厂，两租户隔离，可替换 auth，按需、有界、租约保护的 SiteEnv 工作集。它不是完整的 BlogAssembly，也不是通用 ORM。它在 1.0.0-rc.2 改为现名（此前的名字、改名的范围与理由见 `docs/HISTORY.md`）；改名不改行为：`syna.id`（`hyla.mini`）、默认 schema、advisory 锁命名空间、日志前缀与静态构建清单标记都保持原样，下文照实写出。七个入门示例见 `docs/EXAMPLES.md`；这个应用回答的是规模、资源与运行边界的问题。
 
 ## 分层
 
 ```
-apps/hyla-mini/src
+apps/multitenant-blog/src
 ├── domain/        数据模型（Post/Category/Tag/SiteConfig/Recipe）、ContentRepository/ContentStore Contract、ContentBackend Binding
 ├── data/
 │   ├── postgres/  DatabasePool（唯一 pg.Pool，schema 固定）、PostgresContentStore、幂等 migrations、seed
@@ -49,7 +49,7 @@ Post：stable `id`、`tenantId`、`slug`、`locale`（`zh-CN`/`en`，普通数�
 
 ## 站点工作集（H10/H11）
 
-`SiteEnvironmentManager` 是普通 Hyla Service（Syna core 无 TenantScope/LRU）：
+`SiteEnvironmentManager` 是应用自己的普通 Service（Syna core 无 TenantScope/LRU）：
 
 - key = `runtimeId|tenantId|configRevision|g<generation>`；按需创建；同 key 并发首次获取 single-flight。`invalidate(tenantId)` 递增 generation：即使 `configRevision` 未变，下一次 acquire 也得到全新 Env，旧 Env 在最后一个 lease 释放时立即关闭。
 - 创建期间被轮换（配置保存或 invalidate）的 Env 一旦无人持有就关闭，不会以 draining 状态滞留占用容量；等它的 acquirer 重新读取配置加入当前世界，重试以 `acquireTimeoutMs` 为界而不是固定次数：整个 acquire 共用一个截止时间，每次等待容量的计时器取 `min(acquireTimeoutMs, 截止时间 − 现在)`，需要重新读取配置的重试先等 5 ms 再读（复审 I-98）。
@@ -86,14 +86,19 @@ Post：stable `id`、`tenantId`、`slug`、`locale`（`zh-CN`/`en`，普通数�
 
 ```sh
 npm install && npm run build
-# 三格演示（HTTP alpha、HTTP beta、静态 alpha；文件系统后端）
-node apps/hyla-mini/bin/hyla-mini.mjs demo --root /tmp/hyla-content
+# 三格演示（HTTP alpha、HTTP beta、静态 alpha；文件系统后端）；也可 npm run demo:multitenant-blog
+node apps/multitenant-blog/bin/multitenant-blog.mjs demo --root /tmp/blog-content
 # PostgreSQL 后端（临时集群）
-node scripts/pg-test-cluster.mjs with -- node apps/hyla-mini/bin/hyla-mini.mjs demo --backend postgres
+node scripts/pg-test-cluster.mjs with -- node apps/multitenant-blog/bin/multitenant-blog.mjs demo --backend postgres
 # 开发服务器
-node apps/hyla-mini/bin/hyla-mini.mjs serve --root /tmp/hyla-content --port 8080
+node apps/multitenant-blog/bin/multitenant-blog.mjs serve --root /tmp/blog-content --port 8080
 curl -H 'Host: alpha.test' http://127.0.0.1:8080/posts/shared-slug
+# 单租户静态构建；解释一个请求世界及其分叉预算
+node apps/multitenant-blog/bin/multitenant-blog.mjs build --root /tmp/blog-content --tenant alpha --out /tmp/blog-alpha
+node apps/multitenant-blog/bin/multitenant-blog.mjs explain --root /tmp/blog-content --tenant alpha
 ```
+
+测试：`npm run test:app`（文件系统后端、站点管理器、预检、复审与审计回归）、`npm run test:postgres`（临时集群上的 PostgreSQL 与后端 × 执行方式矩阵）；发布门禁以 `blog-*` 步骤逐个运行这些套件，并以 `blog-demo-filesystem` 断言三格演示的三个 200。
 
 ## 明确非目标
 

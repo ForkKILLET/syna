@@ -51,10 +51,10 @@ interface InputRef<T> {
 ## Binding
 
 ```ts
-const SummaryLlm = define.binding('summary-llm', Llm)
-const ref = SummaryLlm.to(OpenAI)             // default range: ^<exact version> (0.2.0 → ^0.2.0, 0.0.5 → ^0.0.5)
-const bounded = SummaryLlm.to(OpenAI, '>=2.4.0 <3 || 4.x')
-const parsed = SummaryLlm.parse(json)          // validates shape and Contract id
+const PreferredNotifier = define.binding('preferred-notifier', Notifier)
+const ref = PreferredNotifier.to(AcmeNotify)             // default range: ^<exact version> (0.2.0 → ^0.2.0, 0.0.5 → ^0.0.5)
+const bounded = PreferredNotifier.to(AcmeNotify, '>=2.4.0 <3 || 4.x')
+const parsed = PreferredNotifier.parse(json)              // validates shape and Contract id
 ```
 
 `to(service, range?)`/`parse(input)` produce an `ImplementationRef`, a JSON-safe preference with exactly one serialized shape: `{ kind: 'implementation-ref', contractId, familyId, range }`. `familyId` is the implementation family (`ServiceFamily.id`), `range` the semver range the reference asks for, `kind` the stable on-disk discriminator. `parse()` and every Runtime read path (`catalog.resolve()`, a Binding assignment, `set.resolve()` / `set.load(ref)`) accept that shape and nothing else: a non-object, another `kind` (the pre-0.8 kind included), another Contract, a missing or empty `familyId` or `range`, or a range that does not parse is refused with `INVALID_DESCRIPTOR` (`details.problem`: `not-an-object`, `wrong-kind` or `malformed-implementation-ref`). No older serialized form is read; a stored reference written by an earlier line is rewritten before it is read again (`docs/MIGRATION_V07_TO_V08.md`, F9). A ref never points at an Env-local slot.
@@ -109,7 +109,7 @@ const { database, logger } = await loadAll({ database, logger })   // Service re
 ```ts
 const RequestEntry = define.entry('request', {
   requires: { handler: RequestHandler },
-  parameters: { request: CurrentRequest, provider: SummaryLlm },
+  parameters: { request: CurrentRequest, notifier: PreferredNotifier },
   reuse: { fresh: [RequestCache.family], share: [Database] },
 })
 ```
@@ -120,9 +120,9 @@ const RequestEntry = define.entry('request', {
 
 ```ts
 const runtime = createRuntime({
-  services: [Application, OpenAI, Claude],
+  services: [Application, AcmeNotify, GlobexNotify],
   policy: { orderAutoCandidates(contract, candidates, context) { /* total order */ }, orderVersionCandidates(family, candidates, context) { /* ... */ } },
-  overrides: [override(Postgres, FakePostgres)],
+  overrides: [override(Database, FakeDatabase)],
   limits: { loadTimeoutMs: 30_000, disposalGraceMs: 2_000, planningBudget: 10_000, planCacheEntries: 512 },
   diagnostics: { onEvent: event => log(event) },
 })

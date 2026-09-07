@@ -29,6 +29,7 @@ import path from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 import { createStepRunner } from './lib/step-runner.mjs'
+import { scanVendorNames } from './lib/vendor-name-scan.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const args = new Set(process.argv.slice(2))
@@ -283,7 +284,8 @@ async function developmentGate() {
   }
   postgresInfo = describePostgres(pgStep)
   // The gate's own tooling plus the v0.8 assertions: empty deprecation register, the no-old-names scan (every pre-0.8 name),
-  // the README example, the API inventory and its doc-aware diff, the codemod on a fixture, the `any` budget.
+  // the README example, the API inventory and its doc-aware diff, the codemod on a fixture, the `any` budget; 1.0.0-rc.2:
+  // the vendor-name scan and the re-keyed `any` baseline.
   await run('gate-self-tests', 'node', ['--test', '--test-reporter=tap', ...glob('scripts/tests', '.test.mjs')], { noSkip: true })
   // The public API inventory of this source, the gate's own assertion that no item of it is deprecated (A11 in 0.7,
   // a success criterion of 0.8), its diff against the 1.0.0-rc.1 record when that record is present, and — the frozen
@@ -352,6 +354,20 @@ async function developmentGate() {
     const ok = hits.length === 0
     steps.push({ name: 'no-old-reference-tokens', ok, exitCode: ok ? 0 : 1, mustRun: true, command: 'internal', log: path.relative(root, scanFile), note: `${scanned.length} files scanned, ${hits.length} hits`, ...(hits.length > 0 ? { hits } : {}) })
     log(`${ok ? 'ok  ' : 'FAIL'} no-old-reference-tokens (${scanned.length} files scanned, ${hits.length} hits)`)
+  }
+  // 1.0.0-rc.2 evidence (docs/EXAMPLES.md, the naming rule): no real vendor name as a fictional component name and no
+  // pre-rc.2 name of the reference application as a component name or path, in any current file — sources, tests,
+  // examples, benchmarks, scripts, workflow, documents, package metadata. The historical documents, the ledgers under
+  // work/ and the recorded evidence keep their wording; the application's own on-disk literals that the rename left
+  // alone are allowed by name and every allowed hit is listed, so the allow-list stays visible.
+  {
+    const scan = scanVendorNames(root)
+    const scanFile = path.join(validationDir, 'vendor-name-scan.json')
+    writeFileSync(scanFile, JSON.stringify({ files: scan.files.length, hits: scan.hits, allowed: scan.allowed }, null, 2))
+    const ok = scan.hits.length === 0
+    const note = `${scan.files.length} files scanned, ${scan.hits.length} hits, ${scan.allowed.length} allowed literals of the application`
+    steps.push({ name: 'no-vendor-names', ok, exitCode: ok ? 0 : 1, mustRun: true, command: 'internal', log: path.relative(root, scanFile), note, ...(scan.hits.length > 0 ? { hits: scan.hits.map(hit => `${hit.file}:${hit.line} [${hit.name}] ${hit.text}`) } : {}) })
+    log(`${ok ? 'ok  ' : 'FAIL'} no-vendor-names (${note})`)
   }
   // `any` per file at or under the 0.7.0 record re-keyed for this line (files absent from it may not use `any` at all).
   await run('any-count', 'node', ['scripts/any-count.mjs', '--check', ANY_BASELINE])

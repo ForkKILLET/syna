@@ -1,6 +1,6 @@
-# Hyla 插件（共享渲染 Factory）作者指南（PLUGIN_AUTHORING）
+# multitenant-blog 插件（共享渲染 Factory）作者指南（PLUGIN_AUTHORING）
 
-本文描述 **Hyla 的插件协议**。它是 Hyla 对共享渲染 Factory 的业务规则，不是 Syna 对所有 Service 的全局规则。
+本文描述 **multitenant-blog（`apps/multitenant-blog`，Syna 的参考应用）的插件协议**。它是这个应用对共享渲染 Factory 的业务规则，不是 Syna 对所有 Service 的全局规则。
 
 ## 一个 Factory 是什么
 
@@ -27,7 +27,7 @@ export const MyStageFactory = define.service('my-stage-factory', {
 - **slot 共享**：整个部署只有一个 Factory slot（在 App Env 内），所有租户、配方、请求复用它。`configure(options)` 每次返回一个独立产物（`ConfiguredStage`），产物不是 Syna node，也不拥有资源。
 - **可以依赖什么**：只能依赖 `RenderInfrastructureEntry` 已公开提供的基础能力（其他 Factory、`PipelineBuilder`、纯库）。**不得**依赖 `CurrentRequest`、`TenantId`、`SiteSnapshot`、任何 Input，也不得经由私有 helper 间接依赖它们。
 - **输入从哪里来**：站点/请求事实一律以 `configure()` 的 options（来自 JSON 配方）或渲染参数进入，不从 Service locator 偷读。
-- **产物生命周期**：产物借用 Factory 的资源时不得活过 Factory slot；Hyla 的产物是纯函数式的 unified plugin 装配，不持有资源。需要资源时，由领域 API 明确借用/关闭协议，Syna 不自动把产物变成 node。
+- **产物生命周期**：产物借用 Factory 的资源时不得活过 Factory slot；这个应用的产物是纯函数式的 unified plugin 装配，不持有资源。需要资源时，由领域 API 明确借用/关闭协议，Syna 不自动把产物变成 node。
 - **并发安全**：`configure()` 不得把 options 写入 Factory 级别的共享变量；每个产物必须闭包自己的 options。`unified` processor 会被 `freeze()`，`process()` 可并发调用。
 - **重复插件**：unified 对同一插件重复 `.use()` 会合并设置。默认 `repeatable: false`，同一配方中出现两次会被 PipelineBuilder 拒绝；明确支持重复语义时才设 `true`。
 - **options 版本**：`optionsVersion` 变化即 breaking；PipelineBuilder 拒绝版本不匹配的配方，不做自动迁移（需要时给出最小显式迁移）。

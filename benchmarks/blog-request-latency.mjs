@@ -1,7 +1,7 @@
 // multitenant-blog request latency, report only (no budget): full HTTP round trips through the dynamic
 // path (host → tenant → leased SiteEnv → RequestEntry → renderer/page cache) on the filesystem
 // backend and, when SYNA_TEST_PG_URL is set, on PostgreSQL.
-// Usage: node benchmarks/hyla-request-latency.mjs [output.json] [--quick]
+// Usage: node benchmarks/blog-request-latency.mjs [output.json] [--quick]
 import { writeFile } from 'node:fs/promises'
 import { cpus, platform, release } from 'node:os'
 import { performance } from 'node:perf_hooks'
