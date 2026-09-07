@@ -23,6 +23,9 @@
       "path": "./packages/globex-notify"
     },
     {
+      "path": "./apps/01-basics"
+    },
+    {
       "path": "./apps/hyla-mini"
     }
   ]

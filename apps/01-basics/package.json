@@ -1,0 +1,27 @@
+{
+  "name": "@syna-demo/01-basics",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Syna example 01: how to define services, connect them and enter a world",
+  "imports": {
+    "#syna/package": "./package.json"
+  },
+  "syna": {
+    "id": "demo.examples.basics"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@syna/core": "1.0.0-rc.1",
+    "@syna-demo/logger": "1.1.0"
+  },
+  "devDependencies": {
+    "@syna/tsconfig": "1.0.0-rc.1"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
