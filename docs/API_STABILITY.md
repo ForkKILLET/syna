@@ -10,6 +10,8 @@ This document declares the public surface of `@syna/core` frozen from 0.8.0, say
 
 Not on the frozen surface, and therefore not promised in either direction: everything `docs/DEFERRED.md` lists — the semantics it defers (`C.all` coexistence relaxation, `primary()`, `ServiceFamily.range()`, `load({ timeoutMs })`, cross-ancestor reuse, Prepared / activation groups, a generation-switching host) and the names its 命名（2.0） section records as candidates for the next major. An addition of that kind is a new name under the naming guidelines, never a change of this surface.
 
+The way an unknown or renamed option is refused is a diagnostic, not part of the frozen surface（未知或已改名选项的拒绝方式属于诊断，不属于冻结面）: that no expired or unknown form is read silently is a rule of this document, but which error a refused call receives — the `TypeError`s and the `INVALID_DESCRIPTOR` refusals of `docs/MIGRATION_V07_TO_V08.md` — with its message and its `details` is a diagnostic that a minor may sharpen.
+
 ## Persisted data
 
 `ImplementationRef` has exactly one serialized shape, `{ kind: 'implementation-ref', contractId, familyId, range }` (`docs/API_REFERENCE.md`; `docs/MIGRATION_V07_TO_V08.md` §6). That shape is frozen with the API: `Binding.to()` and `parse()` write it, `parse()` and every Runtime read path accept it and nothing else (`INVALID_DESCRIPTOR` with `details.problem` `not-an-object`, `wrong-kind` or `malformed-implementation-ref`). No form an earlier line wrote is read; a stored document written before 0.8 is rewritten before it is read again. `kind` is the on-disk discriminator: it does not change before a major, and a major that changes it changes it with a codemod for stored documents, not with a second read path.

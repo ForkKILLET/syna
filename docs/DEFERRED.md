@@ -1,6 +1,6 @@
 # Deferred (v0.8)
 
-Things noticed during the v0.6 API consolidation, the v0.7 round and the v0.8 rename that were **not** changed, because they are outside the change list of the task book (命名) or because they would change behaviour (语义). Each entry says what was seen and where; none is a commitment, and none is on the frozen surface (`docs/API_STABILITY.md`): a name of the 命名（2.0） section can change only in a major, with the codemod of that major. The items earlier rounds resolved — S1 (waiter deadline), S2 (`env.state` and the ledger), S6 (`FRESH_CONSTRAINT_FAILED` split), S7 (`INVALID_ENV_STATE` / `INVALID_DESCRIPTOR`), S8 (`MISSING_IMPLEMENTATION` shapes), S10 (`asSynaError()`), N2 (the selector remnants) in 0.7, and N1 in 0.8 (the two reference kinds of an implementation record now have two names, `implementationRef` and `candidateRef`; `docs/MIGRATION_V07_TO_V08.md` F6 / F7) — are removed from this list; the numbering keeps its gaps.
+Things noticed during the v0.6 API consolidation, the v0.7 round, the v0.8 rename and the 1.0.0-rc.1 preparation that were **not** changed, because they are outside the change list of the task book (命名) or because they would change behaviour (语义). Each entry says what was seen and where; none is a commitment, and none is on the frozen surface (`docs/API_STABILITY.md`): a name of the 命名（2.0） section can change only in a major, with the codemod of that major. The items earlier rounds resolved — S1 (waiter deadline), S2 (`env.state` and the ledger), S6 (`FRESH_CONSTRAINT_FAILED` split), S7 (`INVALID_ENV_STATE` / `INVALID_DESCRIPTOR`), S8 (`MISSING_IMPLEMENTATION` shapes), S10 (`asSynaError()`), N2 (the selector remnants) in 0.7, and N1 in 0.8 (the two reference kinds of an implementation record now have two names, `implementationRef` and `candidateRef`; `docs/MIGRATION_V07_TO_V08.md` F6 / F7) — are removed from this list; the numbering keeps its gaps.
 
 ## 命名 — names outside the list, left as they are
 
@@ -14,7 +14,7 @@ Things noticed during the v0.6 API consolidation, the v0.7 round and the v0.8 re
 
 ## 命名（2.0）— names found next to the 0.8 table, left as they are; candidates for the next major only
 
-The 0.8 rename touched exactly the names of its table (`work/v08/RENAME_TABLE.md`; `scripts/tests/api-inventory.test.mjs` asserts that the inventory diff against 0.7.0 is that table and nothing else). The names below were found next to the renamed ones during the census and left alone. Each would be a change of a public name or of pinned output, and is therefore a major (`docs/API_STABILITY.md`) — if it is ever made at all.
+The 0.8 rename touched exactly the names of its table (`work/v08/RENAME_TABLE.md`; `scripts/tests/api-inventory.test.mjs` asserts that the inventory diff against 0.7.0 is that table and nothing else). The names below were found next to the renamed ones during the census, or in the 1.0.0-rc.1 review, and left alone. Each would be a change of a public name or of pinned output, and is therefore a major (`docs/API_STABILITY.md`) — if it is ever made at all.
 
 | # | Where | Observation | Left because |
 |---|---|---|---|
@@ -25,6 +25,7 @@ The 0.8 rename touched exactly the names of its table (`work/v08/RENAME_TABLE.md
 | N12 | `EnvState` `activating` next to `SlotState` `starting` | Two words for "coming up": an Env activates, a slot starts. | Both are pinned values (`env.state` is recorded by the 0.5 snapshots); `docs/SEMANTIC_MODEL.md` §11 and §13 use each word with its own meaning. |
 | N13 | Internal identifiers that end in `Key` (`CompiledService.key`, `InternalCandidateRef.revisionKey`, `RevisionLike.key`, `lineageKey`, `templateKey`, …; the complete list in `work/v08/RENAME_TABLE.md`) | They sit next to the public `ServiceRevision.id` (F1) and `parentActiveRevisionIds` (F2). | Not public names; renaming them is churn without a reader. |
 | N14 | `benchmarks/v0.5-planning.mjs`: the top-level `inherited` of two cases | The benchmark's own count of reused Services keeps the old word next to the `reused` it records from `explain()` since D5. | Same reason as N4: `scripts/benchmark-compare.mjs` matches record keys by name against the recorded baselines. |
+| N15 | `catalog.revisions(family): readonly string[]` | The catalog's three reads are asymmetric: `implementations(C)` and `resolve(ref)` return `ImplementationRecord`s, `revisions(family)` returns the admitted version strings (highest first) and nothing else about a revision — the record of a family's revision is reached through a Contract only. Noticed in the 1.0.0-rc.1 review. | §2.4 of the 0.8 task book changed the parameter (the `ServiceFamily` descriptor instead of its id) and nothing else; the return type is a signature of the frozen surface, so a record-returning form is a new name under the naming guidelines or a change for a major. |
 
 ## 语义 — behaviour that looked wrong or improvable, left unchanged
 
